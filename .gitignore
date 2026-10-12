@@ -4,3 +4,15 @@ __pycache__/
 .env
 
 notes/
+
+# Local environment variants (keep the safe example tracked)
+.env.*
+!.env.example
+
+# Keep dataset directories, but never commit their contents
+/data/raw/*
+!/data/raw/.gitkeep
+/data/reference/*
+!/data/reference/.gitkeep
+/data/derived/*
+!/data/derived/.gitkeep
