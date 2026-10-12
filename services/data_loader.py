@@ -143,81 +143,144 @@ def _indicator_fields(expression, definitions):
     return fields, issues
 
 
-def verify_data(datasets, references):
-    """Return aggregate checks and issues; run joins without saving any data."""
-    report = {"datasets": {}, "references": {}, "joins": {}, "indicators": {}, "issues": []}
-    for name, frame in datasets.items():
-        keys = KEYS.get(name, ["uuid"])
-        missing = [key for key in keys if key not in frame.columns]
-        stats = {"records": len(frame), "columns": len(frame.columns), "missing_key_columns": missing}
-        if not missing:
-            stats["invalid_key_records"] = int(_invalid_keys(frame, keys).sum())
-            if name in KEYS:
-                stats["duplicate_key_records"] = int(frame.duplicated(keys, keep=False).sum())
-                stats["duplicate_key_groups"] = len(frame.loc[frame.duplicated(keys, keep=False), keys].drop_duplicates())
-            else:
-                # Child-death records may legitimately share a household uuid.
-                stats["repeated_household_records"] = int(frame.duplicated(keys, keep=False).sum())
-            if stats["invalid_key_records"] or stats.get("duplicate_key_records", 0):
-                report["issues"].append(f"{name}: invalid or duplicated join keys.")
-        else:
-            report["issues"].append(f"{name}: missing join columns.")
-        report["datasets"][name] = stats
 
-    reference_keys = {"codebook": ["variable_name", "code"], "definitions": ["dataset", "variable_name"], "mpi_mapping": ["dimension", "indicator", "variable_name", "code"]}
-    for name, frame in references.items():
-        missing = [column for column in REFERENCE_COLUMNS[name] if column not in frame.columns]
-        report["references"][name] = {"records": len(frame), "missing_columns": missing}
-        if missing:
-            report["issues"].append(f"{name}: required reference columns missing.")
-        else:
-            report["references"][name]["duplicate_key_records"] = int(frame.duplicated(reference_keys[name], keep=False).sum())
-            if report["references"][name]["duplicate_key_records"]:
-                report["issues"].append(f"{name}: duplicate reference keys need review.")
+def _dataset_statistics(name, frame):
+    """Check one source's record counts and join keys."""
+    keys = KEYS.get(name, ["uuid"])
+    missing = [key for key in keys if key not in frame.columns]
+    statistics = {"records": len(frame), "columns": len(frame.columns), "missing_key_columns": missing}
+    issues = []
+    if missing:
+        issues.append(f"{name}: missing join columns.")
+        return statistics, issues
 
-    household = datasets["household"]
+    statistics["invalid_key_records"] = int(_invalid_keys(frame, keys).sum())
+    if name in KEYS:
+        duplicate_rows = frame.duplicated(keys, keep=False)
+        statistics["duplicate_key_records"] = int(duplicate_rows.sum())
+        statistics["duplicate_key_groups"] = len(frame.loc[duplicate_rows, keys].drop_duplicates())
+    else:
+        # Child-death records may legitimately share a household uuid.
+        statistics["repeated_household_records"] = int(frame.duplicated(keys, keep=False).sum())
+    if statistics["invalid_key_records"] or statistics.get("duplicate_key_records", 0):
+        issues.append(f"{name}: invalid or duplicated join keys.")
+    return statistics, issues
+
+
+def _reference_statistics(name, frame):
+    """Check one finalized reference's columns and unique mapping keys."""
+    reference_keys = {
+        "codebook": ["variable_name", "code"],
+        "definitions": ["dataset", "variable_name"],
+        "mpi_mapping": ["dimension", "indicator", "variable_name", "code"],
+    }
+    missing = [column for column in REFERENCE_COLUMNS[name] if column not in frame.columns]
+    statistics = {"records": len(frame), "missing_columns": missing}
+    issues = []
+    if missing:
+        issues.append(f"{name}: required reference columns missing.")
+        return statistics, issues
+    duplicates = int(frame.duplicated(reference_keys[name], keep=False).sum())
+    statistics["duplicate_key_records"] = duplicates
+    if duplicates:
+        issues.append(f"{name}: duplicate reference keys need review.")
+    return statistics, issues
+
+
+def _verify_joins(datasets):
+    """Run household and Section L joins, returning aggregate diagnostics."""
+    joins, issues = {}, []
+    households = datasets["household"]
     for name in EXCEL_FILES[1:]:
         try:
-            joined = join_households(datasets[name], household)
-            stats = _link_counts(datasets[name], household, ["uuid"], ["uuid"])
-            stats.update({"join_passed": len(joined) == len(datasets[name]), "joined_records": len(joined)})
+            joined = join_households(datasets[name], households)
+            statistics = _link_counts(datasets[name], households, ["uuid"], ["uuid"])
+            statistics.update({"join_passed": len(joined) == len(datasets[name]), "joined_records": len(joined)})
             del joined
-            report["joins"][f"{name}_to_household"] = stats
+            joins[f"{name}_to_household"] = statistics
         except ValueError:
-            report["joins"][f"{name}_to_household"] = {"join_passed": False}
-            report["issues"].append(f"{name}: household join failed; check key columns, types and uniqueness.")
-    try:
-        members, section_l = datasets["section_a_e_indiv"], datasets["section_l02_to_l41"]
-        joined = join_section_l(members, section_l)
-        stats = _link_counts(section_l, members, ["uuid", "section_l_line_number"], ["uuid", "line_number"])
-        stats.update({"join_passed": len(joined) == len(members), "joined_records": len(joined)})
-        del joined
-        report["joins"]["section_l_to_members"] = stats
-    except ValueError:
-        report["joins"]["section_l_to_members"] = {"join_passed": False}
-        report["issues"].append("Section L member join failed; check key columns, types and uniqueness.")
-    for name, stats in report["joins"].items():
-        if stats.get("source_records_unmatched", 0):
-            report["issues"].append(f"{name}: unmatched source records need review.")
+            joins[f"{name}_to_household"] = {"join_passed": False}
+            issues.append(f"{name}: household join failed; check key columns, types and uniqueness.")
 
-    if not report["references"]["mpi_mapping"]["missing_columns"] and not report["references"]["definitions"]["missing_columns"]:
-        mapping = references["mpi_mapping"]
-        report["indicator_count"] = int(mapping["indicator"].nunique())
-        if report["indicator_count"] != 16:
-            report["issues"].append("Expected 16 distinct vulnerability indicators.")
-        for indicator, rows in mapping.groupby("indicator", sort=False):
-            fields, issues = set(), []
-            for expression in rows["variable_name"].drop_duplicates():
-                resolved, unresolved = _indicator_fields(expression, references["definitions"])
-                fields.update(resolved)
-                issues.extend(unresolved)
-            missing = [f"{dataset}.{column}" for dataset, column in sorted(fields) if dataset not in datasets or column not in datasets[dataset].columns]
-            report["indicators"][indicator] = {"required_columns_checked": len(fields), "missing_columns": missing, "issues": sorted(set(issues))}
-            if missing:
-                report["issues"].append(f"{indicator}: required columns missing.")
-            report["issues"].extend(f"{indicator}: {issue}" for issue in sorted(set(issues)))
-    report["loading_and_joins_passed"] = (
-        all(stats["join_passed"] and not stats.get("source_records_unmatched", 0) for stats in report["joins"].values())
-        and all(not stats["missing_key_columns"] and not stats.get("invalid_key_records", 0) and not stats.get("duplicate_key_records", 0) for stats in report["datasets"].values())
+    try:
+        members = datasets["section_a_e_indiv"]
+        section_l = datasets["section_l02_to_l41"]
+        joined = join_section_l(members, section_l)
+        statistics = _link_counts(section_l, members, ["uuid", "section_l_line_number"], ["uuid", "line_number"])
+        statistics.update({"join_passed": len(joined) == len(members), "joined_records": len(joined)})
+        del joined
+        joins["section_l_to_members"] = statistics
+    except ValueError:
+        joins["section_l_to_members"] = {"join_passed": False}
+        issues.append("Section L member join failed; check key columns, types and uniqueness.")
+    for name, statistics in joins.items():
+        if statistics.get("source_records_unmatched", 0):
+            issues.append(f"{name}: unmatched source records need review.")
+    return joins, issues
+
+
+def _verify_indicator_columns(datasets, references):
+    """Resolve the mapping's 16 indicator inputs without evaluating any rules."""
+    mapping = references["mpi_mapping"]
+    indicator_count = int(mapping["indicator"].nunique())
+    indicators, issues = {}, []
+    if indicator_count != 16:
+        issues.append("Expected 16 distinct vulnerability indicators.")
+    for indicator, rows in mapping.groupby("indicator", sort=False):
+        fields, field_issues = set(), []
+        for expression in rows["variable_name"].drop_duplicates():
+            resolved, unresolved = _indicator_fields(expression, references["definitions"])
+            fields.update(resolved)
+            field_issues.extend(unresolved)
+        missing = []
+        for dataset, column in sorted(fields):
+            if dataset not in datasets or column not in datasets[dataset].columns:
+                missing.append(f"{dataset}.{column}")
+        indicators[indicator] = {
+            "required_columns_checked": len(fields),
+            "missing_columns": missing,
+            "issues": sorted(set(field_issues)),
+        }
+        if missing:
+            issues.append(f"{indicator}: required columns missing.")
+        issues.extend(f"{indicator}: {issue}" for issue in sorted(set(field_issues)))
+    return indicator_count, indicators, issues
+
+
+def verify_data(datasets, references):
+    """Check sources, references, joins and indicator inputs; expose counts only."""
+    report = {"datasets": {}, "references": {}, "joins": {}, "indicators": {}, "issues": []}
+
+    for name, frame in datasets.items():
+        statistics, issues = _dataset_statistics(name, frame)
+        report["datasets"][name] = statistics
+        report["issues"].extend(issues)
+
+    for name, frame in references.items():
+        statistics, issues = _reference_statistics(name, frame)
+        report["references"][name] = statistics
+        report["issues"].extend(issues)
+
+    report["joins"], issues = _verify_joins(datasets)
+    report["issues"].extend(issues)
+
+    mapping_ready = not report["references"]["mpi_mapping"]["missing_columns"]
+    definitions_ready = not report["references"]["definitions"]["missing_columns"]
+    if mapping_ready and definitions_ready:
+        count, indicators, issues = _verify_indicator_columns(datasets, references)
+        report["indicator_count"] = count
+        report["indicators"] = indicators
+        report["issues"].extend(issues)
+
+    joins_passed = all(
+        statistics["join_passed"] and not statistics.get("source_records_unmatched", 0)
+        for statistics in report["joins"].values()
     )
+    keys_passed = all(
+        not statistics["missing_key_columns"]
+        and not statistics.get("invalid_key_records", 0)
+        and not statistics.get("duplicate_key_records", 0)
+        for statistics in report["datasets"].values()
+    )
+    report["loading_and_joins_passed"] = joins_passed and keys_passed
     return report

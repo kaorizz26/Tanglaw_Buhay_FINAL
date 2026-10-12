@@ -26,6 +26,48 @@ def evidence_counts(rows, code):
     return households, members
 
 
+def _program_status_totals(results, household_count):
+    """Validate one result per program/household and count the three statuses."""
+    totals = []
+    for program in PROGRAMS:
+        rows = results.loc[results["program_code"].eq(program)]
+        counts = tuple(int(rows["screening_status"].eq(status).sum()) for status in STATUSES)
+        if sum(counts) != household_count or rows["household_uuid"].duplicated().any():
+            raise ValueError("Each household must have one result per program.")
+        if program in ("SLP", "SPISC") and counts != PREVIOUS_COUNTS[program]:
+            raise ValueError("Phase 5B must preserve SLP and SPISC screening statuses.")
+        totals.append((program, *counts))
+    return totals
+
+
+def _slp_pathway_counts(flagged):
+    """Count EF, MD and their overlap without double-counting household paths."""
+    pathway_counts = {path: 0 for path in ("EF", "MD")}
+    both_pathways = 0
+    slp_evidence = flagged.loc[flagged["program_code"].eq("SLP"), "supporting_evidence"]
+    for evidence in slp_evidence:
+        household_paths = {item["pathway"] for item in evidence}
+        for path in household_paths:
+            pathway_counts[path] += 1
+        if household_paths == {"EF", "MD"}:
+            both_pathways += 1
+    return pathway_counts, both_pathways
+
+
+def _warning_counts(results):
+    """Count informational warning events by program and code."""
+    counts_by_program = {}
+    for program in ("4Ps", "SPISC", "TUPAD"):
+        counts_by_code = {}
+        program_warnings = results.loc[results["program_code"].eq(program), "data_quality_warnings"]
+        for warnings in program_warnings:
+            for warning in warnings:
+                code = warning["code"]
+                counts_by_code[code] = counts_by_code.get(code, 0) + 1
+        counts_by_program[program] = counts_by_code
+    return counts_by_program
+
+
 def main() -> int:
     try:
         datasets, references = load_data()
@@ -38,25 +80,11 @@ def main() -> int:
         results = screen_households(datasets, survey_year=2022)
         if not results["screening_status"].isin(STATUSES).all():
             raise ValueError("Unexpected screening status.")
-        totals = []
-        for program in PROGRAMS:
-            rows = results.loc[results["program_code"].eq(program)]
-            counts = tuple(int(rows["screening_status"].eq(status).sum()) for status in STATUSES)
-            if sum(counts) != len(households) or rows["household_uuid"].duplicated().any():
-                raise ValueError("Each household must have one result per program.")
-            if program in ("SLP", "SPISC") and counts != PREVIOUS_COUNTS[program]:
-                raise ValueError("Phase 5B must preserve SLP and SPISC screening statuses.")
-            totals.append((program, *counts))
+        totals = _program_status_totals(results, len(households))
         flagged = results.loc[results["screening_status"].eq("For Review")]
         flagged_households = int(flagged["household_uuid"].nunique())
         no_flags = len(households) - flagged_households
-        pathways = {path: 0 for path in ("EF", "MD")}
-        both = 0
-        for evidence in flagged.loc[flagged["program_code"].eq("SLP"), "supporting_evidence"]:
-            paths = {item["pathway"] for item in evidence}
-            for path in paths:
-                pathways[path] += 1
-            both += paths == {"EF", "MD"}
+        pathways, both = _slp_pathway_counts(flagged)
         tupad = results.loc[results["program_code"].eq("TUPAD")]
         irregular, irregular_members = evidence_counts(tupad, "irregular_work")
         observed, observed_members = evidence_counts(tupad, "observed_nonwork")
@@ -72,14 +100,7 @@ def main() -> int:
         pwd_context, _ = evidence_counts(spisc, "household_disability")
         senior_pwd, senior_pwd_members = evidence_counts(spisc, "senior_disability")
         spisc_warning_households = int(spisc["data_quality_warnings"].map(bool).sum())
-        warning_counts = {}
-        for program in ("4Ps", "SPISC", "TUPAD"):
-            codes = {}
-            for warnings in results.loc[results["program_code"].eq(program), "data_quality_warnings"]:
-                for warning in warnings:
-                    code = warning["code"]
-                    codes[code] = codes.get(code, 0) + 1
-            warning_counts[program] = codes
+        warning_counts = _warning_counts(results)
     except Exception as error:
         # Parser errors can contain source values; only expose the error type.
         print(f"Screening verification failed ({type(error).__name__}); check schemas, keys and routing.")
