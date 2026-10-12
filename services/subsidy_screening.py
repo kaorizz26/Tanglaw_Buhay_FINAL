@@ -3,13 +3,15 @@
 These project triggers suggest staff consideration, never official eligibility,
 approval, assigned cases, or required follow-up. Original values are read-only.
 Age is the recorded survey age; no age/pregnancy/work condition is projected to
-today. MPI E01/OFW imputations and synthetic E15 are never screening evidence.
+today. SLP requires observed work status. TUPAD separately derives the approved
+missing-E01 pilot assumption from raw responses, never importing MPI results.
+Synthetic E15 is never used.
 
-L07 and L16 remain pending: the 2022 questionnaire/PSA metadata describe member
-line numbers, but the working codebook describes Yes/No. Neither interpretation
-is asserted without confirmation. Pregnancy does not generate a review flag;
-verified household pregnancy skips can establish a negative pathway. SPISC uses
-age alone and displays no unconfirmed person-level PWD/illness evidence.
+Phase 5B provisionally interprets L07/L16 as dataset-specific Yes/No responses,
+not PSA-confirmed recoding: the questionnaire describes member line numbers.
+Member pregnancy/disability evidence requires household L06/L15 corroboration
+and valid roster joins. Household context never proves a senior's disability.
+Contradictions are retained as informational warnings, without assigned tasks.
 """
 
 from math import isfinite
@@ -48,18 +50,22 @@ COMMON_NOTES = (
 )
 PROGRAM_NOTES = {
     "4Ps": ("CBMS household membership does not establish a single official 4Ps family unit.",
-            "Pregnancy/member identification is pending L07 coding confirmation; no pregnancy flag is generated."),
+            "L06=1 adds historical pregnancy review; conflicting L01=2/L06=1 remains unresolved unless an independent child trigger applies.",
+            "L07=1 is a provisional dataset-specific Yes interpretation, corroborated by L06=1 and female age 10+; not PSA-confirmed recoding."),
     "SLP": ("EF uses recorded E01=2, not official unemployment or MPI imputation.",
             "MD uses recorded E01=1 and E18=3/4/5/6 with verified Section E applicability.",
             "E03/job-attachment routing is absent from the export; missing E11/E18 cannot be declared a verified skip solely from E01=2.",
             "MC 003 s.2025 pp.8-9 provides MD age 16+ and EF age 18+; these work-status triggers are project heuristics."),
     "SPISC": ("Age 60+ is a review signal, not proof of indigency or pension eligibility.",
-              "L16/PWD coding is pending; no unconfirmed PWD or L34 illness support is displayed.",
+              "L15=1 is household disability context; only a senior's own joined L16=1 corroborated by L15=1 supports senior-specific disability.",
+              "L16=1 is a provisional dataset-specific Yes interpretation, not PSA-confirmed recoding; optional support never changes the age trigger.",
               "The FO XI page describes older guidance; MC 022 s.2026 is listed, but its full text has not been verified."),
-    "TUPAD": ("Recorded E01=1 and E11=2/3 supply historical irregular-work evidence; E01=2 alone never triggers review.",
+    "TUPAD": ("At age 18+, applicable observed E01=2 or missing E01 assumed nonworking are additional approved pilot review triggers.",
+              "B06 1/2/3 with missing E01 is assumed overseas employment, not a nonwork trigger; B06 6 stays non-applicable.",
+              "Observed irregular work still requires valid employment evidence. Assumptions are labeled and do not prove unemployment or eligibility.",
               "Age 18+ follows DO 239-23 section 8, with no invented upper age limit.",
               "DO 239-E s.2026 is listed, but its full text has not been verified; no new exclusions are invented.",
-              "Missing job-attachment routing prevents interpreting E11 absence as a verified negative solely from E01=2."),
+              "Missing E11 does not erase a supported nonwork trigger; contradictory or genuinely indeterminate evidence remains unresolved."),
 }
 MD_CLASSES = {
     3: "self-employed without paid employees",
@@ -75,6 +81,7 @@ OUTPUT_COLUMNS = (
     "household_uuid", "program_code", "screening_status", "trigger_reasons",
     "supporting_evidence", "triggering_member_line_numbers",
     "key_unverified_requirements", "survey_year", "source_references", "methodology_notes",
+    "data_quality_warnings",
 )
 
 
@@ -92,6 +99,24 @@ def _integer(value: object) -> int | None:
 def _code(value: object, allowed) -> int | None:
     code = _integer(value)
     return code if code in allowed else None
+
+
+def _missing(value: object) -> bool:
+    """Recognize null/blank/literal NA, separating absence from invalid codes."""
+    return bool(pd.isna(value)) or (isinstance(value, str) and value.strip().upper() in {"", "NA"})
+
+
+def _warning(code: str, message: str, member: dict | None = None) -> dict:
+    """Attach an informational data issue, never a case or verification task."""
+    return {"code": code, "member_line_number": member["line_number"] if member else None,
+            "message": message}
+
+
+def _household_evidence(household: dict, field: str, explanation: str, trigger_code: str,
+                        role: str = "trigger") -> dict:
+    return {"member_line_number": None, "source_dataset": "household",
+            "observed_values": {field: household[field]}, "explanation": explanation,
+            "trigger_code": trigger_code, "evidence_role": role, "evidence_type": "observed"}
 
 
 def _age_at_least(member: dict, minimum: int) -> bool | None:
@@ -144,11 +169,12 @@ def _evidence(member: dict, fields: tuple[str, ...], explanation: str, pathway: 
     return result
 
 
-def _result(household: dict, program: str, year: int, evidence: list, unresolved: bool, extra_notes=(), extra_requirements=()) -> dict:
-    """A confirmed trigger takes precedence over unrelated missing CBMS evidence."""
-    status = STATUSES[0] if evidence else (STATUSES[2] if unresolved else STATUSES[1])
-    lines = tuple(dict.fromkeys(item["member_line_number"] for item in evidence))
-    reasons = tuple(dict.fromkeys(item["explanation"] for item in evidence))
+def _result(household: dict, program: str, year: int, evidence: list, unresolved: bool, extra_notes=(), extra_requirements=(), warnings=()) -> dict:
+    """Supported observed/pilot triggers take precedence over unrelated gaps."""
+    triggers = [item for item in evidence if item.get("evidence_role", "trigger") == "trigger"]
+    status = STATUSES[0] if triggers else (STATUSES[2] if unresolved else STATUSES[1])
+    lines = tuple(dict.fromkeys(item["member_line_number"] for item in triggers if item["member_line_number"] is not None))
+    reasons = tuple(dict.fromkeys(item["explanation"] for item in triggers))
     return {
         "household_uuid": household["uuid"], "program_code": program,
         "screening_status": status, "trigger_reasons": reasons,
@@ -159,50 +185,114 @@ def _result(household: dict, program: str, year: int, evidence: list, unresolved
             "data/reference/Tanglaw_Buhay_Codebook_Values_FINAL.csv",
             "data/reference/CBMS META DATA FINAL.xlsx"),
         "methodology_notes": COMMON_NOTES + PROGRAM_NOTES[program] + tuple(extra_notes),
+        "data_quality_warnings": tuple(warnings),
     }
 
 
-def _pending_pregnancy(member: dict, household: dict) -> bool | None:
-    """Exclude verified demographic/household skips; never decode unconfirmed L07.
-
-    L01=2 skips to L08; L06=2 also skips L07. A conflicting L01=2/L06=1 is
-    unresolved. Absent Section L records never establish a negative themselves.
-    """
-    sex = _code(member.get("a05_sex"), (1, 2))
-    potential = _and(_age_at_least(member, 10), None if sex is None else sex == 2)
-    if potential is False:
-        return False
-    ever_pregnant = _code(household.get("l01_with_member_who_has_been_pregnant"), (1, 2))
-    pregnant = _code(household.get("l06_with_member_currently_pregnant"), (1, 2))
-    if ever_pregnant == 2 and pregnant == 1:
-        return None
-    if ever_pregnant == 2 or pregnant == 2:
-        return False
-    return None  # Member-specific pregnancy coding remains explicitly pending.
-
-
 def screen_4ps(household: dict, members: list[dict], survey_year: int) -> dict:
-    """Age 0-18 triggers review; the unverified pregnancy pathway stays pending."""
-    evidence, unresolved = [], not members
+    """Child age or consistent household L06=1 suggests historical 4Ps review.
+
+    L07 attribution additionally requires its own valid joined row, female sex,
+    age 10+ and L06 corroboration. Missing attribution does not erase a valid
+    household trigger. Direct L01/L06 skip contradictions are not confirmed
+    pregnancy evidence; independent child evidence retains priority.
+    """
+    evidence, warnings, unresolved = [], [], not members
+    pregnant = _code(household.get("l06_with_member_currently_pregnant"), (1, 2))
+    ever = _code(household.get("l01_with_member_who_has_been_pregnant"), (1, 2))
+    routing_conflict = pregnant == 1 and ever == 2
+    if routing_conflict:
+        warnings.append(_warning("pregnancy_routing_conflict", "L01=2 skips pregnancy questions but L06=1 is populated."))
+        unresolved = True
+    elif pregnant == 1:
+        evidence.append(_household_evidence(household, "l06_with_member_currently_pregnant",
+            f"Household recorded a pregnant member (L06=1) in the {survey_year} CBMS survey.", "household_pregnancy"))
+    attributed = 0
     for member in members:
         age = _integer(member.get("a07_age"))
         if age is not None and age <= 18:
             evidence.append(_evidence(member, ("a07_age",),
                 f"Household member aged {age} was recorded in the {survey_year} CBMS survey."))
-        unresolved |= age is None or _pending_pregnancy(member, household) is None
-    return _result(household, "4Ps", survey_year, evidence, unresolved)
+        unresolved |= age is None
+        sex = _code(member.get("a05_sex"), (1, 2))
+        potential = _and(_age_at_least(member, 10), None if sex is None else sex == 2)
+        raw = member.get("l07_currently_pregnant")
+        affected = _code(raw, (1, 2))
+        present = not _missing(member.get("section_l_line_number"))
+        if affected == 1:
+            if pregnant == 1 and not routing_conflict and potential is True and present:
+                item = _evidence(member, ("a07_age", "a05_sex", "l07_currently_pregnant"),
+                    f"Joined female member aged {age} has provisional L07=1, corroborated by L06=1 in {survey_year}.")
+                item.update(source_dataset="section_l02_to_l41", evidence_type="provisional_pilot",
+                            trigger_code="member_pregnancy", corroborating_household_values={"l06_with_member_currently_pregnant": household["l06_with_member_currently_pregnant"]})
+                evidence.append(item)
+                attributed += 1
+            else:
+                warnings.append(_warning("pregnancy_member_conflict", "L07=1 lacks consistent household, female age 10+, or joined-member corroboration.", member))
+                unresolved = True
+        elif affected is None and not _missing(raw):
+            warnings.append(_warning("pregnancy_invalid_member_code", "L07 is not valid under the provisional Yes/No interpretation.", member))
+            unresolved = True
+        elif potential is not False and pregnant != 2 and ever != 2:
+            if pregnant != 1:
+                unresolved = True
+    if pregnant == 1 and not routing_conflict and not attributed:
+        candidates = [member for member in members if _code(member.get("a05_sex"), (1, 2)) == 2
+                      and _age_at_least(member, 10) is True]
+        complete_demographics = all(_integer(member.get("a07_age")) is not None
+                                    and _code(member.get("a05_sex"), (1, 2)) is not None for member in members)
+        if candidates and complete_demographics and all(
+                not _missing(member.get("section_l_line_number"))
+                and _code(member.get("l07_currently_pregnant"), (1, 2)) == 2 for member in candidates):
+            warnings.append(_warning("pregnancy_household_member_conflict", "L06=1 conflicts with all relevant joined L07=2 responses; only the household signal is retained."))
+        else:
+            warnings.append(_warning("pregnancy_member_unresolved", "Household pregnancy is recorded, but no member can be safely attributed."))
+    return _result(household, "4Ps", survey_year, evidence, unresolved, warnings=warnings)
 
 
 def screen_spisc(household: dict, members: list[dict], survey_year: int) -> dict:
-    """Age 60+ triggers review; unconfirmed disability support is not required."""
-    evidence, unresolved = [], not members
+    """Keep age 60+ unchanged; distinguish household and senior-specific PWD.
+
+    Supporting disability gaps/contradictions are warnings, not additional age
+    triggers or mandatory follow-up. A different member's PWD cannot describe
+    a senior. Only corroborated, joined senior L16=1 is attributed provisionally.
+    """
+    evidence, warnings, unresolved = [], [], not members
+    disability = _code(household.get("l15_with_pwd_member"), (1, 2))
+    if disability == 1:
+        evidence.append(_household_evidence(household, "l15_with_pwd_member",
+            f"Household recorded a member with disability (L15=1) in {survey_year}; this does not identify a senior.",
+            "household_disability", "supporting_context"))
     for member in members:
         age = _integer(member.get("a07_age"))
         if age is not None and age >= 60:
             evidence.append(_evidence(member, ("a07_age",),
                 f"Household member aged {age} was recorded in the {survey_year} CBMS survey."))
         unresolved |= age is None
-    return _result(household, "SPISC", survey_year, evidence, unresolved)
+        raw = member.get("l16_pwd")
+        pwd = _code(raw, (1, 2))
+        present = not _missing(member.get("section_l_line_number"))
+        if pwd == 1:
+            if disability != 1 or not present:
+                warnings.append(_warning("disability_member_conflict", "L16=1 lacks household L15=1 or joined-member corroboration.", member))
+            elif age is not None and age >= 60:
+                item = _evidence(member, ("a07_age", "l16_pwd"),
+                    f"This senior's joined record has provisional L16=1, corroborated by household L15=1 in {survey_year}.")
+                item.update(source_dataset="section_l02_to_l41", evidence_role="supporting_context",
+                            evidence_type="provisional_pilot", trigger_code="senior_disability",
+                            corroborating_household_values={"l15_with_pwd_member": household["l15_with_pwd_member"]})
+                evidence.append(item)
+            elif age is None:
+                warnings.append(_warning("senior_disability_unresolved", "Age is unknown; disability cannot be attributed to a senior.", member))
+        elif pwd is None and not _missing(raw):
+            warnings.append(_warning("disability_invalid_member_code", "L16 is not valid under the provisional Yes/No interpretation.", member))
+        elif disability == 1 and age is not None and age >= 60 and (pwd is None or not present):
+            warnings.append(_warning("senior_disability_unresolved", "Household disability is recorded, but this senior's disability response is unavailable.", member))
+    if disability == 1 and members and all(
+            not _missing(member.get("section_l_line_number"))
+            and _code(member.get("l16_pwd"), (1, 2)) == 2 for member in members):
+        warnings.append(_warning("disability_household_member_conflict", "L15=1 conflicts with all joined L16=2 responses; no member is attributed."))
+    return _result(household, "SPISC", survey_year, evidence, unresolved, warnings=warnings)
 
 
 def screen_slp(household: dict, members: list[dict], survey_year: int) -> dict:
@@ -234,26 +324,75 @@ def screen_slp(household: dict, members: list[dict], survey_year: int) -> dict:
 
 
 def screen_tupad(household: dict, members: list[dict], survey_year: int) -> dict:
-    """Observed irregular work at age 18+ suggests disadvantaged-worker review."""
-    evidence, unresolved = [], not members
+    """Age 18+ irregular-work or nonwork signals under approved pilot rules.
+
+    Applicable E01=2 is observed nonwork; applicable missing E01 is explicitly
+    assumed nonwork. Missing E01 alongside populated employment details is
+    conflicting evidence, not an authorized nonwork imputation. B06 1/2/3
+    missing E01 is overseas-employment context only; B06 6 stays excluded.
+    Missing E11 cannot erase a confirmed independent nonwork trigger. None of
+    these signals establish current displacement, unemployment or eligibility.
+    """
+    evidence, warnings, unresolved = [], [], not members
     for member in members:
-        trigger = _observed_work_path(member, "e11_nature_of_employment", IRREGULAR_WORK, 18)
-        if trigger is True:
-            nature = _code(member["e11_nature_of_employment"], (1, 2, 3))
-            evidence.append(_evidence(member, ("a07_age", "b06_ofi", "e01_employed", "e11_nature_of_employment"),
-                f"Member aged {_integer(member['a07_age'])} recorded {IRREGULAR_WORK[nature]} (E11={nature}) in {survey_year}."))
+        adult = _age_at_least(member, 18)
+        if adult is False:
+            continue
+        b06 = _code(member.get("b06_ofi"), range(1, 8))
+        raw_work = member.get("e01_employed")
+        work = _code(raw_work, (1, 2))
+        details_present = any(not _missing(member.get(field)) for field in
+                              ("e11_nature_of_employment", "e18_class_of_worker"))
+        if b06 in (1, 2, 3, 6):
+            conflict = not _missing(raw_work) or details_present
+            if conflict:
+                warnings.append(_warning("employment_skip_conflict", "Employment responses are populated despite a B06 Section E skip.", member))
+                unresolved |= b06 != 6
+            elif b06 in (1, 2, 3) and adult is True:
+                item = _evidence(member, ("a07_age", "b06_ofi", "e01_employed"),
+                    f"B06={b06} with missing E01 is ASSUMED overseas employment for the {survey_year} pilot; not a nonwork trigger.")
+                item.update(evidence_type="pilot_assumption", evidence_role="supporting_context",
+                            trigger_code="assumed_overseas_work")
+                evidence.append(item)
+            continue  # B06 6 is non-applicable; overseas context is not a trigger.
+        if b06 is None or adult is None:
+            unresolved = True
+            continue
+        if work == 2:
+            item = _evidence(member, ("a07_age", "b06_ofi", "e01_employed"),
+                f"Member aged {_integer(member['a07_age'])} recorded E01=2 (did not work in the reference week) in {survey_year}; observed pilot review signal.")
+            item.update(evidence_type="observed", trigger_code="observed_nonwork")
+            evidence.append(item)
+            continue  # Missing E11 is irrelevant to this established trigger.
+        if _missing(raw_work):
+            if details_present:
+                warnings.append(_warning("nonwork_imputation_conflict", "E01 is missing but employment details are populated; nonwork is not assumed.", member))
+                unresolved = True
+            else:
+                item = _evidence(member, ("a07_age", "b06_ofi", "e01_employed"),
+                    f"Member aged {_integer(member['a07_age'])} has applicable missing E01 in {survey_year}; ASSUMED not working under the pilot, not an observed response.")
+                item.update(evidence_type="pilot_assumption", trigger_code="assumed_nonwork")
+                evidence.append(item)
+            continue
+        nature = _code(member.get("e11_nature_of_employment"), (1, 2, 3))
+        if work == 1 and nature in IRREGULAR_WORK:
+            item = _evidence(member, ("a07_age", "b06_ofi", "e01_employed", "e11_nature_of_employment"),
+                f"Member aged {_integer(member['a07_age'])} recorded {IRREGULAR_WORK[nature]} (E11={nature}) in {survey_year}.")
+            item.update(evidence_type="observed", trigger_code="irregular_work")
+            evidence.append(item)
             if _code(member.get("e18_class_of_worker"), range(7)) is not None:
                 evidence[-1]["observed_values"]["e18_class_of_worker"] = member["e18_class_of_worker"]
-        unresolved |= trigger is None
-    return _result(household, "TUPAD", survey_year, evidence, unresolved)
+        elif work != 1 or nature is None:
+            unresolved = True
+    return _result(household, "TUPAD", survey_year, evidence, unresolved, warnings=warnings)
 
 
 def screen_households(datasets: dict[str, pd.DataFrame], *, survey_year: int) -> pd.DataFrame:
     """Return exactly four independent results per household, in source order.
 
     Accept already-loaded data and explicit batch survey year. Validate unchanged
-    UUID/member keys and Section L line associations, even while L07/L16 coding
-    is pending. No names, MPI calculations, database writes or exports occur.
+    UUID/member keys and Section L line associations before provisional L07/L16
+    attribution. No names, MPI calculations, database writes or exports occur.
     """
     if isinstance(survey_year, bool) or not isinstance(survey_year, Integral) or survey_year <= 0:
         raise ValueError("An explicit positive integer survey year is required.")
@@ -277,7 +416,7 @@ def screen_households(datasets: dict[str, pd.DataFrame], *, survey_year: int) ->
     groups = {}
     for member in joined.to_dict("records"):
         groups.setdefault(member["uuid"], []).append(member)
-    household_fields = [field for field in ("uuid", "l01_with_member_who_has_been_pregnant", "l06_with_member_currently_pregnant") if field in households]
+    household_fields = [field for field in ("uuid", "l01_with_member_who_has_been_pregnant", "l06_with_member_currently_pregnant", "l15_with_pwd_member") if field in households]
     records = []
     functions = (screen_4ps, screen_slp, screen_spisc, screen_tupad)
     for household in households[household_fields].to_dict("records"):
