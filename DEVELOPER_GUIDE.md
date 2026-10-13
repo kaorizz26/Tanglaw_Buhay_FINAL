@@ -653,3 +653,91 @@ The broader suite ran 181 tests: 159 passed and 22 database integration cases
 were deliberately skipped with database connections blocked. No real-batch
 assessment or screening was performed and no database, source or configuration
 files were modified by these checks.
+
+## 15. Phase 6B.4 Task 2A: full-batch assessment execution
+
+`scripts/verify_active_batch_assessments.py` is an explicitly invoked, read-only
+verification runner for active batch 1, 2022 Pozorrubio. It uses
+`load_active_batch()` with the existing `connect_verified()` loopback/development
+database guard from the controlled-import script. It never calls that script's
+import runner or write-capable factory. All loading uses a read-only snapshot;
+engine execution then occurs in memory with the database connection closed.
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts\verify_active_batch_assessments.py
+```
+
+This command performs a full-batch calculation and should be run only for an
+explicitly authorized assessment verification. It calls `assess_households()`
+once and `screen_households()` once, then uses `combine_assessments()` to verify
+unified household/program coverage without recalculating either engine. The
+verifier checks household identity/order, all 16 flags, weighted scores and
+coverage, known/unknown counts, quality labels, exact competition ranks,
+historical year, program uniqueness/statuses and evidence containers. It also
+checks trigger/status consistency and fingerprints the source frames before and
+after execution. Its additional score/rank arithmetic audits emitted results;
+it does not re-run indicators or define a new scoring engine.
+
+Console output contains only progress and aggregates: descriptive score bins,
+quartiles/mean/range, coverage, rank/tie statistics, per-indicator outcomes,
+existing assumption/conflict counts, program/status totals, warning-code counts,
+missing source responses, timings and optional Windows process memory. Failures
+report only the execution phase and a fixed verification code or exception type;
+private exception text and evidence are suppressed. No household results are
+printed or exported, and no assessment data is persisted. The script stops on
+failure without retries or engine redesign.
+
+### Verified execution on 2026-10-13
+
+Local `tanglaw_buhay_dev`, schema `public`, batch 1 produced **19,304 unique MPI
+results**, **77,216 household/program results** and **19,304 unified assessments**.
+Every household had exactly one result for each of 4Ps, SLP, SPISC and TUPAD, with
+survey year 2022. All consistency checks passed and source frames were unchanged.
+
+| MPI measure | Aggregate result |
+|---|---|
+| Score min / p25 / median / p75 / max | 0 / 0 / 5.5556 / 12.5 / 56.9444 |
+| Mean score | 8.3175 |
+| Score bins [0,10], (10,20], (20,30], (30,40], (40,50], (50,60] | 12,502 / 4,682 / 1,623 / 406 / 83 / 8 |
+| Score bins above 60 | 0 |
+| Coverage min / mean / median / max (%) | 79.1667 / 99.8982 / 100 / 100 |
+| Complete Data / Needs Data Review households | 19,093 / 211 |
+| Unknown indicator outcomes | 212: 210 households with one unknown, one household with two |
+| Ranked households / distinct scores | 19,304 / 37 |
+| Competition-rank min / max | 1 / 14,366 |
+| Tied score groups / households in ties | 35 / 19,302 |
+
+Score bins are descriptive summaries, not poverty or eligibility thresholds.
+The maximum competition rank is below the household count because ties occupy
+shared positions. Unknown flags remain unknown, contribute zero points under
+the existing rule and can underestimate vulnerability; approved assumptions can
+also affect results.
+
+| Program | For Review | No Historical CBMS Trigger | Needs Data Review |
+|---|---:|---:|---:|
+| 4Ps | 12,147 | 7,150 | 7 |
+| SLP | 12,770 | 2,385 | 4,149 |
+| SPISC | 6,339 | 12,965 | 0 |
+| TUPAD | 16,612 | 2,692 | 0 |
+
+There were 18,762 households with at least one review signal and 4,156
+household/program results needing data review. Informational warnings remained
+visible: 43 pregnancy warning events across 25 4Ps households and two disability
+warning events across two SPISC households. These warnings are separate from
+status labels and do not create staff reviews. Source gaps included 51,068
+members without health rows and 28,544 blank/literal-NA E01 responses; recorded
+ages had no blank/literal-NA responses. A missing E01 response is interpreted only
+by the existing program-specific routing/assumption rules, not automatically
+counted as unresolved or negative evidence by this report.
+
+Observed timings were 10.580 seconds loading, 9.953 seconds MPI, 6.073 seconds
+screening and 6.434 seconds output verification, with **34.016 seconds total**
+including initial source fingerprinting. Windows process working set was
+464.36 MiB at reporting and **466.64 MiB peak**. This measures the Python process,
+not PostgreSQL or total system memory; timings and memory vary by machine/run.
+
+All **65 focused synthetic tests** passed with database connections blocked:
+scoring, screening, unified assessments and six new aggregate-verifier tests.
+No PostgreSQL integration tests or additional real runs were performed for this
+task. Engines, private sources, migrations and UIs were unchanged. Assessment
+persistence, authorization integration and real-data views remain pending.
