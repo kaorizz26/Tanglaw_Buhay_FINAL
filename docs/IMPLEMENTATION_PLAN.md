@@ -14,11 +14,11 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 
 ## Phase 6B.1 — PostgreSQL database foundation
 
-- **Status:** Not Started.
+- **Status:** Completed.
 - **Objective:** Establish a maintainable persistence foundation for the approved pilot.
-- **Small tasks:** Agree on the minimum data contract and schema before coding; add versioned database changes and repository boundaries for future imports, assessments and reviews; configure connections without embedding credentials.
-- **Acceptance criteria:** Database setup is repeatable in a development environment; application database access is isolated from routes/templates; no private data or credentials are committed; the existing fixture UI and engines retain their behavior.
-- **Implementation and verification notes:** `db.py` currently only opens explicit connections. The schema, migration approach and retention policy are pending decisions. Verify setup and rollback with nonprivate data when this task is authorized.
+- **Small tasks:** Define the approved eight-table, batch-scoped schema; add a numbered SQL migration; verify keys, JSONB value preservation and active-batch constraints with synthetic rows in a safe test database.
+- **Acceptance criteria:** The migration applies transactionally to an empty development database; synthetic constraint checks pass; no private data or credentials are committed; the existing fixture UI and engines retain their behavior.
+- **Implementation and verification notes:** Verified on 2026-10-13 with PostgreSQL 18.1. Both local databases authenticated successfully; `0001_database_foundation.sql` committed transactionally to the empty `tanglaw_buhay_dev` database. All eight tables remain empty; catalog checks confirmed eight primary keys, seven foreign keys, source-row uniqueness and the active-batch constraint. Synthetic constraint/value-preservation tests passed in `tanglaw_buhay_test`, with all test DDL and rows rolled back. The full suite passed all 124 tests without skips. The existing `db.py` helper was verified; routes/engines still use fixtures. Private connection URLs remain in Git-ignored `.env`; no real CBMS data was imported. Source-file retention and the import lifecycle remain decisions for 6B.2.
 
 ## Phase 6B.2 — Validated CBMS ETL and admin-only import workflow
 
@@ -52,4 +52,4 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 - **Acceptance criteria:** A failed import cannot replace or corrupt the active batch; permissions hold across routes and direct actions; existing MPI/screening outputs remain unchanged; authorized reviews cannot modify original survey data.
 - **Implementation and verification notes:** Use synthetic cases and aggregate comparisons, with private full-batch comparisons only in Git-ignored storage if authorized. Record results against each criterion without copying household data into reports.
 
-Detailed database schema, migration choice, import lifecycle, finer permissions and account policy are pending. Resolve each within its approved milestone; do not infer them from this roadmap. Staff UI requirements and system boundaries remain in [UI_SPEC.md](UI_SPEC.md) and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
+Import lifecycle, source-file retention, finer permissions and account policy remain pending. Resolve each within its approved milestone; do not infer them from this roadmap. Staff UI requirements and system boundaries remain in [UI_SPEC.md](UI_SPEC.md) and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).

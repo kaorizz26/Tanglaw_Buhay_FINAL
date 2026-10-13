@@ -31,6 +31,7 @@ Local Excel files and finalized reference CSVs
 | `app.py` | Creates Flask, prepares the synthetic workspace once, and registers feature blueprints. |
 | `config.py` | Reads local environment configuration. |
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
+| `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `routes/main.py` | Provides the landing/health routes, fixture-source guard and shared pagination. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
@@ -398,3 +399,44 @@ real records. Do not remove that guard as a shortcut.
 The tests in `tests/test_assessments.py` cover output preservation, UUID alignment,
 source immutability, navigation, filters, pagination, score/rank independence and
 the fixture-only boundary. Run the complete suite using the command in section 7.
+
+## 10. Phase 6B.1 database foundation
+
+`migrations/0001_database_foundation.sql` creates the eight approved tables.
+Every source/reference row belongs to a dataset batch. Household UUIDs and
+member line numbers are explicit join keys; Section L health rows reference the
+matching roster member. Child-death rows reference only their household and use
+their source-row number as a separate key because a household can have multiple
+death rows without a member identifier. A partial unique index permits at most
+one active batch, and an active batch must be marked validated.
+
+The four source tables hold original response objects in JSONB. Reference CSV
+rows also hold string-valued response objects. Order by `source_row_number` to
+reconstruct source row order; `dataset_batches.source_columns` holds each
+dataset's ordered column-name array because JSONB object keys have no column
+order. Keep blank strings, literal
+`NA`, original identifiers and documented synthetic/pilot provenance distinct.
+This migration does not import files, enforce staff permissions or expose data in
+the UI; those steps belong to later milestones.
+
+Apply the numbered SQL file once to an empty development database using a local
+PostgreSQL client. Use `-1` so all DDL commits or rolls back together:
+
+```powershell
+psql -X -1 -v ON_ERROR_STOP=1 -d tanglaw_buhay_dev -f migrations/0001_database_foundation.sql
+```
+
+The application continues to use `DATABASE_URL` from local `.env` through
+`config.py` and `db.py`; never commit the URL or private datasets. For constraint
+verification, create a separate local database named `tanglaw_buhay_test`, set
+`TANGLAW_TEST_DATABASE_URL` in the same Git-ignored `.env`, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_database_schema.py
+```
+
+The test checks synthetic joins, duplicate keys, active-batch uniqueness and
+preservation of blank/`NA`/CSV strings. It creates a temporary schema and rolls
+back its DDL and rows. It skips when the test URL is unset and refuses database
+names other than `tanglaw_buhay_test` or non-local hosts. A skip does not verify
+the migration.
