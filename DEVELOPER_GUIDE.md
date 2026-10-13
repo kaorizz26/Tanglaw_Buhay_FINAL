@@ -512,6 +512,27 @@ Run the importer checks with the configured local test URL:
 
 The PostgreSQL tests must execute without skips before marking Task 2 verified.
 
+### One-time controlled 2022 import runner
+
+`scripts/controlled_cbms_import_2022.py` is the reviewed operational wrapper for
+the owner's separately authorized first local import. It calls the existing
+transactional importer; it does not add routes or change calculations. The first
+import completed on 2026-10-13 as validated active batch `1`, with all seven
+expected row counts, zero orphan relationships and matching file hashes.
+
+The runner requires an explicit `--check` (read-only pre-import safeguards) or
+`--execute` (one import attempt) argument. Both modes require an empty dataset
+boundary and therefore stop on the already imported database. It verifies the
+local `tanglaw_buhay_dev` target, `public` schema, migration structures and CSV
+preflight; execution rechecks emptiness under the import lock. It checks source
+and configuration preservation and administrator session authorization without
+changing staff accounts. It never retries an import automatically.
+
+This script records the original authorization and fixed pilot counts; retaining
+it in Git does not authorize another import. Private `.env`, CSVs and database
+contents remain outside Git. No credentials or source household records are
+embedded in the runner.
+
 ## 13. Phase 6B.3 Task 1: staff authentication
 
 `0002_staff_authentication.sql` adds only `staff_users`, separate from CBMS
