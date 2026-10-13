@@ -741,3 +741,100 @@ scoring, screening, unified assessments and six new aggregate-verifier tests.
 No PostgreSQL integration tests or additional real runs were performed for this
 task. Engines, private sources, migrations and UIs were unchanged. Assessment
 persistence, authorization integration and real-data views remain pending.
+
+## 16. Phase 6B.4 Task 2B: targeted real-data sanity check
+
+On 2026-10-13, a read-only check of the same local active batch 1 reproduced the
+three Task 2A findings. Household outputs had intentionally not been persisted,
+so the check called only the existing TUPAD/SLP functions and assembled MPI
+indicator flags needed for coverage. It did not repeat MPI scores/ranks, 4Ps,
+SPISC, imports or full-batch verification infrastructure. Only aggregates were
+printed; source-frame fingerprints remained unchanged. The check took 28.69
+seconds including loading. Three small synthetic checks also confirmed that
+missing E01 with populated job details is not imputed by TUPAD, remains unresolved
+for SLP, and observed nonwork at age 17 leaves SLP's MD pathway unresolved under
+the existing approved rule. No defect or blocker was found.
+
+### TUPAD evidence behind the 16,612 review signals
+
+| Exclusive household evidence group | Households |
+|---|---:|
+| Observed evidence only | 8,560 |
+| Assumed nonwork only | 3,155 |
+| Both observed and assumed nonwork | 4,897 |
+| Total For Review | 16,612 |
+
+The observed union covered 13,457 households: recorded nonwork supported 9,571
+households (13,950 member evidence events), and recorded irregular work supported
+6,809 households (8,609 events). These household groups overlap. Assumed nonwork
+supported 8,052 households (8,699 member evidence events), including the mixed
+group above. Member events are not additional household review counts.
+
+Every assumed-nonwork trigger had age 18+, applicable B06=4/5/7, blank/literal-NA
+E01 and absent E11/E18 job details, exactly as the existing pilot rule requires.
+Observed nonwork used E01=2; irregular work used observed E01=1 and E11=2/3.
+Irregular work is labeled observed evidence, not an imputation. Assumed overseas
+work appeared as supporting context in 1,899 households and supplied no nonwork
+trigger. B06=6 remains non-applicable. Missing E01 with populated job details
+remains conflicting evidence and is not assumed nonwork. None of these signals
+establishes official unemployment or present-day TUPAD eligibility.
+
+### SLP uncertainty behind the 4,149 Needs Data Review results
+
+| Exclusive household uncertainty group | Households |
+|---|---:|
+| Applicable missing E01 only | 3,447 |
+| Observed nonwork at ages 16-17, unresolved MD only | 309 |
+| Both causes | 393 |
+| Total Needs Data Review | 4,149 |
+
+Across overlapping causes, applicable missing E01 affected 3,840 households
+(4,091 unresolved members), and the age-16/17 observed-nonwork MD case affected
+702 households (754 unresolved members). SLP uses observed work responses and
+does not borrow MPI/TUPAD nonwork assumptions. For the second cause, EF requires
+age 18+; MD requires observed work plus a valid enterprise-worker class. The
+approved `_md_trigger()` deliberately retains uncertainty when applicable
+observed work does not establish MD; the absent E03/job-attachment export does
+not prove a negative downstream response from E01=2. This is the existing
+conservative rule, not a newly introduced criterion.
+
+In these 4,149 households, no additional uncertainty causes were found: no
+missing/invalid age or B06 routing, invalid E01, or observed-work/invalid-E18
+cause contributed. No members with B06-skip/job-response conflicts were found
+in this subset; none of its unresolved members had missing E01 with populated
+job details. These absence findings apply to the inspected subset; existing
+conflict handling remains intact.
+
+### Why MPI coverage remains high
+
+Coverage counts the weights of determined household indicators. It does not
+measure the percentage of completed survey cells or independently observed
+responses. There were 18,195 households with recorded L33=2 (no illness); all
+14,961 households without any Section L health row were in that group. The
+approved L33=2 rule determines their illness indicator. Other relevant missing
+or contradictory illness evidence can still remain unknown.
+
+Approved E01 nonwork assumptions were recorded for 8,442 applicable members in
+7,823 households (MPI audit scope ages 5-65). The adult Employment Proxy also
+recorded 2,120 assumed-working OFW members aged 18-65 under its separate rule.
+Verified skips, known exclusions and bounded household outcomes can determine
+an indicator despite other missing responses. These assumptions remain labeled
+and original E01 responses are unchanged. MPI classifications do not supply
+subsidy triggers; TUPAD applies its separate approved assumptions independently.
+
+| Unknown MPI indicator | Unknown household outcomes |
+|---|---:|
+| Food Insecurity | 60 |
+| Illness/Treatment Proxy | 1 |
+| Sanitation | 2 |
+| Housing Materials | 8 |
+| Working Child Not in School | 141 |
+| Total | 212 |
+
+These unknown outcomes occurred in 211 households: 210 had one unknown and one
+had two. The other 19,093 had determined outcomes for all 16 indicators. Applying
+the existing indicator weights to those unknown counts reproduces average
+coverage **99.8981932357%**. High coverage is consistent with the approved rules;
+it does not establish complete observed data, validate the pilot assumptions,
+or remove the documented zero-point-unknown/provisional-coding limitations.
+No rules, weights, thresholds, source responses or staff workflows were changed.
