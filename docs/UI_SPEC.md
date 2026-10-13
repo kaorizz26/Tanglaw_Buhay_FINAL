@@ -1,6 +1,6 @@
 # Tanglaw-Buhay UI specification
 
-This document records approved requirements and distinguishes them from the Phase 6A implementation. It authorizes no implementation work by itself. Refine one screen per defined task, then review; the existing UI is a foundation, not the final design.
+This document records approved requirements for the future staff UI. The old Phase 6A interface is intentionally retired on `dev/frontend-reset`; approved requirements remain, but new screens are not implemented by this reset. Refine one screen per defined task, then review.
 
 ## Approved staff interface requirements
 
@@ -25,27 +25,28 @@ The Developer Guide records planned review labels **Not Yet Reviewed / In Review
 - Imported CBMS source records are read-only, including original household/member survey data.
 - Authorized staff can manage subsidy reviews, including statuses, notes and activity history, without modifying original survey data.
 
-Phase 6B.3 Task 1 implements login, protected fixture views for both roles and a reusable server-side admin check. Import/account-management and review workflows still require separate implementation; this task exposes no CBMS data.
+Phase 6B.3 Task 1 implements authentication and a reusable server-side admin check. After the frontend reset, both roles access only a minimal protected landing. Import/account-management and review workflows still require separate implementation; this task exposes no CBMS data.
 
 ## Interpretation and interaction boundaries
 
 - Show survey year, coverage, unknown indicators, assumptions and evidence provenance clearly. Preserve raw values alongside decoded meanings where relevant.
 - Keep system screening statuses separate from staff review statuses. MPI **Needs Data Review** describes calculation gaps; subsidy **For Review** is a system signal, not a staff-assigned review.
 - Staff reviews never overwrite system scores, ranks or program findings. Do not imply eligibility, approval or benefit allocation through labels or actions.
-- Filters retain the original batch ranks. Current fixture ranks must remain identified as development-batch ranks; future full-municipality records retain municipality-wide ranks after filtering.
+- Filters retain the original batch ranks. Any future fixture view must identify ranks as development-batch ranks; future full-municipality records retain municipality-wide ranks after filtering.
 
-## Phase 6A implementation status
+## Current interface after the approved reset
 
 | Area | Current baseline |
 |---|---|
-| Navigation | Household Records and Assessments are implemented sidebar links. Dashboard, Submissions and Administration are approved destinations with content still unspecified. |
-| Records | `/households` supports search, barangay filters and pagination; `/households/<uuid>` shows read-only profiles/rosters. |
-| Prioritization | `/assessments` supports search, sorting, barangay, program-signal and MPI-coverage filters. |
-| Assessment details | `/assessments/<uuid>` provides four sections, expandable MPI evidence and selectable program cards. |
-| Reviews | Queue and history are explicit placeholders; no persisted reviews or start/complete controls exist. |
-| Data and access | All displayed records/counts remain synthetic fixtures. Phase 6B.3 adds staff authentication; actual CBMS access is not implemented. |
+| Authentication | Minimal login/logout templates; database-backed account/session and role checks are retained. |
+| Landing | `/` shows the signed-in role and a CSRF-protected Sign Out form. |
+| Retired records/assessments | Old list/detail URLs return HTTP 410 after authentication, with no household data. |
+| Removed frontend | Sidebar, old records/assessment screens, filters, cards, review placeholders, shared UI components, CSS/JavaScript and presentation-only helpers. |
+| Backend and data | Engines, unified assessments, PostgreSQL repositories/migrations, CSV preflight/importer and synthetic fixtures remain. The interface displays no household records. |
 
-The current base template uses an inline brand mark and `static/favicon.svg`; the approved final logo asset and precise branding specifications are not established by this documentation. Existing accessibility/navigation behavior should be preserved during later refinements.
+The old UI is recoverable from Git checkpoint `9a6b24c`. No new dashboard,
+submissions, administration panels or design system are introduced. Final logo
+assets and precise branding remain to be established during approved design work.
 
 ## Planned citizen module
 
@@ -64,4 +65,4 @@ Dashboard content, Administration capabilities beyond the approved permissions a
 
 No additional future features are approved by this document. Any proposed feature beyond the requirements above needs its own scope and review before implementation. Backend persistence/import and authentication foundations are recorded in the implementation plan; admin workflows, actual CBMS views and visual refinements remain separately scoped tasks.
 
-For current routes and technical details, see [Developer Guide, section 9](../DEVELOPER_GUIDE.md#9-staff-interface-running-and-extending-phase-6a) and [project context](PROJECT_CONTEXT.md).
+For current routes and technical details, see [Developer Guide, section 9](../DEVELOPER_GUIDE.md#9-minimal-staff-interface-after-the-frontend-reset) and [project context](PROJECT_CONTEXT.md).

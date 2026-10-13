@@ -8,19 +8,25 @@ It does not establish official poverty classification or subsidy eligibility, ap
 
 ## Existing baseline
 
-Phase 6A is completed on `dev/phase-6a`. The repository contains:
+Phase 6A was completed on `dev/phase-6a`; its staff interface is intentionally
+retired on `dev/frontend-reset` after authentication checkpoint `9a6b24c`.
+Retained features are:
 
-- MPI vulnerability calculation and four independent subsidy screening engines, with synthetic tests and aggregate verification scripts.
-- Unified household assessments that preserve complete engine outputs and validate UUID alignment, four-program completeness and survey-year consistency.
-- Flask feature blueprints, Jinja2 staff pages, reusable components and focused CSS/JavaScript.
-- Searchable, filtered, paginated household records; read-only profiles; assessment prioritization and detail panels.
-- A startup-calculated batch of **32 synthetic households**, clearly labeled as development fixtures. Review Queue and Review History are unconnected placeholders.
+- MPI and four independent subsidy engines, with synthetic tests and aggregate verification scripts.
+- Unified assessments preserving engine outputs and validating identities, program completeness and survey year.
+- PostgreSQL foundations, account repositories, CSV preflight and transactional backend imports.
+- Login/logout, database-checked sessions and a reusable System Administrator guard.
+- A minimal protected landing showing the signed-in role and Sign Out; `/test` remains public.
+- The same synthetic household generator and metadata fixtures for backend tests; no household records are loaded/rendered by the minimal interface.
 
-PostgreSQL foundations and the transactional CSV importer are implemented. Staff authentication now uses database accounts; the engines and record views still use development fixtures. Admin import/account screens and display of authorized CBMS records require separate tasks and review. The current UI is a foundation, not a finalized visual design.
+Old record/assessment URLs now return a generic retirement response after login.
+The sidebar, records/assessment templates, CSS/JavaScript and UI-only helpers are
+removed. Admin import/account screens, real CBMS display and the new staff design
+remain separately scoped work; no dashboard or replacement staff panels exist.
 
 ## CBMS source and provenance
 
-The project owner identifies the authorized **2022 CBMS working dataset** as **19,304 households and 69,350 members**. These are historical batch counts, not current population estimates; this documentation task does not revalidate the private source files.
+The project owner identifies the authorized **2022 CBMS working dataset** as **19,304 households and 69,350 members**. These are historical batch counts, not current population estimates; the frontend reset does not revalidate private source files.
 
 `services/data_loader.py` reads local Excel datasets `household`, `section_a_e_indiv`, `section_l02_to_l41` and `section_l11_to_l14` from `data/raw/`, plus finalized codebook, MPI mapping and variable-definition CSVs from `data/reference/`. Exact filenames and input rules are in the loader and [Developer Guide](../DEVELOPER_GUIDE.md#2-loading-and-joining-cbms-data).
 
@@ -64,6 +70,6 @@ Outputs retain reasons, evidence, member lines, provenance, warnings and unverif
 
 ## Context still needed for later tasks
 
-The two approved roles are **System Administrator** and **LGU Staff**. Both can sign in and view fixture records/assessments; a reusable server-side admin guard is implemented. CBMS imports and staff account management are admin-only requirements, with no web workflows yet. Authorized staff may manage subsidy reviews once that workflow is implemented; imported CBMS source records remain read-only. Account lifecycle and detailed review permissions remain pending. See [UI_SPEC.md](UI_SPEC.md).
+The two approved roles are **System Administrator** and **LGU Staff**. Both can sign in and access the minimal protected landing; a reusable server-side admin guard is implemented. CBMS imports and staff account management are admin-only requirements, with no web workflows yet. Authorized staff may manage subsidy reviews once that workflow is implemented; imported CBMS source records remain read-only. Account lifecycle and detailed review permissions remain pending. See [UI_SPEC.md](UI_SPEC.md).
 
 Admin import controls, source-file retention, citizen identity and household-access rules, and operational access arrangements remain pending. Resolve these within separately scoped tasks, without copying private records or credentials into documentation. The project's dataset authorization is stated by the owner.

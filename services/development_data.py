@@ -1,11 +1,10 @@
-"""Clearly synthetic UI inputs. This module never reads data/raw or a database."""
+"""Synthetic assessment and CSV test inputs; never reads private source files or a database."""
 
 import json
 from pathlib import Path
 
 import pandas as pd
 
-from services.assessments import build_unified_assessments
 from services.vulnerability.health import FIES_FIELDS
 from services.vulnerability.housing import ASSET_FIELDS
 
@@ -106,17 +105,3 @@ def development_sources():
     metadata = json.loads(FIXTURE_METADATA.read_text(encoding="utf-8"))
     references = {name: pd.DataFrame(rows, dtype=object) for name, rows in metadata["references"].items()}
     return datasets, references
-
-
-def build_development_workspace():
-    """Prepare one immutable-in-use development batch per Flask application."""
-    from services.assessment_views import build_profiles, reference_lookup
-
-    datasets, references = development_sources()
-    results = build_unified_assessments(datasets, references, survey_year=SURVEY_YEAR)
-    lookup = reference_lookup(references)
-    return {
-        "source_kind": "development_fixture", "survey_year": SURVEY_YEAR,
-        "results": results, "profiles": build_profiles(datasets, lookup),
-        "lookup": lookup, "datasets": datasets,
-    }

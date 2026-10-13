@@ -140,18 +140,20 @@ class StaffAuthenticationTests(unittest.TestCase):
             "csrf_token": token,
         })
 
-    def test_both_roles_login_and_access_existing_pages(self):
+    def test_both_roles_login_and_access_minimal_landing(self):
         for username in ("synthetic_staff", "synthetic_admin"):
             client = self.app.test_client()
             response = self._login(username, client)
             self.assertEqual(response.status_code, 302)
-            self.assertEqual(response.location, "/assessments")
+            self.assertEqual(response.location, "/")
+            page = client.get("/")
+            self.assertEqual(page.status_code, 200)
+            role_label = "System Administrator" if username == "synthetic_admin" else "LGU Staff"
+            self.assertIn(role_label, page.text)
+            self.assertNotIn(self.password, page.text)
             for path in ("/households", "/households/DEV-0001", "/assessments",
                          "/assessments/DEV-0001?tab=mpi", "/assessments?view=queue"):
-                page = client.get(path)
-                self.assertEqual(page.status_code, 200)
-                self.assertIn("Development fixtures", page.text)
-                self.assertNotIn(self.password, page.text)
+                self.assertEqual(client.get(path).status_code, 410)
 
     def test_anonymous_routes_are_protected_and_health_is_independent(self):
         for path in ("/", "/households", "/households/DEV-0001", "/assessments",
@@ -177,7 +179,7 @@ class StaffAuthenticationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertIn(bodies[0], response.text)
         self.assertEqual(bodies[0], bodies[1])
-        self.assertEqual(self.client.get("/households").status_code, 302)
+        self.assertEqual(self.client.get("/").status_code, 302)
 
     def test_login_csrf_missing_wrong_cross_browser_and_unicode_are_rejected(self):
         token = self._token()
@@ -196,13 +198,13 @@ class StaffAuthenticationTests(unittest.TestCase):
         self._login()
         old_cookie = self.client.get_cookie(self.app.config["SESSION_COOKIE_NAME"]).value
         token = self._token(path="/logout")
-        self.assertEqual(self.client.get("/assessments").status_code, 200)
+        self.assertEqual(self.client.get("/").status_code, 200)
         self.assertEqual(self.client.post("/logout").status_code, 400)
         self.assertEqual(self.client.post("/logout", data={"csrf_token": token}).status_code, 302)
-        self.assertEqual(self.client.get("/assessments").status_code, 302)
+        self.assertEqual(self.client.get("/").status_code, 302)
         replay = self.app.test_client()
         replay.set_cookie(self.app.config["SESSION_COOKIE_NAME"], old_cookie)
-        self.assertEqual(replay.get("/assessments").status_code, 302)
+        self.assertEqual(replay.get("/").status_code, 302)
 
     def test_admin_guard_uses_database_role_not_cookie_role(self):
         self._login()
@@ -238,15 +240,15 @@ class StaffAuthenticationTests(unittest.TestCase):
         self._login()
         with self.client.session_transaction() as session:
             session["issued_at"] = int(time()) - 8 * 3600 - 1
-        self.assertEqual(self.client.get("/households").status_code, 302)
+        self.assertEqual(self.client.get("/").status_code, 302)
         self._login()
         cookie = self.client.get_cookie(self.app.config["SESSION_COOKIE_NAME"]).value
         self.client.set_cookie(self.app.config["SESSION_COOKIE_NAME"], cookie + "tampered")
-        self.assertEqual(self.client.get("/households").status_code, 302)
+        self.assertEqual(self.client.get("/").status_code, 302)
         self._login()
         with psycopg.connect(self.url) as connection:
             connection.execute("UPDATE staff_users SET is_active = false")
-        self.assertEqual(self.client.get("/households").status_code, 302)
+        self.assertEqual(self.client.get("/").status_code, 302)
 
     def test_database_failure_does_not_leak_credentials_or_grant_access(self):
         token = self._token()
@@ -259,16 +261,15 @@ class StaffAuthenticationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertNotIn("PRIVATE_DATABASE_DETAILS", response.text)
         self.assertNotIn(self.password, response.text)
-        self.assertEqual(self.client.get("/households").status_code, 302)
+        self.assertEqual(self.client.get("/").status_code, 302)
         self._login()
         with patch("services.auth.get_connection", side_effect=psycopg.OperationalError()):
-            self.assertEqual(self.client.get("/households").status_code, 503)
+            self.assertEqual(self.client.get("/").status_code, 503)
 
     def test_fixture_guard_remains_enforced_after_login(self):
         self._login()
         with patch.dict(self.app.extensions["development_workspace"], source_kind="actual_cbms"):
-            self.assertEqual(self.client.get("/households").status_code, 403)
-            self.assertEqual(self.client.get("/assessments").status_code, 403)
+            self.assertEqual(self.client.get("/").status_code, 403)
 
     def test_bootstrap_hashes_password_and_cannot_replace_accounts(self):
         with psycopg.connect(self.url) as connection:

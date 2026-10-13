@@ -1,7 +1,8 @@
 # Tanglaw-Buhay backend developer guide
 
 This guide describes the Phase 4C vulnerability engine, Phase 5B screening
-rules, and Phase 6A unified assessment / staff interface foundation. The screening package separates the four programs from shared parsing and
+rules, Phase 6A unified assessments and the authenticated frontend reset. The
+screening package separates the four programs from shared parsing and
 metadata. The cleanup preserves the rules, output fields and household results.
 
 Tanglaw-Buhay provides decision support. A vulnerability rank indicates review
@@ -28,7 +29,7 @@ Local Excel files and finalized reference CSVs
 
 | Module | Responsibility |
 |---|---|
-| `app.py` | Creates Flask, prepares the synthetic workspace once, and registers feature blueprints. |
+| `app.py` | Creates Flask, registers authentication/minimal routes and retains a development-only source marker; loads no records. |
 | `config.py` | Reads local environment configuration. |
 | `routes/auth.py`, `services/auth.py` | Login/logout, CSRF and database-backed session/role checks. |
 | `repositories/staff_users.py`, `commands.py` | Staff account SQL and explicitly invoked local administrator bootstrap. |
@@ -36,7 +37,7 @@ Local Excel files and finalized reference CSVs
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `repositories/dataset_batches.py` | Stores batch-scoped CSV snapshots and activates batches within a caller-owned transaction. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
-| `routes/main.py` | Provides the landing/health routes, fixture-source guard and shared pagination. |
+| `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
 | `services/vulnerability/housing.py` | Calculates assets, sanitation, housing materials and overcrowding. |
@@ -51,27 +52,19 @@ Local Excel files and finalized reference CSVs
 | `scripts/` | Runs aggregate verification without printing names or household identifiers. |
 | `tests/` | Checks rules and boundary cases using synthetic examples, not source household records. |
 
-The staff interface reads a synthetic batch prepared once in `create_app()`.
-Public routes cannot select Excel files or connect a real CBMS source. The
-`/test` route still responds without PostgreSQL. `services/assessments.py`
-combines the engines by UUID and preserves each complete MPI row and all four
-complete screening payloads. It rejects duplicate keys, incomplete programs,
-different household sets and survey-year mismatches.
+The frontend reset intentionally removes the Phase 6A staff screens. Flask startup
+loads no household records and does not run assessment engines. The protected
+landing checks the retained development-only source marker; no configuration
+switch can expose actual CBMS records. `/test` still responds without PostgreSQL.
 
-`services/development_data.py` generates 32 clearly identified sample households
-using original field names. Scores, indicators and screening findings are
-calculated by the existing engines, not hardcoded. The JSON in
-`fixtures/development_metadata.json` is a development-only snapshot of exact
-finalized metadata rows (with source hashes); it contains no household records.
-It lets the UI run without the private `data/raw/` or `data/reference/` files.
-Actual batch integration must provide its own finalized references; do not use
-this development snapshot as an alternative production mapping.
-
-`services/assessment_views.py` builds presentation context and decoded labels.
-It shows source values next to meanings, preserves missing responses, and
-identifies a household head only when exactly one roster relationship is 1.
-Indicator panels display the existing engine flag and its inputs; the view layer
-does not classify deprivation or recalculate filtered ranks.
+`services/assessments.py` remains the backend integration layer: it combines
+engines by UUID, preserves complete MPI/four-program payloads and rejects
+ambiguous keys, incomplete programs, household-set and survey-year mismatches.
+`services/development_data.py` still generates the same 32 synthetic households
+for backend/CSV tests. Its obsolete UI workspace builder was removed.
+`fixtures/development_metadata.json` retains finalized development-only metadata
+and source hashes, with no household records. Actual batch integration must
+provide its own finalized references; the fixture is not a production mapping.
 
 ## 2. Loading and joining CBMS data
 
@@ -342,72 +335,49 @@ Historical conditions do not establish current eligibility. Zero-point unknowns
 can underestimate vulnerability, and approved employment assumptions can affect
 ranking. These are existing limitations, not rules changed by this refactor.
 
-## 9. Staff interface: running and extending Phase 6A
+## 9. Minimal staff interface after the frontend reset
 
-Run locally from the activated virtual environment:
+Run `python app.py` locally and open http://127.0.0.1:5000/login. The server binds
+to loopback with debug disabled. Authentication requires the configured signing
+key and existing staff accounts (section 13); no original datasets are read.
 
-```powershell
-python app.py
-```
-
-Open http://127.0.0.1:5000/assessments. The entry point binds to loopback with
-Flask debug disabled. Only development fixtures are served. Staff pages now
-require a configured signing key, migrated PostgreSQL database and staff login
-(section 13); original Excel datasets are never needed. `/test` remains public
-and independent of database availability.
-
-| Route | Purpose |
+| Route | Current behavior |
 |---|---|
-| `/` | Opens Assessments. |
-| `/test` | Existing JSON health check. |
-| `/login` | Minimal staff sign-in form with CSRF protection. |
-| `/logout` | Sign-out confirmation; only a CSRF-protected POST ends the session. |
-| `/households` | Searchable, barangay-filtered, paginated directory. |
-| `/households/<uuid>` | Read-only profile, roster and source conditions. |
-| `/assessments` | Prioritization with search, sorting, barangay, program-signal and MPI-coverage filters. |
-| `/assessments?view=queue` | Honest placeholder for the next persistence phase. |
-| `/assessments/<uuid>` | Overview, MPI Indicators, Subsidy Screening and Review History tabs. |
+| `/` | Protected landing showing System Administrator or LGU Staff and a CSRF-protected Sign Out form. |
+| `/login` | Minimal sign-in form; successful/already authenticated login redirects to `/`. |
+| `/logout` | Sign-out confirmation; only a CSRF-protected POST ends sessions. |
+| `/test` | Public JSON health check, independent of records/database availability. |
+| `/households`, `/assessments`, and their detail paths | Anonymous users redirect to login; authenticated requests return HTTP 410 with a generic retirement message. No identifiers/responses are echoed. |
 
-Use `?tab=mpi`, `?tab=subsidy&program=SLP`, or `?tab=history` for shareable
-detail URLs. An ID such as `DEV-0001` identifies a synthetic fixture, not a
-new official household identifier. UI ranks are labeled development-batch ranks;
-a future authenticated full-municipality source will retain its original
-municipality-wide ranks after any filters.
+The old staff blueprints, sidebar, records/assessment templates, shared UI macros,
+CSS, JavaScript, favicon, presentation helpers and pagination were intentionally
+removed on `dev/frontend-reset`. Their prior implementation remains in Git at
+`9a6b24c`. `templates/landing.html` and existing minimal auth templates contain
+no new dashboard, panels, design system or record summaries.
 
-Feature routes live in `routes/households.py` and `routes/assessments.py`.
-`routes/main.py` provides the fixture-source guard and shared pagination.
-`templates/base.html` owns the sidebar, breadcrumbs and development notice.
-Module templates inherit it; `templates/components/macros.html` shares icons,
-status badges, metrics, source facts and pagination. MPI/program panels are
-separate partial templates. `static/css/app.css` groups shared tokens and
-component/responsive styles. `navigation.js` handles the mobile menu;
-`assessment.js` handles program selection and keyboard arrow navigation.
-Filters and tab links work through Flask; disclosures use native HTML details.
-The layout also supplies navigation and program links when JS is unavailable.
+The development boundary now holds only a source-kind marker, not a calculated
+workspace. A non-fixture marker blocks the landing with 403. Authenticated real
+CBMS access still requires a separately approved protected repository/view flow;
+do not remove the guard to connect records. Backend engines, fixtures, validation,
+importer, SQL migrations and repositories are retained.
 
-All current summary counts come from the loaded fixture batch. A program-signal
-filter means the selected program has For Review; MPI Needs Data Review is a
-calculation gap, not a staff review status. Repeated requests use the startup
-assessment results. Changes to the fixture generator or engines require a server
-restart. Static assets do not use external fonts, frameworks or a build pipeline.
+Future review requirements remain per household/program: continuation by
+appropriately authorized staff, Not Yet Reviewed / In Review / Completed,
+Further Verification Recommended / No Further Action, and justification when
+starting without a historical trigger. These workflows remain unimplemented;
+review decisions must never overwrite system scores or screening findings.
 
-Survey persistence in the UI remains deferred. Staff authentication is implemented
-in Phase 6B.3 Task 1; imports/account management have no web endpoints. Review Queue
-and Review History explicitly say they are unconnected; there are no fabricated
-reviews, start/complete controls or temporary writes. Next-phase reviews remain
-per household/program, may be continued by authorized staff, use Not Yet Reviewed
-/ In Review / Completed and Further Verification Recommended / No Further Action,
-and require justification when started without a historical trigger. Review
-decisions must never overwrite system scores or screening results.
+`tests/test_assessments.py` retains backend output/identity/immutability checks.
+`tests/test_frontend_reset.py` checks the minimal routes and real auth service
+with generated accounts and mocked account SQL, including role checks and
+revocation. Removed UI behavior is no longer asserted. Existing PostgreSQL auth
+tests now expect the minimal landing and retired URLs.
 
-Before enabling actual CBMS access, add authenticated staff authorization and a
-protected source/repository boundary. The current protected feature routes explicitly
-accept only a development workspace; there is no environment switch that exposes
-real records. Do not remove that guard as a shortcut.
-
-The tests in `tests/test_assessments.py` cover output preservation, UUID alignment,
-source immutability, navigation, filters, pagination, score/rank independence and
-the fixture-only boundary. Run the complete suite using the command in section 7.
+For verification with a strict no-database-change boundary, run the focused
+`test_frontend_reset.py` suite. For the broader suite, set
+`TANGLAW_TEST_DATABASE_URL` to an empty string only in the test process and block
+`psycopg.connect`; database integration cases then skip. Record those skips
+explicitly, rather than treating them as fresh PostgreSQL verification.
 
 ## 10. Phase 6B.1 database foundation
 
@@ -545,8 +515,8 @@ The PostgreSQL tests must execute without skips before marking Task 2 verified.
 records. Roles are `system_administrator` and `lgu_staff`. Werkzeug scrypt stores
 salted password hashes; login failures use one generic credential message.
 The application guard requires login for existing and future application routes,
-except `/login`, static assets and `/test`. Both roles can view the unchanged
-fixture pages. `services.auth.admin_required` checks the current database role
+except `/login`, static assets and `/test`. Both roles can access the minimal
+protected landing; record/assessment pages are retired. `services.auth.admin_required` checks the current database role
 for future import/account routes; those workflows are not implemented yet.
 
 Flask signs the cookie using a private `SECRET_KEY` (no default); staff access
@@ -583,8 +553,8 @@ empty staff account table. It prompts for a username and a confirmed password
 stores only its hash. Usernames use 3-64 lowercase letters/digits/dot/dash/underscore
 and are normalized at creation/login. There are no password command arguments,
 default credentials, automatic accounts or web account-management screens.
-Open `/login` to sign in and `/logout` to sign out; the existing sidebar/templates
-and CSS are unchanged.
+Open `/login` to sign in and `/logout` to sign out; the landing also provides
+Sign Out directly. The old sidebar and staff screens are intentionally retired.
 
 Run synthetic authentication verification with the local test URL configured:
 

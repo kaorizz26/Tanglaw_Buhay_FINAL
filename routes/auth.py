@@ -11,7 +11,7 @@ auth = Blueprint("auth", __name__)
 @auth.route("/login", methods=["GET", "POST"])
 def login():
     if g.user is not None:
-        return redirect(url_for("assessments.index"))
+        return redirect(url_for("main.index"))
     error = None
     if request.method == "POST":
         check_csrf()
@@ -25,7 +25,7 @@ def login():
             abort(503, description="Staff authentication is unavailable.")
         if user:
             start_session(user)
-            return redirect(url_for("assessments.index"))
+            return redirect(url_for("main.index"))
         error = "Invalid username or password."
     return render_template("auth/login.html", error=error, csrf_token=csrf_token()), (
         401 if error else 200
