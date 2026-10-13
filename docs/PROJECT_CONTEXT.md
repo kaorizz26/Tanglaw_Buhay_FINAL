@@ -16,7 +16,7 @@ Phase 6A is completed on `dev/phase-6a`. The repository contains:
 - Searchable, filtered, paginated household records; read-only profiles; assessment prioritization and detail panels.
 - A startup-calculated batch of **32 synthetic households**, clearly labeled as development fixtures. Review Queue and Review History are unconnected placeholders.
 
-`db.py` provides an explicit PostgreSQL connection helper, but current engines/UI do not use database persistence. Staff authentication, PostgreSQL ETL and display of authorized CBMS records remain planned work requiring separate tasks and review. The current UI is a foundation, not a finalized visual design.
+PostgreSQL foundations and the transactional CSV importer are implemented. Staff authentication now uses database accounts; the engines and record views still use development fixtures. Admin import/account screens and display of authorized CBMS records require separate tasks and review. The current UI is a foundation, not a finalized visual design.
 
 ## CBMS source and provenance
 
@@ -64,6 +64,6 @@ Outputs retain reasons, evidence, member lines, provenance, warnings and unverif
 
 ## Context still needed for later tasks
 
-The two approved roles are **System Administrator** and **LGU Staff**. CBMS imports and staff account management are admin-only. Authorized staff can view household records and assessments and manage subsidy reviews; imported CBMS source records remain read-only. Detailed permission rules and authentication implementation remain pending. See [UI_SPEC.md](UI_SPEC.md) for approved interface requirements.
+The two approved roles are **System Administrator** and **LGU Staff**. Both can sign in and view fixture records/assessments; a reusable server-side admin guard is implemented. CBMS imports and staff account management are admin-only requirements, with no web workflows yet. Authorized staff may manage subsidy reviews once that workflow is implemented; imported CBMS source records remain read-only. Account lifecycle and detailed review permissions remain pending. See [UI_SPEC.md](UI_SPEC.md).
 
-Production ETL/schema, citizen identity and household-access rules, and operational access/retention arrangements remain unspecified. Resolve these within separately scoped tasks, without copying private records or credentials into documentation. The project's dataset authorization is stated by the owner.
+Admin import controls, source-file retention, citizen identity and household-access rules, and operational access arrangements remain pending. Resolve these within separately scoped tasks, without copying private records or credentials into documentation. The project's dataset authorization is stated by the owner.

@@ -30,6 +30,8 @@ Local Excel files and finalized reference CSVs
 |---|---|
 | `app.py` | Creates Flask, prepares the synthetic workspace once, and registers feature blueprints. |
 | `config.py` | Reads local environment configuration. |
+| `routes/auth.py`, `services/auth.py` | Login/logout, CSRF and database-backed session/role checks. |
+| `repositories/staff_users.py`, `commands.py` | Staff account SQL and explicitly invoked local administrator bootstrap. |
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `repositories/dataset_batches.py` | Stores batch-scoped CSV snapshots and activates batches within a caller-owned transaction. |
@@ -349,13 +351,17 @@ python app.py
 ```
 
 Open http://127.0.0.1:5000/assessments. The entry point binds to loopback with
-Flask debug disabled. Only development fixtures are served. No database,
-credentials or original Excel datasets are needed to view these pages.
+Flask debug disabled. Only development fixtures are served. Staff pages now
+require a configured signing key, migrated PostgreSQL database and staff login
+(section 13); original Excel datasets are never needed. `/test` remains public
+and independent of database availability.
 
 | Route | Purpose |
 |---|---|
 | `/` | Opens Assessments. |
 | `/test` | Existing JSON health check. |
+| `/login` | Minimal staff sign-in form with CSRF protection. |
+| `/logout` | Sign-out confirmation; only a CSRF-protected POST ends the session. |
 | `/households` | Searchable, barangay-filtered, paginated directory. |
 | `/households/<uuid>` | Read-only profile, roster and source conditions. |
 | `/assessments` | Prioritization with search, sorting, barangay, program-signal and MPI-coverage filters. |
@@ -385,7 +391,8 @@ calculation gap, not a staff review status. Repeated requests use the startup
 assessment results. Changes to the fixture generator or engines require a server
 restart. Static assets do not use external fonts, frameworks or a build pipeline.
 
-PostgreSQL persistence and staff authentication remain deferred. Review Queue
+Survey persistence in the UI remains deferred. Staff authentication is implemented
+in Phase 6B.3 Task 1; imports/account management have no web endpoints. Review Queue
 and Review History explicitly say they are unconnected; there are no fabricated
 reviews, start/complete controls or temporary writes. Next-phase reviews remain
 per household/program, may be continued by authorized staff, use Not Yet Reviewed
@@ -394,7 +401,7 @@ and require justification when started without a historical trigger. Review
 decisions must never overwrite system scores or screening results.
 
 Before enabling actual CBMS access, add authenticated staff authorization and a
-protected source/repository boundary. The current public feature routes explicitly
+protected source/repository boundary. The current protected feature routes explicitly
 accept only a development workspace; there is no environment switch that exposes
 real records. Do not remove that guard as a shortcut.
 
@@ -531,3 +538,64 @@ Run the importer checks with the configured local test URL:
 ```
 
 The PostgreSQL tests must execute without skips before marking Task 2 verified.
+
+## 13. Phase 6B.3 Task 1: staff authentication
+
+`0002_staff_authentication.sql` adds only `staff_users`, separate from CBMS
+records. Roles are `system_administrator` and `lgu_staff`. Werkzeug scrypt stores
+salted password hashes; login failures use one generic credential message.
+The application guard requires login for existing and future application routes,
+except `/login`, static assets and `/test`. Both roles can view the unchanged
+fixture pages. `services.auth.admin_required` checks the current database role
+for future import/account routes; those workflows are not implemented yet.
+
+Flask signs the cookie using a private `SECRET_KEY` (no default); staff access
+returns 503 if it is missing or shorter than 32 characters. Generate a random
+key and save it in Git-ignored `.env`. This local command replaces only its key
+setting without printing the result; key rotation invalidates existing cookies:
+
+```powershell
+.\.venv\Scripts\python.exe -B -c "from pathlib import Path; import re, secrets; p = Path('.env'); s = p.read_text(encoding='utf-8') if p.exists() else ''; s = re.sub(r'(?m)^SECRET_KEY=.*(?:\n|$)', '', s); p.write_text(s.rstrip() + '\nSECRET_KEY=' + secrets.token_urlsafe(48) + '\n', encoding='utf-8')"
+```
+
+Cookies default to Secure, HttpOnly and SameSite=Lax. For the local loopback
+HTTP server only, set `SESSION_COOKIE_SECURE=false` in private `.env`; deployment
+requires HTTPS and the secure default. Sessions expire eight hours after login,
+without extending on page visits. Only account ID, session version, issuance
+time and CSRF state are stored, never passwords or survey data. Each protected
+request rechecks the account's activity, role and session version. Logout revokes
+all sessions for that account, including replayed cookies. Login clears previous
+session state and rotates CSRF; login/logout POSTs require the session token.
+See the [Flask security guidance](https://flask.palletsprojects.com/en/stable/web-security/)
+and [Werkzeug hashing documentation](https://werkzeug.palletsprojects.com/en/stable/utils/#werkzeug.security.generate_password_hash).
+
+After approval, apply migration 0002 **once** to the development database, with a
+prompted PostgreSQL password. Startup never applies migrations automatically:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -X -h localhost -U tanglaw_final -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f migrations/0002_staff_authentication.sql
+.\.venv\Scripts\python.exe -B -m flask --app app create-admin
+```
+
+The bootstrap command refuses the old, test or remote database and requires an
+empty staff account table. It prompts for a username and a confirmed password
+(12-1024 characters), refuses terminal input that could echo the password, and
+stores only its hash. Usernames use 3-64 lowercase letters/digits/dot/dash/underscore
+and are normalized at creation/login. There are no password command arguments,
+default credentials, automatic accounts or web account-management screens.
+Open `/login` to sign in and `/logout` to sign out; the existing sidebar/templates
+and CSS are unchanged.
+
+Run synthetic authentication verification with the local test URL configured:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_auth.py -v
+```
+
+Tests apply migration 0002 only in disposable schemas in `tanglaw_buhay_test`,
+create generated test credentials, and remove their schemas. They check roles,
+CSRF, sessions, revocation, bootstrap and the fixture guard. Run the full suite
+as well. Neither development nor old databases, private `.env`, source files,
+assessment engines or importer behavior are changed by authentication tests.
+Real CBMS access, staff account lifecycle, review permissions and deployment
+hardening remain separately scoped work.

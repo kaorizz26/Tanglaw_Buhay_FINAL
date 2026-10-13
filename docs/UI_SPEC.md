@@ -25,7 +25,7 @@ The Developer Guide records planned review labels **Not Yet Reviewed / In Review
 - Imported CBMS source records are read-only, including original household/member survey data.
 - Authorized staff can manage subsidy reviews, including statuses, notes and activity history, without modifying original survey data.
 
-These are approved access requirements; authentication and permission enforcement remain to be implemented.
+Phase 6B.3 Task 1 implements login, protected fixture views for both roles and a reusable server-side admin check. Import/account-management and review workflows still require separate implementation; this task exposes no CBMS data.
 
 ## Interpretation and interaction boundaries
 
@@ -43,7 +43,7 @@ These are approved access requirements; authentication and permission enforcemen
 | Prioritization | `/assessments` supports search, sorting, barangay, program-signal and MPI-coverage filters. |
 | Assessment details | `/assessments/<uuid>` provides four sections, expandable MPI evidence and selectable program cards. |
 | Reviews | Queue and history are explicit placeholders; no persisted reviews or start/complete controls exist. |
-| Data and access | All displayed records/counts are synthetic fixtures. Staff authentication and actual CBMS access are not implemented. |
+| Data and access | All displayed records/counts remain synthetic fixtures. Phase 6B.3 adds staff authentication; actual CBMS access is not implemented. |
 
 The current base template uses an inline brand mark and `static/favicon.svg`; the approved final logo asset and precise branding specifications are not established by this documentation. Existing accessibility/navigation behavior should be preserved during later refinements.
 
@@ -62,6 +62,6 @@ This module is not implemented and has no detailed approved screen/workflow spec
 
 Dashboard content, Administration capabilities beyond the approved permissions above, detailed submission workflows, review transitions and finer-grained permissions, citizen access verification and document handling rules remain unspecified. Do not invent them as approved requirements.
 
-No additional future features are approved by this document. Any proposed feature beyond the requirements above needs its own scope and review before implementation. PostgreSQL ETL, authentication and visual refinements are separate future tasks, not part of this setup deliverable.
+No additional future features are approved by this document. Any proposed feature beyond the requirements above needs its own scope and review before implementation. Backend persistence/import and authentication foundations are recorded in the implementation plan; admin workflows, actual CBMS views and visual refinements remain separately scoped tasks.
 
 For current routes and technical details, see [Developer Guide, section 9](../DEVELOPER_GUIDE.md#9-staff-interface-running-and-extending-phase-6a) and [project context](PROJECT_CONTEXT.md).

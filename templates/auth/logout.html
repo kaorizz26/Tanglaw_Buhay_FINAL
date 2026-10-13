@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Staff sign out · Tanglaw-Buhay</title></head>
+<body><main>
+  <h1>Sign out</h1>
+  <p>Signing out ends all active sessions for your account.</p>
+  <form method="post" action="{{ url_for('auth.logout') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit">Sign out</button>
+  </form>
+  <p><a href="{{ url_for('assessments.index') }}">Return to Assessments</a></p>
+</main></body>
+</html>

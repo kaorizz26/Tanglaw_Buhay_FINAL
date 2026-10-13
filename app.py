@@ -1,12 +1,15 @@
 """Flask entry point for Tanglaw-Buhay."""
 
-from flask import Flask, render_template
+from flask import Flask, g, render_template, request
 
 from config import Config
+from commands import register_commands
+from routes.auth import auth
 from routes.main import main
 from routes.households import households
 from routes.assessments import assessments
 from services.development_data import build_development_workspace
+from services.auth import protect_staff_routes
 
 
 def create_app(test_config=None):
@@ -20,6 +23,9 @@ def create_app(test_config=None):
     app.register_blueprint(main)
     app.register_blueprint(households)
     app.register_blueprint(assessments)
+    app.register_blueprint(auth)
+    app.before_request(protect_staff_routes)
+    register_commands(app)
 
     @app.after_request
     def prevent_record_caching(response):
@@ -29,7 +35,11 @@ def create_app(test_config=None):
 
     @app.errorhandler(400)
     @app.errorhandler(404)
+    @app.errorhandler(503)
     def request_error(error):
+        if (error.code == 503 or request.blueprint == "auth"
+                or getattr(g, "user", None) is None):
+            return render_template("auth/error.html", error=error), error.code
         return render_template("error.html", title="Page unavailable", error=error), error.code
 
     return app

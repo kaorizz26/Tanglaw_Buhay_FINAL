@@ -90,11 +90,22 @@ class StaffInterfaceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with patch("pandas.read_excel", side_effect=AssertionError("UI must not read CBMS Excel")), patch("services.data_loader.load_data", side_effect=AssertionError("No actual CBMS loading")):
-            cls.app = create_app({"TESTING": True, "DATABASE_URL": None})
+            cls.app = create_app({"TESTING": True, "DATABASE_URL": None,
+                                  "SECRET_KEY": "synthetic-interface-key-only-32-characters"})
         cls.workspace = cls.app.extensions["development_workspace"]
 
     def setUp(self):
         self.client = self.app.test_client()
+        # Authenticate presentation tests without introducing a database dependency.
+        self.user_loader = patch("services.auth.load_session_user")
+        loader = self.user_loader.start()
+        self.addCleanup(self.user_loader.stop)
+
+        def synthetic_staff():
+            from flask import g
+            g.user = {"id": 1, "role": "lgu_staff"}
+
+        loader.side_effect = synthetic_staff
 
     def test_initial_routes_and_all_household_sections_render(self):
         response = self.client.get("/")

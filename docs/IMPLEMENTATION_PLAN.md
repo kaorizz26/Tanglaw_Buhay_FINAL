@@ -32,11 +32,12 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 
 ## Phase 6B.3 — Authentication and role-based permissions
 
-- **Status:** Not Started.
+- **Status:** In Progress.
 - **Objective:** Enforce access to staff records, imports, accounts and reviews.
 - **Small tasks:** Authenticate staff; enforce System Admin access to imports and staff account management; allow authorized staff to manage subsidy reviews while keeping imported CBMS source records read-only.
 - **Acceptance criteria:** Unauthenticated users cannot access protected CBMS views; non-admin staff cannot invoke import/account functions; authorized review changes do not alter source survey data or system findings.
-- **Implementation and verification notes:** Verify permitted and denied requests with synthetic accounts/records before exposing import functions or real CBMS data. The approved roles are System Administrator and LGU Staff; account lifecycle and finer permissions remain pending.
+- **Task 1 — Staff authentication foundation: Completed** on 2026-10-13. Migration 0002, account repository, login/logout, database-checked signed sessions, CSRF, shared route protection, reusable admin guard and prompted local administrator bootstrap are implemented. All 170 tests passed without skips; the final 15 authentication tests (12 executed PostgreSQL tests) also passed, covering roles, invalid credentials, CSRF, expiry/tampering/revocation, bootstrap, migration compatibility and the fixture guard. Tests used generated accounts in disposable `tanglaw_buhay_test` schemas. In subsequent explicitly approved local setup, migration 0002 was applied to `tanglaw_buhay_dev` and the owner created a development administrator using hidden password prompts. Browser checks verified administrator login, protected fixture pages, logout and denial after logout. A separate local LGU Staff account remains pending; existing staff templates/CSS, engines and importer are unchanged. No real CBMS data was imported and the old database was untouched.
+- **Remaining work:** Admin import/account workflows, account lifecycle and finer review permissions remain pending. Verify each separately before exposing imports or real CBMS data; this milestone remains In Progress.
 
 ## Phase 6B.4 — Real CBMS data integration
 

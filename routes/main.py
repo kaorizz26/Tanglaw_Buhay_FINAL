@@ -2,7 +2,7 @@
 
 from math import ceil
 
-from flask import Blueprint, abort, current_app, jsonify, redirect, request, url_for
+from flask import Blueprint, abort, current_app, g, jsonify, redirect, request, url_for
 
 main = Blueprint("main", __name__)
 
@@ -42,6 +42,9 @@ def paginate(rows, *, per_page=10):
 
 @main.app_context_processor
 def workspace_context():
+    if (getattr(g, "user", None) is None
+            or request.blueprint not in ("households", "assessments", "main")):
+        return {}
     return {"workspace": get_workspace()}
 
 
