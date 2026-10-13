@@ -50,11 +50,12 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 
 ## Phase 6B.4 — Real CBMS data integration
 
-- **Status:** Not Started.
+- **Status:** In Progress.
 - **Objective:** Show authorized 2022 CBMS households and computed assessments through protected staff views.
 - **Small tasks:** Read the active imported batch through repository functions; connect read-only household/member views and existing assessment services; retain evidence provenance, full-batch ranks and clear survey-year labels.
 - **Acceptance criteria:** Only authenticated, authorized staff can view real records; the fixture-only guard is not bypassed on public routes; source records stay read-only; filtered views preserve original assessment results and ranks.
-- **Implementation and verification notes:** Begin only after import safety and access controls are verified. Use aggregate or synthetic checks and keep household-level data out of logs, tests and documentation.
+- **Task 1 — Read-only PostgreSQL active-batch loader: Completed** on 2026-10-13. Repository reads select the validated active batch and order all seven source/reference tables by original row position. The service reconstructs object-dtype DataFrames in recorded column order from unchanged JSON strings, returns separate survey/provenance metadata and uses a read-only repeatable-read snapshot. All 14 focused synthetic tests passed, including exact values/identities/order, safe failures and complete existing engine-output compatibility. Read-only verification of local `tanglaw_buhay_dev`, `public`, batch `1` (2022 Pozorrubio) matched all seven CSV snapshots exactly: 19,304 households, 69,350 members, 18,282 health rows, 33 child-mortality rows, 705 codebook rows, 89 MPI mappings and 214 variable definitions. Schema/join checks passed with 16 indicator inputs and zero orphan/duplicate join keys; stored file hashes matched. The broader suite passed 159 executed tests with 22 database integration tests deliberately skipped to avoid writes. No imports, database writes, real-batch scoring/screening or route changes were performed.
+- **Remaining work:** Full assessment integration and authenticated, authorized real-data views require separately scoped tasks. This milestone remains In Progress; the minimal interface retains its fixture guard and displays no real CBMS records.
 
 ## Phase 6B.5 — End-to-end verification
 

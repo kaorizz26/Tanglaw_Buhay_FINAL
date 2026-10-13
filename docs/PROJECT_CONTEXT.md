@@ -15,6 +15,7 @@ Retained features are:
 - MPI and four independent subsidy engines, with synthetic tests and aggregate verification scripts.
 - Unified assessments preserving engine outputs and validating identities, program completeness and survey year.
 - PostgreSQL foundations, account repositories, CSV preflight and transactional backend imports.
+- An internal read-only active-batch loader reconstructing the seven stored CSV DataFrames and separate survey/provenance metadata; it is not connected to routes or full-batch assessment execution.
 - Login/logout, database-checked sessions and a reusable System Administrator guard.
 - A minimal protected landing showing the signed-in role and Sign Out; `/test` remains public.
 - The same synthetic household generator and metadata fixtures for backend tests; no household records are loaded/rendered by the minimal interface.
@@ -23,6 +24,11 @@ Old record/assessment URLs now return a generic retirement response after login.
 The sidebar, records/assessment templates, CSS/JavaScript and UI-only helpers are
 removed. Admin import/account screens, real CBMS display and the new staff design
 remain separately scoped work; no dashboard or replacement staff panels exist.
+
+The separately authorized first local import is validated active batch `1` in
+`tanglaw_buhay_dev`, for 2022 Pozorrubio. Phase 6B.4 Task 1 now verifies exact
+DataFrame reconstruction against the local CSV snapshot using read-only queries.
+Full-batch scoring and authorized real-record views remain unimplemented.
 
 ## CBMS source and provenance
 

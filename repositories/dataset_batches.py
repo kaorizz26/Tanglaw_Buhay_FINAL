@@ -1,6 +1,7 @@
-"""SQL storage for validated CSV snapshots; the caller owns the transaction."""
+"""Store and read validated CSV snapshots; the caller owns the transaction."""
 
 from psycopg import sql
+from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 
@@ -15,6 +16,33 @@ REFERENCE_TABLES = {
     "mpi_mapping": "mpi_code_mappings",
     "definitions": "variable_definitions",
 }
+
+
+def find_active_batches(connection):
+    """Read at most two validated active batches so ambiguous state is rejected."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, survey_year, municipality, source_columns,
+                      source_provenance, validation_status, is_active
+               FROM dataset_batches
+               WHERE is_active = true AND validation_status = 'validated'
+               LIMIT 2""",
+        ).fetchall()
+
+
+def iter_batch_records(connection, batch_id, dataset_name):
+    """Yield original row positions and JSON responses from a trusted table."""
+    tables = {name: table for name, (table, _) in SOURCE_TABLES.items()}
+    tables.update(REFERENCE_TABLES)
+    if dataset_name not in tables:
+        raise ValueError("Unknown batch dataset.")
+    statement = sql.SQL(
+        """SELECT source_row_number, responses FROM {}
+           WHERE batch_id = %s ORDER BY source_row_number ASC""",
+    ).format(sql.Identifier(tables[dataset_name]))
+    with connection.cursor() as cursor:
+        cursor.execute(statement, (batch_id,))
+        yield from cursor
 
 
 def lock_dataset_imports(connection):

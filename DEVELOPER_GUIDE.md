@@ -35,8 +35,9 @@ Local Excel files and finalized reference CSVs
 | `repositories/staff_users.py`, `commands.py` | Staff account SQL and explicitly invoked local administrator bootstrap. |
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
-| `repositories/dataset_batches.py` | Stores batch-scoped CSV snapshots and activates batches within a caller-owned transaction. |
+| `repositories/dataset_batches.py` | Stores/activates batch snapshots and provides batch-scoped, ordered read queries; callers own transactions. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
+| `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
 | `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
@@ -65,6 +66,9 @@ for backend/CSV tests. Its obsolete UI workspace builder was removed.
 `fixtures/development_metadata.json` retains finalized development-only metadata
 and source hashes, with no household records. Actual batch integration must
 provide its own finalized references; the fixture is not a production mapping.
+The active-batch loader now supplies the same Pandas input dictionaries from
+stored CSV responses. Its implementation does not connect the minimal interface
+or assessment services to real records; that integration remains pending.
 
 ## 2. Loading and joining CBMS data
 
@@ -593,3 +597,59 @@ as well. Neither development nor old databases, private `.env`, source files,
 assessment engines or importer behavior are changed by authentication tests.
 Real CBMS access, staff account lifecycle, review permissions and deployment
 hardening remain separately scoped work.
+
+## 14. Phase 6B.4 Task 1: read-only active-batch loader
+
+`services.active_batch_loader.load_active_batch(connection_factory=get_connection)`
+returns `(datasets, references, metadata)`. The default connection uses the
+existing Flask `DATABASE_URL`; an explicit factory must return a new, idle,
+caller-owned psycopg connection. The service owns its lifetime and begins a
+`REPEATABLE READ, READ ONLY` transaction before reading any batch data. All seven
+frames therefore come from one consistent snapshot, even if a separately
+authorized importer activates a different batch concurrently.
+
+`repositories.dataset_batches.find_active_batches()` selects only rows with
+`is_active = true` and `validation_status = 'validated'`, reading at most two so
+an ambiguous state can be rejected. The service requires one batch with a
+positive ID, survey year 2022, municipality Pozorrubio and complete imported
+column/provenance metadata. It does not hardcode batch ID 1 or the pilot counts.
+`iter_batch_records()` uses only the repository's trusted table mapping and a
+parameterized batch ID, with `ORDER BY source_row_number ASC` for every table.
+
+The service rebuilds `dtype=object` DataFrames from the original JSONB response
+objects, with columns explicitly ordered by `source_columns`. It uses response
+UUIDs and member line strings, preserving leading zeros, blanks, literal `NA`
+and all other strings; it does not replace them with relational integer keys.
+Source positions must be contiguous from 1, response keys must match the recorded
+columns, every cell must remain a string and counts must match file provenance.
+Header-only datasets retain their columns. Missing cells or rows are rejected,
+never filled in. Metadata is returned separately with `batch_id`, `survey_year`,
+`municipality`, `validation_status`, `is_active`, `source_columns` and
+`source_provenance`, including original file names, counts and SHA-256 hashes.
+
+`ActiveBatchError` exposes only fixed codes: missing/invalid active metadata,
+invalid records, count mismatch, non-idle connection or unavailable database.
+Database exception details are suppressed. Frames and provenance are private
+backend objects, not a public response or an authorization boundary. The loader
+does not read source files, re-run preflight, score households, screen subsidies,
+create reviews or perform database writes. It trusts the validated import's
+format; independent schema/join checks and file comparisons belong to verification.
+Full-batch assessment integration and protected views remain pending; the
+fixture-only route guard is unchanged.
+
+Focused synthetic tests require no database:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_active_batch_loader.py -v
+```
+
+All 14 focused tests passed, including complete synthetic engine-output
+comparisons. On 2026-10-13, read-only verification of local `tanglaw_buhay_dev`,
+schema `public`, active batch 1 confirmed all seven expected counts, original
+row/column order and exact response equality with the local CSV snapshot.
+PostgreSQL reported read-only/repeatable-read execution; existing structural
+checks passed with 16 indicator inputs and zero orphan/duplicate join keys.
+The broader suite ran 181 tests: 159 passed and 22 database integration cases
+were deliberately skipped with database connections blocked. No real-batch
+assessment or screening was performed and no database, source or configuration
+files were modified by these checks.
