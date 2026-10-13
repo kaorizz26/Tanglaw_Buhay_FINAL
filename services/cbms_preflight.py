@@ -12,6 +12,8 @@ from services.data_loader import (
     _verify_indicator_columns, _verify_joins,
 )
 from services.vulnerability.direct import build_deprivation_map
+from services.vulnerability.health import FIES_FIELDS
+from services.vulnerability.housing import ASSET_FIELDS
 
 
 # These are the variables consumed by existing direct mapping functions.
@@ -20,10 +22,23 @@ DIRECT_MAPPING_FIELDS = (
     "h01_access_to_public_transportation", "q14_toilet_facility",
     "q19_share_toilet", "r03_roof", "r04_outer_walls", "r06_floor",
 )
-# Dependencies not fully described by the MPI mapping expressions.
-ADDITIONAL_ENGINE_COLUMNS = {
-    "section_a_e_indiv": ("b06_ofi", "e11_nature_of_employment", "e18_class_of_worker"),
-    "section_l02_to_l41": ("l07_currently_pregnant", "l16_pwd"),
+# Required source inputs are independent of uploaded reference declarations.
+# Reuse engine field groups; this contract contains no scoring or routing rules.
+# Join keys are checked separately using KEYS and _dataset_statistics.
+REQUIRED_ENGINE_COLUMNS = {
+    "household": (
+        *DIRECT_MAPPING_FIELDS, *ASSET_FIELDS, *FIES_FIELDS,
+        "r07_floor_area", "l33_member_who_has_been_sick",
+    ),
+    "section_a_e_indiv": (
+        "a07_age", "b06_ofi", "e01_employed", "e11_nature_of_employment",
+        "e18_class_of_worker", "e15_want_more_hours", "c02_hgc_group",
+        "c03_currently_attending_school",
+    ),
+    "section_l02_to_l41": (
+        "l07_currently_pregnant", "l16_pwd", "l34_has_been_sick",
+        "l38_availed_medical_treatment",
+    ),
 }
 
 
@@ -120,7 +135,7 @@ def _check_sources(datasets, report):
                 _issue(report, "errors", name, code, count)
         if name == "household" and frame.empty:
             _issue(report, "errors", name, "empty_household_dataset")
-        missing = sum(field not in frame for field in ADDITIONAL_ENGINE_COLUMNS.get(name, ()))
+        missing = sum(field not in frame for field in REQUIRED_ENGINE_COLUMNS.get(name, ()))
         if missing:
             _issue(report, "errors", name, "missing_engine_columns", missing)
         if (
@@ -132,6 +147,10 @@ def _check_sources(datasets, report):
             count = int(frame.duplicated(keep=False).sum())
             if count:
                 _issue(report, "warnings", name, "identical_child_death_rows", count)
+    households = datasets.get("household")
+    members = datasets.get("section_a_e_indiv")
+    if households is not None and not households.empty and members is not None and members.empty:
+        _issue(report, "errors", "section_a_e_indiv", "empty_household_roster")
 
 
 def _integer_key(value):

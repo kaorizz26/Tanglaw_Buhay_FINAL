@@ -162,7 +162,8 @@ class CsvPreflightTests(unittest.TestCase):
         self.assertIn(
             ("section_l_to_members", "missing_related_records"), self._codes(report, "warnings"),
         )
-        self.datasets["section_a_e_indiv"].iloc[:0].to_csv(
+        members = self.datasets["section_a_e_indiv"]
+        members.loc[members["uuid"].ne("DEV-0001")].to_csv(
             self._source_path("section_a_e_indiv"), index=False,
         )
         report = validate_csv_bundle(self.root)
@@ -171,6 +172,56 @@ class CsvPreflightTests(unittest.TestCase):
             ("section_a_e_indiv_to_household", "missing_related_records"),
             self._codes(report, "warnings"),
         )
+
+    def test_empty_roster_blocks_nonempty_households(self):
+        for name in ("section_a_e_indiv", "section_l02_to_l41"):
+            self.datasets[name].iloc[:0].to_csv(self._source_path(name), index=False)
+        report = validate_csv_bundle(self.root)
+        self.assertFalse(report["passed"])
+        self.assertIn(("section_a_e_indiv", "empty_household_roster"), self._codes(report))
+        self.assertEqual(report["datasets"]["section_l11_to_l14"]["records"], 0)
+        self.assertEqual(report["datasets"]["section_a_e_indiv"]["records"], 0)
+        self.assertGreater(report["datasets"]["household"]["records"], 0)
+
+    def test_engine_inputs_remain_required_without_reference_declarations(self):
+        cases = (
+            ("household", "r07_floor_area"),
+            ("household", "l33_member_who_has_been_sick"),
+            ("household", "r16_n_mobile_phone"),
+            ("household", "j01_worried"),
+            ("section_a_e_indiv", "a07_age"),
+            ("section_a_e_indiv", "c02_hgc_group"),
+            ("section_a_e_indiv", "c03_currently_attending_school"),
+            ("section_a_e_indiv", "e01_employed"),
+            ("section_a_e_indiv", "e15_want_more_hours"),
+            ("section_l02_to_l41", "l34_has_been_sick"),
+            ("section_l02_to_l41", "l38_availed_medical_treatment"),
+        )
+        for name, field in cases:
+            with self.subTest(source=name, field=field):
+                self._write_bundle()
+                self.datasets[name].drop(columns=[field]).to_csv(
+                    self._source_path(name), index=False,
+                )
+                for reference in ("definitions", "codebook"):
+                    frame = self.references[reference]
+                    frame.loc[frame["variable_name"].ne(field)].to_csv(
+                        self.root / "reference" / REFERENCE_FILES[reference], index=False,
+                    )
+                mapping = self.references["mpi_mapping"].copy()
+                # Keep 16 indicator groups and valid direct rules, but remove
+                # composite declarations that would otherwise expose the gap.
+                composite = mapping["variable_name"].str.contains(r"\+|J01-J08|Selected R16")
+                mapping.loc[composite, "variable_name"] = "q01_main_water + r10_tenure"
+                mapping.to_csv(
+                    self.root / "reference" / REFERENCE_FILES["mpi_mapping"], index=False,
+                )
+                before = {path: path.read_bytes() for path in self.root.rglob("*.csv")}
+                report = validate_csv_bundle(self.root)
+                self.assertFalse(report["passed"])
+                self.assertEqual(self._codes(report), {(name, "missing_engine_columns")})
+                self.assertEqual(report["indicator_count"], 16)
+                self.assertEqual(before, {path: path.read_bytes() for path in before})
 
     def test_leading_zero_keys_pass_without_rewriting(self):
         for name, frame in self.datasets.items():

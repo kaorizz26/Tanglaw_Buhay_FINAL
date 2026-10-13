@@ -454,14 +454,19 @@ The UTF-8 reader accepts an optional BOM, preserves column names, row order and
 all parsed response strings (including leading zeros, empty strings, `NA` and
 `0`), and rejects duplicate/blank headers and malformed or uneven rows. Existing
 key, join, reference and indicator helpers are reused. Finalized definitions
-supply the declared source-column contract; existing direct mapping compilers
-check the rules actually consumed by the engines. The Excel loader is unchanged.
+supply the declared source-column contract; a separate required engine-column
+contract reuses the existing asset/FIES field lists and requires the other
+engine inputs even when their uploaded declarations are removed. Existing
+direct mapping compilers check the rules consumed by the engines. The Excel
+loader is unchanged.
 
 Missing files/required columns, blank or duplicate keys, orphan records, invalid
 integer member lines, integer-key collisions and invalid references/indicator
 inputs are blocking errors. Joins compare original key text exactly; mismatched
 line-number spellings are not silently reconciled. Repeated household UUIDs in
-child-death records are valid. Missing roster/Section L records, identical
+child-death records are valid, including a header-only child-death file. A
+nonempty household dataset with an entirely empty roster is a blocking error.
+Partial household roster gaps, missing individual Section L records, identical
 child-death rows, additional undefined columns and blank provenance produce
 warnings without rewriting responses or inferring negative evidence.
 
