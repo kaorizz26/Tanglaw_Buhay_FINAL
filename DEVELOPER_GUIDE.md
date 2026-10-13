@@ -1,7 +1,7 @@
 # Tanglaw-Buhay backend developer guide
 
-This guide describes the existing Phase 4C vulnerability engine and Phase 5B
-subsidy pre-screening rules. The screening package separates the four programs from shared parsing and
+This guide describes the Phase 4C vulnerability engine, Phase 5B screening
+rules, and Phase 6A unified assessment / staff interface foundation. The screening package separates the four programs from shared parsing and
 metadata. The cleanup preserves the rules, output fields and household results.
 
 Tanglaw-Buhay provides decision support. A vulnerability rank indicates review
@@ -28,10 +28,10 @@ Local Excel files and finalized reference CSVs
 
 | Module | Responsibility |
 |---|---|
-| `app.py` | Creates Flask and registers the main route blueprint. |
+| `app.py` | Creates Flask, prepares the synthetic workspace once, and registers feature blueprints. |
 | `config.py` | Reads local environment configuration. |
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
-| `routes/main.py` | Provides the existing `/test` health route. |
+| `routes/main.py` | Provides the landing/health routes, fixture-source guard and shared pagination. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
 | `services/vulnerability/housing.py` | Calculates assets, sanitation, housing materials and overcrowding. |
@@ -46,8 +46,27 @@ Local Excel files and finalized reference CSVs
 | `scripts/` | Runs aggregate verification without printing names or household identifiers. |
 | `tests/` | Checks rules and boundary cases using synthetic examples, not source household records. |
 
-The Flask route currently verifies that the scaffold runs. It does not invoke
-the assessment engines or provide a staff interface yet.
+The staff interface reads a synthetic batch prepared once in `create_app()`.
+Public routes cannot select Excel files or connect a real CBMS source. The
+`/test` route still responds without PostgreSQL. `services/assessments.py`
+combines the engines by UUID and preserves each complete MPI row and all four
+complete screening payloads. It rejects duplicate keys, incomplete programs,
+different household sets and survey-year mismatches.
+
+`services/development_data.py` generates 32 clearly identified sample households
+using original field names. Scores, indicators and screening findings are
+calculated by the existing engines, not hardcoded. The JSON in
+`fixtures/development_metadata.json` is a development-only snapshot of exact
+finalized metadata rows (with source hashes); it contains no household records.
+It lets the UI run without the private `data/raw/` or `data/reference/` files.
+Actual batch integration must provide its own finalized references; do not use
+this development snapshot as an alternative production mapping.
+
+`services/assessment_views.py` builds presentation context and decoded labels.
+It shows source values next to meanings, preserves missing responses, and
+identifies a household head only when exactly one roster relationship is 1.
+Indicator panels display the existing engine flag and its inputs; the view layer
+does not classify deprivation or recalculate filtered ranks.
 
 ## 2. Loading and joining CBMS data
 
@@ -317,3 +336,65 @@ for the newer SPISC and TUPAD issuances.
 Historical conditions do not establish current eligibility. Zero-point unknowns
 can underestimate vulnerability, and approved employment assumptions can affect
 ranking. These are existing limitations, not rules changed by this refactor.
+
+## 9. Staff interface: running and extending Phase 6A
+
+Run locally from the activated virtual environment:
+
+```powershell
+python app.py
+```
+
+Open http://127.0.0.1:5000/assessments. The entry point binds to loopback with
+Flask debug disabled. Only development fixtures are served. No database,
+credentials or original Excel datasets are needed to view these pages.
+
+| Route | Purpose |
+|---|---|
+| `/` | Opens Assessments. |
+| `/test` | Existing JSON health check. |
+| `/households` | Searchable, barangay-filtered, paginated directory. |
+| `/households/<uuid>` | Read-only profile, roster and source conditions. |
+| `/assessments` | Prioritization with search, sorting, barangay, program-signal and MPI-coverage filters. |
+| `/assessments?view=queue` | Honest placeholder for the next persistence phase. |
+| `/assessments/<uuid>` | Overview, MPI Indicators, Subsidy Screening and Review History tabs. |
+
+Use `?tab=mpi`, `?tab=subsidy&program=SLP`, or `?tab=history` for shareable
+detail URLs. An ID such as `DEV-0001` identifies a synthetic fixture, not a
+new official household identifier. UI ranks are labeled development-batch ranks;
+a future authenticated full-municipality source will retain its original
+municipality-wide ranks after any filters.
+
+Feature routes live in `routes/households.py` and `routes/assessments.py`.
+`routes/main.py` provides the fixture-source guard and shared pagination.
+`templates/base.html` owns the sidebar, breadcrumbs and development notice.
+Module templates inherit it; `templates/components/macros.html` shares icons,
+status badges, metrics, source facts and pagination. MPI/program panels are
+separate partial templates. `static/css/app.css` groups shared tokens and
+component/responsive styles. `navigation.js` handles the mobile menu;
+`assessment.js` handles program selection and keyboard arrow navigation.
+Filters and tab links work through Flask; disclosures use native HTML details.
+The layout also supplies navigation and program links when JS is unavailable.
+
+All current summary counts come from the loaded fixture batch. A program-signal
+filter means the selected program has For Review; MPI Needs Data Review is a
+calculation gap, not a staff review status. Repeated requests use the startup
+assessment results. Changes to the fixture generator or engines require a server
+restart. Static assets do not use external fonts, frameworks or a build pipeline.
+
+PostgreSQL persistence and staff authentication remain deferred. Review Queue
+and Review History explicitly say they are unconnected; there are no fabricated
+reviews, start/complete controls or temporary writes. Next-phase reviews remain
+per household/program, may be continued by authorized staff, use Not Yet Reviewed
+/ In Review / Completed and Further Verification Recommended / No Further Action,
+and require justification when started without a historical trigger. Review
+decisions must never overwrite system scores or screening results.
+
+Before enabling actual CBMS access, add authenticated staff authorization and a
+protected source/repository boundary. The current public feature routes explicitly
+accept only a development workspace; there is no environment switch that exposes
+real records. Do not remove that guard as a shortcut.
+
+The tests in `tests/test_assessments.py` cover output preservation, UUID alignment,
+source immutability, navigation, filters, pagination, score/rank independence and
+the fixture-only boundary. Run the complete suite using the command in section 7.

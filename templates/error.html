@@ -1,0 +1,2 @@
+{% extends 'base.html' %}
+{% block content %}<section class="panel empty-state"><p class="eyebrow">{{ error.code }}</p><h1>{% if error.code == 404 %}This record or page was not found{% else %}This request could not be opened{% endif %}</h1><p>{% if error.code == 404 %}Check the address or return to the household directory.{% else %}{{ error.description }}{% endif %}</p><a class="button button--primary" href="{{ url_for('assessments.index') }}">Return to assessments</a></section>{% endblock %}

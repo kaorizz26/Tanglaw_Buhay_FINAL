@@ -1,0 +1,2583 @@
+{
+  "purpose": "Development fixture metadata only; exact rows copied from finalized references. No CBMS household records.",
+  "source_sha256": {
+    "Tanglaw_Buhay_Codebook_Values_FINAL.csv": "1c221e24e3cc9b2c09c2b24686b6238226ed26f2f064d56b2346a5cc5dcbae6f",
+    "Tanglaw_Buhay_MPI_Mapping_FinalProbably.csv": "43f0339d7c331b2711117987da1c237ceab6e6fad189c0d5472eabc0bb895195",
+    "Tanglaw_Buhay_Variable_Definitions_FINAL.csv": "668852c09762a064010850ce8afae4bf8875fa2ac9c978dea279d807d631c2a9"
+  },
+  "references": {
+    "codebook": [
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "1",
+        "label": "Head"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "2",
+        "label": "Spouse"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "3",
+        "label": "Son"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "4",
+        "label": "Daughter"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "5",
+        "label": "Stepson"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "6",
+        "label": "Stepdaughter"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "7",
+        "label": "Son-in-law"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "8",
+        "label": "Daughter-in-law"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "9",
+        "label": "Grandson"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "10",
+        "label": "Granddaughter"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "11",
+        "label": "Father"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "12",
+        "label": "Mother"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "13",
+        "label": "Father-in-law"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "14",
+        "label": "Mother-in-law"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "15",
+        "label": "Brother"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "16",
+        "label": "Sister"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "17",
+        "label": "Brother-in-law"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "18",
+        "label": "Sister-in-law"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "19",
+        "label": "Uncle"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "20",
+        "label": "Aunt"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "21",
+        "label": "Nephew"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "22",
+        "label": "Niece"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "23",
+        "label": "Other relative"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "24",
+        "label": "Boarder"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "25",
+        "label": "Domestic helper"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "code": "26",
+        "label": "Nonrelative"
+      },
+      {
+        "variable_name": "a05_sex",
+        "code": "1",
+        "label": "Male"
+      },
+      {
+        "variable_name": "a05_sex",
+        "code": "2",
+        "label": "Female"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "1",
+        "label": "Single"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "2",
+        "label": "Married"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "3",
+        "label": "Common law/live-in"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "4",
+        "label": "Widowed"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "5",
+        "label": "Divorced"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "6",
+        "label": "Separated"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "7",
+        "label": "Annulled"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "code": "8",
+        "label": "Unknown"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "code": "1",
+        "label": "Yes, Overseas Filipino Worker (OFW) with contract"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "code": "2",
+        "label": "Yes, Other OFW with no contract"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "code": "3",
+        "label": "Yes, Employee in Philippine embassy, consulates, and other missions"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "code": "4",
+        "label": "Yes, Student abroad"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "code": "5",
+        "label": "Yes, Tourist"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "code": "6",
+        "label": "Yes, Other Overseas Filipino not elsewhere classified"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "code": "7",
+        "label": "No, Resident (Philippines)"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "1",
+        "label": "No Grade Completed / Early Childhood Education"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "2",
+        "label": "Elementary Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "3",
+        "label": "Elementary Graduate"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "4",
+        "label": "Junior High School Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "5",
+        "label": "Junior High School Graduate"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "6",
+        "label": "Senior High School Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "7",
+        "label": "Senior High School Graduate"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "8",
+        "label": "Post-Secondary Non-Tertiary Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "9",
+        "label": "Post-Secondary Non-Tertiary Graduate"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "10",
+        "label": "Short-Cycle Tertiary Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "11",
+        "label": "Short-Cycle Tertiary Graduate"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "12",
+        "label": "College Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "13",
+        "label": "College Graduate"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "14",
+        "label": "Masteral Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "15",
+        "label": "Masteral Graduate"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "16",
+        "label": "Doctoral Level"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "code": "17",
+        "label": "Doctoral Graduate"
+      },
+      {
+        "variable_name": "c03_currently_attending_school",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "c03_currently_attending_school",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "c07_tvet_graduate",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "c07_tvet_graduate",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "c08_tvet_currently_attending",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "c08_tvet_currently_attending",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "e01_employed",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "e01_employed",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "e11_nature_of_employment",
+        "code": "1",
+        "label": "Permanent job/business/unpaid family work"
+      },
+      {
+        "variable_name": "e11_nature_of_employment",
+        "code": "2",
+        "label": "Short-term, seasonal, or casual job/business/unpaid family work"
+      },
+      {
+        "variable_name": "e11_nature_of_employment",
+        "code": "3",
+        "label": "Worked for different employers or customers on a day-to-day or week-to-week basis"
+      },
+      {
+        "variable_name": "e15_want_more_hours",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "e15_want_more_hours",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "code": "0",
+        "label": "Worked for private household"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "code": "1",
+        "label": "Worked for private establishment"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "code": "2",
+        "label": "Worked for government/government-owned and controlled corporation"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "code": "3",
+        "label": "Self-employed without any paid employee"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "code": "4",
+        "label": "Employer in own family-operated farm or business"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "code": "5",
+        "label": "Worked with pay in own family-operated farm or business"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "code": "6",
+        "label": "Worked without pay in own family-operated farm or business"
+      },
+      {
+        "variable_name": "h01_access_to_public_transportation",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "h01_access_to_public_transportation",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j01_worried",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j01_worried",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j01_worried",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j01_worried",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "j02_not_eaten_healthy",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j02_not_eaten_healthy",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j02_not_eaten_healthy",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j02_not_eaten_healthy",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "j03_ate_few_food",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j03_ate_few_food",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j03_ate_few_food",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j03_ate_few_food",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "j04_skipped_meal",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j04_skipped_meal",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j04_skipped_meal",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j04_skipped_meal",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "j05_ate_less",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j05_ate_less",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j05_ate_less",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j05_ate_less",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "j06_ran_out_of_food",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j06_ran_out_of_food",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j06_ran_out_of_food",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j06_ran_out_of_food",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "j07_hungry",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j07_hungry",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j07_hungry",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j07_hungry",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "j08_not_eaten_whole_day",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "j08_not_eaten_whole_day",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "j08_not_eaten_whole_day",
+        "code": "8",
+        "label": "Don't know"
+      },
+      {
+        "variable_name": "j08_not_eaten_whole_day",
+        "code": "9",
+        "label": "Prefer not to answer"
+      },
+      {
+        "variable_name": "l01_with_member_who_has_been_pregnant",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l01_with_member_who_has_been_pregnant",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "l06_with_member_currently_pregnant",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l06_with_member_currently_pregnant",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "l07_currently_pregnant",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l07_currently_pregnant",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "l15_with_pwd_member",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l15_with_pwd_member",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "l16_pwd",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l16_pwd",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "l33_member_who_has_been_sick",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l33_member_who_has_been_sick",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "l34_has_been_sick",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l34_has_been_sick",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "l38_availed_medical_treatment",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "l38_availed_medical_treatment",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "n01_internet_acess",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "n01_internet_acess",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "1",
+        "label": "Community water system piped into dwelling"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "2",
+        "label": "Community water system piped into yard / plot"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "3",
+        "label": "Community water system - public tap"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "4",
+        "label": "Protected well / tube well / borehole"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "5",
+        "label": "Unprotected (open dug) well"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "6",
+        "label": "Developed spring"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "7",
+        "label": "Undeveloped spring"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "8",
+        "label": "River / stream / pond / lake / dam"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "9",
+        "label": "Rainwater"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "10",
+        "label": "Tanker truck / peddler / neighbor"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "code": "99",
+        "label": "Others, specify"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "11",
+        "label": "Flush / pour flush to piped sewer system"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "12",
+        "label": "Flush / pour flush to septic tank"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "13",
+        "label": "Flush / pour flush to pit latrine"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "14",
+        "label": "Flush / pour flush to open drain"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "15",
+        "label": "Flush / pour flush to don't know where"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "21",
+        "label": "Ventilated improved latrine"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "22",
+        "label": "Pit latrine with slab"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "23",
+        "label": "Pit latrine without slab / open pit"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "31",
+        "label": "Composting toilet"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "41",
+        "label": "Bucket"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "51",
+        "label": "Hanging toilet / hanging latrine"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "71",
+        "label": "Public toilet"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "95",
+        "label": "No facility / bush / field"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "code": "99",
+        "label": "Others, specify"
+      },
+      {
+        "variable_name": "q19_share_toilet",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "q19_share_toilet",
+        "code": "2",
+        "label": "No"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "1",
+        "label": "Single house"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "2",
+        "label": "Duplex"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "3",
+        "label": "Apartment/accessoria/rowhouse"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "4",
+        "label": "Condominium/condotel"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "5",
+        "label": "Other multi-unit residential"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "6",
+        "label": "Commercial/industrial/agricultural (e.g., office, factory, barn)"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "7",
+        "label": "Institutional living quarter (e.g., hotel, hospital, convent, jail)"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "8",
+        "label": "None (e.g., homeless, cart)"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "9",
+        "label": "Other types of building (e.g., bus/trailer, boat, tent)"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "code": "10",
+        "label": "Temporary evacuation center/relocation area (school/gym/relocation housing)"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "1",
+        "label": "Galvanized iron/aluminum"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "2",
+        "label": "Concrete/clay tile"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "3",
+        "label": "Half galvanized iron and half concrete"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "4",
+        "label": "Wood/bamboo"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "5",
+        "label": "Cogon/nipa/anahaw"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "6",
+        "label": "Asbestos"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "7",
+        "label": "Makeshift/salvaged/improvised materials"
+      },
+      {
+        "variable_name": "r03_roof",
+        "code": "9",
+        "label": "Others, specify"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "1",
+        "label": "Concrete/brick/stone"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "2",
+        "label": "Wood"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "3",
+        "label": "Half concrete/brick/stone and half wood"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "4",
+        "label": "Galvanized iron/aluminum"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "5",
+        "label": "Bamboo/sawali/cogon/nipa"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "6",
+        "label": "Asbestos"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "7",
+        "label": "Glass"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "8",
+        "label": "Makeshift/salvaged/improvised materials"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "9",
+        "label": "None"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "10",
+        "label": "Concrete hollow blocks"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "11",
+        "label": "Concrete hollow blocks/wood"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "12",
+        "label": "Shear walls"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "code": "99",
+        "label": "Others, specify"
+      },
+      {
+        "variable_name": "r06_floor",
+        "code": "1",
+        "label": "Concrete"
+      },
+      {
+        "variable_name": "r06_floor",
+        "code": "2",
+        "label": "Wood"
+      },
+      {
+        "variable_name": "r06_floor",
+        "code": "3",
+        "label": "Coconut lumber"
+      },
+      {
+        "variable_name": "r06_floor",
+        "code": "4",
+        "label": "Bamboo"
+      },
+      {
+        "variable_name": "r06_floor",
+        "code": "5",
+        "label": "Earth/sand/mud"
+      },
+      {
+        "variable_name": "r06_floor",
+        "code": "6",
+        "label": "Makeshift/salvaged/improvised materials"
+      },
+      {
+        "variable_name": "r06_floor",
+        "code": "9",
+        "label": "Others, specify"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "code": "1",
+        "label": "Own or owner-like possession of the house and lot"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "code": "2",
+        "label": "Own house, rent lot"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "code": "3",
+        "label": "Own house, rent-free lot with consent of owner"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "code": "4",
+        "label": "Own house, rent-free lot without consent of owner"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "code": "5",
+        "label": "Rent house/room, including lot"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "code": "6",
+        "label": "Rent-free house and lot with consent of owner"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "code": "7",
+        "label": "Rent-free house and lot without consent of owner"
+      },
+      {
+        "variable_name": "r12_electricity",
+        "code": "1",
+        "label": "Yes"
+      },
+      {
+        "variable_name": "r12_electricity",
+        "code": "2",
+        "label": "No"
+      }
+    ],
+    "mpi_mapping": [
+      {
+        "dimension": "Education",
+        "indicator": "School Attendance",
+        "variable_name": "a07_age + c03_currently_attending_school",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python: household is deprived if any member age 5-17 is not currently attending school.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Education",
+        "indicator": "Educational Attainment (Adapted)",
+        "variable_name": "a07_age + c02_hgc_group",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python using age and the approved Tanglaw-Buhay HGC cohort rule.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Health and Nutrition",
+        "indicator": "Food Insecurity (Pilot Approximation)",
+        "variable_name": "J01-J08",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python from the eight required food-insecurity responses.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Health and Nutrition",
+        "indicator": "Illness (Proxy)",
+        "variable_name": "L33 + L34 + L38",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python from household illness, affected-member, and medical-treatment responses.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "11",
+        "value_meaning": "Flush / pour flush to piped sewer system",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "12",
+        "value_meaning": "Flush / pour flush to septic tank",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "13",
+        "value_meaning": "Flush / pour flush to pit latrine",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "14",
+        "value_meaning": "Flush / pour flush to open drain",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "15",
+        "value_meaning": "Flush / pour flush to don't know where",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "21",
+        "value_meaning": "Ventilated improved latrine",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "22",
+        "value_meaning": "Pit latrine with slab",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "23",
+        "value_meaning": "Pit latrine without slab / open pit",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "31",
+        "value_meaning": "Composting toilet",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "41",
+        "value_meaning": "Bucket",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "51",
+        "value_meaning": "Hanging toilet / hanging latrine",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "71",
+        "value_meaning": "Public toilet",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "95",
+        "value_meaning": "No facility / bush / field",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "99",
+        "value_meaning": "Others, specify",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q19_share_toilet",
+        "code": "1",
+        "value_meaning": "Yes",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q19_share_toilet",
+        "code": "2",
+        "value_meaning": "No",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q19_share_toilet",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Sanitation/Toilet",
+        "variable_name": "q14_toilet_facility + q19_share_toilet",
+        "code": "COMPUTED",
+        "value_meaning": "Final indicator is calculated in Python by combining toilet-facility type and toilet-sharing status.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "1",
+        "value_meaning": "Community water system piped into dwelling",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "2",
+        "value_meaning": "Community water system piped into yard / plot",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "3",
+        "value_meaning": "Community water system - public tap",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "4",
+        "value_meaning": "Protected well / tube well / borehole",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "5",
+        "value_meaning": "Unprotected (open dug) well",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "6",
+        "value_meaning": "Developed spring",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "7",
+        "value_meaning": "Undeveloped spring",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "8",
+        "value_meaning": "River / stream / pond / lake / dam",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "9",
+        "value_meaning": "Rainwater",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "10",
+        "value_meaning": "Tanker truck / peddler / neighbor",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "99",
+        "value_meaning": "Others, specify",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Water",
+        "variable_name": "q01_main_water",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Assets (Adapted to Available Fields)",
+        "variable_name": "Selected R16 asset fields",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python from the selected communication, durable, and mobility asset groups.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "1",
+        "value_meaning": "Own or owner-like possession of the house and lot",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "2",
+        "value_meaning": "Own house, rent lot",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "3",
+        "value_meaning": "Own house, rent-free lot with consent of owner",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "4",
+        "value_meaning": "Own house, rent-free lot without consent of owner",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "5",
+        "value_meaning": "Rent house/room, including lot",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "6",
+        "value_meaning": "Rent-free house and lot with consent of owner",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "7",
+        "value_meaning": "Rent-free house and lot without consent of owner",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Tenure",
+        "variable_name": "r10_tenure",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "1",
+        "value_meaning": "Galvanized iron/aluminum",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "2",
+        "value_meaning": "Concrete/clay tile",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "3",
+        "value_meaning": "Half galvanized iron and half concrete",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "4",
+        "value_meaning": "Wood/bamboo",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "5",
+        "value_meaning": "Cogon/nipa/anahaw",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "6",
+        "value_meaning": "Asbestos",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "7",
+        "value_meaning": "Makeshift/salvaged/improvised materials",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "9",
+        "value_meaning": "Others, specify",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "1",
+        "value_meaning": "Concrete/brick/stone",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "2",
+        "value_meaning": "Wood",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "3",
+        "value_meaning": "Half concrete/brick/stone and half wood",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "4",
+        "value_meaning": "Galvanized iron/aluminum",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "5",
+        "value_meaning": "Bamboo/sawali/cogon/nipa",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "6",
+        "value_meaning": "Asbestos",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "7",
+        "value_meaning": "Glass",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "8",
+        "value_meaning": "Makeshift/salvaged/improvised materials",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "9",
+        "value_meaning": "None",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "10",
+        "value_meaning": "Concrete hollow blocks",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "11",
+        "value_meaning": "Concrete hollow blocks/wood",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "12",
+        "value_meaning": "Shear walls",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "99",
+        "value_meaning": "Others, specify",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r04_outer_walls",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "1",
+        "value_meaning": "Concrete",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "2",
+        "value_meaning": "Wood",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "3",
+        "value_meaning": "Coconut lumber",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "4",
+        "value_meaning": "Bamboo",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "5",
+        "value_meaning": "Earth/sand/mud",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "6",
+        "value_meaning": "Makeshift/salvaged/improvised materials",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "9",
+        "value_meaning": "Others, specify",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r06_floor",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Housing Materials",
+        "variable_name": "r03_roof + r04_outer_walls + r06_floor",
+        "code": "COMPUTED",
+        "value_meaning": "Final indicator is calculated in Python: deprived if any mapped roof, wall, or floor component is deprived.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Electricity",
+        "variable_name": "r12_electricity",
+        "code": "1",
+        "value_meaning": "Yes",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Electricity",
+        "variable_name": "r12_electricity",
+        "code": "2",
+        "value_meaning": "No",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Electricity",
+        "variable_name": "r12_electricity",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Internet Access",
+        "variable_name": "n01_internet_acess",
+        "code": "1",
+        "value_meaning": "Yes",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Internet Access",
+        "variable_name": "n01_internet_acess",
+        "code": "2",
+        "value_meaning": "No",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Internet Access",
+        "variable_name": "n01_internet_acess",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Overcrowding",
+        "variable_name": "r07_floor_area + household member count",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python: floor area per household member below 4 square meters is deprived.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Access to Public Transportation",
+        "variable_name": "h01_access_to_public_transportation",
+        "code": "1",
+        "value_meaning": "Yes",
+        "deprived": "0"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Access to Public Transportation",
+        "variable_name": "h01_access_to_public_transportation",
+        "code": "2",
+        "value_meaning": "No",
+        "deprived": "1"
+      },
+      {
+        "dimension": "Housing, Water, and Sanitation",
+        "indicator": "Access to Public Transportation",
+        "variable_name": "h01_access_to_public_transportation",
+        "code": "MISSING / INVALID",
+        "value_meaning": "Value cannot be classified from the available raw data.",
+        "deprived": "NULL"
+      },
+      {
+        "dimension": "Employment",
+        "indicator": "Employment Deprivation Proxy",
+        "variable_name": "a07_age + e01_employed",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python from the proportion of valid working-age members who did not work during the reference week.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Employment",
+        "indicator": "Underemployment (Proxy)",
+        "variable_name": "a07_age + e01_employed + e15_want_more_hours",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python from employed working-age members and whether they want additional work hours.",
+        "deprived": "—"
+      },
+      {
+        "dimension": "Employment",
+        "indicator": "Working Children Not in School",
+        "variable_name": "a07_age + e01_employed + c03_currently_attending_school",
+        "code": "COMPUTED",
+        "value_meaning": "Calculated in Python: deprived if any member age 5-17 is working and not currently attending school.",
+        "deprived": "—"
+      }
+    ],
+    "definitions": [
+      {
+        "variable_name": "a01_first_name",
+        "display_label": "First Name",
+        "description": "First name of the household member.",
+        "question": "—",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Text",
+        "provenance": "Synthetic Support"
+      },
+      {
+        "variable_name": "a01_last_name",
+        "display_label": "Last Name",
+        "description": "Last name of the household member.",
+        "question": "—",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Text",
+        "provenance": "Synthetic Support"
+      },
+      {
+        "variable_name": "a01_middle_name",
+        "display_label": "Middle Name",
+        "description": "Middle name of the household member.",
+        "question": "—",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Text",
+        "provenance": "Synthetic Support"
+      },
+      {
+        "variable_name": "a01_suffix",
+        "display_label": "Suffix",
+        "description": "Name suffix of the household member, when applicable.",
+        "question": "—",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Text",
+        "provenance": "Synthetic Support"
+      },
+      {
+        "variable_name": "a02_relation_to_hh_head",
+        "display_label": "Relationship to the household head",
+        "description": "Relationship of the household member to the household head.",
+        "question": "What is (NAME)'s relationship to the head of this household?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "a05_sex",
+        "display_label": "Sex",
+        "description": "Sex of the household member.",
+        "question": "Is (NAME) male or female?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "a07_age",
+        "display_label": "Age",
+        "description": "Age of the household member as of June 30, 2022.",
+        "question": "What is (NAME)'s age as of June 30, 2022?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "a09_marital_status",
+        "display_label": "Marital status",
+        "description": "Marital status of the household member.",
+        "question": "Is (NAME)'s single, married, common law/live-in arrangement, widowed, or divorced/separated/annulled?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "b06_ofi",
+        "display_label": "Overseas Filipino Indicator",
+        "description": "Overseas Filipino status of the household member as of July 1, 2022.",
+        "question": "Is (NAME) an Overseas Filipino?\n\n(as of July 01, 2022)",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "B",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "barangay",
+        "display_label": "Barangay",
+        "description": "Barangay associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "household",
+        "level": "Household",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "barangay",
+        "display_label": "Barangay",
+        "description": "Barangay associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "barangay",
+        "display_label": "Barangay",
+        "description": "Barangay associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "barangay",
+        "display_label": "Barangay",
+        "description": "Barangay associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "section_l11_to_l14",
+        "level": "Child Death Record",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "c02_hgc_group",
+        "display_label": "Highest Grade/Year Completed (HGC) Group",
+        "description": "Grouped category of the highest grade or year completed by the household member.",
+        "question": "What is (NAME)'s highest grade completed?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "C",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "c03_currently_attending_school",
+        "display_label": "Current School Attendance",
+        "description": "Indicates whether the household member is currently attending school.",
+        "question": "Is (NAME) currently attending school?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "C",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "c07_tvet_graduate",
+        "display_label": "Graduate of Technical / Vocational Education and Training (TVET) Course",
+        "description": "Indicates whether the household member is a graduate of technical or vocational education and training (TVET).",
+        "question": "Is (NAME) a graduate of technical/vocational education and training (TVET)?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "C",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "c08_tvet_currently_attending",
+        "display_label": "Currently Attending TVET for Skills Development",
+        "description": "Indicates whether the household member is currently attending TVET for skills development.",
+        "question": "Is (NAME) currently attending TVET for skills development?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "C",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "city_mun",
+        "display_label": "City/Municipality",
+        "description": "City or municipality associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "household",
+        "level": "Household",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "city_mun",
+        "display_label": "City/Municipality",
+        "description": "City or municipality associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "city_mun",
+        "display_label": "City/Municipality",
+        "description": "City or municipality associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "city_mun",
+        "display_label": "City/Municipality",
+        "description": "City or municipality associated with the household record.",
+        "question": "Not applicable — geographic field in the released extract.",
+        "dataset": "section_l11_to_l14",
+        "level": "Child Death Record",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Geographic Field"
+      },
+      {
+        "variable_name": "e01_employed",
+        "display_label": "Work for at least One Hour during the Past Week",
+        "description": "Indicates whether the household member performed at least one hour of work during the past week.",
+        "question": "Did (NAME) do any work for at least one (1) hour, including work from home or telecommuting, during the past week?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "E",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "e11_nature_of_employment",
+        "display_label": "Nature of Employment",
+        "description": "Nature or type of employment of the household member.",
+        "question": "What is (NAME)'s nature of employment?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "E",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "e15_want_more_hours",
+        "display_label": "Want More Hours of Work",
+        "description": "Indicates whether the employed household member wanted additional hours of work during the past week.",
+        "question": "Did (NAME) want more hours of work during the past week?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "E",
+        "data_type": "Numeric",
+        "provenance": "Synthetic Support"
+      },
+      {
+        "variable_name": "e18_class_of_worker",
+        "display_label": "Class of Worker",
+        "description": "Class of worker of the household member based on the employment relationship.",
+        "question": "What is (NAME)'s class of worker?",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "E",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "h01_access_to_public_transportation",
+        "display_label": "Access to Public Transportation",
+        "description": "Indicates whether the household has access to public transportation within a 500-meter radius from the dwelling.",
+        "question": "—",
+        "dataset": "household",
+        "level": "Household",
+        "section": "",
+        "data_type": "Numeric",
+        "provenance": "Synthetic Support"
+      },
+      {
+        "variable_name": "j01_worried",
+        "display_label": "Worried About Not Having Enough Food to Eat",
+        "description": "Indicates whether the household worried about not having enough food because of a lack of money or other resources.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you (or any other adult in the household) were worried about not having enough food to eat because of lack of money or other resources?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "j02_not_eaten_healthy",
+        "display_label": "Unable to Eat Healthy and Nutritious Food",
+        "description": "Indicates whether the household was unable to eat healthy and nutritious food because of a lack of money or other resources.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you (or any other adult in the household) were unable to eat healthy and nutritious food because of a lack of money or other resources?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "j03_ate_few_food",
+        "display_label": "Ate Only a Few Kinds of Food",
+        "description": "Indicates whether the household ate only a few kinds of food because of a lack of money or other resources.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you (or any other adult in the household) ate only a few kinds of food because of a lack of money or other resources?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "j04_skipped_meal",
+        "display_label": "Had to Skip a Meal",
+        "description": "Indicates whether the household had to skip a meal because there was not enough money or other resources for food.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you (or any other adult in the household) had to skip a meal because there was not enough money or other resources to get food?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "j05_ate_less",
+        "display_label": "Ate Less Than They Thought They Should",
+        "description": "Indicates whether the household ate less than it felt it should because of a lack of money or other resources.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you (or any other adult in the household) ate less than you thought you should because of a lack of money or other resources?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "j06_ran_out_of_food",
+        "display_label": "Ran Out of Food",
+        "description": "Indicates whether the household ran out of food because of a lack of money or other resources.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you or your household ran out of food because of a lack of money or other resources?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "j07_hungry",
+        "display_label": "Hungry but Did Not Eat",
+        "description": "Indicates whether a household member was hungry but did not eat because there was not enough money or other resources for food.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you (or any other adult in the household) were hungry but did not eat because there was not enough money or other resources for food?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "j08_not_eaten_whole_day",
+        "display_label": "Did Not Eat for a Whole Day during the Past 12 Months",
+        "description": "Indicates whether a household member went without eating for a whole day because of a lack of money or other resources.",
+        "question": "During the past 12 months (July 01, 2021 - June 30, 2022), was there a time when you (or any other adult in the household) went without eating for a whole day because of a lack of money or other resources?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "J",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l01_with_member_who_has_been_pregnant",
+        "display_label": "With female household member who has been pregnant in the last 3 years",
+        "description": "Indicates whether the household has a female member who is pregnant or had been pregnant in the past three years.",
+        "question": "Is/are there any female household member/s who is/are current pregnant or who had been pregnant in the past three (3) years?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l06_with_member_currently_pregnant",
+        "display_label": "With Currently Pregnant Household Members",
+        "description": "Indicates whether the household has a female member who was currently pregnant as of July 1, 2022.",
+        "question": "As of July 01, 2022, is/are there any female household member/s who is/are currently pregnant?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l07_currently_pregnant",
+        "display_label": "Currently pregnant household member",
+        "description": "Identifies a female household member who was currently pregnant as of July 1, 2022.",
+        "question": "As of July 01, 2022, who is/are the female household member/s who is/are currently pregnant?",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l15_with_pwd_member",
+        "display_label": "With member who is a Person with Disability",
+        "description": "Indicates whether the household has a member with a disability.",
+        "question": "Does any member of this household have a disability?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l16_pwd",
+        "display_label": "PWD",
+        "description": "Identifies a household member reported to have a disability.",
+        "question": "Who among the household members have disability?",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l33_member_who_has_been_sick",
+        "display_label": "Presence of Illness / Sickness / Injury in the Past Month",
+        "description": "Indicates whether any household member became ill, sick, or injured during the past month.",
+        "question": "In the past month, did you or any of your household members get ill/sick/injured?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l34_has_been_sick",
+        "display_label": "Household member with illness/sickness/injury in the past month",
+        "description": "Identifies a household member who became ill, sick, or injured during the past month.",
+        "question": "In the past month, who among the members of the household got ill/sick/injured?",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "l38_availed_medical_treatment",
+        "display_label": "Availed Medical Treatment",
+        "description": "Indicates whether the household member obtained medical treatment for the current or most recent illness, sickness, or injury.",
+        "question": "Did (NAME) avail medical treatment for his/her current or most recent illness/sickness/injury?",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "line_number",
+        "display_label": "Line Number",
+        "description": "Line number assigned to the household member within the household roster.",
+        "question": "Not applicable — household-member line number used in the 2022 CBMS form.",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "A-E",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "n01_internet_acess",
+        "display_label": "Internet Access",
+        "description": "Indicates whether the household or any household member had access to the internet in the past 12 months.",
+        "question": "In the past 12 months, do you or any member of your household have access to internet?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "N",
+        "data_type": "Numeric",
+        "provenance": "Synthetic Support"
+      },
+      {
+        "variable_name": "q01_main_water",
+        "display_label": "Main Source of Water Supply",
+        "description": "Main source of water supply used by the household.",
+        "question": "What is your household's main source of water supply?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "Q",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "q14_toilet_facility",
+        "display_label": "Kind of Toilet Facility",
+        "description": "Type of toilet facility usually used by household members.",
+        "question": "What kind of toilet facility do members of your household usually used? \n \nIF 'FLUSH' OR 'POUR FLUSH', PROBE:\nWhere does it flush to?\n\nIF NOT POSSIBLE TO DETERMINE, ASK PERMISSION TO OBSERVE FACILITY.",
+        "dataset": "household",
+        "level": "Household",
+        "section": "Q",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "q19_share_toilet",
+        "display_label": "Sharing of Toilet Facility",
+        "description": "Indicates whether the household shares its toilet facility with people outside the household.",
+        "question": "Do you share this facility with others who are not members of your household?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "Q",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r01_building_type",
+        "display_label": "Type of Building",
+        "description": "Type of building or housing structure occupied by the household.",
+        "question": "ANSWER THROUGH OBSERVATION. IF DOUBTFUL, ASK THE RESPONDENT\n\nWhat is the type of building occupied by your household?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r03_roof",
+        "display_label": "Construction Material of the Roof",
+        "description": "Main construction material used for the roof of the housing unit.",
+        "question": "ANSWER THROUGH OBSERVATION. IF DOUBTFUL, ASK THE RESPONDENT\n\nWhat is the main construction material of the roof of this building/housing unit?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r04_outer_walls",
+        "display_label": "Construction Material of the Outer Walls",
+        "description": "Main construction material used for the outer walls of the housing unit.",
+        "question": "ANSWER THROUGH OBSERVATION. IF DOUBTFUL, ASK THE RESPONDENT\n\nWhat is the construction material of the outer walls of this building/housing unit?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r06_floor",
+        "display_label": "Construction Material of the Floor of the Housing Unit",
+        "description": "Main construction material used for the floor of the housing unit.",
+        "question": "What is the main construction material of the floor of this housing unit?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r07_floor_area",
+        "display_label": "Floor Area of the Housing Unit",
+        "description": "Total floor area of the housing unit.",
+        "question": "What is the estimated floor area of this housing unit?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r09_number_of_bedrooms",
+        "display_label": "Number of Bedrooms in the Housing Unit",
+        "description": "Number of bedrooms in the housing unit.",
+        "question": "How many bedrooms does this housing unit have?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r10_tenure",
+        "display_label": "Tenure Status of the Housing Unit/Lot",
+        "description": "Tenure status of the house and lot occupied by the household.",
+        "question": "What is the tenur estatus of the housing unit and lot occupied by this household?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r12_electricity",
+        "display_label": "Electricity",
+        "description": "Indicates whether electricity is available in the household's dwelling.",
+        "question": "Is there any electricity in the dwelling place?",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_a_refrigerator",
+        "display_label": "Refrigerator / freezer",
+        "description": "Number of refrigerator / freezer owned by the household.",
+        "question": "How many of each of the following items does the household own?\n\n      A. Refrigerator/Freezer",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_b_stove_oven_with_gas_range",
+        "display_label": "Stove with oven / gas range",
+        "description": "Number of stove with oven / gas range owned by the household.",
+        "question": "B. Stove with oven/Gas range",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_f_washing_machine",
+        "display_label": "Washing machine",
+        "description": "Number of washing machine owned by the household.",
+        "question": "F. Washing machine",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_g_air_conditioner",
+        "display_label": "Air conditioner",
+        "description": "Number of air conditioner owned by the household.",
+        "question": "G. Air conditioner",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_i_radio",
+        "display_label": "Radio / radio casette",
+        "description": "Number of radio / radio casette owned by the household.",
+        "question": "I. Radio/Radio cassette (AM, FM, and transistor)",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_j_tv",
+        "display_label": "Television",
+        "description": "Number of television owned by the household.",
+        "question": "J. Television",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_m_telephone",
+        "display_label": "Landline / Wireless telephone",
+        "description": "Number of landline / wireless telephone owned by the household.",
+        "question": "M. Landline/Wireless telephone",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_n_mobile_phone",
+        "display_label": "Cellular phone",
+        "description": "Number of cellular phone owned by the household.",
+        "question": "N. Cellular Phone",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_p_computer",
+        "display_label": "Personal computer",
+        "description": "Number of personal computer owned by the household.",
+        "question": "P. Personal computer (desktop, laptop, notebook, netbook, and others)",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_q_car",
+        "display_label": "Car",
+        "description": "Number of car owned by the household.",
+        "question": "Q. Car",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_r_van",
+        "display_label": "Van",
+        "description": "Number of van owned by the household.",
+        "question": "R. Van",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_s_jeep",
+        "display_label": "Jeep",
+        "description": "Number of jeep owned by the household.",
+        "question": "S. Jeep",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_u_motorcycle",
+        "display_label": "Motorcycle / motor scooter",
+        "description": "Number of motorcycle / motor scooter owned by the household.",
+        "question": "U. Motorcycle/Motor scooter",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_v_tricycle",
+        "display_label": "Tricycle",
+        "description": "Number of tricycle owned by the household.",
+        "question": "V. Tricycle",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "r16_y_banca_motorized",
+        "display_label": "Motorized boat/banca",
+        "description": "Number of motorized boat/banca owned by the household.",
+        "question": "Y. Motorized boat/Banca",
+        "dataset": "household",
+        "level": "Household",
+        "section": "R",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "section_l_line_number",
+        "display_label": "Section L Line Number",
+        "description": "Household-member line number used to link the Section L record to the corresponding household member.",
+        "question": "Not applicable — line number used to link the selected Section L record to a household member.",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "L",
+        "data_type": "Numeric",
+        "provenance": "Official 2022 CBMS"
+      },
+      {
+        "variable_name": "uuid",
+        "display_label": "Household UUID",
+        "description": "Anonymized household identifier used to link records belonging to the same household across datasets.",
+        "question": "Not applicable — anonymized linking field.",
+        "dataset": "household",
+        "level": "Household",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Linking Field"
+      },
+      {
+        "variable_name": "uuid",
+        "display_label": "Household UUID",
+        "description": "Anonymized household identifier used to link records belonging to the same household across datasets.",
+        "question": "Not applicable — anonymized linking field.",
+        "dataset": "section_a_e_indiv",
+        "level": "Person",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Linking Field"
+      },
+      {
+        "variable_name": "uuid",
+        "display_label": "Household UUID",
+        "description": "Anonymized household identifier used to link records belonging to the same household across datasets.",
+        "question": "Not applicable — anonymized linking field.",
+        "dataset": "section_l02_to_l41",
+        "level": "Person",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Linking Field"
+      },
+      {
+        "variable_name": "uuid",
+        "display_label": "Household UUID",
+        "description": "Anonymized household identifier used to link records belonging to the same household across datasets.",
+        "question": "Not applicable — anonymized linking field.",
+        "dataset": "section_l11_to_l14",
+        "level": "Child Death Record",
+        "section": "",
+        "data_type": "Text",
+        "provenance": "Released CBMS Linking Field"
+      }
+    ]
+  }
+}
