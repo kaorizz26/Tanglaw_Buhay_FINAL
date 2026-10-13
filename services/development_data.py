@@ -29,7 +29,7 @@ def development_sources():
             "r07_floor_area": 10 if number % 5 == 0 else 48 + number,
             "r09_number_of_bedrooms": 2, "r10_tenure": 4 if number % 8 == 0 else 1,
             "r12_electricity": 2 if number % 11 == 0 else 1,
-            "n01_internet_acess": 2 if number % 2 == 0 else 1,
+            "n01_internet_access": 2 if number % 2 == 0 else 1,
             "h01_access_to_public_transportation": 2 if number % 4 == 0 else 1,
             "l01_with_member_who_has_been_pregnant": 1 if number % 9 == 0 else 2,
             "l06_with_member_currently_pregnant": 1 if number % 9 == 0 else 2,

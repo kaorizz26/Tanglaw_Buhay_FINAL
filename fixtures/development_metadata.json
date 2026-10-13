@@ -1,9 +1,9 @@
 {
   "purpose": "Development fixture metadata only; exact rows copied from finalized references. No CBMS household records.",
   "source_sha256": {
-    "Tanglaw_Buhay_Codebook_Values_FINAL.csv": "1c221e24e3cc9b2c09c2b24686b6238226ed26f2f064d56b2346a5cc5dcbae6f",
-    "Tanglaw_Buhay_MPI_Mapping_FinalProbably.csv": "43f0339d7c331b2711117987da1c237ceab6e6fad189c0d5472eabc0bb895195",
-    "Tanglaw_Buhay_Variable_Definitions_FINAL.csv": "668852c09762a064010850ce8afae4bf8875fa2ac9c978dea279d807d631c2a9"
+    "Tanglaw_Buhay_Codebook_Values_FINAL.csv": "7bb31979f1d30fd4db3fa3be5c29ebbdbfa6a1ba47e69cc485c7e98ea59cb5b4",
+    "Tanglaw_Buhay_MPI_Mapping_FinalProbably.csv": "8aaebc9e1b76d555edec7635b0bf3d59ff7acbe589a7dafa8f71dbd172489eb7",
+    "Tanglaw_Buhay_Variable_Definitions_FINAL.csv": "015fd92e67b8701fc90b7fa3592c92b75a6638f67e66caa85420d5d5a6761c48"
   },
   "references": {
     "codebook": [
@@ -658,12 +658,12 @@
         "label": "No"
       },
       {
-        "variable_name": "n01_internet_acess",
+        "variable_name": "n01_internet_access",
         "code": "1",
         "label": "Yes"
       },
       {
-        "variable_name": "n01_internet_acess",
+        "variable_name": "n01_internet_access",
         "code": "2",
         "label": "No"
       },
@@ -1674,7 +1674,7 @@
       {
         "dimension": "Housing, Water, and Sanitation",
         "indicator": "Internet Access",
-        "variable_name": "n01_internet_acess",
+        "variable_name": "n01_internet_access",
         "code": "1",
         "value_meaning": "Yes",
         "deprived": "0"
@@ -1682,7 +1682,7 @@
       {
         "dimension": "Housing, Water, and Sanitation",
         "indicator": "Internet Access",
-        "variable_name": "n01_internet_acess",
+        "variable_name": "n01_internet_access",
         "code": "2",
         "value_meaning": "No",
         "deprived": "1"
@@ -1690,7 +1690,7 @@
       {
         "dimension": "Housing, Water, and Sanitation",
         "indicator": "Internet Access",
-        "variable_name": "n01_internet_acess",
+        "variable_name": "n01_internet_access",
         "code": "MISSING / INVALID",
         "value_meaning": "Value cannot be classified from the available raw data.",
         "deprived": "NULL"
@@ -2227,7 +2227,7 @@
         "provenance": "Official 2022 CBMS"
       },
       {
-        "variable_name": "n01_internet_acess",
+        "variable_name": "n01_internet_access",
         "display_label": "Internet Access",
         "description": "Indicates whether the household or any household member had access to the internet in the past 12 months.",
         "question": "In the past 12 months, do you or any member of your household have access to internet?",

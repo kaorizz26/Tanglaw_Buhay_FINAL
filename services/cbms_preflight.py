@@ -20,7 +20,7 @@ from services.vulnerability.housing import ASSET_FIELDS
 
 # These are the variables consumed by existing direct mapping functions.
 DIRECT_MAPPING_FIELDS = (
-    "q01_main_water", "r10_tenure", "r12_electricity", "n01_internet_acess",
+    "q01_main_water", "r10_tenure", "r12_electricity", "n01_internet_access",
     "h01_access_to_public_transportation", "q14_toilet_facility",
     "q19_share_toilet", "r03_roof", "r04_outer_walls", "r06_floor",
 )

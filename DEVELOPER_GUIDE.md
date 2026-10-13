@@ -111,8 +111,11 @@ meets the majority-based deprivation rule.
 Water, tenure, electricity, internet, and public transportation use the finalized
 MPI mapping CSV. `build_deprivation_map()` validates the mapping;
 `map_code()` interprets a value without changing its source. An unmapped or
-invalid response remains unknown. Keep export spellings such as
-`n01_internet_acess` unchanged.
+invalid response remains unknown. N01 uses `n01_internet_access`, matching the
+authorized household CSV. Code, local reference variable names and development
+fixtures use this spelling; deprivation codes and outcomes are unchanged.
+Development metadata retains its Synthetic Support provenance, with reference
+hashes refreshed for the corrected files. Raw source CSVs are unchanged.
 
 The other housing rules are:
 
