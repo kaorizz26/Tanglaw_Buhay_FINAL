@@ -32,6 +32,8 @@ Local Excel files and finalized reference CSVs
 | `config.py` | Reads local environment configuration. |
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
+| `repositories/dataset_batches.py` | Stores batch-scoped CSV snapshots and activates batches within a caller-owned transaction. |
+| `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `routes/main.py` | Provides the landing/health routes, fixture-source guard and shared pagination. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
@@ -460,6 +462,10 @@ engine inputs even when their uploaded declarations are removed. Existing
 direct mapping compilers check the rules consumed by the engines. The Excel
 loader is unchanged.
 
+The independent contract includes household L01/L06 pregnancy and L15 disability
+context plus member A05 sex, preserving the inputs used by 4Ps/SPISC even if their
+reference declarations are removed. Screening rules are unchanged.
+
 Missing files/required columns, blank or duplicate keys, orphan records, invalid
 integer member lines, integer-key collisions and invalid references/indicator
 inputs are blocking errors. Joins compare original key text exactly; mismatched
@@ -481,3 +487,47 @@ Run the focused checks using only generated synthetic CSVs:
 ```powershell
 .\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_cbms_preflight.py
 ```
+
+## 12. Phase 6B.2 Task 2: transactional backend importer
+
+`services.cbms_import.import_csv_bundle()` requires a CSV directory and explicit
+`survey_year=2022`, `municipality="Pozorrubio"` and nonempty `source_provenance`
+metadata. It uses the existing `db.get_connection()`/Flask configuration by
+default; a supplied connection factory must return a new connection owned by
+the importer. No upload route or admin/staff authorization is implemented here;
+keep this backend function unexposed until enforced admin access is available.
+
+Preflight and import share one parsed snapshot through `load_csv_bundle()`.
+Those private frames must stay inside the backend. Original CSV strings are
+stored in JSONB; only relational member line columns become integers. One-based
+data-row positions and ordered source columns preserve row/column order.
+Batch provenance records caller-declared context and each parsed file's name,
+SHA-256 and row count, including finalized reference and synthetic provenance.
+This does not certify dataset authorization or infer survey-year provenance.
+
+One transaction locks the batch table to serialize importers, creates a pending
+inactive batch, inserts all seven source/reference tables, verifies row counts,
+then replaces the active pointer and commits. Previous survey/reference rows are
+retained. Validation errors open no database connection. SQL/count/activation
+failures roll back the entire new batch and any active-pointer change; no failed
+batch is retained. Results contain only `imported`, technical `batch_id`, the
+aggregate `validation` report and a fixed `error` code, never SQL error details.
+
+Insertion uses generator-backed psycopg `executemany()` per table, avoiding a
+second full list of row parameters. The installed psycopg/libpq client supports
+automatic pipeline mode for these calls, reducing repeated network round trips.
+The CSV frames themselves are loaded in memory; this is not a streaming reader.
+
+`tests/test_cbms_import.py` uses only generated CSVs and isolated schemas in local
+`tanglaw_buhay_test`. It verifies committed storage, failed preflight, partial
+writes, count mismatches, activation rollback, concurrent activation and file
+snapshot consistency; schemas are dropped after each test. Source-file retention,
+an admin workflow and real-data integration remain separately scoped work.
+
+Run the importer checks with the configured local test URL:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_cbms_import.py -v
+```
+
+The PostgreSQL tests must execute without skips before marking Task 2 verified.

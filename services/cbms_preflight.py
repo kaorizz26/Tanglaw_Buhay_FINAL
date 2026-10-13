@@ -1,6 +1,8 @@
 """Read-only CSV preflight checks; reports contain fixed labels and counts only."""
 
 import csv
+from hashlib import sha256
+import io
 from pathlib import Path
 import re
 
@@ -29,11 +31,13 @@ REQUIRED_ENGINE_COLUMNS = {
     "household": (
         *DIRECT_MAPPING_FIELDS, *ASSET_FIELDS, *FIES_FIELDS,
         "r07_floor_area", "l33_member_who_has_been_sick",
+        "l01_with_member_who_has_been_pregnant", "l06_with_member_currently_pregnant",
+        "l15_with_pwd_member",
     ),
     "section_a_e_indiv": (
         "a07_age", "b06_ofi", "e01_employed", "e11_nature_of_employment",
         "e18_class_of_worker", "e15_want_more_hours", "c02_hgc_group",
-        "c03_currently_attending_school",
+        "c03_currently_attending_school", "a05_sex",
     ),
     "section_l02_to_l41": (
         "l07_currently_pregnant", "l16_pwd", "l34_has_been_sick",
@@ -49,6 +53,17 @@ def validate_csv_bundle(data_dir: str | Path = DATA_DIR) -> dict:
     changed to <dataset>.csv. No records, paths, raw headers or parser exceptions
     are returned. Passing preflight permits further import work; it neither
     inserts a batch nor establishes survey provenance or staff authorization.
+    """
+    _, _, report = load_csv_bundle(data_dir)
+    return report
+
+
+def load_csv_bundle(data_dir: str | Path):
+    """Return private source/reference frames and their aggregate preflight report.
+
+    Each file is read once. Frame attrs hold its filename and SHA-256 from the
+    same bytes that were parsed, so an importer need not reopen validated files.
+    These frames are for backend use only; never return them from public routes.
     """
     root = Path(data_dir)
     report = {
@@ -75,7 +90,7 @@ def validate_csv_bundle(data_dir: str | Path = DATA_DIR) -> dict:
         _check_definition_coverage(datasets, references, report)
         _check_mapping(datasets, references, report)
     report["passed"] = not report["errors"]
-    return report
+    return datasets, references, report
 
 
 def _issue(report, severity, source, code, count=1):
@@ -99,7 +114,8 @@ def _read_group(paths, report, group):
 def _read_csv(path):
     """Keep every parsed cell as text and reject ambiguous/ragged CSV input."""
     try:
-        with path.open(encoding="utf-8-sig", newline="") as handle:
+        content = path.read_bytes()
+        with io.StringIO(content.decode("utf-8-sig"), newline="") as handle:
             reader = csv.reader(handle, strict=True)
             columns = next(reader, [])
             if not columns or any(not name.strip() for name in columns):
@@ -116,7 +132,9 @@ def _read_csv(path):
     except (OSError, UnicodeError, csv.Error):
         # Parser messages and filesystem paths may expose private source content.
         return None, "unreadable_csv"
-    return pd.DataFrame(rows, columns=columns, dtype=object), None
+    frame = pd.DataFrame(rows, columns=columns, dtype=object)
+    frame.attrs.update({"filename": path.name, "sha256": sha256(content).hexdigest()})
+    return frame, None
 
 
 def _check_sources(datasets, report):

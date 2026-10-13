@@ -10,7 +10,7 @@ import pandas as pd
 
 from services.cbms_preflight import _read_csv, validate_csv_bundle
 from services.data_loader import EXCEL_FILES, REFERENCE_FILES, load_data, verify_data
-from services.development_data import development_sources
+from cbms_csv_fixtures import synthetic_csv_frames, write_csv_fixture
 
 
 class CsvPreflightTests(unittest.TestCase):
@@ -18,33 +18,14 @@ class CsvPreflightTests(unittest.TestCase):
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        (self.root / "raw").mkdir()
-        (self.root / "reference").mkdir()
-        self.datasets, self.references = development_sources()
-        households = self.datasets["household"].iloc[:2].copy()
-        self.datasets["household"] = households
-        for name in EXCEL_FILES[1:]:
-            frame = self.datasets[name]
-            self.datasets[name] = frame.loc[frame["uuid"].isin(households["uuid"])].copy()
-        # The development fixture omits unused declared fields; supply synthetic
-        # blanks for the CSV format contract, never read private source files.
-        for row in self.references["definitions"].to_dict("records"):
-            frame = self.datasets[row["dataset"]]
-            if row["variable_name"] not in frame:
-                frame[row["variable_name"]] = ""
+        self.datasets, self.references = synthetic_csv_frames()
         self._write_bundle()
 
     def _source_path(self, name):
         return self.root / "raw" / f"{name}.csv"
 
     def _write_bundle(self):
-        for name, frame in self.datasets.items():
-            frame.to_csv(self._source_path(name), index=False, encoding="utf-8-sig")
-        for name, frame in self.references.items():
-            frame.to_csv(
-                self.root / "reference" / REFERENCE_FILES[name],
-                index=False, encoding="utf-8-sig",
-            )
+        write_csv_fixture(self.root, self.datasets, self.references)
 
     def _codes(self, report, severity="errors"):
         return {(issue["source"], issue["code"]) for issue in report[severity]}
@@ -199,29 +180,38 @@ class CsvPreflightTests(unittest.TestCase):
         )
         for name, field in cases:
             with self.subTest(source=name, field=field):
-                self._write_bundle()
-                self.datasets[name].drop(columns=[field]).to_csv(
-                    self._source_path(name), index=False,
-                )
-                for reference in ("definitions", "codebook"):
-                    frame = self.references[reference]
-                    frame.loc[frame["variable_name"].ne(field)].to_csv(
-                        self.root / "reference" / REFERENCE_FILES[reference], index=False,
-                    )
-                mapping = self.references["mpi_mapping"].copy()
-                # Keep 16 indicator groups and valid direct rules, but remove
-                # composite declarations that would otherwise expose the gap.
-                composite = mapping["variable_name"].str.contains(r"\+|J01-J08|Selected R16")
-                mapping.loc[composite, "variable_name"] = "q01_main_water + r10_tenure"
-                mapping.to_csv(
-                    self.root / "reference" / REFERENCE_FILES["mpi_mapping"], index=False,
-                )
-                before = {path: path.read_bytes() for path in self.root.rglob("*.csv")}
-                report = validate_csv_bundle(self.root)
-                self.assertFalse(report["passed"])
-                self.assertEqual(self._codes(report), {(name, "missing_engine_columns")})
-                self.assertEqual(report["indicator_count"], 16)
-                self.assertEqual(before, {path: path.read_bytes() for path in before})
+                self._assert_required_column_not_bypassed(name, field)
+
+    def test_screening_context_columns_required_without_declarations(self):
+        for name, field in (
+            ("household", "l01_with_member_who_has_been_pregnant"),
+            ("household", "l06_with_member_currently_pregnant"),
+            ("household", "l15_with_pwd_member"),
+            ("section_a_e_indiv", "a05_sex"),
+        ):
+            with self.subTest(source=name, field=field):
+                self._assert_required_column_not_bypassed(name, field)
+
+    def _assert_required_column_not_bypassed(self, name, field):
+        """Remove a source field and its declarations; require an independent error."""
+        self._write_bundle()
+        self.datasets[name].drop(columns=[field]).to_csv(self._source_path(name), index=False)
+        for reference in ("definitions", "codebook"):
+            frame = self.references[reference]
+            frame.loc[frame["variable_name"].ne(field)].to_csv(
+                self.root / "reference" / REFERENCE_FILES[reference], index=False,
+            )
+        mapping = self.references["mpi_mapping"].copy()
+        # Keep all 16 groups and direct rules; remove composite declarations.
+        composite = mapping["variable_name"].str.contains(r"\+|J01-J08|Selected R16")
+        mapping.loc[composite, "variable_name"] = "q01_main_water + r10_tenure"
+        mapping.to_csv(self.root / "reference" / REFERENCE_FILES["mpi_mapping"], index=False)
+        before = {path: path.read_bytes() for path in self.root.rglob("*.csv")}
+        report = validate_csv_bundle(self.root)
+        self.assertFalse(report["passed"])
+        self.assertEqual(self._codes(report), {(name, "missing_engine_columns")})
+        self.assertEqual(report["indicator_count"], 16)
+        self.assertEqual(before, {path: path.read_bytes() for path in before})
 
     def test_leading_zero_keys_pass_without_rewriting(self):
         for name, frame in self.datasets.items():
