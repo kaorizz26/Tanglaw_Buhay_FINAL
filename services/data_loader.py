@@ -27,6 +27,11 @@ REFERENCE_COLUMNS = {
     "mpi_mapping": ["dimension", "indicator", "variable_name", "code", "value_meaning", "deprived"],
     "definitions": ["variable_name", "display_label", "description", "question", "dataset", "level", "section", "data_type", "provenance"],
 }
+REFERENCE_KEYS = {
+    "codebook": ["variable_name", "code"],
+    "definitions": ["dataset", "variable_name"],
+    "mpi_mapping": ["dimension", "indicator", "variable_name", "code"],
+}
 
 
 def load_data(data_dir=DATA_DIR):
@@ -169,18 +174,13 @@ def _dataset_statistics(name, frame):
 
 def _reference_statistics(name, frame):
     """Check one finalized reference's columns and unique mapping keys."""
-    reference_keys = {
-        "codebook": ["variable_name", "code"],
-        "definitions": ["dataset", "variable_name"],
-        "mpi_mapping": ["dimension", "indicator", "variable_name", "code"],
-    }
     missing = [column for column in REFERENCE_COLUMNS[name] if column not in frame.columns]
     statistics = {"records": len(frame), "missing_columns": missing}
     issues = []
     if missing:
         issues.append(f"{name}: required reference columns missing.")
         return statistics, issues
-    duplicates = int(frame.duplicated(reference_keys[name], keep=False).sum())
+    duplicates = int(frame.duplicated(REFERENCE_KEYS[name], keep=False).sum())
     statistics["duplicate_key_records"] = duplicates
     if duplicates:
         issues.append(f"{name}: duplicate reference keys need review.")

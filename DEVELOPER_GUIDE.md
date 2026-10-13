@@ -440,3 +440,39 @@ preservation of blank/`NA`/CSV strings. It creates a temporary schema and rolls
 back its DDL and rows. It skips when the test URL is unset and refuses database
 names other than `tanglaw_buhay_test` or non-local hosts. A skip does not verify
 the migration.
+
+## 11. Phase 6B.2 Task 1: CSV preflight
+
+`services.cbms_preflight.validate_csv_bundle(data_dir)` reads the four
+`raw/<dataset>.csv` sources and the existing three finalized reference filenames
+under `reference/`. It returns `passed`, aggregate `errors`/`warnings`, source and
+reference statistics, join counts and the indicator count. Each issue has a
+fixed `source`, `code` and `count`; uploaded values, paths and parser messages
+are excluded. This service has no database or UI dependency.
+
+The UTF-8 reader accepts an optional BOM, preserves column names, row order and
+all parsed response strings (including leading zeros, empty strings, `NA` and
+`0`), and rejects duplicate/blank headers and malformed or uneven rows. Existing
+key, join, reference and indicator helpers are reused. Finalized definitions
+supply the declared source-column contract; existing direct mapping compilers
+check the rules actually consumed by the engines. The Excel loader is unchanged.
+
+Missing files/required columns, blank or duplicate keys, orphan records, invalid
+integer member lines, integer-key collisions and invalid references/indicator
+inputs are blocking errors. Joins compare original key text exactly; mismatched
+line-number spellings are not silently reconciled. Repeated household UUIDs in
+child-death records are valid. Missing roster/Section L records, identical
+child-death rows, additional undefined columns and blank provenance produce
+warnings without rewriting responses or inferring negative evidence.
+
+`passed` requires no blocking errors, including reference/indicator checks; it
+does not reuse `loading_and_joins_passed` as complete validation. No fixed pilot
+row totals are enforced. Preflight does not certify source authorization or
+survey-year provenance, calculate assessments, or insert/activate a dataset.
+Import metadata, insertion and staff authorization remain separate tasks.
+
+Run the focused checks using only generated synthetic CSVs:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_cbms_preflight.py
+```

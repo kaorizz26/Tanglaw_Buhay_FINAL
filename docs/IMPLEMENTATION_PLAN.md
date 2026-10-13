@@ -22,11 +22,11 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 
 ## Phase 6B.2 — Validated CBMS ETL and admin-only import workflow
 
-- **Status:** Not Started.
+- **Status:** In Progress.
 - **Objective:** Import the finalized 2022-compatible CBMS files automatically and safely for this municipality.
 - **Small tasks:** Validate required files, references, fields and join keys using the existing loader rules; preserve raw responses and provenance; stage an import and activate it only after complete validation; provide an import workflow restricted to System Admin.
 - **Acceptance criteria:** Valid files load without rewriting source answers; validation failures report useful aggregate issues and leave the active dataset intact; the import workflow is not exposed before 6B.3 enforces System Admin access.
-- **Implementation and verification notes:** Build and verify the import path with synthetic inputs. Any exposed import control must wait for the enforced permissions in 6B.3; until then, keep the workflow inaccessible to ordinary users. Exact import lifecycle and schema depend on approved 6B.1 decisions.
+- **Implementation and verification notes:** **Task 1 — CSV preflight validation: Completed** on 2026-10-13. `services/cbms_preflight.py` validates the four source CSVs and three finalized references with aggregate blocking errors/warnings, preserving original text and allowed missing/repeated records. All 17 focused synthetic tests passed; the broader suite passed 140 tests, with the database test intentionally skipped to keep this task free of database operations. No private CBMS files were processed, and no insertion/upload/authentication workflow was added. Remaining ETL/import tasks require separate approval; any exposed import control must wait for enforced System Admin access in 6B.3.
 
 ## Phase 6B.3 — Authentication and role-based permissions
 
