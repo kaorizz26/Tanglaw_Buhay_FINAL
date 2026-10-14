@@ -186,3 +186,39 @@ def iter_household_assessments(connection, run_id):
         )
         for (findings,) in cursor:
             yield _restore_findings(findings)
+
+
+def find_completed_runs(connection, batch_id):
+    """Read at most two completed runs; callers must reject ambiguous selection."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id AS run_id, batch_id, calculation_version, calculation_provenance,
+                      expected_household_count AS household_count, completed_at
+               FROM assessment_runs WHERE batch_id = %s AND status = 'completed'
+               ORDER BY id LIMIT 2""", (batch_id,),
+        ).fetchall()
+
+
+def list_assessment_summaries(connection, run_id, *, limit, offset):
+    """Project only summary fields from a completed run, preserving original ranks."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT h.household_uuid, h.vulnerability_rank,
+                      (h.findings #>> '{mpi,vulnerability_score}')::double precision
+                          AS vulnerability_score,
+                      (h.findings #>> '{mpi,coverage_pct}')::double precision AS coverage_pct,
+                      h.findings #>> '{mpi,data_quality_status}' AS data_quality_status,
+                      (h.findings #>> '{mpi,unknown_indicator_count}')::integer
+                          AS unknown_indicator_count,
+                      jsonb_build_object(
+                          '4Ps', h.findings #>> '{programs,4Ps,screening_status}',
+                          'SLP', h.findings #>> '{programs,SLP,screening_status}',
+                          'SPISC', h.findings #>> '{programs,SPISC,screening_status}',
+                          'TUPAD', h.findings #>> '{programs,TUPAD,screening_status}'
+                      ) AS program_statuses
+               FROM household_assessments h
+               JOIN assessment_runs r ON r.id = h.run_id AND r.batch_id = h.batch_id
+               WHERE h.run_id = %s AND r.status = 'completed'
+               ORDER BY h.vulnerability_rank ASC, h.household_uuid ASC
+               LIMIT %s OFFSET %s""", (run_id, limit, offset),
+        ).fetchall()

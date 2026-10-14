@@ -36,9 +36,10 @@ Local Excel files and finalized reference CSVs
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `repositories/dataset_batches.py` | Stores/activates batch snapshots and provides batch-scoped, ordered read queries; callers own transactions. |
-| `repositories/assessment_runs.py` | Creates/completes batch-scoped assessment runs, stores complete unified findings and reads completed runs; invoked only by the approved operational persistence runner, not routes. |
+| `repositories/assessment_runs.py` | Stores batch-scoped runs/findings through the approved operational runner; completed reads are reused by the internal query service. No route invokes it. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
+| `services/assessment_queries.py` | Resolves one completed active-batch run and retrieves bounded summaries or complete stored household findings through read-only snapshots; no route invokes it. |
 | `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
@@ -1008,3 +1009,75 @@ partial-schema rejection, preservation checks, transaction failure propagation,
 no retries, complete findings comparison and suppression of private error text.
 The full suite was not repeated. Task 3B is Completed; Phase 6B.4 remains In Progress
 until separately approved protected real-data staff views are implemented.
+
+## 19. Phase 6B.4 Task 3C: read-only assessment queries
+
+`services.assessment_queries` is an internal backend boundary for stored
+assessments, not an endpoint or authorization mechanism. Future protected routes
+must enforce staff authorization before calling it; authentication and the
+fixture-only public-route guard are unchanged.
+
+The existing assessment repository adds two SELECT-only operations:
+
+- `find_completed_runs(connection, batch_id)` returns at most two completed-run
+  metadata rows so the service can detect ambiguity. Pending runs are excluded.
+- `list_assessment_summaries(connection, run_id, limit=..., offset=...)` returns
+  only household UUID, original stored rank/score, coverage, MPI data-quality
+  status, unknown-indicator count and the four program statuses. SQL projects
+  these fields from JSONB and applies LIMIT/OFFSET; it does not transfer complete
+  household evidence to Python. Ordering uses the existing rank index and UUID
+  as the stable tie-breaker. It does not calculate replacement ranks.
+
+Three public service functions reuse these reads and the existing complete-output
+`find_household_assessment()` reader:
+
+- `get_active_assessment_context()` resolves exactly one validated active source
+  batch and one completed assessment run. Missing or ambiguous batch/run states
+  fail with fixed `AssessmentQueryError` codes. A pending run alongside one
+  completed run is ignored; two completed runs require an explicitly approved
+  selection policy in later work rather than silently choosing the latest.
+- `list_active_assessment_summaries(page=1, page_size=25)` returns `context`,
+  `items`, `page`, `page_size` and `total`. Pages start at 1; page size is bounded
+  to 1–100. A page beyond the end returns an empty list and the same total.
+  Total uses the completed run's verified household-count snapshot, avoiding a
+  full-count query per request. No search/filter or dashboard aggregation is
+  implemented by this task.
+- `get_active_household_assessment(household_uuid)` returns `context` and complete
+  `findings` for that household in the resolved run. Missing household findings
+  produce a fixed error without echoing the UUID. Existing tuple restoration
+  retains full MPI/four-program outputs, including evidence and assumptions.
+
+Context includes batch/run IDs, historical survey year, municipality, verified
+household count, completion time and original calculation/source provenance.
+The service does not hardcode batch 1 or a survey year; existing source/import
+constraints still enforce the current pilot, and no future-year import support
+was added. List/detail results are private internal objects and must not be
+printed, exported or exposed through unprotected routes.
+
+Each call owns a fresh idle connection from the existing `db.get_connection()`
+pattern (or a supplied factory) and one REPEATABLE READ, READ ONLY transaction.
+Run resolution and retrieval use the same snapshot so concurrent active-batch
+changes cannot mix context and findings. Database/configuration failures are
+translated into fixed error codes without private exception details. Repository
+helpers perform only SELECTs; they leave connection/transaction ownership to
+callers. Neither layer invokes engines, imports, migrations or storage writes.
+
+Focused verification on 2026-10-14 passed **12 tests without skips**, including
+**six executed PostgreSQL integration tests** in isolated local
+`tanglaw_buhay_test` schemas. Generated 32-household outputs verified active-run
+resolution, missing/unvalidated/ambiguous states, pending-run exclusion,
+pagination boundaries and rank ties, exact complete household retrieval and
+isolation between two source batches sharing UUIDs. Tests also confirmed summary
+projection, bound parameters, invalid-input/non-idle-connection rejection,
+sanitized errors, unchanged stored rows and database rejection of attempted
+writes within the service snapshot. Test fixture DDL/rows were confined to the
+test database; all created schemas were removed. No development database access,
+real-data recalculation or full-suite rerun was needed.
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_assessment_queries.py -v
+```
+
+Task 3C is Completed. Phase 6B.4 remains In Progress; protected staff routes,
+Dashboard/Prioritization/Details UI and authorization integration require a
+separately scoped task. No blocker was identified.
