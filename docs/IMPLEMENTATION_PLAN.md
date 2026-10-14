@@ -81,6 +81,14 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 - **Scope:** Household ID, table layout and related tests/documentation only. No source, schema, assessment, authentication, filter or detail changes.
 - **Verification:** All 19,304 stored source positions/UUIDs match the original CSV data-row sequence and imported file hash. All 243 tests passed without skips, with 218 database connections restricted to isolated local `tanglaw_buhay_test`. Read-only checks on pages 1, 2 and 773 plus a repeated page 1 confirmed stable IDs and unchanged Run 2 scores/ranks/programs for 54 unique households. Synthetic browser checks verified seven columns, paging, long-name/UUID layout, numeric alignment and controlled table scrolling at desktop/laptop/tablet/mobile widths (320–1440px), without document overflow or browser warnings/errors. Task 2 filters and assessment details remain deferred.
 
+## Frontend Task 1C — CSS organization and permanent frontend standards
+
+- **Status:** Completed.
+- **Objective:** Separate foundational, staff-shell and assessment CSS on `dev/frontend-refactor` while preserving the completed frontend appearance and functionality.
+- **Acceptance criteria:** All existing selectors/declarations/media conditions are preserved; shared CSS loads before module CSS through a reusable Jinja2 block; synthetic rendering/data, desktop/mobile layouts, navigation and pagination remain unchanged; permanent frontend organization rules are documented.
+- **Scope:** Three stylesheets, minimal template loading, focused verification and necessary documentation only. No backend behavior, UI wording, new module, dependency or automatic commit/push/merge.
+- **Verification:** All 125 original CSS rules retain their selectors, declarations and media conditions. Before/after synthetic screenshots are byte-identical at 1440, 1366, 1024, 375 and 320px; computed-style/geometry comparisons match for 94 representative elements at each size. Rendered body HTML/data match exactly on three synthetic pages. All 18 focused existing tests passed; stylesheet loading, assets, keyboard menu/focus/scrolling and next/final-page navigation passed. No database operations or backend application Python changes were needed. Work remains uncommitted on `dev/frontend-refactor` for review.
+
 ## Phase 6B.5 — End-to-end verification
 
 - **Status:** Not Started.

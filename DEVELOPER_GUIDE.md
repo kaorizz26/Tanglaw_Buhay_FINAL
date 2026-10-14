@@ -1347,7 +1347,10 @@ The original local Tanglaw-Buhay logo and municipal flag (visually cropped to
 the seal by CSS) are copied unchanged into `static/branding/`. Eight SVG icons
 were downloaded from the approved Figma reference into `static/icons/`; no
 temporary asset URLs, new framework, font service or dependency is required.
-`static/css/staff.css` organizes tokens/layout/table/pagination/breakpoints.
+After Task 1C, `static/css/base.css` contains shared foundations,
+`static/css/staff.css` contains the staff shell/shared page header, and
+`static/css/assessments.css` contains assessment presentation and pagination.
+The shared layout loads base/staff styles before the page's `page_styles` block.
 `static/js/staff-navigation.js` only handles the responsive navigation toggle.
 Unimplemented modules and Review Queue have planned labels and no fake links.
 Account display uses the real username and role because `staff_users` does not
@@ -1421,3 +1424,44 @@ names/UUIDs and keyboard horizontal scrolling. The page has no document
 overflow or nested vertical table scrollbar; browser warning/error logs were
 empty. Task 1B is Completed. Subsequent filters and assessment details were not
 started. A synthetic screenshot is retained only in Git-ignored `notes/`.
+
+## 24. Frontend Task 1C: stylesheet organization
+
+The behavior-preserving refactor uses three directly served stylesheets, without
+imports, a framework or build tools:
+
+| File | Responsibility |
+|---|---|
+| `static/css/base.css` | Design tokens, global defaults/resets, typography, accessibility utilities and global focus indicators; responsive heading typography. |
+| `static/css/staff.css` | Staff workspace/sidebar, branding, navigation/profile/Sign Out, sidebar focus customization, shared page-header structures and responsive staff layout/navigation. |
+| `static/css/assessments.css` | Assessment tabs, summary/historical notice, seven-column ranking, household display, subsidy badges, empty states, pagination and assessment-specific responsive rules. |
+
+`templates/staff/layout.html` loads `base.css`, then `staff.css`, followed by an
+empty reusable `page_styles` block. The prioritization template overrides that
+block to load `assessments.css`. Its content markup and pagination partial remain
+unchanged. Future staff pages can add their own module stylesheet through the
+same block without duplicating the document shell or loading unrelated styles.
+Responsive rules stay with their owning styles; their selectors, conditions and
+declarations are preserved. The permanent Frontend File and Folder Organization
+section in `AGENTS.md` guides incremental module separation and shared reuse.
+
+No application Python, JavaScript, assets, data or assessment behavior changed.
+The existing synthetic rendering test also checks the three stylesheet URLs in
+load order and successful static-file responses. Task 1C remains separately
+scoped from filters, details and all other future modules.
+
+Verification preserved all **125** original CSS selector/declaration/media-rule
+entries. Synthetic before/after screenshots were byte-identical at 1440, 1366,
+1024, 375 and 320px widths. Style/geometry comparisons matched for **94**
+representative elements at each size; rendered body HTML and assessment data
+were identical on three synthetic pages. All **18 focused existing tests** passed
+(10 prioritization and eight frontend-reset tests), without database connections.
+All three stylesheets and existing branding/icons loaded successfully. Keyboard
+menu, visible focus, skip link and horizontal table scrolling passed; next and
+final-page navigation retained seven columns, correct IDs and the final four
+rows. Browser warning/error logs were empty. No production/test database writes,
+real-data inspection or backend recalculation were performed for Task 1C.
+
+Task 1C is Completed on `dev/frontend-refactor`; changes await review without an
+automatic commit, push or merge. Synthetic QA comparisons/screenshots stay in
+Git-ignored `notes/`. Subsequent modules remain deferred.

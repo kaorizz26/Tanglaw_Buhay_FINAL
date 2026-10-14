@@ -89,3 +89,9 @@ reserved; no fake controls, search, filters or detail navigation were added.
 For current routes and technical details, see [Developer Guide, section 9](../DEVELOPER_GUIDE.md#9-minimal-staff-interface-after-the-frontend-reset),
 [Frontend Task 1](../DEVELOPER_GUIDE.md#22-frontend-task-1-protected-household-prioritization)
 and [project context](PROJECT_CONTEXT.md).
+
+Task 1C preserves this interface and separates its stylesheet ownership:
+shared foundations in `base.css`, the staff shell/page-header structures in
+`staff.css`, and assessment presentation in `assessments.css`. They load in that
+order through the shared layout and its reusable `page_styles` block. See
+[Developer Guide section 24](../DEVELOPER_GUIDE.md#24-frontend-task-1c-stylesheet-organization).

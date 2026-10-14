@@ -103,6 +103,11 @@ class PrioritizationTests(unittest.TestCase):
                 response = self.client.get("/assessments")
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.headers["Cache-Control"], "no-store")
+                stylesheets = [
+                    response.text.index(f'href="/static/css/{name}.css"')
+                    for name in ("base", "staff", "assessments")
+                ]
+                self.assertEqual(stylesheets, sorted(stylesheets))
                 self.assertEqual(response.text.count('scope="col"'), 7)
                 self.assertEqual(response.text.count('scope="row"'), 25)
                 self.assertIn(label, response.text)
@@ -122,6 +127,9 @@ class PrioritizationTests(unittest.TestCase):
         self.query.assert_called_with(
             page=1, page_size=25, include_household_identity=True,
         )
+        for name in ("base", "staff", "assessments"):
+            with self.client.get(f"/static/css/{name}.css") as stylesheet:
+                self.assertEqual(stylesheet.status_code, 200)
 
     def test_pagination_links_and_counts_include_last_partial_page(self):
         self._session()

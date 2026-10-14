@@ -31,3 +31,11 @@
 - Update `DEVELOPER_GUIDE.md` when architecture or developer-facing behavior materially changes.
 - Run checks appropriate to the task, without excessive tests or unrelated audits. For application behavior changes, use `.\.venv\Scripts\python.exe -B -m unittest discover -s tests` and relevant checks in the Developer Guide. Documentation-only changes need content/link and diff review, not private-data processing.
 - For an explicitly authorized behavior-preserving engine refactor, compare complete outputs before/after; equal totals alone are insufficient. Keep private comparisons in Git-ignored storage.
+
+## Frontend File and Folder Organization
+
+- Organize frontend work by feature/module: Dashboard, Household Records, Assessments, Submissions and Administration. Use appropriately named Jinja2 module directories, and create future modules incrementally without empty scaffolding.
+- Keep global design tokens, shared layouts and reusable components separate from page-specific code. Reuse existing shared styles/components instead of duplicating them; keep module-specific styles after shared styles in the cascade.
+- Introduce dedicated module CSS and JavaScript files when size or complexity justifies separation. Avoid accumulating unrelated page styles, scripts or markup in one large file; create files only when necessary and avoid excessive fragmentation.
+- Follow consistent folder structures, descriptive naming, proper indentation and logical spacing across HTML, Jinja2, CSS, JavaScript and Python. Never minify application source or use excessively compact one-line structures.
+- Keep functions/components focused, readable and easy to debug. Maintain clear separation between request routes, services, repositories, templates, styles and interaction scripts.
