@@ -36,7 +36,7 @@ Local Excel files and finalized reference CSVs
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `repositories/dataset_batches.py` | Stores/activates batch snapshots and provides batch-scoped, ordered read queries; callers own transactions. |
-| `repositories/assessment_runs.py` | Creates/completes batch-scoped assessment runs, stores complete unified findings and reads completed runs; no route or execution script invokes it. |
+| `repositories/assessment_runs.py` | Creates/completes batch-scoped assessment runs, stores complete unified findings and reads completed runs; invoked only by the approved operational persistence runner, not routes. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
 | `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
@@ -843,10 +843,10 @@ No rules, weights, thresholds, source responses or staff workflows were changed.
 ## 17. Phase 6B.4 Task 3A: assessment persistence foundation
 
 `migrations/0003_assessment_persistence.sql` adds two tables after migration 0001.
-It has been applied only inside rollback-isolated test schemas, not to
-`tanglaw_buhay_dev`. Startup applies no migrations and no real assessment results
-have been stored. Existing source tables, migrations, calculations and routes
-are unchanged.
+At the Task 3A checkpoint, it had been applied only inside rollback-isolated test
+schemas, not to `tanglaw_buhay_dev`, and no real assessments had been stored.
+The separately approved Task 3B execution is recorded below. Startup applies no
+migrations. Existing source tables, calculations and routes are unchanged.
 
 | Table | Stored information and boundaries |
 |---|---|
@@ -931,4 +931,80 @@ guard restricting all 150 test connections to local `tanglaw_buhay_test`.
 Read-only catalog comparison confirmed no leftover schemas/catalog changes and
 the private `.env` checksum was unchanged. Development/older databases, private
 sources, engines and UIs were not modified. Applying migration 0003 or storing
-real assessments requires a separately approved task.
+real assessments required separate approval, supplied for Task 3B below.
+
+## 18. Phase 6B.4 Task 3B: controlled real assessment persistence
+
+`scripts/controlled_assessment_persistence_2022.py` is an explicitly invoked
+one-time operational runner. Its fixed pilot restrictions do not change the
+batch-aware repository design. It reuses the existing local development
+connection guard, read-only active-batch loader, unchanged engines, Task 2A
+output verification and assessment repository. No route invokes it.
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts\controlled_assessment_persistence_2022.py --check
+# --execute requires explicit owner authorization; it is not a routine command.
+```
+
+Both modes verify local `tanglaw_buhay_dev`, `public`, installed source/auth
+migration structures, validated active batch 1, survey year 2022, Pozorrubio and
+all seven expected source/reference counts. Partial assessment schemas or any
+existing pilot run/result cause a safe stop, including pending runs. Following
+the completed execution below, repeat checks/execution will refuse the existing
+pilot results; the script never replaces them.
+
+The authorized `--execute` operation rechecks safeguards under a transaction
+advisory lock. Share locks protect source/metadata and staff tables from concurrent
+writes during the operation; an existing assessment schema is also locked against
+competing writers. These locks can briefly delay other writes. Only migration
+0003 and derived assessment tables are written. Migration, insertion, completion
+and pre-commit verification share one explicit atomic transaction. Any failure
+before commit rolls back the entire transaction; there is no repair or retry.
+An additional fresh read-only snapshot verifies the committed results. A
+post-commit verification failure is reported with `writes_committed: true` and
+requires review; a committed transaction cannot be rolled back afterward.
+
+Each engine runs once. The runner checks emitted identities, all 16 indicators,
+scores, ranks, program statuses and aggregate agreement with Task 2A, without
+changing rules or recomputing filtered ranks. Calculation provenance records the
+actual imported batch provenance, engine source hashes, migration hash, version
+and authorized task. Every retrieved complete household finding is compared
+in memory with its calculated output before and after commit, including evidence,
+assumptions, warnings and original rank order. No household comparison is logged
+or exported. Console output contains aggregates and sanitized failure codes only.
+
+### Verified execution on 2026-10-14
+
+Read-only `--check` passed, followed by **one authorized `--execute` operation**.
+Migration 0003 committed to local `tanglaw_buhay_dev`, schema `public`, together
+with **completed assessment run 1**, linked to **source batch 1**, 2022 Pozorrubio.
+Stored coverage is **19,304 household assessments** and **77,216 nested subsidy
+findings**, with exactly four programs per household. There are no pending or
+additional pilot runs. Fresh read-only verification passed without recalculation.
+
+All MPI and program aggregates matched the verified [Task 2A baseline](#verified-execution-on-2026-10-13):
+MPI mean score **8.3175047198**, mean coverage **99.8981932357%**, **19,093 Complete
+Data / 211 Needs Data Review** households and **212 unknown indicator outcomes**.
+Original ranks remain **1–14,366**, with **37 score groups** and **35 tied groups**.
+Program totals (For Review / No Historical CBMS Trigger / Needs Data Review) are
+4Ps **12,147 / 7,150 / 7**, SLP **12,770 / 2,385 / 4,149**, SPISC **6,339 / 12,965 / 0**
+and TUPAD **16,612 / 2,692 / 0**. Existing assumptions and informational warnings
+were retained; results remain historical decision support, not eligibility decisions.
+
+Source counts remained households **19,304**, members **69,350**, health **18,282**,
+child mortality **33**, codebook **705**, MPI mappings **89** and definitions **214**.
+Private in-memory row fingerprints confirmed unchanged source responses and
+batch metadata, plus unchanged complete staff account state before/after commit.
+All seven local CSV checksums and the private `.env` checksum were unchanged.
+The older and test databases were not accessed by the real operation. There were
+no authentication, staff permission, UI, source-file or engine changes.
+
+Total controlled execution took **113.261 seconds**, including safeguards,
+fingerprints, calculation, persistence and pre/post-commit verification. Peak
+Python process working set was **598.91 MiB** (not PostgreSQL/system memory).
+All **nine focused synthetic runner tests** passed without database connections,
+covering read-only mode, explicit invocation, target rejection, existing-run and
+partial-schema rejection, preservation checks, transaction failure propagation,
+no retries, complete findings comparison and suppression of private error text.
+The full suite was not repeated. Task 3B is Completed; Phase 6B.4 remains In Progress
+until separately approved protected real-data staff views are implemented.
