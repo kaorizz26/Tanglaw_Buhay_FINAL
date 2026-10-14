@@ -28,7 +28,12 @@ remain separately scoped work; no dashboard or replacement staff panels exist.
 The separately authorized first local import is validated active batch `1` in
 `tanglaw_buhay_dev`, for 2022 Pozorrubio. Phase 6B.4 Task 1 now verifies exact
 DataFrame reconstruction against the local CSV snapshot using read-only queries.
-Full-batch scoring and authorized real-record views remain unimplemented.
+Later completed assessment work is recorded in Developer Guide sections 15–21:
+corrected Run 2 is completed and explicitly designated, with 19,304 assessments
+and unchanged findings from the four subsidy engines. Historical Run 1 remains.
+Frontend Task 1 adds protected read-only Household Prioritization; other record
+and assessment views remain unimplemented. The minimal landing keeps its fixture
+guard, and actual records are read through a separate authenticated query route.
 
 ## CBMS source and provenance
 

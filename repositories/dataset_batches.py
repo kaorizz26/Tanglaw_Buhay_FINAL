@@ -45,6 +45,41 @@ def iter_batch_records(connection, batch_id, dataset_name):
         yield from cursor
 
 
+def find_household_identities(connection, batch_id, household_uuids):
+    """Project page-scoped identities without choosing between ambiguous heads.
+
+    The imported codebook identifies A02=1 as Head. Both joins retain the source
+    batch and UUID; roster position alone does not establish household headship.
+    """
+    if not household_uuids:
+        return []
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT h.uuid AS household_uuid, h.source_row_number,
+                      h.responses ->> 'barangay' AS barangay,
+                      head.head_count, head.first_name, head.middle_name,
+                      head.last_name
+               FROM households h
+               LEFT JOIN LATERAL (
+                   SELECT count(*) AS head_count,
+                          CASE WHEN count(*) = 1 THEN
+                              max(m.responses ->> 'a01_first_name')
+                          END AS first_name,
+                          CASE WHEN count(*) = 1 THEN
+                              max(m.responses ->> 'a01_middle_name')
+                          END AS middle_name,
+                          CASE WHEN count(*) = 1 THEN
+                              max(m.responses ->> 'a01_last_name')
+                          END AS last_name
+                   FROM household_members m
+                   WHERE m.batch_id = h.batch_id AND m.uuid = h.uuid
+                     AND m.responses ->> 'a02_relation_to_hh_head' = '1'
+               ) head ON true
+               WHERE h.batch_id = %s AND h.uuid = ANY(%s)""",
+            (batch_id, household_uuids),
+        ).fetchall()
+
+
 def lock_dataset_imports(connection):
     """Serialize imports/activation while allowing ordinary readers to continue."""
     connection.execute("LOCK TABLE dataset_batches IN SHARE ROW EXCLUSIVE MODE")

@@ -114,7 +114,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                          "/assessments?view=queue", "/assessments/PRIVATE_ID?tab=subsidy"):
                 page = client.get(path)
                 self.assertEqual(page.status_code, 410)
-                self.assertIn("has been retired", page.text)
+                self.assertTrue("has been retired" in page.text or "not available" in page.text)
                 self.assertNotIn("PRIVATE_ID", page.text)
                 self.assertNotIn("<table", page.text)
         for path in ("/static/css/app.css", "/static/js/navigation.js",

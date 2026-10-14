@@ -1,7 +1,7 @@
 # Tanglaw-Buhay backend developer guide
 
 This guide describes the Phase 4C vulnerability engine, Phase 5B screening
-rules, Phase 6A unified assessments and the authenticated frontend reset. The
+rules, Phase 6A unified assessments and authenticated staff prioritization. The
 screening package separates the four programs from shared parsing and
 metadata. The cleanup preserves the rules, output fields and household results.
 
@@ -36,10 +36,11 @@ Local Excel files and finalized reference CSVs
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `repositories/dataset_batches.py` | Stores/activates batch snapshots and provides batch-scoped, ordered read queries; callers own transactions. |
-| `repositories/assessment_runs.py` | Stores batch-scoped runs/findings and explicit completed-run selections through approved operations; completed reads are reused by the internal query service. No route invokes it. |
+| `repositories/assessment_runs.py` | Stores batch-scoped runs/findings and explicit completed-run selections through approved operations; the protected prioritization page uses completed reads through the query service. Routes never invoke storage operations. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
-| `services/assessment_queries.py` | Resolves the explicitly designated completed active-batch run and retrieves bounded summaries or complete stored household findings through read-only snapshots; no route invokes it. |
+| `services/assessment_queries.py` | Resolves the explicitly designated completed active-batch run and retrieves bounded summaries or complete stored findings through read-only snapshots; optional page identities share that snapshot. |
+| `routes/assessments.py`, `services/prioritization.py` | Serve the protected 25-row ranking and prepare names, exact For Review badges and pagination without engine execution. |
 | `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
@@ -369,17 +370,18 @@ key and existing staff accounts (section 13); no original datasets are read.
 
 | Route | Current behavior |
 |---|---|
-| `/` | Protected landing showing System Administrator or LGU Staff and a CSRF-protected Sign Out form. |
+| `/` | Fixture-guarded protected landing showing the role, a Household Prioritization link and CSRF-protected Sign Out. |
 | `/login` | Minimal sign-in form; successful/already authenticated login redirects to `/`. |
 | `/logout` | Sign-out confirmation; only a CSRF-protected POST ends sessions. |
 | `/test` | Public JSON health check, independent of records/database availability. |
-| `/households`, `/assessments`, and their detail paths | Anonymous users redirect to login; authenticated requests return HTTP 410 with a generic retirement message. No identifiers/responses are echoed. |
+| `/assessments` | Protected real-data prioritization with read-only selected-run retrieval and 25 households per page; see section 22. |
+| `/households`, household/assessment detail paths, `/assessments?view=queue` | Anonymous users redirect to login; authenticated requests return HTTP 410. No identifiers/responses are echoed. |
 
 The old staff blueprints, sidebar, records/assessment templates, shared UI macros,
 CSS, JavaScript, favicon, presentation helpers and pagination were intentionally
 removed on `dev/frontend-reset`. Their prior implementation remains in Git at
-`9a6b24c`. `templates/landing.html` and existing minimal auth templates contain
-no new dashboard, panels, design system or record summaries.
+`9a6b24c`. The landing and auth templates remain minimal. Frontend Task 1 adds
+only the shared staff layout and protected prioritization screen (section 22).
 
 The development boundary now holds only a source-kind marker, not a calculated
 workspace. A non-fixture marker blocks the landing with 403. Authenticated real
@@ -1300,3 +1302,122 @@ are unchanged. No household data was printed or exported.
 **Preparation/testing and controlled persistence/designation are Completed.**
 The current-run query layer is ready for separately scoped protected staff views.
 Phase 6B.4 remains In Progress; no frontend task was started by this checkpoint.
+
+## 22. Frontend Task 1: protected Household Prioritization
+
+`GET /assessments` is now a separately protected real-data route registered in
+the existing app. The unchanged application-wide staff guard checks both
+approved roles, account activity, session version and expiry before any query.
+The minimal `/` landing keeps its fixture-source guard and provides a link to
+Prioritization. Login redirects and authentication policies are unchanged.
+`/test` remains public and independent of PostgreSQL. Household and assessment
+detail routes, including the old queue query URL, remain unavailable (HTTP 410).
+
+`services.prioritization.get_prioritization_page()` requests 25 summaries from
+`list_active_assessment_summaries(include_household_identity=True)`. The existing
+query resolves the validated active batch and explicitly designated completed
+run; local batch 1 currently designates corrected Run 2. There is no fallback
+to Run 1, latest-run selection, source loading or engine calculation.
+SQL LIMIT/OFFSET and stored rank/UUID ordering remain unchanged. Page identities
+are retrieved through `repositories.dataset_batches.find_household_identities()`
+on the same read-only repeatable-read connection, using only those page UUIDs.
+
+The actual imported columns were inspected before implementation: household
+`barangay`, and member `a01_first_name`, `a01_middle_name`, `a01_last_name`,
+`a02_relation_to_hh_head`. The imported codebook confirms A02=`1` means Head.
+Joins use both source `batch_id` and household `uuid`; member position is not
+used as proof of headship. No suffix is invented from the definition reference:
+the actual imported roster has no suffix column. Missing or ambiguous heads
+receive explicit display text, never another member's name. Names remain
+observed source components; blank/literal-NA components are omitted for display
+without rewriting stored responses. The pilot contains one head per household.
+
+The initial Task 1 table had six columns. Task 1B adds Household ID, giving seven:
+original Municipal Rank, Household ID, Household Head with UUID, Barangay,
+stored Vulnerability Score out of 100 (two display decimals), Subsidies for Review,
+and reserved Action. See section 23 for ID provenance. Badges require exact `For Review`
+status and follow 4Ps/SLP/SPISC/TUPAD order; otherwise the row says
+`No For Review signals`. There are no new score classes or replacement ranks.
+Pagination includes counts, bounded page links, Previous and Next. Malformed
+page parameters return 400, pages beyond the final page return 404, and missing
+batch/designation or database failures return sanitized 503 without fixtures.
+
+`templates/staff/layout.html` is reusable for later approved staff screens.
+The original local Tanglaw-Buhay logo and municipal flag (visually cropped to
+the seal by CSS) are copied unchanged into `static/branding/`. Eight SVG icons
+were downloaded from the approved Figma reference into `static/icons/`; no
+temporary asset URLs, new framework, font service or dependency is required.
+`static/css/staff.css` organizes tokens/layout/table/pagination/breakpoints.
+`static/js/staff-navigation.js` only handles the responsive navigation toggle.
+Unimplemented modules and Review Queue have planned labels and no fake links.
+Account display uses the real username and role because `staff_users` does not
+store a personal display name. Sign Out uses the existing CSRF-protected POST.
+
+Verification on 2026-10-14 passed the full **241-test suite without skips**,
+including synthetic route/rendering/pagination tests and isolated PostgreSQL
+identity/selection tests. A runtime connection guard confined all **218** test
+connections to local `tanglaw_buhay_test`; none targeted development records.
+Independent read-only development checks sampled pages 1, 2, 387, 772 and 773:
+**104 households** matched their complete stored Run 2 score/rank/program fields
+and batch-scoped source identities. Page 773 contained four rows; shared ranks
+continued across pagination boundaries. No engines or write operations ran.
+
+Browser checks used synthetic summaries and long names/UUIDs at 1440, 1366,
+1024, 375 and 320px widths. They verified original local images and icon
+geometry, no document overflow, controlled horizontal table scrolling with no
+nested vertical table scrollbar, 16px row text, 44px control heights, keyboard
+menu/skip-link behavior and working next/final-page links. Browser error/warning
+logs were empty. Temporary QA files/screenshots remain in Git-ignored `notes/`.
+
+Task 1 changes are limited to app/route registration, the identity projection,
+query/presentation services, shared/page/pagination templates, static assets,
+focused tests and these project instructions/context notes. MPI, screening,
+imports, source records, stored runs/designation, migrations and authentication
+policies are unchanged. Task 2 filters, Task 3 assessment details, Review Queue
+and the other modules remain deferred; Phase 6B.4 remains In Progress.
+
+## 23. Frontend Task 1B: household reference IDs and table refinement
+
+Household IDs are derived for display as `HH-{source_row_number:05d}`. The
+existing importer assigns `source_row_number` by enumerating original CSV
+data rows from 1, excluding the header. A read-only check on 2026-10-14 verified
+every stored `(source_row_number, uuid)` pair against the original household
+CSV sequence: all **19,304** matched exactly, positions **1–19,304**, and the
+file's SHA-256 matched batch 1's imported provenance. No source data was changed.
+
+The existing page-scoped identity SELECT now projects `h.source_row_number`.
+It retains the batch/UUID boundary and the query service's single read-only
+repeatable-read snapshot. `services.prioritization` formats this position and
+rejects missing/nonpositive/noninteger values with a sanitized query error.
+IDs never depend on municipal rank, member line, current row order or page
+offset. The 2022 batch therefore displays `HH-00001` through `HH-19304`.
+They are Tanglaw-Buhay reference IDs, not official PSA identifiers; other source
+batches can reuse the same labels, so batch context and UUID remain authoritative.
+
+The seven-column table gives IDs their own column and keeps the original UUID
+beneath the household head's name. Numeric ranks/scores are right-aligned,
+IDs use tabular numerals, and the head column retains room for long names/UUIDs.
+Adjusted widths and controlled horizontal scrolling preserve readable text and
+the existing navy/neutral/gold design. Shared municipal ranks mean equal priority;
+the unchanged UUID ordering only stabilizes pagination and does not break ties.
+The page explicitly explains both ID provenance and equal priority within ties.
+
+Task 1B modifies only the identity projection, presentation service, table/CSS,
+focused tests and relevant documentation/plan. It adds no database column,
+migration, engine calculation, filter, detail view or authentication change.
+
+Verification passed **243 tests without skips**, with a runtime guard restricting
+all **218** PostgreSQL test connections to local `tanglaw_buhay_test`. Focused
+tests cover both ID endpoints, non-rank-based IDs across pages/reordered subsets,
+invalid-source-position rejection, seven-column rendering, batch isolation and
+unchanged ranks/ties. Read-only development checks verified **54 distinct
+households** on pages 1, 2 and 773, plus repeated retrieval of page 1: reference
+IDs matched stored source positions and all Run 2 scores/ranks/program statuses
+remained unchanged. No real records were written or exported.
+
+Synthetic browser checks at 1440, 1366, 1024, 375 and 320px verified readable
+seven-column rendering, correct next/final-page navigation, full IDs, long
+names/UUIDs and keyboard horizontal scrolling. The page has no document
+overflow or nested vertical table scrollbar; browser warning/error logs were
+empty. Task 1B is Completed. Subsequent filters and assessment details were not
+started. A synthetic screenshot is retained only in Git-ignored `notes/`.

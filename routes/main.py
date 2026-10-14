@@ -22,7 +22,6 @@ def index():
 
 @main.get("/households")
 @main.get("/households/<path:retired_path>")
-@main.get("/assessments")
 @main.get("/assessments/<path:retired_path>")
 def retired_staff_pages(retired_path=None):
     """Retire old bookmarks without looking up or echoing any household information."""

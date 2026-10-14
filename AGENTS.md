@@ -22,6 +22,7 @@
 ## Coding and verification standards
 
 - Write clean, readable, maintainable code following repository conventions and PEP 8 for Python. Keep formatting, imports, naming and indentation consistent; preserve existing behavior unless a change is explicitly authorized.
+- Keep frontend source expanded and readable: use consistent 2-space HTML/Jinja2, CSS and JavaScript indentation, separate logical blocks, break long attributes across lines, and organize CSS by purpose. Never minify source or pack unrelated elements/statements onto one line; keep shared layouts separate from page content.
 - Separate responsibilities: Flask routes handle requests; services hold business logic; repository functions handle PostgreSQL access outside routes/templates; structured Jinja2 templates and reusable components present data; organized CSS styles it; focused JavaScript handles interaction.
 - Keep functions focused with descriptive names. Avoid monolithic files, excessively long functions, deep nesting and duplicated logic; reuse existing utilities.
 - Add concise docstrings for nontrivial functions, explaining purpose and important inputs/outputs. Comment complex logic, project assumptions and non-obvious decisions, without narrating obvious code line by line. Use type hints where they improve readability.

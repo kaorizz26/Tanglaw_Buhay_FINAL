@@ -65,4 +65,27 @@ Dashboard content, Administration capabilities beyond the approved permissions a
 
 No additional future features are approved by this document. Any proposed feature beyond the requirements above needs its own scope and review before implementation. Backend persistence/import and authentication foundations are recorded in the implementation plan; admin workflows, actual CBMS views and visual refinements remain separately scoped tasks.
 
-For current routes and technical details, see [Developer Guide, section 9](../DEVELOPER_GUIDE.md#9-minimal-staff-interface-after-the-frontend-reset) and [project context](PROJECT_CONTEXT.md).
+## Frontend Task 1 — Household Prioritization
+
+The protected `/assessments` page now uses a reusable staff layout based on the
+approved [Figma screen](https://www.figma.com/design/bDnkjYWFZW7cSmROuazJSp/Tanglaw-Buhay-UI?node-id=22-907).
+After Task 1B it shows seven columns: Municipal Rank, Household ID, Household
+Head (name and original UUID), Barangay, Vulnerability Score, Subsidies for Review
+and a reserved Action column. Household IDs use `HH-` plus the zero-padded stored
+CSV data-row number (for this batch, `HH-00001`–`HH-19304`). They are stable
+Tanglaw-Buhay references within a source batch, not official PSA identifiers.
+Only exact For Review findings receive badges. Shared ranks have equal priority;
+their display order does not break ties. Original stored ranks/ties remain;
+25-row server-side pagination provides counts, page numbers, Previous and Next.
+
+The original local logo and municipal flag/seal are reused. Text, focus states,
+semantic table headers and a keyboard-accessible mobile menu support readable
+responsive presentation, with horizontal table scrolling on narrower screens.
+The staff account displays the actual username and role; the account schema has
+no personal display-name field. Unimplemented sidebar modules and Review Queue
+are labeled as planned without destination links. Assessment actions remain
+reserved; no fake controls, search, filters or detail navigation were added.
+
+For current routes and technical details, see [Developer Guide, section 9](../DEVELOPER_GUIDE.md#9-minimal-staff-interface-after-the-frontend-reset),
+[Frontend Task 1](../DEVELOPER_GUIDE.md#22-frontend-task-1-protected-household-prioritization)
+and [project context](PROJECT_CONTEXT.md).

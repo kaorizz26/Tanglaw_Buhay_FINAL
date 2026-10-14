@@ -70,6 +70,24 @@ class AssessmentQueryServiceTests(unittest.TestCase):
                 with self.assertRaisesRegex(service.AssessmentQueryError, code):
                     service.get_active_assessment_context(connection_factory=self.factory)
 
+    def test_identity_lookup_is_bounded_to_page_and_uses_same_snapshot(self):
+        items = [{"household_uuid": "SYNTHETIC_B"}, {"household_uuid": "SYNTHETIC_A"}]
+        identities = [{"household_uuid": "SYNTHETIC_A"}, {"household_uuid": "SYNTHETIC_B"}]
+        with patch.object(repository, "list_assessment_summaries", return_value=items), \
+                patch.object(service.dataset_batches, "find_household_identities", return_value=identities) as query:
+            result = service.list_active_assessment_summaries(
+                page=2, include_household_identity=True, connection_factory=self.factory,
+            )
+            self.assertEqual([item["household_uuid"] for item in result["items"]],
+                             ["SYNTHETIC_B", "SYNTHETIC_A"])
+            query.assert_called_once_with(self.connection, 9, ["SYNTHETIC_B", "SYNTHETIC_A"])
+            self.factory.assert_called_once()
+            query.return_value = []
+            with self.assertRaisesRegex(service.AssessmentQueryError, "household_identity_missing"):
+                service.list_active_assessment_summaries(
+                    include_household_identity=True, connection_factory=self.factory,
+                )
+
     def test_missing_incomplete_or_wrong_batch_designation_is_rejected(self):
         for run, code in ((None, "approved_assessment_run_missing"),
                           ({**self.run, "completed_at": None}, "completed_assessment_run_invalid"),
@@ -251,6 +269,61 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             self.assertIsInstance(result["findings"]["mpi"]["assumptions_used"], tuple)
         with self.assertRaisesRegex(service.AssessmentQueryError, "household_assessment_missing"):
             service.get_active_household_assessment("SYNTHETIC_MISSING", connection_factory=self._factory)
+
+    def test_identities_use_relationship_code_and_batch_scoped_joins(self):
+        self._run()
+        uuid = min(self.findings, key=lambda key: (
+            self.findings[key]["mpi"]["vulnerability_rank"], key,
+        ))
+        other_batch = self._batch(uuids=[uuid])
+        for batch, label in ((self.batch_id, "Active"), (other_batch, "Other")):
+            self.connection.execute(
+                "UPDATE households SET responses=%s WHERE batch_id=%s AND uuid=%s",
+                (Jsonb({"uuid": uuid, "barangay": f"Synthetic {label}"}), batch, uuid),
+            )
+            with self.connection.cursor() as cursor:
+                cursor.executemany(
+                    """INSERT INTO household_members
+                       (batch_id, uuid, line_number, source_row_number, responses)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    [(batch, uuid, line, line, Jsonb({
+                        "a02_relation_to_hh_head": code,
+                        "a01_first_name": f"Synthetic {label} {line}",
+                        "a01_middle_name": "", "a01_last_name": "Head",
+                    })) for line, code in ((1, "2"), (2, "1"))],
+                )
+        result = service.list_active_assessment_summaries(
+            include_household_identity=True, connection_factory=self._factory,
+        )
+        selected = next(item for item in result["items"] if item["household_uuid"] == uuid)
+        self.assertEqual(selected["identity"]["first_name"], "Synthetic Active 2")
+        self.assertEqual(selected["identity"]["barangay"], "Synthetic Active")
+        self.assertEqual(selected["identity"]["head_count"], 1)
+        source_row = self.connection.execute(
+            "SELECT source_row_number FROM households WHERE batch_id=%s AND uuid=%s",
+            (self.batch_id, uuid),
+        ).fetchone()[0]
+        self.assertEqual(selected["identity"]["source_row_number"], source_row)
+        other_identity = service.dataset_batches.find_household_identities(
+            self.connection, other_batch, [uuid],
+        )[0]
+        self.assertEqual(other_identity["source_row_number"], 1)
+        self.assertEqual(len(result["items"]), 25)
+        self.assertTrue(any(item["identity"]["head_count"] == 0 for item in result["items"]))
+        self.connection.execute(
+            """INSERT INTO household_members
+               (batch_id, uuid, line_number, source_row_number, responses)
+               VALUES (%s, %s, 3, 3, %s)""",
+            (self.batch_id, uuid, Jsonb({"a02_relation_to_hh_head": "1", "a01_first_name": "Ambiguous"})),
+        )
+        identity = service.dataset_batches.find_household_identities(
+            self.connection, self.batch_id, [uuid],
+        )[0]
+        self.assertEqual(identity["head_count"], 2)
+        self.assertIsNone(identity["first_name"])
+        with service._read_context(self._factory) as (connection, _):
+            self.assertEqual(connection.execute("SHOW transaction_read_only").fetchone(), ("on",))
+            service.dataset_batches.find_household_identities(connection, self.batch_id, [uuid])
 
     def test_batch_isolation_uses_active_run_for_shared_and_other_households(self):
         self._run()

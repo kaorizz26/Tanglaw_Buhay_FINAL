@@ -4,6 +4,7 @@ from flask import Flask, render_template
 
 from config import Config
 from commands import register_commands
+from routes.assessments import assessments
 from routes.auth import auth
 from routes.main import main
 from services.auth import protect_staff_routes
@@ -19,6 +20,7 @@ def create_app(test_config=None):
     app.extensions["development_workspace"] = {"source_kind": "development_fixture"}
     app.register_blueprint(main)
     app.register_blueprint(auth)
+    app.register_blueprint(assessments)
     app.before_request(protect_staff_routes)
     register_commands(app)
 

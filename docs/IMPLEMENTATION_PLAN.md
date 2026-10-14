@@ -65,6 +65,22 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 - **Corrected MPI controlled persistence/designation: Completed** on 2026-10-14 after a passing read-only preflight and explicit owner authorization for one execution. Local `tanglaw_buhay_dev`, schema `public`, source batch 1 (2022 Pozorrubio) atomically received migration 0004 and completed/designated Run 2, version `tanglaw-buhay-mpi-e01-unknown-v2`. All 19,304 household assessments and 77,216 unchanged subsidy findings were stored; corrected MPI has 15,238 Complete Data households, 4,066 Needs Data Review households, 5,690 unknown outcomes, mean score 6.8570992771, mean coverage 97.5333983745% and ranks 1–13,117. Fresh read-only post-commit verification compared complete stored payloads and confirmed selected Run 2. Full historical Run 1/source/batch/staff state and CSV/private-configuration checksums were preserved. Execution took 145.677 seconds; no original import/persistence rerun, private export, UI work or automatic retry occurred.
 - **Remaining work:** Protected real-data staff views and staff frontend development remain separately scoped. The query layer now resolves designated completed Run 2; historical Run 1/source records remain unchanged. This milestone stays In Progress and the minimal interface retains its fixture guard.
 
+## Frontend Task 1 — Authenticated layout and Household Prioritization
+
+- **Status:** Completed.
+- **Objective:** Implement the approved Figma staff layout and protected `/assessments` page using designated completed findings and actual source identities.
+- **Acceptance criteria:** Both approved roles can read a six-column, 25-row paginated ranking; identities are batch-scoped; original ranks/ties and For Review findings remain unchanged; retrieval is read-only and fails safely; public/fixture boundaries and authentication policies remain intact; responsive and keyboard-accessible presentation is verified.
+- **Scope:** Shared layout, original local branding, protected table and pagination only. Search/filters, assessment details, Review Queue and other navigation modules remain deferred.
+- **Verification:** On 2026-10-14 all 241 tests passed without skips; a runtime guard restricted 218 PostgreSQL test connections to local `tanglaw_buhay_test`. Read-only development checks verified identities and complete stored score/rank/program agreement for 104 households across five Run 2 pages, including shared ranks and the four-row final page. Synthetic browser checks verified pagination, assets, keyboard access and responsive widths from 320–1440px. No engine execution, development writes, schema/authentication changes or later modules were included. Full details are in Developer Guide section 22; Phase 6B.4 stays In Progress.
+
+## Frontend Task 1B — Household reference ID and table refinement
+
+- **Status:** Completed.
+- **Objective:** Derive batch-scoped Tanglaw-Buhay reference IDs from the existing imported household source-row sequence and refine the ranking to seven columns.
+- **Acceptance criteria:** Stored row numbers match the original CSV data-row order; display IDs are stable across pagination and reordered subsets; all ranks/ties, scores and findings are preserved; protected read-only retrieval, seven-column rendering and responsive layouts pass focused verification.
+- **Scope:** Household ID, table layout and related tests/documentation only. No source, schema, assessment, authentication, filter or detail changes.
+- **Verification:** All 19,304 stored source positions/UUIDs match the original CSV data-row sequence and imported file hash. All 243 tests passed without skips, with 218 database connections restricted to isolated local `tanglaw_buhay_test`. Read-only checks on pages 1, 2 and 773 plus a repeated page 1 confirmed stable IDs and unchanged Run 2 scores/ranks/programs for 54 unique households. Synthetic browser checks verified seven columns, paging, long-name/UUID layout, numeric alignment and controlled table scrolling at desktop/laptop/tablet/mobile widths (320–1440px), without document overflow or browser warnings/errors. Task 2 filters and assessment details remain deferred.
+
 ## Phase 6B.5 — End-to-end verification
 
 - **Status:** Not Started.

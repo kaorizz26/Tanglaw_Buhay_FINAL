@@ -54,14 +54,36 @@ def get_active_assessment_context(*, connection_factory=get_connection):
         return context
 
 
-def list_active_assessment_summaries(*, page=1, page_size=25, connection_factory=get_connection):
-    """Return a bounded page ordered by stored rank/UUID, plus source/run context."""
-    if type(page) is not int or page < 1 or type(page_size) is not int or not 1 <= page_size <= 100:
+def list_active_assessment_summaries(
+    *, page=1, page_size=25, include_household_identity=False,
+    connection_factory=get_connection,
+):
+    """Return a bounded rank/UUID page and optional identities in one snapshot.
+
+    Identity projection reads only the current page's source household/head
+    fields. Callers remain responsible for authenticated staff authorization.
+    """
+    if (
+        type(page) is not int or page < 1
+        or type(page_size) is not int or not 1 <= page_size <= 100
+    ):
         raise AssessmentQueryError("invalid_assessment_pagination")
     with _read_context(connection_factory) as (connection, context):
         items = assessment_runs.list_assessment_summaries(
             connection, context["run_id"], limit=page_size, offset=(page - 1) * page_size,
         )
+        if include_household_identity:
+            identities = dataset_batches.find_household_identities(
+                connection, context["batch_id"],
+                [item["household_uuid"] for item in items],
+            )
+            by_uuid = {item["household_uuid"]: item for item in identities}
+            if set(by_uuid) != {item["household_uuid"] for item in items}:
+                raise AssessmentQueryError("household_identity_missing")
+            items = [
+                {**item, "identity": by_uuid[item["household_uuid"]]}
+                for item in items
+            ]
         return {"context": context, "items": items, "page": page, "page_size": page_size,
                 "total": context["household_count"]}
 
