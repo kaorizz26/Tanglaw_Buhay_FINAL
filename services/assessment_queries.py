@@ -14,7 +14,7 @@ class AssessmentQueryError(RuntimeError):
 
 
 def _resolve_context(connection):
-    """Require one validated active batch and exactly one completed calculation run."""
+    """Require one validated active batch and its explicitly designated completed run."""
     batches = dataset_batches.find_active_batches(connection)
     if not batches:
         raise AssessmentQueryError("active_batch_missing")
@@ -23,12 +23,9 @@ def _resolve_context(connection):
     batch = batches[0]
     if batch["validation_status"] != "validated" or batch["is_active"] is not True:
         raise AssessmentQueryError("active_batch_invalid")
-    runs = assessment_runs.find_completed_runs(connection, batch["id"])
-    if not runs:
-        raise AssessmentQueryError("completed_assessment_run_missing")
-    if len(runs) != 1:
-        raise AssessmentQueryError("completed_assessment_run_ambiguous")
-    run = runs[0]
+    run = assessment_runs.find_designated_run(connection, batch["id"])
+    if run is None:
+        raise AssessmentQueryError("approved_assessment_run_missing")
     if run["batch_id"] != batch["id"] or run["completed_at"] is None:
         raise AssessmentQueryError("completed_assessment_run_invalid")
     return {**run, "survey_year": batch["survey_year"], "municipality": batch["municipality"],

@@ -199,6 +199,36 @@ def find_completed_runs(connection, batch_id):
         ).fetchall()
 
 
+def find_designated_run(connection, batch_id):
+    """Read only the explicitly selected completed run for a validated source batch."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT r.id AS run_id, r.batch_id, r.calculation_version, r.calculation_provenance,
+                      r.expected_household_count AS household_count, r.completed_at
+               FROM assessment_run_selections s
+               JOIN assessment_runs r ON r.id = s.run_id AND r.batch_id = s.batch_id
+               JOIN dataset_batches b ON b.id = s.batch_id
+               WHERE s.batch_id = %s AND r.status = 'completed'
+                 AND b.validation_status = 'validated'""", (batch_id,),
+        ).fetchone()
+
+
+def designate_run(connection, batch_id, run_id):
+    """Select a completed run explicitly; the caller owns the atomic transaction."""
+    changed = connection.execute(
+        """INSERT INTO assessment_run_selections (batch_id, run_id)
+           SELECT r.batch_id, r.id FROM assessment_runs r
+           JOIN dataset_batches b ON b.id = r.batch_id
+           WHERE r.id = %s AND r.batch_id = %s AND r.status = 'completed'
+             AND b.validation_status = 'validated'
+           ON CONFLICT (batch_id) DO UPDATE
+           SET run_id = EXCLUDED.run_id, selected_at = CURRENT_TIMESTAMP
+           RETURNING run_id""", (run_id, batch_id),
+    ).fetchone()
+    if changed is None:
+        raise AssessmentStorageError("completed_run_designation_rejected")
+
+
 def list_assessment_summaries(connection, run_id, *, limit, offset):
     """Project only summary fields from a completed run, preserving original ranks."""
     with connection.cursor(row_factory=dict_row) as cursor:

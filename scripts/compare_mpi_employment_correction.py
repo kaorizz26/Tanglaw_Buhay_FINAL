@@ -20,7 +20,6 @@ from scripts.verify_active_batch_assessments import (
     VerificationError, distribution, require, source_fingerprint, verify_mpi,
 )
 from services.active_batch_loader import load_active_batch
-from services.assessment_queries import _resolve_context
 from services.vulnerability.scoring import INDICATOR_WEIGHTS, assess_households
 
 
@@ -33,8 +32,10 @@ def read_stored(metadata):
     """Read the completed pilot run under the existing local/read-only guard."""
     with connect_verified() as connection, connection.transaction():
         connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-        context = _resolve_context(connection)
-        require(context["batch_id"] == metadata["batch_id"] == 1 and context["run_id"] == 1
+        # Historical comparison remains explicitly pinned to Run 1 after new selections exist.
+        context = repository.find_run(connection, 1)
+        require(context is not None and context["status"] == "completed"
+                and context["batch_id"] == metadata["batch_id"] == 1 and context["id"] == 1
                 and context["survey_year"] == metadata["survey_year"] == 2022
                 and context["municipality"] == metadata["municipality"] == "Pozorrubio"
                 and context["source_provenance"] == metadata["source_provenance"],

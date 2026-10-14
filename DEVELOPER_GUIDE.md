@@ -36,10 +36,10 @@ Local Excel files and finalized reference CSVs
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `repositories/dataset_batches.py` | Stores/activates batch snapshots and provides batch-scoped, ordered read queries; callers own transactions. |
-| `repositories/assessment_runs.py` | Stores batch-scoped runs/findings through the approved operational runner; completed reads are reused by the internal query service. No route invokes it. |
+| `repositories/assessment_runs.py` | Stores batch-scoped runs/findings and explicit completed-run selections through approved operations; completed reads are reused by the internal query service. No route invokes it. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
-| `services/assessment_queries.py` | Resolves one completed active-batch run and retrieves bounded summaries or complete stored household findings through read-only snapshots; no route invokes it. |
+| `services/assessment_queries.py` | Resolves the explicitly designated completed active-batch run and retrieves bounded summaries or complete stored household findings through read-only snapshots; no route invokes it. |
 | `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
@@ -1049,14 +1049,14 @@ The existing assessment repository adds two SELECT-only operations:
   household evidence to Python. Ordering uses the existing rank index and UUID
   as the stable tie-breaker. It does not calculate replacement ranks.
 
-Three public service functions reuse these reads and the existing complete-output
+Three public service functions reuse repository reads and the existing complete-output
 `find_household_assessment()` reader:
 
 - `get_active_assessment_context()` resolves exactly one validated active source
-  batch and one completed assessment run. Missing or ambiguous batch/run states
-  fail with fixed `AssessmentQueryError` codes. A pending run alongside one
-  completed run is ignored; two completed runs require an explicitly approved
-  selection policy in later work rather than silently choosing the latest.
+  batch and its explicitly designated completed run (migration 0004, section 21).
+  Missing/ambiguous active batches or missing/invalid designations fail with fixed
+  `AssessmentQueryError` codes. Multiple completed and pending runs can coexist;
+  neither creation order nor the latest run determines which findings are shown.
 - `list_active_assessment_summaries(page=1, page_size=25)` returns `context`,
   `items`, `page`, `page_size` and `total`. Pages start at 1; page size is bounded
   to 1–100. A page beyond the end returns an empty list and the same total.
@@ -1178,7 +1178,125 @@ test files were updated only for the corrected expectations and age boundaries;
 comparison-helper synthetic checks also passed. No UI or unrelated engine changes
 were made, and no private findings were exported.
 
-**Persistence is pending explicit approval.** Query services still return the
-unchanged historical run 1. Applying corrected findings to a new versioned run
-and defining its selection are separate tasks; do not overwrite existing results
-or reuse the historical Task 3B runner. Phase 6B.4 remains In Progress.
+At the correction checkpoint, persistence awaited separate approval. The owner
+subsequently authorized the controlled operation recorded in section 21; corrected
+Run 2 is now designated. Historical Run 1 remains unchanged. Do not overwrite
+existing results or reuse the historical Task 3B runner. Phase 6B.4 remains In Progress.
+
+## 21. Corrected MPI version and explicit selection: completed
+
+The verified MPI correction, focused tests, comparison script and documentation
+were committed locally as **`f8a9362`** (`Correct MPI missing employment evidence
+handling`). Persistence/selection preparation was verified before separate owner
+authorization. The successful development execution is recorded below.
+
+`0004_assessment_run_selection.sql` adds only `assessment_run_selections`:
+one row per source `batch_id`, a `run_id` and a technical `selected_at` timestamp.
+The composite foreign key requires the run to belong to that source batch.
+Migration 0004 does not seed a selection or alter source tables/historical runs.
+`designate_run()` permits a selection only for a validated batch and completed
+run. Readers independently join completed/validated state; even a pending run
+selected by privileged SQL is never exposed. These are repository/read guarantees,
+not staff authorization or a ban on all privileged SQL operations.
+
+`find_designated_run()` supplies the existing query service with explicit run
+metadata. Summaries/details keep their read-only snapshot, pagination, original
+rank ordering and complete-output restoration. There is no fallback to the
+latest, only, first or pending run. Without migration 0004 or a valid designation,
+the updated queries fail closed (`assessment_query_unavailable`
+for a missing table, `approved_assessment_run_missing` for a missing/invalid
+selection). No route invokes these functions and the minimal UI is unaffected.
+Migration 0004 and the designation now exist in the local development database;
+the query service resolves corrected Run 2. The historical impact comparison
+continues to read Run 1 explicitly, independently of current selection.
+
+Current designated version: **`tanglaw-buhay-mpi-e01-unknown-v2`**. It means corrected MPI
+missing-E01/under-15 handling, unchanged weights/ranking formulas and all four
+original subsidy outputs copied from Run 1. The original version remains
+`tanglaw-buhay-approved-mpi-screening-v1`. Version provenance records source/run
+identity, actual source provenance, engine/migration hashes, correction checkpoint
+and the separate unchanged subsidy source/version. PostgreSQL allocated Run 2;
+the runner does not hardcode the new run ID.
+
+`scripts/persist_corrected_mpi_2022.py` is a new controlled path, not a rerun of
+the importer or Task 3B script. The following commands document the approved
+operation; **do not rerun them on the completed pilot**:
+
+```powershell
+# Historical pre-execution check; repeat checks now stop on existing Run 2.
+.\.venv\Scripts\python.exe -B scripts\persist_corrected_mpi_2022.py --check
+# Historical owner-authorized execution; already completed, do not repeat.
+.\.venv\Scripts\python.exe -B scripts\persist_corrected_mpi_2022.py --execute
+```
+
+Both modes use the existing verified loopback-only `tanglaw_buhay_dev`, `public`
+connection guard and migration 0001–0003/source-count checks. They require validated
+active batch 1, 2022 Pozorrubio, completed original Run 1/version v1 with 19,304
+findings and 77,216 nested program results, and no other pilot run (pending or
+completed). A pre-existing selection must be absent or point to Run 1. An earlier
+corrected/partial replacement or unexpected selection causes a stop, not repair,
+overwrite or automatic retry.
+
+The controlled execution obtains the existing advisory lock and table locks,
+rechecks conditions, loads sources read-only and calculates MPI once in memory.
+All four complete subsidy payloads are deep-copied from Run 1; no subsidy engine
+is executed. Existing verifiers check household/program coverage, identities,
+scores, exact full-municipality ranks and statuses. The corrected MPI must match
+the approved comparison counts/mean/coverage/rank range before storage. All other
+13 flags and retained OFW proxy counts must match Run 1.
+
+One outer transaction covers migration 0004 (when absent), new-run creation,
+complete findings, completion, explicit designation and verification. A focused
+`persist_version()` transaction/savepoint preserves atomicity within that outer
+operation. Every retrieved finding must equal the expected complete payload,
+with 19,304 households and four findings each (77,216 total), before commit.
+Run 1 metadata/full findings, all source/metadata rows, staff accounts and local
+CSV/configuration checksums must remain unchanged. A fresh read-only post-commit
+check is required; failure after commit is explicitly reported as committed and
+never triggers an automatic repair/retry. Errors suppress private details and
+no household comparison is exported.
+
+Verification on 2026-10-14 passed **20 focused tests without skips**, including
+**11 executed PostgreSQL tests** in isolated local `tanglaw_buhay_test` schemas.
+Generated 32-household/128-program results verified exact payload copying and
+historical retrieval, explicit selection among multiple runs, pending/cross-batch
+rejection, preserved pagination/rank ties, read-only service behavior, and rollback
+of both results/pointer after failure. A separate failure rolled back migration
+0004 and partial new-run writes together. Only synthetic fixture schemas received
+test writes; all schemas were removed. No development database access, real-data
+recalculation, original import, original one-time persistence execution or UI
+change occurred. The correction's earlier 113 passing synthetic tests and real
+read-only comparison remain the recorded evidence, not repeated in this task.
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_assessment_queries.py -v
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_corrected_assessment_version.py -v
+```
+
+### Authorized development execution on 2026-10-14
+
+Read-only preflight passed for local `tanglaw_buhay_dev`, schema `public`, validated
+active source batch 1, 2022 Pozorrubio, preserved historical Run 1 and no prior
+replacement. The owner then explicitly authorized **one** controlled execution.
+It succeeded in **145.677 seconds**, applying migration 0004, creating/completing
+**Run 2** and designating it for **source batch 1** in one atomic transaction.
+No original import or historical Task 3B persistence operation was rerun.
+
+Stored coverage is **19,304 household assessments** and **77,216 subsidy findings**,
+with all four complete program outputs copied unchanged from Run 1. MPI retains
+all 16 indicators: **15,238 Complete Data** households and **4,066 Needs Data Review**,
+with **5,690 unknown indicator outcomes**. Mean vulnerability score is
+**6.8570992771**, mean coverage **97.5333983745%**, and full-municipality ranks span
+**1–13,117** with unchanged competition-tie rules. The 2,120 adult OFW working
+proxy members were retained; nonworking E01 imputation counts are zero.
+
+Fresh read-only post-commit verification compared every complete stored finding
+with the expected corrected payload and confirmed designated completed **Run 2**,
+version `tanglaw-buhay-mpi-e01-unknown-v2`. Full Run 1 findings/metadata, source
+responses and batch metadata, staff accounts, all seven CSV checksums and private
+`.env` checksum were preserved. Subsidy status/evidence/assumption/warning values
+are unchanged. No household data was printed or exported.
+
+**Preparation/testing and controlled persistence/designation are Completed.**
+The current-run query layer is ready for separately scoped protected staff views.
+Phase 6B.4 remains In Progress; no frontend task was started by this checkpoint.

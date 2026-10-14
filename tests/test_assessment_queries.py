@@ -40,7 +40,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         mock = patch.object(service.dataset_batches, "find_active_batches", return_value=[self.batch])
         mock.start()
         self.addCleanup(mock.stop)
-        mock = patch.object(repository, "find_completed_runs", return_value=[self.run])
+        mock = patch.object(repository, "find_designated_run", return_value=self.run)
         self.runs = mock.start()
         self.addCleanup(mock.stop)
         mock = patch("psycopg.connect", side_effect=AssertionError("No real connections in unit tests"))
@@ -70,12 +70,12 @@ class AssessmentQueryServiceTests(unittest.TestCase):
                 with self.assertRaisesRegex(service.AssessmentQueryError, code):
                     service.get_active_assessment_context(connection_factory=self.factory)
 
-    def test_missing_ambiguous_or_wrong_batch_run_is_rejected(self):
-        for runs, code in (([], "completed_assessment_run_missing"),
-                           ([self.run, self.run], "completed_assessment_run_ambiguous"),
-                           ([{**self.run, "batch_id": 8}], "completed_assessment_run_invalid")):
+    def test_missing_incomplete_or_wrong_batch_designation_is_rejected(self):
+        for run, code in ((None, "approved_assessment_run_missing"),
+                          ({**self.run, "completed_at": None}, "completed_assessment_run_invalid"),
+                          ({**self.run, "batch_id": 8}, "completed_assessment_run_invalid")):
             with self.subTest(code=code):
-                self.runs.return_value = runs
+                self.runs.return_value = run
                 with self.assertRaisesRegex(service.AssessmentQueryError, code):
                     service.get_active_assessment_context(connection_factory=self.factory)
 
@@ -145,7 +145,8 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
         with self.connection.transaction():
             self.connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(self.schema)))
             self.connection.execute(sql.SQL("SET LOCAL search_path TO {}").format(sql.Identifier(self.schema)))
-            for name in ("0001_database_foundation.sql", "0003_assessment_persistence.sql"):
+            for name in ("0001_database_foundation.sql", "0003_assessment_persistence.sql",
+                         "0004_assessment_run_selection.sql"):
                 self.connection.execute((ROOT / "migrations" / name).read_text(encoding="utf-8"))
         self.addCleanup(self._drop_schema)
         self.connection.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(self.schema)))
@@ -175,7 +176,7 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 )
         return batch_id
 
-    def _run(self, batch_id=None, *, complete=True, findings=None):
+    def _run(self, batch_id=None, *, complete=True, findings=None, designate=True):
         batch_id = self.batch_id if batch_id is None else batch_id
         findings = self.findings if findings is None else findings
         with self.connection.transaction():
@@ -184,19 +185,24 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             repository.store_household_assessments(self.connection, run_id, findings)
             if complete:
                 repository.complete_run(self.connection, run_id)
+                if designate:
+                    repository.designate_run(self.connection, batch_id, run_id)
         return run_id
 
-    def test_resolution_ignores_pending_and_rejects_multiple_completed_runs(self):
+    def test_resolution_uses_designation_among_multiple_completed_and_pending_runs(self):
         self._run(complete=False)
-        with self.assertRaisesRegex(service.AssessmentQueryError, "completed_assessment_run_missing"):
+        with self.assertRaisesRegex(service.AssessmentQueryError, "approved_assessment_run_missing"):
             service.get_active_assessment_context(connection_factory=self._factory)
         completed = self._run()
         result = service.get_active_assessment_context(connection_factory=self._factory)
         self.assertEqual((result["batch_id"], result["run_id"], result["survey_year"]),
                          (self.batch_id, completed, 2022))
-        self._run()
-        with self.assertRaisesRegex(service.AssessmentQueryError, "completed_assessment_run_ambiguous"):
-            service.get_active_assessment_context(connection_factory=self._factory)
+        other = self._run(designate=False)
+        result = service.get_active_assessment_context(connection_factory=self._factory)
+        self.assertEqual(result["run_id"], completed)
+        repository.designate_run(self.connection, self.batch_id, other)
+        result = service.get_active_assessment_context(connection_factory=self._factory)
+        self.assertEqual(result["run_id"], other)
 
     def test_missing_or_unvalidated_active_batch_does_not_fall_back(self):
         self._run()
