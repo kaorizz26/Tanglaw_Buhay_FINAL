@@ -80,6 +80,19 @@ def find_household_identities(connection, batch_id, household_uuids):
         ).fetchall()
 
 
+def list_barangays(connection, batch_id):
+    """Return distinct recorded barangays from the active source batch only."""
+    rows = connection.execute(
+        """SELECT DISTINCT btrim(responses ->> 'barangay') AS barangay
+           FROM households
+           WHERE batch_id = %s
+             AND btrim(responses ->> 'barangay') NOT IN ('', 'NA')
+           ORDER BY barangay ASC""",
+        (batch_id,),
+    ).fetchall()
+    return [row[0] for row in rows]
+
+
 def lock_dataset_imports(connection):
     """Serialize imports/activation while allowing ordinary readers to continue."""
     connection.execute("LOCK TABLE dataset_batches IN SHARE ROW EXCLUSIVE MODE")

@@ -87,7 +87,23 @@ Phase 6B is a **single-municipality Pozorrubio pilot** supporting the **finalize
 - **Objective:** Separate foundational, staff-shell and assessment CSS on `dev/frontend-refactor` while preserving the completed frontend appearance and functionality.
 - **Acceptance criteria:** All existing selectors/declarations/media conditions are preserved; shared CSS loads before module CSS through a reusable Jinja2 block; synthetic rendering/data, desktop/mobile layouts, navigation and pagination remain unchanged; permanent frontend organization rules are documented.
 - **Scope:** Three stylesheets, minimal template loading, focused verification and necessary documentation only. No backend behavior, UI wording, new module, dependency or automatic commit/push/merge.
-- **Verification:** All 125 original CSS rules retain their selectors, declarations and media conditions. Before/after synthetic screenshots are byte-identical at 1440, 1366, 1024, 375 and 320px; computed-style/geometry comparisons match for 94 representative elements at each size. Rendered body HTML/data match exactly on three synthetic pages. All 18 focused existing tests passed; stylesheet loading, assets, keyboard menu/focus/scrolling and next/final-page navigation passed. No database operations or backend application Python changes were needed. Work remains uncommitted on `dev/frontend-refactor` for review.
+- **Verification:** All 125 original CSS rules retain their selectors, declarations and media conditions. Before/after synthetic screenshots are byte-identical at 1440, 1366, 1024, 375 and 320px; computed-style/geometry comparisons match for 94 representative elements at each size. Rendered body HTML/data match exactly on three synthetic pages. All 18 focused existing tests passed; stylesheet loading, assets, keyboard menu/focus/scrolling and next/final-page navigation passed. No database operations or backend application Python changes were needed. Subsequently reviewed, committed as `666e754`, and explicitly fast-forward merged/pushed to `dev/frontend-reset`.
+
+## Frontend Task 2 — Prioritization search and filters
+
+- **Status:** Completed.
+- **Objective:** Add PostgreSQL-backed head-name/reference-ID search, active-batch barangay selection, exact For Review program filters and stored MPI completeness filters.
+- **Acceptance criteria:** Filter categories intersect, selected programs use OR, filtering/counts happen before 25-row pagination, selections persist across pages, applying filters starts at page 1, and original municipal ranks/ties/results and authorization remain intact.
+- **Scope:** Existing prioritization page, protected read-only queries, accessible controls and synthetic verification only. Household Records, Assessment Details and Review Queue remain deferred. No engine, source, stored-result, schema or authentication changes.
+- **Verification:** On 2026-10-14 all 32 focused tests passed, including isolated PostgreSQL filtering/count/pagination and stored-value preservation checks. All 251 tests passed without skips, with 246 connections confined to `tanglaw_buhay_test`; a disposable guard's schema-option restriction was corrected before the successful broad run. Synthetic PostgreSQL browser checks passed search, combined/empty results, page reset/preservation, Clear Filters and keyboard/mobile controls at 320–1440px. A generated 19,304-household query fixture completed tested requests locally in 0.14–1.67 seconds. No real-data reads/writes, protected behavior changes or automatic commit/push/merge occurred. See Developer Guide section 25.
+
+## Task 2 refinement — Subsidy combination filtering
+
+- **Status:** Completed.
+- **Objective:** Retain broad subsidy matching and add exact selected For Review combinations to the existing prioritization filters.
+- **Acceptance criteria:** Both modes filter stored findings before pagination, preserve counts/selections and all visible badges, combine with other categories, and leave no-selection results unrestricted. Synthetic PostgreSQL, rendering and authorization checks pass.
+- **Scope:** Existing filter controls, validated presentation parameters, read-only query predicates and focused tests/documentation only. No engine, data, schema, authentication or other module changes.
+- **Verification:** All 36 focused tests and all 255 full-suite tests passed without skips. Full-suite database connections were guarded to local `tanglaw_buhay_test`. Synthetic checks covered all 16 checkbox selections in both modes, other statuses, intersecting filters, accurate counts, 25-row pagination and stored-result preservation. Browser checks verified live help, keyboard mode selection, exact/broad results, complete badges, Clear Filters and responsive layouts at 1440, 375 and 320px without document overflow or browser warnings/errors. Changes remain uncommitted for review.
 
 ## Phase 6B.5 — End-to-end verification
 

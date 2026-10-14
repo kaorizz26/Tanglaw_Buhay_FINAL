@@ -1,6 +1,7 @@
 """Stored-query tests use synthetic findings and isolated local PostgreSQL schemas."""
 
 from copy import deepcopy
+from itertools import combinations
 import os
 from pathlib import Path
 import unittest
@@ -16,6 +17,9 @@ from psycopg.types.json import Jsonb
 
 from repositories import assessment_runs as repository
 from services import assessment_queries as service
+from services.assessment_filters import (
+    AssessmentFilters, InvalidAssessmentFilters, PROGRAM_ORDER, normalize_filters,
+)
 from services.assessments import build_unified_assessments
 from services.development_data import development_sources
 
@@ -60,6 +64,53 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         )
         self.factory.assert_called_once_with()
+
+    def test_filtered_count_page_and_barangays_share_designated_snapshot(self):
+        filters = AssessmentFilters(programs=("4Ps", "SLP"), completeness="unknown")
+        with patch.object(repository, "count_assessment_summaries", return_value=3) as count, \
+                patch.object(repository, "list_assessment_summaries", return_value=[]) as page, \
+                patch.object(service.dataset_batches, "list_barangays", return_value=["Synthetic East"]) as options:
+            result = service.list_active_assessment_summaries(
+                page=2, filters=filters, include_barangays=True, connection_factory=self.factory,
+            )
+        self.assertEqual(result["total"], 3)
+        self.assertEqual(result["barangays"], ["Synthetic East"])
+        count.assert_called_once_with(self.connection, 17, filters=filters)
+        page.assert_called_once_with(self.connection, 17, limit=25, offset=25, filters=filters)
+        options.assert_called_once_with(self.connection, 9)
+        self.factory.assert_called_once()
+
+    def test_invalid_filters_fail_before_connecting_and_valid_values_normalize(self):
+        for filters in (
+            {}, AssessmentFilters(search=2), AssessmentFilters(barangay=None),
+            AssessmentFilters(programs=("INVALID",)), AssessmentFilters(completeness=[]),
+            AssessmentFilters(subsidy_mode="invalid"), AssessmentFilters(subsidy_mode=[]),
+        ):
+            with self.subTest(filters=filters), self.assertRaises(InvalidAssessmentFilters):
+                service.list_active_assessment_summaries(filters=filters, connection_factory=self.factory)
+        self.factory.assert_not_called()
+        self.assertEqual(
+            normalize_filters(AssessmentFilters(
+                search="  Synthetic   Name ", barangay=" East ", programs=("TUPAD", "4Ps", "4Ps"),
+            )),
+            AssessmentFilters(search="Synthetic Name", barangay="East", programs=("4Ps", "TUPAD")),
+        )
+
+    def test_exact_sql_binds_all_programs_and_no_selection_adds_no_predicate(self):
+        filters = AssessmentFilters(programs=("4Ps", "TUPAD"), subsidy_mode="exact")
+        selection, parameters = repository._summary_selection(17, filters)
+        self.assertEqual(selection.count("= 'For Review'"), 2)
+        self.assertEqual(selection.count("IS DISTINCT FROM 'For Review'"), 2)
+        self.assertEqual(parameters, (
+            17, *(["programs", code, "screening_status"] for code in PROGRAM_ORDER),
+        ))
+        self.assertEqual(
+            repository._summary_selection(17, AssessmentFilters(subsidy_mode="exact")),
+            repository._summary_selection(17, AssessmentFilters()),
+        )
+        mode_only = normalize_filters(AssessmentFilters(subsidy_mode="exact"))
+        self.assertFalse(mode_only.active)
+        self.assertEqual(mode_only.parameters, {"subsidy_mode": "exact"})
 
     def test_missing_ambiguous_or_invalid_active_batch_fails_safely(self):
         invalid = {**self.batch, "validation_status": "pending"}
@@ -128,6 +179,34 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         self.assertNotIn("SELECT h.findings", statement)
         self.assertNotIn("supporting_evidence", statement)
         self.assertEqual(parameters, (17, 7, 14))
+
+    def test_filter_sql_binds_values_and_escapes_literal_search_wildcards(self):
+        cursor = self.connection.cursor.return_value.__enter__.return_value
+        filters = AssessmentFilters(
+            search="Synthetic %_! ' OR 1=1 --", barangay="Synthetic East",
+            programs=("4Ps", "SLP"), completeness="unknown",
+        )
+        repository.list_assessment_summaries(self.connection, 17, limit=25, offset=25, filters=filters)
+        statement, parameters = cursor.execute.call_args.args
+        self.assertNotIn(filters.search, statement)
+        self.assertNotIn(filters.barangay, statement)
+        self.assertIn("m.batch_id = h.batch_id AND m.uuid = h.household_uuid", statement)
+        self.assertIn("HAVING count(*) = 1", statement)
+        self.assertIn("ILIKE %s ESCAPE '!'", statement)
+        self.assertIn(" OR ", statement)
+        self.assertLess(statement.index("unknown_indicator_count"), statement.index("LIMIT %s"))
+        self.assertEqual(parameters, (
+            17, "%Synthetic !%!_!! ' OR 1=1 --%", "Synthetic East",
+            ["programs", "4Ps", "screening_status"], ["programs", "SLP", "screening_status"], 25, 25,
+        ))
+        repository.list_assessment_summaries(
+            self.connection, 17, limit=25, offset=0,
+            filters=AssessmentFilters(search="hh-19304"),
+        )
+        statement, parameters = cursor.execute.call_args.args
+        self.assertIn("source.source_row_number = %s", statement)
+        self.assertNotIn("household_members", statement)
+        self.assertEqual(parameters, (17, 19304, 25, 0))
 
 
 @unittest.skipUnless(TEST_URL, "Set the local isolated test database URL.")
@@ -358,6 +437,209 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY run_id, household_uuid)) FROM household_assessments h",
         ).fetchone()
         self.assertEqual(before, after)
+
+    def _filter_fixture(self):
+        """Prepare explicit synthetic search identities and stored filter findings."""
+        findings = deepcopy(self.findings)
+        for number, (uuid, finding) in enumerate(findings.items(), 1):
+            unknown = number % 4 == 0
+            finding["mpi"]["unknown_indicator_count"] = int(unknown)
+            finding["mpi"]["data_quality_status"] = "Needs Data Review" if unknown else "Complete Data"
+            for code, divisor in (("4Ps", 2), ("SLP", 3), ("SPISC", 5), ("TUPAD", 7)):
+                finding["programs"][code]["screening_status"] = (
+                    "For Review" if number % divisor == 0 else "No Historical CBMS Trigger"
+                )
+            if number in (1, 5):
+                finding["programs"]["SLP"]["screening_status"] = "Needs Data Review"
+            barangay = "Synthetic East" if number % 2 else "Synthetic West"
+            if number > 30:
+                barangay = "" if number == 31 else "NA"
+            self.connection.execute(
+                "UPDATE households SET responses=%s WHERE batch_id=%s AND uuid=%s",
+                (Jsonb({"uuid": uuid, "barangay": barangay}), self.batch_id, uuid),
+            )
+            self.connection.execute(
+                """INSERT INTO household_members
+                   (batch_id, uuid, line_number, source_row_number, responses)
+                   VALUES (%s, %s, 1, %s, %s)""",
+                (self.batch_id, uuid, number, Jsonb({
+                    "a02_relation_to_hh_head": "1",
+                    "a01_first_name": "Synthetic", "a01_middle_name": "NA",
+                    "a01_last_name": "Common" if number <= 30 else "Other",
+                })),
+            )
+        self._run(findings=findings)
+        return findings
+
+    def _assert_filtered_rows(self, filters, expected_numbers, findings):
+        """Check full matching sets/counts across pages and original stored values."""
+        expected = [value for number, value in enumerate(findings.values(), 1) if number in expected_numbers]
+        expected.sort(key=lambda row: (row["mpi"]["vulnerability_rank"], row["household_uuid"]))
+        actual = []
+        for page in range(1, max(1, (len(expected) + 24) // 25) + 1):
+            result = service.list_active_assessment_summaries(
+                page=page, filters=filters, include_household_identity=True,
+                include_barangays=True, connection_factory=self._factory,
+            )
+            self.assertEqual(result["total"], len(expected))
+            self.assertEqual(result["barangays"], ["Synthetic East", "Synthetic West"])
+            self.assertLessEqual(len(result["items"]), 25)
+            actual.extend(result["items"])
+        self.assertEqual([row["household_uuid"] for row in actual], [row["household_uuid"] for row in expected])
+        for row, original in zip(actual, expected):
+            self.assertEqual(row["vulnerability_rank"], original["mpi"]["vulnerability_rank"])
+            self.assertEqual(row["vulnerability_score"], original["mpi"]["vulnerability_score"])
+            self.assertEqual(row["program_statuses"], {
+                code: value["screening_status"] for code, value in original["programs"].items()
+            })
+        return actual
+
+    def test_all_subsidy_sets_in_broad_and_exact_modes_with_other_filters(self):
+        findings = self._filter_fixture()
+        before = self.connection.execute(
+            "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY household_uuid)) "
+            "FROM household_assessments h",
+        ).fetchone()
+        for size in range(5):
+            for selected in combinations(PROGRAM_ORDER, size):
+                for mode in ("any", "exact"):
+                    expected = []
+                    selected_set = set(selected)
+                    for number, finding in enumerate(findings.values(), 1):
+                        flagged = {
+                            code for code, program in finding["programs"].items()
+                            if program["screening_status"] == "For Review"
+                        }
+                        if mode == "exact":
+                            matches = flagged == selected_set
+                        else:
+                            matches = bool(flagged.intersection(selected_set))
+                        if not selected or matches:
+                            expected.append(number)
+                    with self.subTest(selected=selected, mode=mode):
+                        self._assert_filtered_rows(
+                            AssessmentFilters(programs=selected, subsidy_mode=mode), expected, findings,
+                        )
+        for completeness, numbers in (("unknown", [4, 8, 16]), ("determined", [2, 22, 26])):
+            self._assert_filtered_rows(
+                AssessmentFilters(
+                    search="Synthetic", barangay="Synthetic West", programs=("4Ps",),
+                    subsidy_mode="exact", completeness=completeness,
+                ), numbers, findings,
+            )
+        # SPISC-only number 5 has an SLP Needs Data Review status, not an extra flag.
+        rows = self._assert_filtered_rows(
+            AssessmentFilters(programs=("SPISC",), subsidy_mode="exact"), [5, 25], findings,
+        )
+        self.assertTrue(any(row["program_statuses"]["SLP"] == "Needs Data Review" for row in rows))
+        after = self.connection.execute(
+            "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY household_uuid)) "
+            "FROM household_assessments h",
+        ).fetchone()
+        self.assertEqual(before, after)
+
+    def test_exact_filtered_pagination_counts_and_unchanged_findings(self):
+        findings = self._filter_fixture()
+        for number, finding in enumerate(findings.values(), 1):
+            for code, program in finding["programs"].items():
+                program["screening_status"] = "No Historical CBMS Trigger"
+                if code == "SPISC" or (code == "4Ps" and number > 30):
+                    program["screening_status"] = "For Review"
+                elif code == "SLP":
+                    program["screening_status"] = "Needs Data Review"
+        self._run(findings=findings)
+        rows = self._assert_filtered_rows(
+            AssessmentFilters(programs=("SPISC",), subsidy_mode="exact"), range(1, 31), findings,
+        )
+        self.assertEqual(len(rows), 30)
+
+    def test_postgres_search_barangay_program_completeness_and_combinations(self):
+        findings = self._filter_fixture()
+        selected_run = service.get_active_assessment_context(connection_factory=self._factory)["run_id"]
+        alternative = deepcopy(findings)
+        for finding in alternative.values():
+            finding["mpi"]["unknown_indicator_count"] = 0
+            for program in finding["programs"].values():
+                program["screening_status"] = "For Review"
+        self._run(findings=alternative, designate=False)
+        self.assertEqual(
+            service.get_active_assessment_context(connection_factory=self._factory)["run_id"], selected_run,
+        )
+        cases = (
+            (AssessmentFilters(), range(1, 33)),
+            (AssessmentFilters(search="sYnThEtIc cOmMoN"), range(1, 31)),
+            (AssessmentFilters(search="hh-00032"), [32]),
+            (AssessmentFilters(barangay="Synthetic East"), range(1, 31, 2)),
+            (AssessmentFilters(programs=("4Ps",)), range(2, 33, 2)),
+            (AssessmentFilters(programs=("SLP",)), range(3, 33, 3)),
+            (AssessmentFilters(programs=("SPISC",)), range(5, 33, 5)),
+            (AssessmentFilters(programs=("TUPAD",)), range(7, 33, 7)),
+            (AssessmentFilters(programs=("4Ps", "SLP")), [n for n in range(1, 33) if n % 2 == 0 or n % 3 == 0]),
+            (AssessmentFilters(completeness="unknown"), range(4, 33, 4)),
+            (AssessmentFilters(completeness="determined"), [n for n in range(1, 33) if n % 4]),
+            (AssessmentFilters(
+                search="synthetic common", barangay="Synthetic West",
+                programs=("4Ps", "SLP"), completeness="unknown",
+            ), range(4, 31, 4)),
+            (AssessmentFilters(barangay="Synthetic East", completeness="unknown"), []),
+            (AssessmentFilters(search="Does not exist"), []),
+            (AssessmentFilters(search="HH-99999"), []),
+        )
+        before = self.connection.execute(
+            "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY household_uuid)) FROM household_assessments h",
+        ).fetchone()
+        for filters, numbers in cases:
+            with self.subTest(filters=filters):
+                self._assert_filtered_rows(filters, numbers, findings)
+        after = self.connection.execute(
+            "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY household_uuid)) FROM household_assessments h",
+        ).fetchone()
+        self.assertEqual(before, after)
+
+    def test_search_literals_unique_heads_and_source_batch_isolation(self):
+        findings = self._filter_fixture()
+        uuid = next(iter(findings))
+        other_batch = self._batch(uuids=[uuid])
+        self.connection.execute(
+            "UPDATE households SET responses=%s WHERE batch_id=%s",
+            (Jsonb({"barangay": "Unrelated Synthetic Barangay"}), other_batch),
+        )
+        self.connection.execute(
+            """INSERT INTO household_members
+               (batch_id, uuid, line_number, source_row_number, responses)
+               VALUES (%s, %s, 1, 1, %s)""",
+            (other_batch, uuid, Jsonb({
+                "a02_relation_to_hh_head": "1", "a01_first_name": "Wrong Batch Name",
+            })),
+        )
+        self.connection.execute(
+            """UPDATE household_members SET responses=%s
+               WHERE batch_id=%s AND uuid=%s AND line_number=1""",
+            (Jsonb({"a02_relation_to_hh_head": "1", "a01_first_name": "Literal %_! Name"}), self.batch_id, uuid),
+        )
+        self._assert_filtered_rows(AssessmentFilters(search="%_!"), [1], findings)
+        self._assert_filtered_rows(AssessmentFilters(search="Wrong Batch Name"), [], findings)
+        self._assert_filtered_rows(AssessmentFilters(search="' OR 1=1 --"), [], findings)
+        self.connection.execute(
+            """INSERT INTO household_members
+               (batch_id, uuid, line_number, source_row_number, responses)
+               VALUES (%s, %s, 2, 33, %s)""",
+            (self.batch_id, uuid, Jsonb({
+                "a02_relation_to_hh_head": "2", "a01_first_name": "Non Head Name",
+            })),
+        )
+        self._assert_filtered_rows(AssessmentFilters(search="Non Head Name"), [], findings)
+        self.connection.execute(
+            """UPDATE household_members SET responses=%s
+               WHERE batch_id=%s AND uuid=%s AND line_number=2""",
+            (Jsonb({"a02_relation_to_hh_head": "1", "a01_first_name": "Ambiguous Head"}), self.batch_id, uuid),
+        )
+        self._assert_filtered_rows(AssessmentFilters(search="%_!"), [], findings)
+        # Source-row IDs still work when no unique head name can be shown.
+        self._assert_filtered_rows(AssessmentFilters(search="HH-00001"), [1], findings)
+        with service._read_context(self._factory) as (connection, _):
+            self.assertEqual(connection.execute("SHOW transaction_read_only").fetchone(), ("on",))
+            repository.count_assessment_summaries(connection, 1, filters=AssessmentFilters(search="Literal"))
 
 
 if __name__ == "__main__":

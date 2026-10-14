@@ -7,6 +7,7 @@ from psycopg.pq import TransactionStatus
 
 from db import get_connection
 from repositories import assessment_runs, dataset_batches
+from services.assessment_filters import normalize_filters
 
 
 class AssessmentQueryError(RuntimeError):
@@ -56,21 +57,31 @@ def get_active_assessment_context(*, connection_factory=get_connection):
 
 def list_active_assessment_summaries(
     *, page=1, page_size=25, include_household_identity=False,
+    filters=None, include_barangays=False,
     connection_factory=get_connection,
 ):
     """Return a bounded rank/UUID page and optional identities in one snapshot.
 
-    Identity projection reads only the current page's source household/head
-    fields. Callers remain responsible for authenticated staff authorization.
+    Filters/counts and optional active-batch barangays share the selected-run
+    snapshot. Identities read only the current page's household/head fields.
+    Callers remain responsible for authenticated staff authorization.
     """
     if (
         type(page) is not int or page < 1
         or type(page_size) is not int or not 1 <= page_size <= 100
     ):
         raise AssessmentQueryError("invalid_assessment_pagination")
+    filters = normalize_filters(filters)
     with _read_context(connection_factory) as (connection, context):
+        selection = {"filters": filters} if filters.active else {}
+        total = context["household_count"]
+        if filters.active:
+            total = assessment_runs.count_assessment_summaries(
+                connection, context["run_id"], filters=filters,
+            )
         items = assessment_runs.list_assessment_summaries(
             connection, context["run_id"], limit=page_size, offset=(page - 1) * page_size,
+            **selection,
         )
         if include_household_identity:
             identities = dataset_batches.find_household_identities(
@@ -84,8 +95,16 @@ def list_active_assessment_summaries(
                 {**item, "identity": by_uuid[item["household_uuid"]]}
                 for item in items
             ]
-        return {"context": context, "items": items, "page": page, "page_size": page_size,
-                "total": context["household_count"]}
+        result = {
+            "context": context,
+            "items": items,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+        }
+        if include_barangays:
+            result["barangays"] = dataset_batches.list_barangays(connection, context["batch_id"])
+        return result
 
 
 def get_active_household_assessment(household_uuid, *, connection_factory=get_connection):

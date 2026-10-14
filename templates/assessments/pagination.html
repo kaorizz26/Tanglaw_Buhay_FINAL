@@ -9,7 +9,11 @@
       {% if results.page > 1 %}
         <a
           class="page-link page-direction"
-          href="{{ url_for('assessments.prioritization', page=results.page - 1) }}"
+          href="{{ url_for(
+            'assessments.prioritization',
+            page=results.page - 1,
+            **results.filter_parameters
+          ) }}"
           rel="prev"
           aria-label="Previous page"
         >Previous</a>
@@ -27,7 +31,11 @@
         {% else %}
           <a
             class="page-link"
-            href="{{ url_for('assessments.prioritization', page=page_number) }}"
+            href="{{ url_for(
+              'assessments.prioritization',
+              page=page_number,
+              **results.filter_parameters
+            ) }}"
             aria-label="Page {{ page_number }}"
           >{{ page_number }}</a>
         {% endif %}
@@ -36,7 +44,11 @@
       {% if results.page < results.page_count %}
         <a
           class="page-link page-direction"
-          href="{{ url_for('assessments.prioritization', page=results.page + 1) }}"
+          href="{{ url_for(
+            'assessments.prioritization',
+            page=results.page + 1,
+            **results.filter_parameters
+          ) }}"
           rel="next"
           aria-label="Next page"
         >Next</a>

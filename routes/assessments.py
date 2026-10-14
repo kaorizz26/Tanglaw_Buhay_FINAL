@@ -3,6 +3,7 @@
 from flask import Blueprint, abort, g, render_template, request
 
 from services.assessment_queries import AssessmentQueryError
+from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
 from services.auth import ADMIN_ROLE, csrf_token
 from services.prioritization import get_prioritization_page
 
@@ -25,7 +26,10 @@ def prioritization():
     if len(raw_page) > 9 or int(raw_page) < 1:
         abort(400, description="Choose a valid page number.")
     try:
-        results = get_prioritization_page(int(raw_page))
+        filters = parse_filter_arguments(request.args)
+        results = get_prioritization_page(int(raw_page), filters)
+    except InvalidAssessmentFilters:
+        abort(400, description="Choose valid search and filter values.")
     except AssessmentQueryError:
         abort(503, description="Household assessments are unavailable. Please try again later.")
     if results is None:

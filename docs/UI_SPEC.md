@@ -95,3 +95,31 @@ shared foundations in `base.css`, the staff shell/page-header structures in
 `staff.css`, and assessment presentation in `assessments.css`. They load in that
 order through the shared layout and its reusable `page_styles` block. See
 [Developer Guide section 24](../DEVELOPER_GUIDE.md#24-frontend-task-1c-stylesheet-organization).
+
+## Frontend Task 2 — Prioritization search and filters
+
+The seven-column table and shared layout now include head-name/Household ID
+search, All Barangays plus distinct active-batch barangays, four subsidy
+checkboxes, and an MPI completeness dropdown with All Households, All 16
+Indicators Determined and With Unknown Indicators. Subsidy selections match
+system For Review findings in at least one selected program by default. A radio
+selection below the checkboxes offers "At least one selected subsidy" and "Only
+the selected subsidy combination", with an explanation that follows the current
+selection. Exact mode includes all selected findings and excludes any additional
+For Review findings; other statuses are not additional findings. No checked
+programs means no subsidy restriction in either mode. The table retains all
+actual For Review badges. All other categories intersect. Completeness uses
+stored unknown-indicator counts.
+
+Apply Filters submits all controls and starts at page 1. Clear Filters restores
+municipality-wide results. PostgreSQL filters the full selected completed run
+before 25-row pagination, which retains selections. The page shows accurate
+matching counts and an explanatory empty state while preserving original
+municipal ranks/ties, scores and stable Household IDs. The original seven
+columns remain; no MPI Data Status column, Needs Data Review KPI or vulnerability
+categories are introduced. Labels, native keyboard controls, visible focus and
+responsive form layout reuse the existing navy/neutral/gold styling.
+
+See [Developer Guide section 25](../DEVELOPER_GUIDE.md#25-frontend-task-2-prioritization-search-and-filters)
+for query semantics and verification. Assessment Details, Review Queue and
+Household Records remain deferred.

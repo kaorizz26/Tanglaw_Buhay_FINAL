@@ -3,10 +3,12 @@
 from copy import deepcopy
 import json
 from numbers import Integral, Real
+import re
 
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from services.assessment_filters import AssessmentFilters, PROGRAM_ORDER
 from services.screening.metadata import OUTPUT_COLUMNS, PROGRAMS, STATUSES
 from services.vulnerability.scoring import INDICATOR_WEIGHTS, METRIC_COLUMNS
 
@@ -229,8 +231,92 @@ def designate_run(connection, batch_id, run_id):
         raise AssessmentStorageError("completed_run_designation_rejected")
 
 
-def list_assessment_summaries(connection, run_id, *, limit, offset):
-    """Project only summary fields from a completed run, preserving original ranks."""
+def _reference_position(search):
+    """Recognize the existing canonical reference so ID lookup uses source indexes."""
+    match = re.fullmatch(r"HH-([0-9]{5,19})", search, flags=re.IGNORECASE)
+    position = int(match[1]) if match else 0
+    if 0 < position <= 9223372036854775807 and search.upper() == f"HH-{position:05d}":
+        return position
+    return None
+
+
+def _head_search(search):
+    """Match literal text against the displayed name of a unique batch-scoped head."""
+    pattern = search.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    condition = """EXISTS (
+            SELECT 1 FROM household_members m
+            WHERE m.batch_id = h.batch_id AND m.uuid = h.household_uuid
+              AND m.responses ->> 'a02_relation_to_hh_head' = '1'
+            GROUP BY m.batch_id, m.uuid
+            HAVING count(*) = 1 AND max(concat_ws(' ',
+                nullif(nullif(btrim(m.responses ->> 'a01_first_name'), ''), 'NA'),
+                nullif(nullif(btrim(m.responses ->> 'a01_middle_name'), ''), 'NA'),
+                nullif(nullif(btrim(m.responses ->> 'a01_last_name'), ''), 'NA')
+            )) ILIKE %s ESCAPE '!'
+        )"""
+    return condition, f"%{pattern}%"
+
+
+def _summary_selection(run_id, filters):
+    """Build shared count/page predicates from trusted SQL and bound values.
+
+    Source filters use batch/UUID joins. No source or engine finding is changed,
+    and identities remain bounded to the returned page.
+    """
+    filters = filters or AssessmentFilters()
+    position = _reference_position(filters.search)
+    joins = """
+        FROM household_assessments h
+        JOIN assessment_runs r ON r.id = h.run_id AND r.batch_id = h.batch_id
+    """
+    conditions = ["h.run_id = %s", "r.status = 'completed'"]
+    parameters = [run_id]
+    if position is not None or filters.barangay:
+        joins += """
+            JOIN households source
+              ON source.batch_id = h.batch_id AND source.uuid = h.household_uuid
+        """
+    if filters.search:
+        if position is not None:
+            conditions.append("source.source_row_number = %s")
+            parameters.append(position)
+        else:
+            condition, pattern = _head_search(filters.search)
+            conditions.append(condition)
+            parameters.append(pattern)
+    if filters.barangay:
+        conditions.append("btrim(source.responses ->> 'barangay') = %s")
+        parameters.append(filters.barangay)
+    if filters.programs:
+        if filters.subsidy_mode == "exact":
+            # Other statuses, including unknown findings, are not For Review.
+            for program in PROGRAM_ORDER:
+                operator = "=" if program in filters.programs else "IS DISTINCT FROM"
+                conditions.append(f"h.findings #>> %s {operator} 'For Review'")
+                parameters.append(["programs", program, "screening_status"])
+        else:
+            conditions.append("(" + " OR ".join(
+                "h.findings #>> %s = 'For Review'" for _ in filters.programs
+            ) + ")")
+            parameters.extend(
+                ["programs", program, "screening_status"] for program in filters.programs
+            )
+    if filters.completeness == "determined":
+        conditions.append("(h.findings #>> '{mpi,unknown_indicator_count}')::integer = 0")
+    elif filters.completeness == "unknown":
+        conditions.append("(h.findings #>> '{mpi,unknown_indicator_count}')::integer > 0")
+    return joins + " WHERE " + " AND ".join(conditions), tuple(parameters)
+
+
+def count_assessment_summaries(connection, run_id, *, filters):
+    """Count all matching stored findings using the same predicates as the page."""
+    selection, parameters = _summary_selection(run_id, filters)
+    return connection.execute("SELECT count(*) " + selection, parameters).fetchone()[0]
+
+
+def list_assessment_summaries(connection, run_id, *, limit, offset, filters=None):
+    """Filter in PostgreSQL before paging, projecting only unchanged summary fields."""
+    selection, parameters = _summary_selection(run_id, filters)
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             """SELECT h.household_uuid, h.vulnerability_rank,
@@ -246,9 +332,7 @@ def list_assessment_summaries(connection, run_id, *, limit, offset):
                           'SPISC', h.findings #>> '{programs,SPISC,screening_status}',
                           'TUPAD', h.findings #>> '{programs,TUPAD,screening_status}'
                       ) AS program_statuses
-               FROM household_assessments h
-               JOIN assessment_runs r ON r.id = h.run_id AND r.batch_id = h.batch_id
-               WHERE h.run_id = %s AND r.status = 'completed'
+               """ + selection + """
                ORDER BY h.vulnerability_rank ASC, h.household_uuid ASC
-               LIMIT %s OFFSET %s""", (run_id, limit, offset),
+               LIMIT %s OFFSET %s""", (*parameters, limit, offset),
         ).fetchall()

@@ -1,13 +1,17 @@
 """Staff prioritization checks use mocked accounts and synthetic stored summaries."""
 
 from copy import deepcopy
+from html import unescape
+import re
 from secrets import token_urlsafe
 from time import time
 import unittest
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlsplit
 
 from app import create_app
 from services.assessment_queries import AssessmentQueryError
+from services.assessment_filters import AssessmentFilters
 from services import prioritization
 
 
@@ -39,11 +43,13 @@ def summary_page(page=1, *, total=51):
             },
         })
     return {
-        "context": {"run_id": 2, "survey_year": 2022, "municipality": "Pozorrubio"},
+        "context": {"run_id": 2, "survey_year": 2022, "municipality": "Pozorrubio",
+                    "household_count": 51},
         "items": items,
         "page": page,
         "page_size": 25,
         "total": total,
+        "barangays": ["Synthetic Barangay", "Synthetic Other"],
     }
 
 
@@ -85,12 +91,18 @@ class PrioritizationTests(unittest.TestCase):
 
     def test_anonymous_inactive_revoked_and_unknown_roles_cannot_query_records(self):
         self.assertEqual(self.client.get("/assessments").location, "/login")
+        self.assertEqual(
+            self.client.get("/assessments?q=Synthetic&program=4Ps&completeness=unknown").location,
+            "/login",
+        )
         for field, value in (
             ("is_active", False), ("session_version", 2), ("role", "unapproved"),
         ):
             with self.subTest(field=field), patch.dict(self.user, {field: value}):
                 self._session()
-                self.assertEqual(self.client.get("/assessments").location, "/login")
+                self.assertEqual(
+                    self.client.get("/assessments?q=Synthetic&program=4Ps").location, "/login",
+                )
         self.query.assert_not_called()
 
     def test_both_roles_render_seven_columns_and_only_for_review_badges(self):
@@ -100,6 +112,10 @@ class PrioritizationTests(unittest.TestCase):
         ):
             with self.subTest(role=role), patch.dict(self.user, role=role):
                 self._session()
+                self.assertEqual(
+                    self.client.get("/assessments?q=Synthetic&program=4Ps&completeness=unknown").status_code,
+                    200,
+                )
                 response = self.client.get("/assessments")
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.headers["Cache-Control"], "no-store")
@@ -123,9 +139,13 @@ class PrioritizationTests(unittest.TestCase):
                 self.assertNotIn('class="subsidy-badge">SPISC', response.text)
                 self.assertNotIn('href="/households', response.text)
                 self.assertNotIn('href="/assessments/SYNTHETIC', response.text)
-                self.assertNotIn('<input type="search"', response.text)
+                self.assertIn('type="search"', response.text)
+                self.assertIn("All 16 Indicators Determined", response.text)
+                self.assertNotIn('scope="col">MPI Data Status', response.text)
+                self.assertNotIn("Needs Data Review KPI", response.text)
         self.query.assert_called_with(
             page=1, page_size=25, include_household_identity=True,
+            filters=AssessmentFilters(), include_barangays=True,
         )
         for name in ("base", "staff", "assessments"):
             with self.client.get(f"/static/css/{name}.css") as stylesheet:
@@ -156,6 +176,95 @@ class PrioritizationTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertEqual(self.client.get(f"/assessments?page={value}").status_code, 400)
         self.query.assert_not_called()
+
+    def test_filters_preserve_selections_counts_and_pagination_parameters(self):
+        self._session()
+        query = "q=synthetic+head&barangay=Synthetic+Barangay&program=TUPAD&program=4Ps&completeness=unknown"
+        response = self.client.get(f"/assessments?page=2&{query}")
+        self.assertEqual(response.status_code, 200)
+        self.query.assert_called_with(
+            page=2, page_size=25, include_household_identity=True,
+            filters=AssessmentFilters(
+                search="synthetic head", barangay="Synthetic Barangay",
+                programs=("4Ps", "TUPAD"), completeness="unknown",
+            ), include_barangays=True,
+        )
+        self.assertIn('value="synthetic head"', response.text)
+        self.assertIn("matching households", response.text)
+        for href in re.findall(r'href="([^"]+)"', response.text):
+            parameters = parse_qs(urlsplit(unescape(href)).query)
+            if "page" in parameters:
+                self.assertEqual(parameters["q"], ["synthetic head"])
+                self.assertEqual(parameters["barangay"], ["Synthetic Barangay"])
+                self.assertEqual(parameters["program"], ["4Ps", "TUPAD"])
+                self.assertEqual(parameters["completeness"], ["unknown"])
+        form = re.search(r'<form\s+class="prioritization-filters".*?</form>', response.text, re.S)[0]
+        self.assertIn('method="get"', form)
+        self.assertNotIn('name="page"', form)
+        self.assertIn('href="/assessments">Clear Filters</a>', form)
+        self.client.get(f"/assessments?{query}")
+        self.assertEqual(self.query.call_args.kwargs["page"], 1)
+        self.client.get("/assessments")
+        self.assertEqual(self.query.call_args.kwargs["filters"], AssessmentFilters())
+
+    def test_invalid_filter_arguments_are_rejected_before_querying(self):
+        self._session()
+        for query in (
+            "q=a&q=b", "barangay=a&barangay=b", "completeness=all&completeness=unknown",
+            "completeness=high", "program=Unknown", "q=%00", "barangay=%00", "q=" + "a" * 201,
+            "barangay=" + "b" * 201,
+            "subsidy_mode=invalid", "subsidy_mode=", "subsidy_mode=any&subsidy_mode=exact",
+        ):
+            with self.subTest(query=query[:30]):
+                self.assertEqual(self.client.get(f"/assessments?{query}").status_code, 400)
+        self.query.assert_not_called()
+
+    def test_subsidy_mode_rendering_pagination_reset_and_all_badges(self):
+        self._session()
+        query = "program=4Ps&subsidy_mode=exact"
+        response = self.client.get(f"/assessments?page=2&{query}")
+        self.assertEqual(response.status_code, 200)
+        filters = AssessmentFilters(programs=("4Ps",), subsidy_mode="exact")
+        self.assertEqual(self.query.call_args.kwargs["filters"], filters)
+        radios = re.findall(r'<input\s+type="radio".*?>', response.text, re.S)
+        self.assertEqual(len(radios), 2)
+        self.assertIn('value="exact"', next(radio for radio in radios if "checked" in radio))
+        self.assertIn("Show households with:", response.text)
+        self.assertIn("At least one selected subsidy", response.text)
+        self.assertIn("Only the selected subsidy combination", response.text)
+        self.assertIn('aria-describedby="subsidy-filter-help"', response.text)
+        # Presentation must never suppress findings based on the selected checkboxes.
+        self.assertIn('class="subsidy-badge">TUPAD', response.text)
+        for href in re.findall(r'href="([^"]+)"', response.text):
+            parameters = parse_qs(urlsplit(unescape(href)).query)
+            if "page" in parameters:
+                self.assertEqual(parameters["program"], ["4Ps"])
+                self.assertEqual(parameters["subsidy_mode"], ["exact"])
+        self.client.get(f"/assessments?{query}")
+        self.assertEqual(self.query.call_args.kwargs["page"], 1)
+        self.client.get("/assessments?subsidy_mode=exact")
+        self.assertFalse(self.query.call_args.kwargs["filters"].active)
+        self.assertIn(
+            'subsidy_mode=exact', self.client.get("/assessments?subsidy_mode=exact").text,
+        )
+        default = self.client.get("/assessments")
+        self.assertEqual(self.query.call_args.kwargs["filters"], AssessmentFilters())
+        radios = re.findall(r'<input\s+type="radio".*?>', default.text, re.S)
+        self.assertIn('value="any"', next(radio for radio in radios if "checked" in radio))
+
+    def test_empty_filtered_results_keep_controls_and_zero_counts(self):
+        self._session()
+        self.query.side_effect = None
+        self.query.return_value = summary_page(total=0)
+        response = self.client.get("/assessments?q=unmatched&completeness=determined")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("No households match these filters", response.text)
+        self.assertIn("0–0", response.text)
+        self.assertIn("of 0 households", response.text)
+        self.assertIn('value="unmatched"', response.text)
+        self.assertEqual(response.text.count('scope="col"'), 7)
+        self.assertNotIn('scope="row"', response.text)
+        self.assertEqual(self.client.get("/assessments?page=2&q=unmatched").status_code, 404)
 
     def test_reference_ids_use_stored_rows_across_pages_and_reordered_subsets(self):
         all_rows = []

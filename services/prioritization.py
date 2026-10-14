@@ -1,9 +1,9 @@
 """Prepare stored prioritization summaries for the authenticated staff template."""
 
 from services.assessment_queries import AssessmentQueryError, list_active_assessment_summaries
+from services.assessment_filters import COMPLETENESS_OPTIONS, PROGRAM_ORDER, normalize_filters
 
 
-PROGRAM_ORDER = ("4Ps", "SLP", "SPISC", "TUPAD")
 PAGE_SIZE = 25
 
 
@@ -52,14 +52,16 @@ def _page_numbers(page, page_count):
     return numbers
 
 
-def get_prioritization_page(page):
+def get_prioritization_page(page, filters=None):
     """Return bounded stored rows and display metadata; never invoke an engine.
 
     Each source identity is read within the query service's existing read-only
     snapshot. Scores, ranks and findings pass through unchanged.
     """
+    filters = normalize_filters(filters)
     result = list_active_assessment_summaries(
         page=page, page_size=PAGE_SIZE, include_household_identity=True,
+        filters=filters, include_barangays=True,
     )
     page_count = max(1, (result["total"] + PAGE_SIZE - 1) // PAGE_SIZE)
     if page > page_count:
@@ -84,4 +86,8 @@ def get_prioritization_page(page):
         "page_numbers": _page_numbers(page, page_count),
         "first_record": (page - 1) * PAGE_SIZE + 1 if rows else 0,
         "last_record": (page - 1) * PAGE_SIZE + len(rows) if rows else 0,
+        "filters": filters,
+        "filter_parameters": filters.parameters,
+        "program_options": PROGRAM_ORDER,
+        "completeness_options": COMPLETENESS_OPTIONS,
     }

@@ -1,0 +1,107 @@
+<form
+  class="prioritization-filters"
+  method="get"
+  action="{{ url_for('assessments.prioritization') }}"
+  aria-label="Filter household prioritization"
+>
+  <div class="filter-fields">
+    <div class="filter-field filter-search">
+      <label for="household-search">Household search</label>
+      <input
+        type="search"
+        id="household-search"
+        name="q"
+        value="{{ results.filters.search }}"
+        placeholder="Head name or HH-00001"
+        maxlength="200"
+      >
+    </div>
+
+    <div class="filter-field">
+      <label for="barangay-filter">Barangay</label>
+      <select id="barangay-filter" name="barangay">
+        <option value="">All Barangays</option>
+        {% if results.filters.barangay and results.filters.barangay not in results.barangays %}
+          <option value="{{ results.filters.barangay }}" selected>
+            {{ results.filters.barangay }} (unavailable)
+          </option>
+        {% endif %}
+        {% for barangay in results.barangays %}
+          <option
+            value="{{ barangay }}"
+            {% if barangay == results.filters.barangay %}selected{% endif %}
+          >{{ barangay }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-field">
+      <label for="completeness-filter">MPI completeness</label>
+      <select id="completeness-filter" name="completeness">
+        {% for value, label in results.completeness_options %}
+          <option
+            value="{{ value }}"
+            {% if value == results.filters.completeness %}selected{% endif %}
+          >{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="filter-bottom-row">
+    <fieldset class="subsidy-filters" aria-describedby="subsidy-filter-help">
+      <legend>Subsidies for Review</legend>
+      <div class="program-choices">
+        {% for program in results.program_options %}
+          <label class="program-choice">
+            <input
+              type="checkbox"
+              name="program"
+              value="{{ program }}"
+              {% if program in results.filters.programs %}checked{% endif %}
+            >
+            <span>{{ program }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <fieldset class="subsidy-mode-filters" aria-describedby="subsidy-filter-help">
+        <legend>Show households with:</legend>
+        <div class="subsidy-mode-choices">
+          <label class="subsidy-mode-choice">
+            <input
+              type="radio"
+              name="subsidy_mode"
+              value="any"
+              {% if results.filters.subsidy_mode == 'any' %}checked{% endif %}
+            >
+            <span>At least one selected subsidy</span>
+          </label>
+          <label class="subsidy-mode-choice">
+            <input
+              type="radio"
+              name="subsidy_mode"
+              value="exact"
+              {% if results.filters.subsidy_mode == 'exact' %}checked{% endif %}
+            >
+            <span>Only the selected subsidy combination</span>
+          </label>
+        </div>
+      </fieldset>
+      <p class="filter-help" id="subsidy-filter-help" aria-live="polite">
+        <span class="subsidy-help-any">
+          Show households flagged For Review for any selected subsidy.
+        </span>
+        <span class="subsidy-help-exact">
+          Show households flagged For Review for exactly the selected subsidies,
+          with no additional For Review findings.
+        </span>
+      </p>
+      <p class="filter-help">Leave all subsidies unchecked to show all households.</p>
+    </fieldset>
+
+    <div class="filter-actions">
+      <button type="submit" class="apply-filters">Apply Filters</button>
+      <a class="clear-filters" href="{{ url_for('assessments.prioritization') }}">Clear Filters</a>
+    </div>
+  </div>
+</form>

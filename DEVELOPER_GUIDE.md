@@ -1462,6 +1462,133 @@ final-page navigation retained seven columns, correct IDs and the final four
 rows. Browser warning/error logs were empty. No production/test database writes,
 real-data inspection or backend recalculation were performed for Task 1C.
 
-Task 1C is Completed on `dev/frontend-refactor`; changes await review without an
-automatic commit, push or merge. Synthetic QA comparisons/screenshots stay in
-Git-ignored `notes/`. Subsequent modules remain deferred.
+Task 1C is Completed and was committed as `666e754`, then explicitly fast-forward
+merged and pushed to `dev/frontend-reset`. Synthetic QA comparisons/screenshots
+stay in Git-ignored `notes/`.
+
+## 25. Frontend Task 2: prioritization search and filters
+
+The existing authenticated `GET /assessments` route now accepts these optional
+GET parameters. Controls submit together with Apply Filters; the form carries
+no page parameter, so applying changed selections starts at page 1. Clear
+Filters links to the unfiltered route.
+
+| Parameter | Meaning |
+|---|---|
+| `q` | Case-insensitive literal substring of the displayed unique household-head name, or an exact canonical Tanglaw-Buhay reference such as `HH-00001` (prefix case-insensitive). |
+| `barangay` | Exact recorded barangay, with surrounding spaces omitted for display/matching; empty means All Barangays. |
+| `program` (repeatable) | 4Ps, SLP, SPISC or TUPAD; match stored `For Review` according to the selected subsidy mode. No selection imposes no subsidy restriction. |
+| `subsidy_mode` | `any` (default): at least one selected program has `For Review`. `exact`: all selected programs, and no unselected programs, have `For Review`. |
+| `completeness` | `all` (All Households), `determined` (All 16 Indicators Determined) or `unknown` (With Unknown Indicators). |
+| `page` | Existing positive page number, with 25 records per page. |
+
+`services/assessment_filters.py` validates an immutable filter selection, rejects
+repeated scalar parameters, unsupported choices, NULs and search/barangay text
+over 200 characters, trims inputs and canonicalizes the selected program order.
+Malformed filter input returns a generic 400 without connecting to assessment
+data. Route authorization still runs first; authentication policy is unchanged.
+Literal `%`, `_` and the SQL escape character in name searches are escaped before
+binding, rather than interpreted as user-supplied wildcard syntax.
+
+`services/prioritization.py` passes filters through the existing query service
+and supplies selected values/options and pagination parameters to templates.
+The route remains thin. `templates/assessments/filters.html` owns the GET controls;
+the existing pagination partial includes all active values in every page link.
+Labels, native selects, checkbox/radio fieldsets, visible focus and 44px-or-larger
+control targets support keyboard/mobile use. Assessment-specific control styles
+remain in `assessments.css`, loaded after unchanged base/staff styles. No new
+JavaScript, dependency or stylesheet is needed.
+
+`list_active_assessment_summaries(filters=..., include_barangays=True)` resolves
+the validated active batch and its explicitly designated completed run, retaining
+corrected Run 2 in the pilot. Context, distinct source-batch barangays, filtered
+count, SQL page and page-bounded identities share one read-only repeatable-read
+snapshot. `list_barangays()` omits blank/literal-NA values and retains all available
+batch options regardless of current filters. An unavailable requested barangay
+remains visible as unavailable, with no invented source mapping.
+
+`repositories/assessment_runs.py` shares the same parameterized WHERE predicates
+between counting and summary pagination. Categories use AND, and program
+predicates use OR in broad mode without joins that duplicate households. Exact
+mode requires each selected program's stored status to equal `For Review` and
+each unselected program's status to be distinct from `For Review`. Other statuses,
+including `Needs Data Review`, do not count as additional findings. The complete
+four-program summary and all actual badges remain visible. Both modes leave
+households unrestricted when no program is selected. MPI completeness uses
+only stored `mpi.unknown_indicator_count`: zero for determined, greater than zero
+for unknown. Determined outcomes can include documented engine assumptions;
+this filter does not claim all source responses were observed. No MPI/status
+calculations run, and no arbitrary score categories, MPI Data Status column or
+Needs Data Review KPI are added.
+
+Canonical ID search binds the existing source-row number through batch/UUID joins
+and existing indexes; it avoids scanning head names. Name matching requires
+exactly one A02=`1` member within the household's batch and UUID, omits blank/NA
+name components as the display does, and never selects between ambiguous heads.
+Source joins are added only when required; unfiltered total retains the verified
+completed-run count. Filtered totals use a separate count SELECT with the same
+predicates, so even an empty/out-of-range page has an accurate matching total.
+Only bounded summary fields and current-page identities reach the presentation.
+
+All views preserve original municipal ranks, scores, ties, UUID order and ID
+generation. The top summary retains the municipality's assessed-household total;
+active filters show matching counts beside the ranking and in the pagination
+footer. Empty filters show a clear zero-results message and retain controls.
+Out-of-range pages still return 404, and unavailable data returns sanitized 503.
+Source records, stored findings/runs/selection, engines, authentication and
+schema/migration files are unchanged. Details, Review Queue and Household Records
+remain deferred.
+
+Verification on 2026-10-14 passed **32 focused tests** (13 prioritization tests and
+19 query tests), including executed PostgreSQL tests in isolated
+`tanglaw_buhay_test` schemas. They cover case-insensitive full-batch name search,
+source-row ID lookup, all four program filters, OR/AND combinations, both MPI
+completeness selections, exact counts, empty sets, 25-row paging, original ranks
+and ties, designation/batch isolation, literal wildcard/injection-like search
+text, missing/ambiguous heads, escaped rendering and authorization for both
+approved roles. Read-only snapshots and unchanged stored findings were checked.
+The broader **251-test suite passed without skips**, with all **246** connections
+confined to the isolated test database. A first broad run was rejected by an
+overstrict disposable test guard; allowing only the existing auth/import test
+schema options resolved that harness issue. Final ID-query optimization was
+subsequently covered by the focused query tests.
+
+Browser checks used a separate synthetic PostgreSQL schema and the real
+prioritization route/templates, verifying search, retained selections, page 2,
+reset to page 1, combined/empty results, Clear Filters and keyboard submission.
+All seven columns remain at 1440, 1366, 1024, 375 and 320px; controls remain inside
+the viewport with 16px text, visible focus and controlled horizontal table
+scrolling. Browser warning/error logs were empty. A separate generated
+19,304-household / 57,912-member query fixture completed ID, name, unmatched-name
+and combined requests in approximately **0.14–1.67 seconds** locally, including
+count, options and page identities; this is a synthetic local measurement.
+No real CBMS records were read or modified for verification. Synthetic fixture
+schemas are removed after checks, and disposable QA scripts/logs/screenshots
+remain Git-ignored under `notes/`. Task 2 changes remain uncommitted for review.
+
+### Task 2 refinement: subsidy combination controls
+
+The radio selection below the four checkboxes offers "At least one selected
+subsidy" and "Only the selected subsidy combination". Native radio state updates
+the concise explanation through the existing CSS `:has()` pattern, including
+before Apply Filters is pressed; no JavaScript or dependency is added. Native
+fieldset/legend labels and focus styles preserve keyboard access.
+
+Server-side normalization rejects unsupported or repeated `subsidy_mode` values
+before connecting to assessment data. Pagination retains exact mode even with
+zero checked programs, without making mode alone an active restriction. Clear
+Filters returns to default broad mode; the GET form omits page so applying
+changes starts at page 1. Search, barangay and MPI completeness still intersect
+with either subsidy mode in the shared count/page SQL predicates.
+
+Refinement verification passed all **36 focused tests** and the complete
+**255-test suite without skips**. All **287** full-suite connections were guarded
+to local `tanglaw_buhay_test`. Synthetic cases cover every checkbox subset in both
+modes, single/multiple exact selections, additional findings, other statuses,
+empty selection, intersecting search/barangay/completeness, 25-row pagination,
+counts, mode retention, complete badges and unchanged stored scores/ranks.
+Browser checks confirmed live explanation changes, native keyboard mode
+switching, Clear Filters and responsive controls at 1440, 375 and 320px without
+document overflow or console warnings/errors. Synthetic 4Ps/TUPAD selection
+returned 18 broad matches and two exact matches; extra badges remained visible
+in broad results. The disposable preview was stopped after verification.
