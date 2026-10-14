@@ -172,10 +172,10 @@ class ScoringTests(unittest.TestCase):
         assembly.assert_called_once_with(datasets, mapping)
         self.assertEqual(len(result), len(households))
         self.assertEqual(result["vulnerability_score"].tolist(), [0])
-        self.assertEqual(result["e01_assumed_not_working_count"].tolist(), [1])
+        self.assertEqual(result["e01_assumed_not_working_count"].tolist(), [0])
         self.assertEqual(result["ofw_assumed_working_count"].tolist(), [1])
         self.assertEqual(result["b06_e01_conflict_count"].tolist(), [0])
-        self.assertIn("Applicable missing E01 assumed not working", result.iloc[0]["assumptions_used"])
+        self.assertNotIn("Applicable missing E01 assumed not working", result.iloc[0]["assumptions_used"])
         self.assertIn("Adult B06 1/2/3 with missing E01 assumed working", result.iloc[0]["assumptions_used"])
         self.assertEqual(result.iloc[0]["data_quality_status"], "Complete Data")
 

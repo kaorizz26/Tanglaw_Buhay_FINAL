@@ -160,14 +160,29 @@ the same strict majority among employed members aged 18-65 who may want more
 hours. E15 is documented Synthetic Support. Working Child Not in School uses
 any applicable member aged 5-17 with confirmed work and C03=2.
 
-E01 questionnaire applicability requires age 5+ and B06=4/5/7. The approved
-MPI assumptions are:
+The [2022 PSA Household Profile Questionnaire](https://psa.gov.ph/system/files/cbms/2022_Household_Profile_Questionnaire.pdf)
+asks B06 only at age 15+ (printed page 5), while Section E starts at age 5 and
+separately specifies B06=4/5/7 (printed page 9). B06's navigation to B09/Section C
+does not replace Section E's own instructions. The corrected MPI treatment is:
 
-- Applicable missing E01 is assumed not working.
+- Preserve applicable E01=1 as recorded work and E01=2 as recorded nonwork.
+- Applicable missing E01 is unknown, never automatically nonworking. Household
+  bounds still return 0/1 when the evidence conclusively establishes the outcome.
+- For ages 5–14, B06 is outside its questionnaire age scope. The implementation
+  uses Section E's age scope and observed E01 without requiring/inventing B06=7.
+  Missing E01 remains unknown; it is not a proven employment skip. Unexpected
+  B06 values below age 15 are retained in source data but do not gate child work.
 - Adult ages 18-65 with B06=1/2/3 and missing E01 are assumed working for the
   Employment Proxy only.
 - That OFW assumption does not supply an E15 response or prove a working child.
-- B06=6 retains non-applicability; unresolved routing is not fabricated.
+- At age 15+, B06=1/2/3/6 establishes a Section E skip; B06=4/5/7 permits it.
+  Missing/invalid B06 leaves applicability unresolved. B06=6 keeps its adult
+  exclusion and existing OFW conflict handling remains unchanged.
+- Reliably no applicable members retains 0; an absent roster remains unknown.
+
+The under-15 treatment reconciles Section E's age scope with B06's age skip; it
+does not assign an overseas/resident classification. This correction affects MPI
+only. SLP/TUPAD routing and their separate approved assumptions are unchanged.
 
 `_contribution_bounds()` and `_majority_outcome()` preserve uncertainty in the
 denominator. A positive response contributes +1 to the majority balance and a
@@ -221,7 +236,8 @@ not rearranged into ranking order.
 
 `sensitivity_summary()` reports aggregate uncertainty if unknown flags could be
 zero or one. Its conservative bounds are not predictions or a second user-facing
-ranking. They do not measure uncertainty from E01 imputation.
+ranking. They do not measure uncertainty from the retained OFW proxy or from
+historical nonworking E01 imputation in stored run 1.
 
 ## 5. The four subsidy functions
 
@@ -330,7 +346,7 @@ comparison files belong in Git-ignored storage and must not be committed.
 ## 8. Limits to explain during the defense
 
 The project preserves documented pilot adaptations: cohort-based HGC group 5,
-asset crosswalks, raw-count FIES, E01/OFW assumptions, synthetic E15, and
+asset crosswalks, raw-count FIES, the adult OFW proxy, synthetic E15, and
 provisional L07/L16/L34 coding. The original questionnaire describes those
 Section L person fields as line numbers; their apparent Yes/No recoding is not
 independently confirmed by PSA export documentation.
@@ -342,7 +358,8 @@ for the newer SPISC and TUPAD issuances.
 
 Historical conditions do not establish current eligibility. Zero-point unknowns
 can underestimate vulnerability, and approved employment assumptions can affect
-ranking. These are existing limitations, not rules changed by this refactor.
+ranking. Historical stored MPI run 1 retains its former nonworking E01 assumption;
+the corrected in-memory logic and pending persistence are documented in section 20.
 
 ## 9. Minimal staff interface after the frontend reset
 
@@ -746,6 +763,10 @@ persistence, authorization integration and real-data views remain pending.
 
 ## 16. Phase 6B.4 Task 2B: targeted real-data sanity check
 
+These are historical findings under the rules retained in completed run 1.
+The separately authorized MPI employment correction in section 20 does not
+overwrite this run or change the subsidy findings recorded here.
+
 On 2026-10-13, a read-only check of the same local active batch 1 reproduced the
 three Task 2A findings. Household outputs had intentionally not been persisted,
 so the check called only the existing TUPAD/SLP functions and assembled MPI
@@ -1081,3 +1102,83 @@ real-data recalculation or full-suite rerun was needed.
 Task 3C is Completed. Phase 6B.4 remains In Progress; protected staff routes,
 Dashboard/Prioritization/Details UI and authorization integration require a
 separately scoped task. No blocker was identified.
+
+## 20. MPI employment NA correction: verified impact, persistence pending
+
+On 2026-10-14, the owner explicitly authorized removing MPI's applicable-missing
+E01 nonworking imputation while preserving the adult OFW proxy. Official 2022
+HPQ printed pages 5 and 9 were inspected visually and independently for B06 and
+Section E applicability. No source values, B06 classifications or E15 responses
+were manufactured. Employment and underemployment retain their strict >50%
+household bounds; confirmed working-child evidence still takes precedence over
+other unknowns. All 16 weights and zero-point unknown scoring remain unchanged.
+
+The legacy `e01_assumed_not_working_count` output field is retained for storage
+compatibility, now zero in corrected results. Its former assumption note is no
+longer emitted. Stored historical results retain their original fields/notes.
+`scoring.py` changes only its explanatory module docstring; scoring/ranking code
+and all subsidy modules are unchanged.
+
+`scripts/compare_mpi_employment_correction.py` loads the pilot sources and stored
+completed run 1 through verified local read-only snapshots. It calculates the
+corrected MPI in memory, audits identities/weights/ranks using the existing
+verifier and compares all households with the stored baseline. A separate
+counterfactual reuses employment code from checkpoint `54e682a`, removing only
+the former nonworking imputation while holding its age/routing rules fixed.
+This distinguishes imputation dependence from the under-15 age-scope correction.
+Private findings and comparisons remain in memory; console output is aggregate
+only. The script invokes no import, migration, persistence or subsidy engine.
+
+```powershell
+# Full-batch read-only impact calculation; invoke only for an approved comparison.
+.\.venv\Scripts\python.exe -B scripts\compare_mpi_employment_correction.py
+```
+
+Successful comparison covered all **19,304 households** in source batch 1, 2022
+Pozorrubio, against completed run 1 in local `tanglaw_buhay_dev`. Outcomes are
+ordered Deprived / Not Deprived / Unknown:
+
+| MPI employment indicator | Stored baseline | Corrected in memory | Outcomes dependent on former nonworking imputation |
+|---|---:|---:|---:|
+| Employment Proxy | 4,500 / 14,804 / 0 | 2,026 / 14,804 / 2,474 | 2,474 |
+| Underemployment Proxy | 1,949 / 17,355 / 0 | 1,035 / 15,308 / 2,961 | 2,961 |
+| Working Child Not in School | 46 / 19,117 / 141 | 51 / 19,069 / 184 | 48 |
+
+**5,483 household-indicator outcomes** depended on the former imputation, not
+5,483 distinct households. The former audit field recorded use for **8,442
+members in 7,823 households**; use does not imply the outcome depended on it.
+Employment's 2,474 changed from 1 to unknown; underemployment's 914 changed from
+1 to unknown and 2,047 from 0 to unknown; working-child's 48 changed from 0 to
+unknown. In addition, the under-15 applicability correction resolved **five**
+previously unknown working-child outcomes as deprived from recorded evidence.
+
+- Mean vulnerability score: **8.3175 → 6.8571**; median **5.5556 → 2.7778**.
+  Scores decreased for **3,188**, increased for **5**, and were unchanged for
+  **16,111** households. Maximum score remains **56.9444**. Lower scores reflect
+  zero-point unknowns, not evidence of reduced real vulnerability.
+- Complete Data / Needs Data Review: **19,093 / 211 → 15,238 / 4,066**.
+  Unknown indicator outcomes: **212 → 5,690**; mean weighted coverage:
+  **99.8982% → 97.5334%**.
+- Original full-municipality competition-rank method is unchanged. Recalculated
+  in-memory ranks span **1–13,117**, versus stored **1–14,366**; distinct scores
+  **37 → 36**. Rank positions improved for **16,115**, worsened for **3,188**,
+  and stayed equal for **one** household. No household was excluded or filtered.
+
+All other **13 MPI indicators** matched the stored findings exactly, and **2,120
+adult OFW assumed-working members** were retained. The complete stored-run digest,
+source-frame fingerprints, seven CSV checksums and private `.env` checksum were
+unchanged. All database connections were read-only; run 1 and source records were
+not modified. Successful comparison took **48.313 seconds**. An initial comparison
+stopped on a Pandas 3 UUID dtype mismatch; the comparison alignment was corrected
+before the successful rerun, without changing indicator logic or stored data.
+
+All **113 focused synthetic tests** passed with PostgreSQL connections blocked,
+covering indicators, scoring, subsidy screening and unified outputs. Two existing
+test files were updated only for the corrected expectations and age boundaries;
+comparison-helper synthetic checks also passed. No UI or unrelated engine changes
+were made, and no private findings were exported.
+
+**Persistence is pending explicit approval.** Query services still return the
+unchanged historical run 1. Applying corrected findings to a new versioned run
+and defining its selection are separate tasks; do not overwrite existing results
+or reuse the historical Task 3B runner. Phase 6B.4 remains In Progress.
