@@ -19,6 +19,16 @@
 - Preserve the fixture-only guard on public routes. Actual CBMS access requires authenticated staff authorization and a protected source/repository boundary; do not bypass the guard.
 - Describe results as historical decision support, never official poverty classification, eligibility, approval or benefit allocation. System flags do not automatically create staff reviews.
 
+## Staff-facing UI and evidence
+
+- Tanglaw-Buhay is an operational LGU decision-support system, not a developer dashboard or research methodology viewer. Design for authorized LGU personnel who should understand important household findings within seconds, without technical knowledge.
+- Prioritize relevant household information, clear assessment findings and statuses, one short plain-language explanation, relevant household/member evidence, and staff actions. Avoid clutter, repeated warnings or metrics, unnecessary statistics and long paragraphs.
+- For each MPI indicator, use **Indicator Name → Status → one short explanation → Points Added → View Evidence**. Support all 16 indicators. Evidence should show only relevant, understandable stored household/member values. Keep material missing or conflicting answers recognizable in concise language.
+- Ordinary operational screens must not show Synthetic Support badges, pilot-approximation or data-preparation narratives, developer notes, internal task numbers, lengthy methodology, scoring formulas, mapping rules, questionnaire-routing discussions, provenance narratives, or statements that a view does not recalculate an indicator. Do not move this content into disclosures, tooltips or warning boxes.
+- Optional CBMS Record Details may show only an understandable field label, stored field identifier, stored response and concise decoded meaning. Use neutral labels such as **Recorded Value** for supplemental values. Do not put weights, calculation rules, technical limitations, provenance narratives or developer assumptions there.
+- Preserve accurate origins, transformations, assumptions and methodological limits in metadata, the Developer Guide and capstone methodology. Do not invent meanings, hide material uncertainty or claim supplemental/derived values were directly collected or verified by PSA. Backend availability alone does not make information suitable for staff-facing content.
+- Apply this standard to Dashboard, Household Records, Assessments, Subsidy Screening, Review Queue/History, Submissions and Administration. Review each screen from the perspective of LGU staff before marking it complete; technical correctness alone is insufficient.
+
 ## Coding and verification standards
 
 - Write clean, readable, maintainable code following repository conventions and PEP 8 for Python. Keep formatting, imports, naming and indentation consistent; preserve existing behavior unless a change is explicitly authorized.

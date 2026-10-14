@@ -4,26 +4,29 @@
 
 Tanglaw-Buhay is the final BSIT capstone Decision Support Analytics Platform for household vulnerability assessment and subsidy pre-screening in Pozorrubio, Pangasinan. It assists LGU/CSWDO staff using historical CBMS evidence.
 
+The staff interface is an operational decision-support tool for authorized LGU personnel. It prioritizes household conditions, findings, concise explanations, relevant evidence and staff actions. Technical methodology and data provenance belong in internal metadata, the [Developer Guide](../DEVELOPER_GUIDE.md) and capstone documentation, not routine staff screens. Material missing or conflicting answers still need brief, clear presentation. Supplemental or derived values must never be described as directly collected or verified by PSA.
+
 It does not establish official poverty classification or subsidy eligibility, approve applications, distribute benefits or replace LGU/agency processes. Staff reviews are separate human activities; a system finding is not an assigned case or review decision.
 
 ## Existing baseline
 
-Phase 6A was completed on `dev/phase-6a`; its staff interface is intentionally
+Phase 6A was completed on `dev/phase-6a`; its original staff interface was
 retired on `dev/frontend-reset` after authentication checkpoint `9a6b24c`.
-Retained features are:
+The current baseline includes:
 
 - MPI and four independent subsidy engines, with synthetic tests and aggregate verification scripts.
 - Unified assessments preserving engine outputs and validating identities, program completeness and survey year.
 - PostgreSQL foundations, account repositories, CSV preflight and transactional backend imports.
-- An internal read-only active-batch loader reconstructing the seven stored CSV DataFrames and separate survey/provenance metadata; it is not connected to routes or full-batch assessment execution.
+- An internal read-only active-batch loader reconstructing the seven stored CSV DataFrames and separate survey/provenance metadata; protected query services separately read selected stored assessment results.
 - Login/logout, database-checked sessions and a reusable System Administrator guard.
-- A minimal protected landing showing the signed-in role and Sign Out; `/test` remains public.
-- The same synthetic household generator and metadata fixtures for backend tests; no household records are loaded/rendered by the minimal interface.
+- A protected staff layout, Household Prioritization with search/filters/pagination, and Assessment Details Overview/MPI Indicators for both authorized roles; `/test` remains public and fixture-only.
+- Synthetic household generator and metadata fixtures for backend tests.
 
-Old record/assessment URLs now return a generic retirement response after login.
-The sidebar, records/assessment templates, CSS/JavaScript and UI-only helpers are
-removed. Admin import/account screens, real CBMS display and the new staff design
-remain separately scoped work; no dashboard or replacement staff panels exist.
+Old Phase 6A record URLs remain retired. Household Records, Dashboard,
+Submissions, Administration, detailed subsidy evidence and staff review workflows
+remain separately scoped work. The current assessment pages use authenticated,
+batch-scoped, read-only PostgreSQL access; they do not expose CBMS records through
+public routes.
 
 The separately authorized first local import is validated active batch `1` in
 `tanglaw_buhay_dev`, for 2022 Pozorrubio. Phase 6B.4 Task 1 now verifies exact
@@ -32,20 +35,39 @@ Later completed assessment work is recorded in Developer Guide sections 15–21:
 corrected Run 2 is completed and explicitly designated, with 19,304 assessments
 and unchanged findings from the four subsidy engines. Historical Run 1 remains.
 Frontend Tasks 1–2 add protected read-only Household Prioritization and filters.
-Task 3 adds stored Overview and MPI Indicators with scoped original evidence;
-subsidy details, staff reviews and Household Records remain unimplemented.
-The minimal landing keeps its fixture
-guard, and actual records are read through a separate authenticated query route.
+Task 3 adds stored Overview and all 16 MPI Indicators with scoped original
+evidence; subsidy details, staff reviews and Household Records remain
+unimplemented. Task 3 was committed before the stricter operational-content
+standard was approved; its display wording and disclosures need a separately
+scoped cleanup. The public test route retains its fixture guard.
 
 ## CBMS source and provenance
 
-The project owner identifies the authorized **2022 CBMS working dataset** as **19,304 households and 69,350 members**. These are historical batch counts, not current population estimates; the frontend reset does not revalidate private source files.
+The project owner identifies the authorized **2022 CBMS working dataset** as **19,304 households and 69,350 members**. These are historical batch counts, not current population estimates.
 
 `services/data_loader.py` reads local Excel datasets `household`, `section_a_e_indiv`, `section_l02_to_l41` and `section_l11_to_l14` from `data/raw/`, plus finalized codebook, MPI mapping and variable-definition CSVs from `data/reference/`. Exact filenames and input rules are in the loader and [Developer Guide](../DEVELOPER_GUIDE.md#2-loading-and-joining-cbms-data).
 
 Households join by `uuid`; roster members by `uuid` and `line_number`; Section L records by household UUID and `section_l_line_number`. Original names, blank strings and literal `NA` responses are preserved. Missing joined records do not automatically mean negative responses. Screening uses the explicit survey year; recorded ages are not advanced to the current year.
 
 Preserve documented pilot provenance: synthetic E15 support, E01/OFW assumptions, cohort-based attainment approximation, asset crosswalks, raw-count food insecurity and provisional L07/L16/L34 semantics. The apparent Section L Yes/No recoding is not independently PSA-confirmed. `fixtures/development_metadata.json` contains finalized metadata snapshots and hashes, not household records; it must not replace production references.
+
+The prepared working dataset includes `n01_internet_access`,
+`h01_access_to_public_transportation` and `e15_want_more_hours`. Existing
+assessments use their stored values. Ordinary staff views should present relevant
+values plainly, without development-origin labels or narratives; metadata and
+methodology must retain the actual origins and limitations. These supplemental
+values must not be called official PSA-collected or verified answers.
+
+The system is not intended to remain limited to the 2022 batch. Under the
+adviser-approved project assumption, future Pozorrubio imports will follow the
+finalized 2022-compatible CBMS structure. Each future import requires validation
+before activation, preservation of historical batches, batch-specific assessment
+selection and existing role-based permissions. Source records remain separate
+from staff decisions. Household progression across periods is a future goal only
+when reliable cross-period identity is available. Future importing through a
+staff workflow, progression tracking and identity matching are not yet
+implemented; the current controlled import runner is specific to the authorized
+2022 batch.
 
 ## MPI vulnerability assessment
 
@@ -83,6 +105,6 @@ Outputs retain reasons, evidence, member lines, provenance, warnings and unverif
 
 ## Context still needed for later tasks
 
-The two approved roles are **System Administrator** and **LGU Staff**. Both can sign in and access the minimal protected landing; a reusable server-side admin guard is implemented. CBMS imports and staff account management are admin-only requirements, with no web workflows yet. Authorized staff may manage subsidy reviews once that workflow is implemented; imported CBMS source records remain read-only. Account lifecycle and detailed review permissions remain pending. See [UI_SPEC.md](UI_SPEC.md).
+The two approved roles are **System Administrator** and **LGU Staff**. Both can sign in and access protected assessment pages; a reusable server-side admin guard is implemented. CBMS imports and staff account management are admin-only requirements, with no web workflows yet. Authorized staff may manage subsidy reviews once that workflow is implemented; imported CBMS source records remain read-only. Account lifecycle and detailed review permissions remain pending. See [UI_SPEC.md](UI_SPEC.md).
 
 Admin import controls, source-file retention, citizen identity and household-access rules, and operational access arrangements remain pending. Resolve these within separately scoped tasks, without copying private records or credentials into documentation. The project's dataset authorization is stated by the owner.

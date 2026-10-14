@@ -1,9 +1,11 @@
 # Tanglaw-Buhay backend developer guide
 
 This guide describes the Phase 4C vulnerability engine, Phase 5B screening
-rules, Phase 6A unified assessments and authenticated staff prioritization. The
-screening package separates the four programs from shared parsing and
-metadata. The cleanup preserves the rules, output fields and household results.
+rules, Phase 6A unified assessments and current authenticated staff assessment
+views. The screening package separates the four programs from shared parsing
+and metadata. Technical origins, rules and limitations remain here for
+developers and capstone methodology; routine staff content follows
+[UI_SPEC.md](docs/UI_SPEC.md).
 
 Tanglaw-Buhay provides decision support. A vulnerability rank indicates review
 priority, and a program flag suggests further consideration. Neither is an
@@ -29,7 +31,7 @@ Local Excel files and finalized reference CSVs
 
 | Module | Responsibility |
 |---|---|
-| `app.py` | Creates Flask, registers authentication/minimal routes and retains a development-only source marker; loads no records. |
+| `app.py` | Creates Flask, registers protected routes and retains a development-only source marker; loads no records at startup. |
 | `config.py` | Reads local environment configuration. |
 | `routes/auth.py`, `services/auth.py` | Login/logout, CSRF and database-backed session/role checks. |
 | `repositories/staff_users.py`, `commands.py` | Staff account SQL and explicitly invoked local administrator bootstrap. |
@@ -39,8 +41,8 @@ Local Excel files and finalized reference CSVs
 | `repositories/assessment_runs.py` | Stores batch-scoped runs/findings and explicit completed-run selections through approved operations; the protected prioritization page uses completed reads through the query service. Routes never invoke storage operations. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
-| `services/assessment_queries.py` | Resolves the explicitly designated completed active-batch run and retrieves bounded summaries or complete stored findings through read-only snapshots; optional page identities share that snapshot. |
-| `routes/assessments.py`, `services/prioritization.py` | Serve the protected 25-row ranking and prepare names, exact For Review badges and pagination without engine execution. |
+| `services/assessment_queries.py` | Resolves the explicitly designated completed active-batch run and retrieves filtered summaries or one household's stored findings through read-only snapshots. |
+| `routes/assessments.py`, `services/prioritization.py` | Serve protected Prioritization and Assessment Details without engine execution. |
 | `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
@@ -56,10 +58,11 @@ Local Excel files and finalized reference CSVs
 | `scripts/` | Runs aggregate verification without printing names or household identifiers. |
 | `tests/` | Checks rules and boundary cases using synthetic examples, not source household records. |
 
-The frontend reset intentionally removes the Phase 6A staff screens. Flask startup
-loads no household records and does not run assessment engines. The protected
-landing checks the retained development-only source marker; no configuration
-switch can expose actual CBMS records. `/test` still responds without PostgreSQL.
+The frontend reset removed the Phase 6A staff screens. Later tasks rebuilt
+protected Prioritization and Assessment Details with read-only PostgreSQL
+queries. Flask startup loads no household records and does not run assessment
+engines. The public `/test` route retains its fixture-only boundary and responds
+without PostgreSQL; no configuration switch exposes actual CBMS records there.
 
 `services/assessments.py` remains the backend integration layer: it combines
 engines by UUID, preserves complete MPI/four-program payloads and rejects
@@ -69,9 +72,9 @@ for backend/CSV tests. Its obsolete UI workspace builder was removed.
 `fixtures/development_metadata.json` retains finalized development-only metadata
 and source hashes, with no household records. Actual batch integration must
 provide its own finalized references; the fixture is not a production mapping.
-The active-batch loader now supplies the same Pandas input dictionaries from
-stored CSV responses. Its implementation does not connect the minimal interface
-or assessment services to real records; that integration remains pending.
+The active-batch loader supplies the same Pandas input dictionaries from stored
+CSV responses. Protected assessment routes instead use narrow, read-only query
+services to access the selected completed run and relevant source evidence.
 
 ## 2. Loading and joining CBMS data
 
@@ -564,9 +567,11 @@ embedded in the runner.
 records. Roles are `system_administrator` and `lgu_staff`. Werkzeug scrypt stores
 salted password hashes; login failures use one generic credential message.
 The application guard requires login for existing and future application routes,
-except `/login`, static assets and `/test`. Both roles can access the minimal
-protected landing; record/assessment pages are retired. `services.auth.admin_required` checks the current database role
-for future import/account routes; those workflows are not implemented yet.
+except `/login`, static assets and `/test`. At this authentication checkpoint,
+both roles accessed only a minimal landing and the old record/assessment pages
+were retired; later frontend tasks restored protected assessment pages.
+`services.auth.admin_required` checks the current database role for future
+import/account routes; those workflows are not implemented yet.
 
 Flask signs the cookie using a private `SECRET_KEY` (no default); staff access
 returns 503 if it is missing or shorter than 32 characters. Generate a random
@@ -603,7 +608,9 @@ stores only its hash. Usernames use 3-64 lowercase letters/digits/dot/dash/under
 and are normalized at creation/login. There are no password command arguments,
 default credentials, automatic accounts or web account-management screens.
 Open `/login` to sign in and `/logout` to sign out; the landing also provides
-Sign Out directly. The old sidebar and staff screens are intentionally retired.
+Sign Out directly. At the authentication checkpoint, the old sidebar and staff
+screens were intentionally retired; subsequent tasks rebuilt the staff shell
+and assessment views.
 
 Run synthetic authentication verification with the local test URL configured:
 
@@ -1640,43 +1647,49 @@ records are not printed or exported for verification.
   recorded routing/follow-up conflicts receive clear notices. Documented adult
   assumed-working combinations are labeled as assumptions, not observed work.
 - `services/assessment_reference_labels.py` matches original codes to the
-  same-batch reference rows while preserving raw text for display. Missing,
+  same-batch reference rows while preserving raw text internally. Missing,
   unmapped and conflicting meanings remain explicitly unavailable. Quantity and
   age descriptions do not assign deprivation. E15 Synthetic Support, provisional
-  L34 semantics and variable-definition provenance remain visible.
+  L34 semantics and variable-definition provenance remain preserved in metadata
+  and technical documentation; they are not routine staff-facing content.
 - `services/assessment_evidence_view.py` arranges those existing decoded cells
   into short staff-facing groups without assigning outcomes. Food responses use
   an eight-item grid; assets are grouped by type; relevant members show their
-  recorded work, education or health responses. A separately collapsed CBMS
-  Record Details view retains original codes, source fields, approved weights,
-  rules and provenance. Material assumptions appear beside affected evidence
-  in plain language. Overcrowding's space-per-member figure is labeled as a
-  presentation comparison from recorded area and roster size.
+  recorded work, education or health responses. The current committed page also
+  displays technical assumptions and, in its secondary disclosure, weights,
+  rules and provenance. These are implementation facts, not future UI
+  requirements; the staff-facing standard in [UI_SPEC.md](docs/UI_SPEC.md) calls
+  for removing that content while retaining it internally. Overcrowding's
+  space-per-member figure is a presentation comparison from recorded area and
+  roster size.
 
 The stored MPI payload does not include a per-member calculation trace. Evidence
-therefore presents the stored outcome, relevant original answers and approved
-rule without claiming an unsupported individual causal attribution. A missing
+therefore presents the stored outcome and relevant original answers without
+claiming an unsupported individual causal attribution. A missing
 answer is never automatically Not Deprived, and determined outcomes can coexist
 with gaps when the approved rule is conclusive. Educational group-5 cohort,
 FIES cutoff, asset crosswalk and employment assumptions remain documented.
 
 ### Navigation and frontend organization
 
-Overview explains the adapted MPI approach, shows actual stored counts/coverage,
-four contribution bars out of 25, assumptions/limitations and all four exact
-screening statuses. The short introduction is visible by default; How it works
-uses a native expandable disclosure. A shared header/metric row is rendered for
-both Overview and MPI Indicators. Section links retain list page/search/filters
-through validated internal parameters; arbitrary return URLs are never used.
+Overview shows actual stored counts/coverage, four contribution bars out of 25
+and all four exact screening statuses. How it works uses a native expandable
+disclosure. The committed page also has an assumptions/limitations disclosure;
+a future separately approved cleanup should remove it. A shared header/metric
+row is rendered for both Overview and MPI Indicators. Section links retain list
+page/search/filters through validated internal parameters; arbitrary return
+URLs are never used.
 
 MPI Indicators groups all 16 results into four native details disclosures.
 Education starts open; the other dimensions and every View Evidence disclosure
 start closed. Each indicator shows its text status, one short household-focused
-sentence and score contribution. The approved weight is available in the
-secondary CBMS Record Details disclosure. Primary evidence presents decoded
-answers and relevant named members, lines and historical ages; technical fields,
-raw codes, rule text and provenance remain accessible on demand. User content is
-escaped. The status guide distinguishes Deprived, Not Deprived and Unknown.
+sentence and score contribution. Primary evidence presents decoded answers and
+relevant named members, lines and historical ages. The committed CBMS Record
+Details disclosure also contains weights, rule text and provenance; a future
+separately approved cleanup must limit it to field label, stored identifier,
+response and concise decoded meaning. Technical metadata remains internal.
+User content is escaped. The status guide distinguishes Deprived, Not Deprived
+and Unknown.
 Subsidy Screening and Review History remain nonfunctional planned labels.
 
 The existing staff layout and styles load before `assessment-details.css`, which
@@ -1723,7 +1736,9 @@ full **273-test** suite passed; all **292** suite connections targeted the
 isolated local test database. The original source, stored findings, ranking,
 route authorization and repository queries were not changed by this refinement.
 
-Task 3 is Completed and remains uncommitted for review. Detailed subsidy
-screening and review history remain separate tasks. The existing private
+Task 3 was completed and pushed as `abd2d59` on `dev/assessment-details`.
+Its staff-facing content cleanup remains Not Started and requires a separate
+approved task. Detailed subsidy screening and review history remain separate
+tasks. The existing private
 development server must be restarted after Python/template changes because
 automatic reload is disabled; refreshing the browser then loads the new page.
