@@ -172,6 +172,8 @@ Navy/neutral/gold styling, readable spacing, native keyboard disclosures and
 visible focus reuse the existing staff design. A dedicated assessment details
 stylesheet loads after shared/module styles to keep page-specific rules focused.
 
-The committed Task 3 implementation predates the stricter content standard above.
-Its technical disclosures and development terminology require a separately
-approved cleanup; this documentation change does not alter the running UI.
+Task B applies the stricter content standard above to the existing Assessment
+Details tabs. Synthetic desktop/mobile verification covers all 16 evidence views,
+the four-field CBMS Record Details, concise missing/conflicting-answer messages
+and distinct L34 illness meanings with verification wording. Internal methodology
+and source metadata remain preserved; the approved layout is retained.

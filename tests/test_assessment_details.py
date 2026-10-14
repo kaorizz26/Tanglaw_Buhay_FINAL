@@ -128,7 +128,6 @@ class AssessmentDetailPresentationTests(unittest.TestCase):
             "Communication", "Durable household items", "Transportation",
         ])
         self.assertEqual(sum(len(group["cells"]) for group in assets["groups"]), 15)
-        self.assertIsNone(assets["caution"])
         self.assertEqual(
             next(cell for cell in assets["groups"][0]["cells"]
                  if cell["source"]["variable"] == "r16_n_mobile_phone")["value"],
@@ -154,15 +153,71 @@ class AssessmentDetailPresentationTests(unittest.TestCase):
             "Employment Proxy", build_indicator_evidence("Employment Proxy", self.source, index),
         )
         self.assertEqual([member["line_number"] for member in employment["members"]], [1])
-        self.assertIsNone(employment["caution"])
         self.assertEqual(employment["members"][0]["display_cells"][0]["value"],
                          "Resident in the Philippines")
         crowding = prepare_evidence_view(
             "Overcrowding", build_indicator_evidence("Overcrowding", self.source, index),
         )
         self.assertIn("16.67 m² per person", crowding["space_comparison"])
-        self.assertIn("benchmark: 4 m²", crowding["space_comparison"])
+        self.assertNotIn("benchmark", crowding["space_comparison"])
         self.assertEqual(self.source["findings"], before)
+
+    def test_illness_display_distinguishes_both_codes_and_keeps_uncertainty(self):
+        self.source["household"]["l33_member_who_has_been_sick"] = "1"
+        cases = (
+            ("1", "Affected by illness; needs verification"),
+            ("1.0", "Affected by illness; needs verification"),
+            ("2", "Not affected by illness; needs verification"),
+            ("2.0", "Not affected by illness; needs verification"),
+            ("77", "Meaning needs verification"),
+            ("NA", "Not recorded"),
+            ("", "Not recorded"),
+            (None, "Not recorded"),
+        )
+        for raw, expected in cases:
+            with self.subTest(raw=raw):
+                self.source["members"][0]["health_responses"]["l34_has_been_sick"] = raw
+                before = deepcopy(self.source)
+                evidence = build_indicator_evidence(
+                    "Illness/Treatment Proxy", self.source, build_evidence_index(self.source),
+                )
+                original = deepcopy(evidence)
+                view = prepare_evidence_view("Illness/Treatment Proxy", evidence)
+                member = view["members"][0]
+                cell = next(cell for cell in member["display_cells"]
+                            if cell["source"]["variable"] == "l34_has_been_sick")
+                record = next(cell for cell in member["record_cells"]
+                              if cell["variable"] == "l34_has_been_sick")
+                self.assertEqual(cell["value"], expected)
+                self.assertEqual(record["meaning"], expected)
+                self.assertEqual(record["raw"], cell["source"]["raw"])
+                self.assertEqual(evidence, original)
+                self.assertEqual(self.source, before)
+
+    def test_all_record_projections_keep_original_values_and_internal_metadata(self):
+        self.source["household"]["l33_member_who_has_been_sick"] = "1"
+        self.source["members"][0]["responses"].update(b06_ofi="1", e01_employed="NA")
+        index = build_evidence_index(self.source)
+        for name in INDICATOR_WEIGHTS:
+            with self.subTest(indicator=name):
+                evidence = build_indicator_evidence(name, self.source, index)
+                before = deepcopy(evidence)
+                view = prepare_evidence_view(name, evidence)
+                pairs = [(evidence["household_cells"], view["record_cells"])]
+                pairs.extend((original["cells"], member["record_cells"])
+                             for original, member in zip(evidence["members"], view["members"]))
+                for original_cells, records in pairs:
+                    self.assertEqual(len(original_cells), len(records))
+                    for original, record in zip(original_cells, records):
+                        self.assertEqual(set(record), {"label", "variable", "raw", "meaning"})
+                        self.assertEqual(record["variable"], original["variable"])
+                        self.assertEqual(record["raw"], original["raw"])
+                self.assertEqual(evidence, before)
+                self.assertEqual(view["limitations"], evidence["limitations"])
+                self.assertEqual(view["household_cells"], evidence["household_cells"])
+                for original, member in zip(evidence["members"], view["members"]):
+                    self.assertEqual(member["cells"], original["cells"])
+                    self.assertEqual(member["notes"], original["notes"])
 
     def test_all_indicator_outcome_wording_and_missing_roster_reference_fallbacks(self):
         for flag in (0, 1, None):
@@ -257,7 +312,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertNotIn('<details class="cbms-evidence" open', mpi.text)
                 self.assertIn("Synthetic Member 2", mpi.text)
                 self.assertIn("e15_want_more_hours", mpi.text)
-                self.assertIn("Synthetic Support", mpi.text)
+                self.assertNotIn("Synthetic Support", mpi.text)
                 self.assertIn("View Evidence", mpi.text)
                 self.assertEqual(mpi.text.count('class="cbms-record-details"'), 16)
                 self.assertNotIn('<details class="cbms-record-details" open', mpi.text)
@@ -266,6 +321,60 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertNotIn("<small>Weight</small>", mpi.text)
                 self.assertNotIn("Child Mortality", mpi.text)
                 self.assertNotIn("Access to Health Facilities", mpi.text)
+
+    def test_operational_html_excludes_methodology_but_retains_answers_and_conflicts(self):
+        self._session()
+        self.source["household"].update({
+            "l33_member_who_has_been_sick": "1", "n01_internet_access": "1",
+            "h01_access_to_public_transportation": "2", "r16_s_jeep": "1",
+        })
+        adult = self.source["members"][0]
+        adult["responses"].update(b06_ofi="1", e01_employed="NA",
+                                  e15_want_more_hours="1", c02_hgc_group="5")
+        adult["health_responses"].update(l34_has_been_sick="1",
+                                        l38_availed_medical_treatment="2")
+        self.source["members"][1]["health_responses"].update(
+            l34_has_been_sick="2", l38_availed_medical_treatment="1",
+        )
+        self.source["findings"]["mpi"]["assumptions_used"] = ("INTERNAL_ASSUMPTION_MARKER",)
+        before = deepcopy(self.source)
+        overview = self.client.get(self.path)
+        mpi = self.client.get(self.path + "?tab=mpi")
+        for response in (overview, mpi):
+            self.assertEqual(response.status_code, 200)
+            for text in (
+                "Synthetic Support", "pilot", "provenance", "provisional", "assumed",
+                "assumptions", "limitations", "Assessment rule", "Indicator weight",
+                "questionnaire", "routing", "benchmark", "Approved response mapping",
+                "INTERNAL_ASSUMPTION_MARKER", "not wholly observed", "PSA",
+            ):
+                with self.subTest(text=text):
+                    self.assertNotIn(text.lower(), response.text.lower())
+        self.assertIn("Affected by illness; needs verification", mpi.text)
+        self.assertIn("Not affected by illness; needs verification", mpi.text)
+        self.assertIn("Recorded answers conflict and need staff verification.", mpi.text)
+        self.assertIn("Not recorded", mpi.text)
+        self.assertIn("Recorded Value:", mpi.text)
+        articles = re.findall(r'<article class="mpi-indicator".*?</article>', mpi.text, re.S)
+        self.assertEqual(len(articles), 16)
+        for article in articles:
+            positions = [article.index(marker) for marker in (
+                "<h3>", 'class="indicator-status', 'class="indicator-explanation"',
+                'class="indicator-number"', 'class="cbms-evidence"',
+            )]
+            self.assertEqual(positions, sorted(positions))
+            record_html = article.split('<div class="record-details-body">', 1)[1]
+            self.assertNotIn("<p>", record_html)
+            self.assertNotIn("Section ", record_html)
+            self.assertNotIn("section_a_e_indiv", record_html)
+        for name, expected in (("Internet", "Yes"), ("Public Transportation", "No")):
+            article = next(article for article in articles if f"<h3>{name}</h3>" in article)
+            self.assertIn(f"<dd>{expected}</dd>", article)
+        underemployment = next(article for article in articles
+                               if "<h3>Underemployment Proxy</h3>" in article)
+        self.assertIn("Wants more work hours</dt>", underemployment)
+        self.assertIn("<dd>Yes</dd>", underemployment)
+        self.assertEqual(self.source, before)
 
     def test_back_links_and_sections_preserve_only_validated_internal_list_state(self):
         self._session()

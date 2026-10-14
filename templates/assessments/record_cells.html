@@ -2,12 +2,9 @@
   {% for cell in source_cells %}
     <div>
       <dt>{{ cell.label }}</dt>
-      <dd><code>{{ cell.variable }}</code> · Section {{ cell.section }} · {{ cell.dataset }}</dd>
-      <dd>Original response: <code>{{ cell.raw }}</code></dd>
-      <dd>Reference meaning: {{ cell.meaning }}</dd>
-      {% for note in cell.notes %}
-        <dd>{{ note }}</dd>
-      {% endfor %}
+      <dd><code>{{ cell.variable }}</code></dd>
+      <dd>Recorded Value: <code>{{ cell.raw }}</code></dd>
+      <dd>Meaning: {{ cell.meaning }}</dd>
     </div>
   {% endfor %}
 </dl>

@@ -37,9 +37,10 @@ and unchanged findings from the four subsidy engines. Historical Run 1 remains.
 Frontend Tasks 1–2 add protected read-only Household Prioritization and filters.
 Task 3 adds stored Overview and all 16 MPI Indicators with scoped original
 evidence; subsidy details, staff reviews and Household Records remain
-unimplemented. Task 3 was committed before the stricter operational-content
-standard was approved; its display wording and disclosures need a separately
-scoped cleanup. The public test route retains its fixture guard.
+unimplemented. The separately authorized Task B cleanup now applies the stricter
+operational-content standard to these tabs, with verified concise evidence and
+distinct, uncertainty-labeled illness meanings. Internal methodology and metadata
+remain preserved. The public test route retains its fixture guard.
 
 ## CBMS source and provenance
 

@@ -4,7 +4,7 @@
 
 - This is the final, existing Flask BSIT capstone application. Extend it incrementally; do not replace it with a new app or prototype.
 - Work on **one task with one defined deliverable**, then report the result for review. Do not start another phase or add unrelated functionality automatically.
-- Read [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md), [project context](docs/PROJECT_CONTEXT.md), [UI specification](docs/UI_SPEC.md) and the [implementation plan](docs/IMPLEMENTATION_PLAN.md) before relevant work. Inspect the implementation rather than guessing missing rules or mappings.
+- For every task, read `AGENTS.md` and any relevant skill, then inspect the actual implementation files directly. Do not automatically read entire project documents: use targeted searches or bounded ranges for only the needed sections of [project context](docs/PROJECT_CONTEXT.md), [UI specification](docs/UI_SPEC.md), and the [implementation plan](docs/IMPLEMENTATION_PLAN.md). Treat [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) as an optional technical reference, consulting its relevant sections when the task needs them. Read further when a change crosses a documented boundary; do not guess missing rules or mappings.
 - Follow the user's current task boundaries. Implementation changes are allowed when explicitly requested; unrelated changes are prohibited.
 - Follow the approved implementation plan one defined task at a time. Keep milestone status current: **Not Started** means work has not begun; **In Progress** means work has started; **Blocked** means an unresolved issue prevents progress; **Completed** means acceptance criteria have been verified. Only Completed requires successful verification. Report the result and stop before starting another task.
 - Keep changes focused and preserve existing work. Report changed files, relevant verification and unresolved context. Do not treat planned requirements as implemented features.
@@ -38,8 +38,8 @@
 - Add concise docstrings for nontrivial functions, explaining purpose and important inputs/outputs. Comment complex logic, project assumptions and non-obvious decisions, without narrating obvious code line by line. Use type hints where they improve readability.
 - Prefer simple solutions. Avoid unnecessary abstractions, dependencies, premature optimization, speculative features and overengineering.
 - Refine UI screens individually against the approved specification, preserving responsive behavior, keyboard access and readable contrast/text sizes.
-- Update `DEVELOPER_GUIDE.md` when architecture or developer-facing behavior materially changes.
-- Run checks appropriate to the task, without excessive tests or unrelated audits. For application behavior changes, use `.\.venv\Scripts\python.exe -B -m unittest discover -s tests` and relevant checks in the Developer Guide. Documentation-only changes need content/link and diff review, not private-data processing.
+- Preserve essential technical documentation. Update `DEVELOPER_GUIDE.md` when architecture or developer-facing behavior materially changes; do not append lengthy development logs for minor UI changes.
+- Run checks proportionate to the change, without unrelated audits. For small presentation or interaction changes, run focused tests and verify the affected screen at relevant desktop/mobile sizes. Run `.\.venv\Scripts\python.exe -B -m unittest discover -s tests` and relevant Developer Guide checks for backend/database changes, higher-risk application behavior changes, and final integration verification. Documentation-only changes need content/link and diff review, not private-data processing.
 - For an explicitly authorized behavior-preserving engine refactor, compare complete outputs before/after; equal totals alone are insufficient. Keep private comparisons in Git-ignored storage.
 
 ## Frontend File and Folder Organization

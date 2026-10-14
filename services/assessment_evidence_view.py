@@ -43,12 +43,6 @@ FIELD_LABELS = {
     "e15_want_more_hours": "Wants more work hours",
 }
 
-CAUTIONS = {
-    "Educational Attainment": "One education category uses an age-based estimate of completion.",
-    "Food Insecurity": "This is a project screening measure, not an official food-insecurity classification.",
-    "Underemployment Proxy": "The additional-hours information includes data supplied for this pilot; it was not fully recorded in the original CBMS survey.",
-}
-
 DIRECT_CONDITIONS = {
     "Water": "Main water source",
     "Tenure": "House and lot tenure",
@@ -142,10 +136,17 @@ STAFF_EXPLANATIONS = {
 
 
 def _display_value(cell):
-    """Use verified decoded text; never present an unresolved code as a known answer."""
+    """Simplify decoded values while keeping uncertain meanings explicit for staff."""
     meaning = cell["meaning"]
     if meaning.startswith("Not recorded or missing"):
         return "Not recorded"
+    if cell["variable"] == "l34_has_been_sick":
+        # Retain the existing provisional distinction without presenting it as verified.
+        if meaning.startswith("Affected by illness (provisional"):
+            return "Affected by illness; needs verification"
+        if meaning.startswith("Unaffected by illness (provisional"):
+            return "Not affected by illness; needs verification"
+        return "Meaning needs verification"
     if "needs verification" in meaning.lower() or "no verified code meaning" in meaning.lower():
         return "Meaning needs verification"
     if cell["variable"] == "r07_floor_area":
@@ -154,8 +155,6 @@ def _display_value(cell):
         return f"{cell['raw']} recorded" if meaning.startswith("Recorded number") else meaning
     if cell["variable"] == "b06_ofi" and meaning == "No, Resident (Philippines)":
         return "Resident in the Philippines"
-    if cell["variable"] == "l34_has_been_sick" and "provisional project interpretation" in meaning:
-        return "Reported affected by illness; this answer needs verification"
     return meaning.rstrip(".")
 
 
@@ -164,6 +163,16 @@ def _display_cell(cell):
         "label": FIELD_LABELS.get(cell["variable"], cell["label"]),
         "value": _display_value(cell),
         "source": cell,
+    }
+
+
+def _record_cell(cell):
+    """Project only the four staff record fields; retain source metadata separately."""
+    return {
+        "label": FIELD_LABELS.get(cell["variable"], cell["label"]),
+        "variable": cell["variable"],
+        "raw": cell["raw"],
+        "meaning": _display_value(cell),
     }
 
 
@@ -188,16 +197,11 @@ def _household_groups(name, cells):
 
 
 def _member_cautions(notes):
+    """Show recorded conflicts briefly, leaving methodology in internal metadata."""
     cautions = []
     for note in notes:
-        if "assumed-working" in note:
-            cautions.append("Work status was assumed for this indicator; no direct work answer was recorded.")
-        elif "routing conflict" in note or "conflicting follow-up" in note:
+        if "routing conflict" in note or "conflicting follow-up" in note:
             cautions.append("Recorded answers conflict and need staff verification.")
-        elif "No E01 work response" in note:
-            cautions.append("No direct work answer was recorded.")
-        elif "outside its questionnaire age scope" in note:
-            cautions.append("The activity question did not apply at this recorded age.")
     return list(dict.fromkeys(cautions))
 
 
@@ -213,36 +217,7 @@ def _space_comparison(evidence):
         return None
     if not area.is_finite() or area < 0:
         return None
-    return (
-        f"{area / count:.2f} m² per person from recorded area and roster size; "
-        "assessment benchmark: 4 m² per person"
-    )
-
-
-def _indicator_caution(name, evidence):
-    """Surface only material caveats relevant to this household's displayed answers."""
-    if name == "Assets":
-        for cell in evidence["household_cells"]:
-            if cell["variable"] not in ("r16_s_jeep", "r16_v_tricycle"):
-                continue
-            try:
-                if Decimal(cell["raw"]) > 0:
-                    return "Some vehicle categories use project interpretations of the survey answers."
-            except InvalidOperation:
-                continue
-    if name == "Employment Proxy" and any(
-        "assumed-working" in note
-        for member in evidence["members"] for note in member["notes"]
-    ):
-        return "Some adult work classifications use an assumption, not a direct work answer."
-    if name == "Illness/Treatment Proxy" and evidence["members"]:
-        return "The source export's illness response has a provisional interpretation."
-    if name == "Educational Attainment" and any(
-        cell["variable"] == "c02_hgc_group" and cell["raw"] == "5"
-        for member in evidence["members"] for cell in member["cells"]
-    ):
-        return CAUTIONS[name]
-    return CAUTIONS.get(name) if name in ("Food Insecurity", "Underemployment Proxy") else None
+    return f"{area / count:.2f} m² per person"
 
 
 def prepare_evidence_view(name, evidence):
@@ -256,12 +231,13 @@ def prepare_evidence_view(name, evidence):
                 if cell["variable"] != "a07_age"
             ],
             "cautions": _member_cautions(member["notes"]),
+            "record_cells": [_record_cell(cell) for cell in member["cells"]],
         })
     return {
         **evidence,
         "groups": _household_groups(name, evidence["household_cells"]),
         "members": members,
-        "caution": _indicator_caution(name, evidence),
+        "record_cells": [_record_cell(cell) for cell in evidence["household_cells"]],
         "space_comparison": _space_comparison(evidence) if name == "Overcrowding" else None,
     }
 

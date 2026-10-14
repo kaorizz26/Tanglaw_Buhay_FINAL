@@ -1645,7 +1645,8 @@ records are not printed or exported for verification.
   omitted when L33 establishes the skip. Overcrowding shows the original roster
   count without displaying unrelated member identities. Missing joins and
   recorded routing/follow-up conflicts receive clear notices. Documented adult
-  assumed-working combinations are labeled as assumptions, not observed work.
+  assumed-working combinations remain labeled internally; staff evidence shows
+  the missing recorded work answer without an assumptions narrative.
 - `services/assessment_reference_labels.py` matches original codes to the
   same-batch reference rows while preserving raw text internally. Missing,
   unmapped and conflicting meanings remain explicitly unavailable. Quantity and
@@ -1655,11 +1656,11 @@ records are not printed or exported for verification.
 - `services/assessment_evidence_view.py` arranges those existing decoded cells
   into short staff-facing groups without assigning outcomes. Food responses use
   an eight-item grid; assets are grouped by type; relevant members show their
-  recorded work, education or health responses. The current committed page also
-  displays technical assumptions and, in its secondary disclosure, weights,
-  rules and provenance. These are implementation facts, not future UI
-  requirements; the staff-facing standard in [UI_SPEC.md](docs/UI_SPEC.md) calls
-  for removing that content while retaining it internally. Overcrowding's
+  recorded work, education or health responses. Task B removes technical
+  assumptions, weights, rules and provenance from rendered content, retaining
+  the original source cells, notes and limitations internally. A separate
+  `record_cells` projection exposes only label, identifier, original recorded
+  value and concise meaning to the secondary disclosure. Overcrowding's
   space-per-member figure is a presentation comparison from recorded area and
   roster size.
 
@@ -1674,8 +1675,8 @@ FIES cutoff, asset crosswalk and employment assumptions remain documented.
 
 Overview shows actual stored counts/coverage, four contribution bars out of 25
 and all four exact screening statuses. How it works uses a native expandable
-disclosure. The committed page also has an assumptions/limitations disclosure;
-a future separately approved cleanup should remove it. A shared header/metric
+disclosure with three short guidance items. Task B removes the recorded
+assumptions/limitations disclosure. A shared header/metric
 row is rendered for both Overview and MPI Indicators. Section links retain list
 page/search/filters through validated internal parameters; arbitrary return
 URLs are never used.
@@ -1684,10 +1685,10 @@ MPI Indicators groups all 16 results into four native details disclosures.
 Education starts open; the other dimensions and every View Evidence disclosure
 start closed. Each indicator shows its text status, one short household-focused
 sentence and score contribution. Primary evidence presents decoded answers and
-relevant named members, lines and historical ages. The committed CBMS Record
-Details disclosure also contains weights, rule text and provenance; a future
-separately approved cleanup must limit it to field label, stored identifier,
-response and concise decoded meaning. Technical metadata remains internal.
+relevant named members, lines and historical ages. CBMS Record Details is limited
+to field label, stored identifier, Recorded Value and concise decoded meaning.
+It contains no weights, rule text, notes, dataset/section metadata or provenance.
+Technical metadata remains internal.
 User content is escaped. The status guide distinguishes Deprived, Not Deprived
 and Unknown.
 Subsidy Screening and Review History remain nonfunctional planned labels.
@@ -1695,8 +1696,10 @@ Subsidy Screening and Review History remain nonfunctional planned labels.
 The existing staff layout and styles load before `assessment-details.css`, which
 owns the new page's metrics, sections, disclosures, evidence and responsive
 layout. The existing assessment stylesheet owns the table action link. Modular
-templates live under `templates/assessments/`; native controls need no new
-JavaScript, dependency or framework.
+templates live under `templates/assessments/`. The small
+`static/js/assessment-details.js` script closes nested evidence when a dimension
+closes; native summaries retain mouse and keyboard activation. No dependency or
+framework is added.
 
 `services/assessment_request_logging.py` masks assessment request targets in the
 Werkzeug development access logger while retaining request method and HTTP
@@ -1737,8 +1740,71 @@ isolated local test database. The original source, stored findings, ranking,
 route authorization and repository queries were not changed by this refinement.
 
 Task 3 was completed and pushed as `abd2d59` on `dev/assessment-details`.
-Its staff-facing content cleanup remains Not Started and requires a separate
-approved task. Detailed subsidy screening and review history remain separate
-tasks. The existing private
-development server must be restarted after Python/template changes because
+Detailed subsidy screening and review history remain separate tasks. The existing
+private development server must be restarted after Python/template changes because
 automatic reload is disabled; refreshing the browser then loads the new page.
+
+### Task B: verified staff-facing content cleanup
+
+Completed on 2026-10-14. The approved
+header, metrics, compact Overview, four contribution bars, subsidy summary,
+four MPI dimensions and all 16 indicators remain. Indicator reading order is
+name, status, short explanation, points and View Evidence. Small CSS changes
+retain the desktop points column and put the explanation before points on
+mobile; long indicator titles wrap without colliding with the status.
+
+Routine screens and both evidence disclosures no longer render synthetic/pilot
+terminology, preparation/provenance narratives, methodological cautions,
+assumptions, weights, rules or technical limitation lists. Missing answers remain
+Not recorded; recorded conflicts receive a brief verification message. Internet,
+transport and E15 values use their existing decoded meanings without origin
+classifications or claims of official PSA observation. Original source metadata,
+E15 provenance, provisional L34 semantics and all methodological descriptions
+remain in the existing reference/evidence services and indicator catalog.
+
+The former L34 display collapsed both provisional meanings into affected.
+Staff-facing primary and secondary evidence now distinguish code 1 as
+Affected by illness and code 2 as Not affected by illness, each followed by
+needs verification. Missing values remain Not recorded; unsupported meanings
+remain Meaning needs verification. This changes presentation only; the original
+decoder, raw values, provisional interpretation and stored outcomes are unchanged.
+
+All **17 focused detail tests**, **26 query tests**, and the required
+`.\.venv\Scripts\python.exe -B -m unittest discover -s tests` passed. The complete
+**276-test** suite had no skips; a temporary connection guard confined all **292**
+connections to local `tanglaw_buhay_test`. Existing source/findings preservation,
+read-only database and authorization tests remain; new regressions cover both
+L34 codes (including decimal forms), missing/unknown codes, all 16 four-field
+record projections, internal metadata retention and rendered technical-content
+exclusion. No private-data verification scripts were needed for this presentation
+change; no development database connection or real-data recalculation occurred.
+
+Synthetic browser checks used real rendered routes/templates in an isolated local
+preview with database connections blocked. Screenshots were inspected at desktop
+and mobile sizes; **1440, 1024, 375 and 320px** checks verified four bars, unchanged
+metrics/statuses, all 16 evidence/record disclosures, native keyboard operation,
+title wrapping and no document overflow or technical-content leakage. The preview
+harness handles its favicon request separately; the final checks had no browser
+warnings/errors. Routes, authentication, queries, engines, source data, stored
+Run 2 and unrelated modules are unchanged. Local preview artifacts remain under
+Git-ignored `notes/assessment-cleanup/`.
+
+### Task B follow-up: dimension controls and View Assessment alignment
+
+Verified on 2026-10-15 after staff review. The dimension summary now spans the
+full card header, including its previously inactive side padding. Closing a
+dimension also closes its View Evidence and CBMS Record Details disclosures, so
+reopening the dimension starts with a compact indicator list. Native summary
+activation remains available by mouse and Enter. The Prioritization table gives
+the View Assessment action enough width and inset at standard desktop zoom; its
+text stays on one line. The narrower table minimum continues to allow horizontal
+scrolling on smaller viewports.
+
+Synthetic browser checks at **1440, 1366, 1024 and 375px** followed the View
+Assessment link, opened nested disclosures, clicked the dimension card edge,
+reopened it and repeated the close with Enter. All checks passed with no document
+overflow or browser warnings/errors. At 1366px the action had more than 14px of
+space on either side. The required full suite passed **276 tests without skips**;
+all **292** database connections were guarded to local `tanglaw_buhay_test`.
+Original source data, stored findings, calculations, routes and authentication
+were untouched.

@@ -37,12 +37,12 @@
               <div class="indicator-summary">
                 <h3>{{ indicator.name }}</h3>
                 <span class="indicator-status status-{{ indicator.status_class }}">{{ indicator.status }}</span>
+                <p class="indicator-explanation">{{ indicator.explanation }}</p>
                 <span class="indicator-number">
                   <strong>{% if indicator.contribution %}+{% endif %}{{ '%.2f' | format(indicator.contribution) }}</strong>
                   <small>points added</small>
                 </span>
               </div>
-              <p class="indicator-explanation">{{ indicator.explanation }}</p>
               {% include 'assessments/evidence.html' %}
             </article>
           {% endfor %}

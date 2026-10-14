@@ -56,27 +56,13 @@
         <summary>How it works</summary>
         <div class="disclosure-body compact-guide">
           <ul>
-            <li>Sixteen indicators are grouped into four dimensions worth 25 points each.</li>
-            <li>A deprived indicator adds points to the score.</li>
-            <li>Higher scores mean more recorded weighted deprivation.</li>
+            <li>Higher scores show more household conditions of concern.</li>
             <li>Equal scores share the same municipal rank.</li>
-            <li>Unknown results add zero points and may understate vulnerability.</li>
+            <li>Open MPI Indicators to view findings and household answers.</li>
           </ul>
         </div>
       </details>
 
-      {% if results.mpi.assumptions_used %}
-        <details class="assessment-guide">
-          <summary>Recorded assumptions and limitations</summary>
-          <div class="disclosure-body compact-guide">
-            <ul>
-              {% for note in results.mpi.assumptions_used %}
-                <li>{{ note }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-        </details>
-      {% endif %}
     </section>
   </aside>
 </div>
