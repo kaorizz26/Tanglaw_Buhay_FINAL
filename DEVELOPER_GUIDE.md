@@ -36,6 +36,7 @@ Local Excel files and finalized reference CSVs
 | `db.py` | Opens a PostgreSQL connection only when explicitly requested; the engines do not call it. |
 | `migrations/` | Numbered SQL schema changes; Phase 6B.1 does not connect them to routes or engines. |
 | `repositories/dataset_batches.py` | Stores/activates batch snapshots and provides batch-scoped, ordered read queries; callers own transactions. |
+| `repositories/assessment_runs.py` | Creates/completes batch-scoped assessment runs, stores complete unified findings and reads completed runs; no route or execution script invokes it. |
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
 | `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
@@ -838,3 +839,96 @@ coverage **99.8981932357%**. High coverage is consistent with the approved rules
 it does not establish complete observed data, validate the pilot assumptions,
 or remove the documented zero-point-unknown/provisional-coding limitations.
 No rules, weights, thresholds, source responses or staff workflows were changed.
+
+## 17. Phase 6B.4 Task 3A: assessment persistence foundation
+
+`migrations/0003_assessment_persistence.sql` adds two tables after migration 0001.
+It has been applied only inside rollback-isolated test schemas, not to
+`tanglaw_buhay_dev`. Startup applies no migrations and no real assessment results
+have been stored. Existing source tables, migrations, calculations and routes
+are unchanged.
+
+| Table | Stored information and boundaries |
+|---|---|
+| `assessment_runs` | Source `batch_id`, required calculation version/provenance, expected source-household count, pending/completed status and timestamps. Multiple runs per batch are allowed. |
+| `household_assessments` | Run/batch/household identity and the complete unified MPI/four-program JSONB findings. Original vulnerability rank is a generated, indexed projection of the stored MPI rank. |
+
+Composite foreign keys require each result's batch to match its run and its
+source household. A `(run_id, household_uuid)` primary key prevents duplicates
+within a run, while allowing the same household UUID in other batches/runs.
+The primary key supports household lookup; an index on
+`(run_id, vulnerability_rank, household_uuid)` supports original rank ordering
+with stable ordering of ties. Neither lookup nor ordering recalculates ranks.
+The foreign keys retain previous runs/results and do not cascade source deletes.
+
+`repositories.assessment_runs` provides these focused operations:
+
+- `create_run()` requires a validated, nonempty source batch, snapshots its
+  household count and stores caller-supplied calculation version/provenance.
+  It does not require the batch to be active or assume a particular batch ID.
+- `store_household_assessments()` appends the existing unified result dictionary
+  to a pending run. It validates matching household identities and source survey
+  year, complete MPI fields and all four complete program outputs. It uses bulk
+  insertion and never overwrites duplicates or executes calculations.
+- `complete_run()` requires stored and current source counts to equal the
+  expected count. Uniqueness and source foreign keys establish full household
+  coverage. Inserts and completion lock the run row, preventing competing
+  repository operations from modifying a completed run.
+- `find_run()` returns technical run/source metadata for either status.
+  `find_household_assessment()` and `iter_household_assessments()` return findings
+  only for an explicitly selected completed run; pending/partial runs yield
+  no findings. The iterator orders by preserved rank and household UUID.
+
+Callers own the connection and transaction. Creating, storing and completing a
+run must occur in an explicit caller-managed transaction when atomic completion
+is required; failures must roll back that transaction. The repository never
+commits, opens a database connection or updates source CBMS records. Completion
+and immutability checks are repository guarantees, not a staff authorization
+boundary or a defense against privileged SQL bypass. Authorization, real-data
+execution/storage orchestration and error presentation remain separate work.
+PostgreSQL exception details must never be logged or shown to users because
+they may contain private identifiers or payloads.
+
+The JSONB findings contain the unchanged unified result: household identity and
+survey year, all MPI flags/metrics/ranks/assumptions and all four program
+statuses, reasons, evidence, warnings, references and methodology notes.
+JSON arrays are restored to the existing two MPI tuple fields and seven tuple
+fields per program; program order is restored to 4Ps/SLP/SPISC/TUPAD. Nested
+evidence dictionaries, strings, numbers and `None` are preserved. Retrieval
+uses named fields because JSONB object-key ordering is not preserved.
+Serialization rejects missing programs/fields, mismatched identities/years, nonfinite numbers
+and unsupported new sequence structures instead of silently losing meaning.
+This adapter supports the current engine-output contract; an approved new
+output structure may require an explicit serialization update. Staff reviews
+or decisions have no fields in these tables and cannot replace system findings
+through this repository.
+
+Assessment storage has no batch-1 or 2022 restriction. Survey year and
+municipality are read from the referenced source batch, and payload years must
+match that source. Independent runs can use any valid source batch supported
+by the source schema. **Existing migration 0001, importer and active loader still
+enforce the current 2022 Pozorrubio pilot**. Actual future-year imports/loading,
+source-constraint changes and synthetic future demonstrations remain separately
+scoped tasks; this foundation does not enable them. Tests used multiple current
+2022 batches and a past-year metadata-only serialization check, with no future
+dataset generation or import.
+
+Run focused verification with the configured local test URL:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p test_assessment_persistence.py -v
+```
+
+Verification on 2026-10-14 passed **13 focused tests**, including **10 executed
+PostgreSQL tests**. Generated outputs from 32 synthetic households round-tripped
+with complete values and Python types, including unknown flags, tuple evidence,
+warnings, assumptions and original rank ties. Tests checked migration structure,
+foreign keys, batch/run isolation, duplicate rejection, pending-result hiding,
+partial-run completion rejection, rollback and unchanged synthetic source rows.
+All DDL/rows remained in private test transactions and were rolled back; schemas
+did not persist. The full suite passed **200 tests without skips**, with a runtime
+guard restricting all 150 test connections to local `tanglaw_buhay_test`.
+Read-only catalog comparison confirmed no leftover schemas/catalog changes and
+the private `.env` checksum was unchanged. Development/older databases, private
+sources, engines and UIs were not modified. Applying migration 0003 or storing
+real assessments requires a separately approved task.
