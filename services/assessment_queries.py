@@ -7,6 +7,7 @@ from psycopg.pq import TransactionStatus
 
 from db import get_connection
 from repositories import assessment_runs, dataset_batches
+from repositories import assessment_evidence
 from services.assessment_filters import normalize_filters
 
 
@@ -118,3 +119,40 @@ def get_active_household_assessment(household_uuid, *, connection_factory=get_co
         if findings is None:
             raise AssessmentQueryError("household_assessment_missing")
         return {"context": context, "findings": findings}
+
+
+def get_active_assessment_detail(household_uuid, *, connection_factory=get_connection):
+    """Read one stored assessment and relevant sources in the same stable snapshot.
+
+    The caller enforces staff authorization. No engine, loader or write operation
+    is used; source and reference reads use the designated run's batch identity.
+    """
+    if (
+        not isinstance(household_uuid, str) or not household_uuid.strip()
+        or len(household_uuid) > 128 or "\x00" in household_uuid
+    ):
+        raise AssessmentQueryError("invalid_household_uuid")
+    with _read_context(connection_factory) as (connection, context):
+        findings = assessment_runs.find_household_assessment(
+            connection, context["run_id"], household_uuid,
+        )
+        if findings is None:
+            raise AssessmentQueryError("household_assessment_missing")
+        identities = dataset_batches.find_household_identities(
+            connection, context["batch_id"], [household_uuid],
+        )
+        household = assessment_evidence.find_household_sources(
+            connection, context["batch_id"], household_uuid,
+        )
+        if len(identities) != 1 or household is None:
+            raise AssessmentQueryError("household_identity_missing")
+        return {
+            "context": context, "findings": findings, "identity": identities[0],
+            "household": household,
+            "members": assessment_evidence.list_member_sources(
+                connection, context["batch_id"], household_uuid,
+            ),
+            "references": assessment_evidence.list_evidence_references(
+                connection, context["batch_id"],
+            ),
+        }

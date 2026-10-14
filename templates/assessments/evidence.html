@@ -1,0 +1,85 @@
+<details class="cbms-evidence">
+  <summary>View Evidence<span class="visually-hidden"> for {{ indicator.name }}</span></summary>
+  <div class="evidence-body">
+    {% if indicator.evidence.caution %}
+      <p class="evidence-caution">{{ indicator.evidence.caution }}</p>
+    {% endif %}
+
+    {% for group in indicator.evidence.groups %}
+      <section class="evidence-group" aria-label="{{ group.title }}">
+        {% if indicator.name == 'Assets' or indicator.name == 'Food Insecurity' %}
+          <h4>{{ group.title }}</h4>
+        {% endif %}
+        {% set cells = group.cells %}
+        {% set layout = group.layout %}
+        {% include 'assessments/evidence_cells.html' %}
+      </section>
+    {% endfor %}
+
+    {% if indicator.evidence.roster_count is not none %}
+      <p class="evidence-comparison">
+        <strong>Household members:</strong> {{ indicator.evidence.roster_count }} recorded
+      </p>
+      {% if indicator.evidence.space_comparison %}
+        <p class="evidence-comparison">
+          <strong>Space comparison:</strong> {{ indicator.evidence.space_comparison }}
+        </p>
+      {% endif %}
+    {% endif %}
+
+    {% if indicator.evidence.member_based %}
+      {% for member in indicator.evidence.members %}
+        <section class="member-evidence" aria-label="Member line {{ member.line_number }} evidence">
+          <div class="member-heading">
+            <h4>{{ member.name }}</h4>
+            <span>Line {{ member.line_number }} · age at survey:
+              {{ member.age if member.age is not none else 'Not recorded' }}</span>
+          </div>
+          {% if member.health_missing %}
+            <p class="evidence-caution">No matching illness follow-up was recorded for this member.</p>
+          {% endif %}
+          {% for caution in member.cautions %}
+            <p class="evidence-caution">{{ caution }}</p>
+          {% endfor %}
+          {% set cells = member.display_cells %}
+          {% set layout = 'rows' %}
+          {% include 'assessments/evidence_cells.html' %}
+        </section>
+      {% else %}
+        {% if indicator.evidence.roster_missing %}
+          <p class="evidence-caution">No household member records are available.</p>
+        {% elif indicator.name == 'Illness/Treatment Proxy' %}
+          <p>No household illness was reported; member follow-up was skipped.</p>
+        {% else %}
+          <p>No recorded member falls within this indicator's age range.</p>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    <details class="cbms-record-details">
+      <summary>CBMS Record Details<span class="visually-hidden"> for {{ indicator.name }}</span></summary>
+      <div class="record-details-body">
+        <p><strong>Indicator weight:</strong> {{ '%.2f' | format(indicator.weight_pct) }}% of the total score</p>
+        <p><strong>Assessment rule:</strong> {{ indicator.rule }}</p>
+        {% for limitation in indicator.evidence.limitations %}
+          <p>{{ limitation }}</p>
+        {% endfor %}
+
+        {% if indicator.evidence.household_cells %}
+          <h5>Household source fields</h5>
+          {% set source_cells = indicator.evidence.household_cells %}
+          {% include 'assessments/record_cells.html' %}
+        {% endif %}
+
+        {% for member in indicator.evidence.members %}
+          <h5>{{ member.name }} · line {{ member.line_number }}</h5>
+          {% for note in member.notes %}
+            <p>{{ note }}</p>
+          {% endfor %}
+          {% set source_cells = member.cells %}
+          {% include 'assessments/record_cells.html' %}
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+</details>

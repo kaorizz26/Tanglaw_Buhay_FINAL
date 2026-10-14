@@ -1,0 +1,68 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Household Assessment · {{ results.household_reference_id }}{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/assessments.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/assessment-details.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header detail-header">
+    <div class="context-bar">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="{{ url_for('assessments.prioritization', **list_parameters) }}">Assessments</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Household Assessment</span>
+      </nav>
+      <p class="dataset-reference">
+        Historical CBMS {{ results.context.survey_year }} · Assessment Run {{ results.context.run_id }}
+      </p>
+    </div>
+    <a class="back-to-prioritization" href="{{ url_for('assessments.prioritization', **list_parameters) }}">
+      <span aria-hidden="true">←</span> Back to Prioritization
+    </a>
+    <div class="page-heading">
+      <h1>Household Assessment</h1>
+      <p class="detail-household-id">{{ results.household_reference_id }}</p>
+      <h2 class="detail-head-name">{{ results.head_name }}</h2>
+      <p>{{ results.barangay }} · {{ results.context.municipality }}</p>
+    </div>
+  </header>
+
+  <dl class="detail-metrics" aria-label="Household assessment metrics">
+    <div>
+      <dt>Vulnerability Score</dt>
+      <dd>{{ '%.2f' | format(results.mpi.vulnerability_score) }} <small>/ 100</small></dd>
+    </div>
+    <div>
+      <dt>Original Municipality-wide Rank</dt>
+      <dd>{{ '{:,}'.format(results.mpi.vulnerability_rank) }} <small>/ {{ '{:,}'.format(results.context.household_count) }}</small></dd>
+    </div>
+    <div>
+      <dt>Determined MPI Indicators</dt>
+      <dd>{{ results.determined_count }} <small>/ 16</small></dd>
+    </div>
+    <div>
+      <dt>Unknown MPI Indicators</dt>
+      <dd>{{ results.mpi.unknown_indicator_count }}</dd>
+    </div>
+  </dl>
+
+  <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
+    {% for value, label in [('overview', 'Overview'), ('mpi', 'MPI Indicators')] %}
+      <a
+        href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **list_parameters) }}"
+        {% if tab == value %}aria-current="page"{% endif %}
+      >{{ label }}</a>
+    {% endfor %}
+    <span aria-disabled="true">Subsidy Screening <small>Planned</small></span>
+    <span aria-disabled="true">Review History <small>Planned</small></span>
+  </nav>
+
+  {% if tab == 'mpi' %}
+    {% include 'assessments/mpi.html' %}
+  {% else %}
+    {% include 'assessments/overview.html' %}
+  {% endif %}
+{% endblock %}

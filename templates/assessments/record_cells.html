@@ -1,0 +1,13 @@
+<dl class="record-values">
+  {% for cell in source_cells %}
+    <div>
+      <dt>{{ cell.label }}</dt>
+      <dd><code>{{ cell.variable }}</code> · Section {{ cell.section }} · {{ cell.dataset }}</dd>
+      <dd>Original response: <code>{{ cell.raw }}</code></dd>
+      <dd>Reference meaning: {{ cell.meaning }}</dd>
+      {% for note in cell.notes %}
+        <dd>{{ note }}</dd>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</dl>

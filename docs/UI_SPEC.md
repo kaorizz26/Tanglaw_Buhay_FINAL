@@ -121,5 +121,44 @@ categories are introduced. Labels, native keyboard controls, visible focus and
 responsive form layout reuse the existing navy/neutral/gold styling.
 
 See [Developer Guide section 25](../DEVELOPER_GUIDE.md#25-frontend-task-2-prioritization-search-and-filters)
-for query semantics and verification. Assessment Details, Review Queue and
-Household Records remain deferred.
+for query semantics and verification. Assessment Details is implemented by
+Task 3 below; Review Queue and Household Records remain deferred.
+
+## Frontend Task 3 — Household Assessment Details
+
+View Assessment now opens a protected household-specific page with the original
+reference ID, head, barangay/municipality, survey year, selected run and stored
+score/rank. Back to Prioritization preserves validated originating list filters
+and page. Both existing authorized roles can view details.
+
+A shared metric row shows Vulnerability Score / 100, Original Municipality-wide
+Rank / batch count, Determined MPI Indicators / 16 and Unknown MPI Indicators.
+Overview and MPI Indicators are working section links. Subsidy Screening is
+marked Planned · Task 3C; Review History is marked Planned without a link.
+
+Overview keeps the household identity and four metrics once, then presents four
+dimension-contribution bars / 25 points, compact historical screening statuses,
+coverage and a short unknown-indicator note. How it works and recorded
+assumptions are optional disclosures. No arbitrary poverty or eligibility
+categories are introduced.
+
+MPI Indicators uses four native expandable dimensions; only Education starts
+open. Each of the 16 indicators immediately shows its stored text status,
+one short household-focused sentence and points added. Each View Evidence
+disclosure starts closed; the approved weight is in its secondary CBMS Record
+Details disclosure. A visible status guide explains all three outcomes without
+relying on color.
+
+Primary evidence groups relevant decoded household/member answers by condition,
+showing names when recorded, member lines and historical ages. Food access uses
+an eight-response grid; assets group quantities by type. A second collapsed
+CBMS Record Details section retains variable/source labels, original codes,
+same-batch reference meanings, approved weights, rules and provenance.
+Missing/conflicting/unverified meanings remain explicit. The stored result is
+never reconstructed from those answers.
+The absence of a per-member calculation trace and all documented pilot
+limitations remain clear. No raw JSON dump or unrelated member profile is shown.
+
+Navy/neutral/gold styling, readable spacing, native keyboard disclosures and
+visible focus reuse the existing staff design. A dedicated assessment details
+stylesheet loads after shared/module styles to keep page-specific rules focused.

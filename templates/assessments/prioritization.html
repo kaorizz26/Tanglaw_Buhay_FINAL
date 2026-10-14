@@ -75,7 +75,7 @@
       <table class="ranking-table" aria-describedby="ranking-explanation">
         <caption class="visually-hidden">
           Historical household prioritization by original municipal rank.
-          Tied scores retain shared ranks. Assessment details are planned.
+          Tied scores retain shared ranks. Open View Assessment for stored findings.
         </caption>
         <colgroup>
           <col class="column-rank">
@@ -123,8 +123,16 @@
                 {% endif %}
               </td>
               <td class="action-cell">
-                <span aria-hidden="true">—</span>
-                <span class="visually-hidden">View Assessment is planned.</span>
+                <a
+                  class="assessment-action"
+                  href="{{ url_for(
+                    'assessments.detail',
+                    household_uuid=household.household_uuid,
+                    page=results.page,
+                    **results.filter_parameters
+                  ) }}"
+                  aria-label="View Assessment for {{ household.household_reference_id }}"
+                >View Assessment</a>
               </td>
             </tr>
           {% else %}
@@ -151,6 +159,6 @@
     PSA identifiers. Shared municipal ranks have equal priority; display order does
     not break ties. Original ranks are retained across pages and filters. Unknown indicators
     contribute zero points and can underestimate vulnerability. For Review signals
-    do not create staff reviews. View Assessment will be added in the details task.
+    do not create staff reviews.
   </p>
 {% endblock %}

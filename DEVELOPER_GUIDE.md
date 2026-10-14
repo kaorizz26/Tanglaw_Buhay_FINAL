@@ -1564,7 +1564,9 @@ and combined requests in approximately **0.14–1.67 seconds** locally, includin
 count, options and page identities; this is a synthetic local measurement.
 No real CBMS records were read or modified for verification. Synthetic fixture
 schemas are removed after checks, and disposable QA scripts/logs/screenshots
-remain Git-ignored under `notes/`. Task 2 changes remain uncommitted for review.
+remain Git-ignored under `notes/`. Task 2 was reviewed, committed as `3e3f37a`,
+pushed to its feature branch and subsequently fast-forward merged/pushed to
+`dev/frontend-reset` before Task 3 began.
 
 ### Task 2 refinement: subsidy combination controls
 
@@ -1592,3 +1594,136 @@ switching, Clear Filters and responsive controls at 1440, 375 and 320px without
 document overflow or console warnings/errors. Synthetic 4Ps/TUPAD selection
 returned 18 broad matches and two exact matches; extra badges remained visible
 in broad results. The disposable preview was stopped after verification.
+
+## 26. Frontend Task 3: stored Assessment Details and MPI evidence
+
+Task 3 starts from reviewed Task 2 commit `3e3f37a` on
+`dev/assessment-details`. Its scope is Overview and MPI Indicators. The
+Prioritization table's View Assessment link opens
+`GET /assessments/<uuid:household_uuid>`. The unchanged application-wide staff
+guard authorizes both existing roles before querying any findings or sources.
+Malformed UUID paths retain the retired-page response; valid but absent
+households return a sanitized 404. Missing designated context or database
+failures return 503. Responses retain `Cache-Control: no-store`.
+
+### Read-only source boundary
+
+`get_active_assessment_detail()` resolves the active validated batch and
+designated completed run through the existing read-only repeatable-read context.
+It retrieves one stored finding, that household's source-row/head identity,
+projected MPI household fields, relevant roster fields and Section L answers,
+plus the same batch's codebook, mapping and definition rows. All reads share one
+connection/snapshot. `repositories/assessment_evidence.py` contains only SELECTs;
+parameters bind batch, UUID, variable names and projection fields. Section L
+joins retain batch + UUID + member line. No raw household/member JSON reaches a
+template, no source-batch loader is called and no engine is executed by a route.
+
+The active batch's column metadata and non-household reference tables were
+inspected read-only: all required fields are present, reference keys match the
+projection/decoder and completed Run 2 remains designated. Private household
+records are not printed or exported for verification.
+
+### Presentation responsibilities
+
+- `services/assessment_details.py` retains stored metrics, flags, ranks and
+  screening statuses. Presentation-only contributions use the scoring module's
+  authoritative dimensions and Fraction weights. Their sum must reconcile with
+  the stored score; a mismatch fails safely without replacing that score.
+- `services/mpi_indicator_content.py` holds plain-language outcome wording,
+  source fields, approved rule descriptions and limitations, reviewed against
+  the existing direct, housing, education, health and employment implementations.
+  This is descriptive content, not another outcome engine.
+- `services/mpi_evidence.py` selects relevant member age groups, retaining
+  uncertain ages rather than silently omitting them. Illness follow-up is
+  omitted when L33 establishes the skip. Overcrowding shows the original roster
+  count without displaying unrelated member identities. Missing joins and
+  recorded routing/follow-up conflicts receive clear notices. Documented adult
+  assumed-working combinations are labeled as assumptions, not observed work.
+- `services/assessment_reference_labels.py` matches original codes to the
+  same-batch reference rows while preserving raw text for display. Missing,
+  unmapped and conflicting meanings remain explicitly unavailable. Quantity and
+  age descriptions do not assign deprivation. E15 Synthetic Support, provisional
+  L34 semantics and variable-definition provenance remain visible.
+- `services/assessment_evidence_view.py` arranges those existing decoded cells
+  into short staff-facing groups without assigning outcomes. Food responses use
+  an eight-item grid; assets are grouped by type; relevant members show their
+  recorded work, education or health responses. A separately collapsed CBMS
+  Record Details view retains original codes, source fields, approved weights,
+  rules and provenance. Material assumptions appear beside affected evidence
+  in plain language. Overcrowding's space-per-member figure is labeled as a
+  presentation comparison from recorded area and roster size.
+
+The stored MPI payload does not include a per-member calculation trace. Evidence
+therefore presents the stored outcome, relevant original answers and approved
+rule without claiming an unsupported individual causal attribution. A missing
+answer is never automatically Not Deprived, and determined outcomes can coexist
+with gaps when the approved rule is conclusive. Educational group-5 cohort,
+FIES cutoff, asset crosswalk and employment assumptions remain documented.
+
+### Navigation and frontend organization
+
+Overview explains the adapted MPI approach, shows actual stored counts/coverage,
+four contribution bars out of 25, assumptions/limitations and all four exact
+screening statuses. The short introduction is visible by default; How it works
+uses a native expandable disclosure. A shared header/metric row is rendered for
+both Overview and MPI Indicators. Section links retain list page/search/filters
+through validated internal parameters; arbitrary return URLs are never used.
+
+MPI Indicators groups all 16 results into four native details disclosures.
+Education starts open; the other dimensions and every View Evidence disclosure
+start closed. Each indicator shows its text status, one short household-focused
+sentence and score contribution. The approved weight is available in the
+secondary CBMS Record Details disclosure. Primary evidence presents decoded
+answers and relevant named members, lines and historical ages; technical fields,
+raw codes, rule text and provenance remain accessible on demand. User content is
+escaped. The status guide distinguishes Deprived, Not Deprived and Unknown.
+Subsidy Screening and Review History remain nonfunctional planned labels.
+
+The existing staff layout and styles load before `assessment-details.css`, which
+owns the new page's metrics, sections, disclosures, evidence and responsive
+layout. The existing assessment stylesheet owns the table action link. Modular
+templates live under `templates/assessments/`; native controls need no new
+JavaScript, dependency or framework.
+
+`services/assessment_request_logging.py` masks assessment request targets in the
+Werkzeug development access logger while retaining request method and HTTP
+status. Household UUIDs and search/filter values are not printed in those logs.
+No authentication policy, engine, source record, stored run, schema or migration
+is changed by this task. Details do not create staff reviews.
+
+### Verification
+
+All **52 focused tests** passed (12 detail presentation/route tests, 26 query tests
+and 14 prioritization tests). The complete **271-test suite passed without skips**;
+the guarded runner restricted all **292** database connections to local
+`tanglaw_buhay_test`. Synthetic fixtures cover both approved roles and revoked,
+inactive/expired/unknown-role sessions, missing/malformed UUIDs, sanitized errors,
+safe return parameters, all 16 original outcomes/weights, score reconciliation,
+unknowns, relevant ages, missing names/joins/references, conflicting reference
+meanings, E15/L34 provenance and recorded source assumptions/conflicts. PostgreSQL
+checks verify batch/designation isolation, narrow field projection, exact member
+lines, read-only snapshots and unchanged source/findings fingerprints.
+
+Synthetic browser checks used the real route/templates and repository SELECTs
+against a disposable test schema. View Assessment, Overview, How it works,
+all four dimensions and all 16 evidence disclosures were verified. Education
+alone starts open, evidence starts closed and native Enter controls work.
+Return navigation retains search/program selections. Shared metrics remain
+consistent; 16px evidence text and 48px disclosure targets were observed.
+Layouts at **1440, 1024, 375 and 320px** have no document overflow; browser
+warnings/errors were empty. The preview and its disposable schema are removed
+after verification. No private household screenshots, exports or logs were
+created, and no development source or assessment data was changed.
+
+The subsequent UI/UX refinement was checked with synthetic browser views of
+Overview, compact MPI rows, opened school/food/asset/employment evidence and
+keyboard-opened CBMS Record Details. Browser widths 375 and 320px showed no
+horizontal document overflow. Fourteen focused detail tests and the guarded
+full **273-test** suite passed; all **292** suite connections targeted the
+isolated local test database. The original source, stored findings, ranking,
+route authorization and repository queries were not changed by this refinement.
+
+Task 3 is Completed and remains uncommitted for review. Detailed subsidy
+screening and review history remain separate tasks. The existing private
+development server must be restarted after Python/template changes because
+automatic reload is disabled; refreshing the browser then loads the new page.

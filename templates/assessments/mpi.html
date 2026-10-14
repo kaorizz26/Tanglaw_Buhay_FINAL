@@ -1,0 +1,53 @@
+<section class="detail-section mpi-section" aria-labelledby="mpi-heading">
+  <div class="section-heading-row">
+    <div>
+      <h2 id="mpi-heading">MPI Indicators</h2>
+    </div>
+    <p class="section-helper">Open a dimension to see household conditions.</p>
+  </div>
+
+  <dl class="indicator-status-guide" aria-label="Indicator status guide">
+    <div>
+      <dt>Deprived</dt>
+      <dd>Criterion met</dd>
+    </div>
+    <div>
+      <dt>Not Deprived</dt>
+      <dd>Criterion not met</dd>
+    </div>
+    <div>
+      <dt>Unknown</dt>
+      <dd>Insufficient information</dd>
+    </div>
+  </dl>
+
+  <div class="mpi-dimensions">
+    {% for dimension in results.dimensions %}
+      <details class="mpi-dimension" {% if loop.first %}open{% endif %}>
+        <summary>
+          <span>
+            <strong>{{ dimension.name }}</strong>
+            <small>{{ dimension.indicators | length }} indicators</small>
+          </span>
+          <span class="dimension-summary-points">{{ '%.2f' | format(dimension.points) }} / 25 points</span>
+        </summary>
+        <div class="dimension-indicators">
+          {% for indicator in dimension.indicators %}
+            <article class="mpi-indicator" aria-label="{{ indicator.name }}">
+              <div class="indicator-summary">
+                <h3>{{ indicator.name }}</h3>
+                <span class="indicator-status status-{{ indicator.status_class }}">{{ indicator.status }}</span>
+                <span class="indicator-number">
+                  <strong>{% if indicator.contribution %}+{% endif %}{{ '%.2f' | format(indicator.contribution) }}</strong>
+                  <small>points added</small>
+                </span>
+              </div>
+              <p class="indicator-explanation">{{ indicator.explanation }}</p>
+              {% include 'assessments/evidence.html' %}
+            </article>
+          {% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+  </div>
+</section>

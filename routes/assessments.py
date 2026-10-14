@@ -6,6 +6,7 @@ from services.assessment_queries import AssessmentQueryError
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
 from services.auth import ADMIN_ROLE, csrf_token
 from services.prioritization import get_prioritization_page
+from services.assessment_details import detail_navigation, get_assessment_detail
 
 
 assessments = Blueprint("assessments", __name__)
@@ -41,4 +42,24 @@ def prioritization():
         role_label=role_label,
         staff_username=g.user["username"],
         csrf_token=csrf_token(),
+    )
+
+
+@assessments.get("/assessments/<uuid:household_uuid>")
+def detail(household_uuid):
+    """Show one stored household only after the unchanged staff authorization guard."""
+    try:
+        tab, list_parameters = detail_navigation(request.args)
+        results = get_assessment_detail(str(household_uuid))
+    except InvalidAssessmentFilters:
+        abort(400, description="Choose a valid assessment section and return filters.")
+    except AssessmentQueryError as error:
+        if str(error) == "household_assessment_missing":
+            abort(404, description="This household assessment is unavailable in the selected batch.")
+        abort(503, description="Household assessments are unavailable. Please try again later.")
+    role_label = "System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff"
+    return render_template(
+        "assessments/detail.html", results=results, tab=tab,
+        list_parameters=list_parameters, role_label=role_label,
+        staff_username=g.user["username"], csrf_token=csrf_token(),
     )

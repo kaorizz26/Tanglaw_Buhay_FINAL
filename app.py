@@ -8,10 +8,12 @@ from routes.assessments import assessments
 from routes.auth import auth
 from routes.main import main
 from services.auth import protect_staff_routes
+from services.assessment_request_logging import protect_assessment_access_logs
 
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    protect_assessment_access_logs()
     app.config.from_object(Config)
     if test_config:
         app.config.update(test_config)
@@ -32,6 +34,7 @@ def create_app(test_config=None):
 
     @app.errorhandler(400)
     @app.errorhandler(403)
+    @app.errorhandler(404)
     @app.errorhandler(404)
     @app.errorhandler(410)
     @app.errorhandler(503)

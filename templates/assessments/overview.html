@@ -1,0 +1,82 @@
+<div class="overview-layout">
+  <section class="detail-section overview-main" aria-labelledby="overview-heading">
+    <div class="section-heading-row">
+      <h2 id="overview-heading">Vulnerability by dimension</h2>
+    </div>
+
+    <p class="section-helper">Points contributed to the household score, out of 25 in each area.</p>
+    <div class="dimension-contributions">
+      {% for dimension in results.dimensions %}
+        <div class="dimension-contribution">
+          <div class="contribution-label">
+            <span>{{ dimension.name }}</span>
+            <strong>{{ '%.2f' | format(dimension.points) }} / 25</strong>
+          </div>
+          <meter
+            min="0"
+            max="25"
+            value="{{ dimension.points }}"
+            aria-label="{{ dimension.name }} contribution: {{ '%.2f' | format(dimension.points) }} of 25 points"
+          >{{ '%.2f' | format(dimension.points) }} of 25</meter>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <aside class="overview-sidebar" aria-label="Assessment supporting information">
+    <section class="detail-section" aria-labelledby="screening-heading">
+      <h2 id="screening-heading">Subsidy screening</h2>
+      <p class="section-helper">Historical findings for staff consideration.</p>
+      <dl class="screening-summary-list">
+        {% for program in results.programs %}
+          <div>
+            <dt>{{ program.name }}</dt>
+            <dd>{{ program.status }}</dd>
+          </div>
+        {% endfor %}
+      </dl>
+      <p class="detail-context-note">These findings do not confirm eligibility or approval.</p>
+    </section>
+
+    <section class="detail-section" aria-labelledby="notes-heading">
+      <h2 id="notes-heading">Assessment information</h2>
+      <p class="coverage-summary" aria-label="Weighted assessment coverage">
+        <strong>{{ '%.2f' | format(results.mpi.coverage_pct) }}%</strong> data coverage
+      </p>
+      {% if results.mpi.unknown_indicator_count %}
+        <p class="data-quality-notice">
+          Unknown: {{ results.mpi.unknown_zero_point_indicators | join(', ') }}.
+          Unknown indicators add no points, so the score may underestimate vulnerability.
+        </p>
+      {% else %}
+        <p>All 16 indicator outcomes are determined.</p>
+      {% endif %}
+
+      <details class="assessment-guide">
+        <summary>How it works</summary>
+        <div class="disclosure-body compact-guide">
+          <ul>
+            <li>Sixteen indicators are grouped into four dimensions worth 25 points each.</li>
+            <li>A deprived indicator adds points to the score.</li>
+            <li>Higher scores mean more recorded weighted deprivation.</li>
+            <li>Equal scores share the same municipal rank.</li>
+            <li>Unknown results add zero points and may understate vulnerability.</li>
+          </ul>
+        </div>
+      </details>
+
+      {% if results.mpi.assumptions_used %}
+        <details class="assessment-guide">
+          <summary>Recorded assumptions and limitations</summary>
+          <div class="disclosure-body compact-guide">
+            <ul>
+              {% for note in results.mpi.assumptions_used %}
+                <li>{{ note }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </details>
+      {% endif %}
+    </section>
+  </aside>
+</div>

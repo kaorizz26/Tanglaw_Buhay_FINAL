@@ -16,6 +16,8 @@ from psycopg.pq import TransactionStatus
 from psycopg.types.json import Jsonb
 
 from repositories import assessment_runs as repository
+from repositories import assessment_evidence
+from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
 from services import assessment_queries as service
 from services.assessment_filters import (
     AssessmentFilters, InvalidAssessmentFilters, PROGRAM_ORDER, normalize_filters,
@@ -64,6 +66,32 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         )
         self.factory.assert_called_once_with()
+
+    def test_detail_sources_and_references_share_one_designated_read_snapshot(self):
+        source = detail_source()
+        with patch.object(repository, "find_household_assessment", return_value=source["findings"]) as finding, \
+                patch.object(service.dataset_batches, "find_household_identities", return_value=[source["identity"]]) as identity, \
+                patch.object(assessment_evidence, "find_household_sources", return_value=source["household"]) as household, \
+                patch.object(assessment_evidence, "list_member_sources", return_value=source["members"]) as members, \
+                patch.object(assessment_evidence, "list_evidence_references", return_value=source["references"]) as references:
+            result = service.get_active_assessment_detail(HOUSEHOLD_UUID, connection_factory=self.factory)
+            self.assertEqual(result["findings"], source["findings"])
+            finding.assert_called_once_with(self.connection, 17, HOUSEHOLD_UUID)
+            identity.assert_called_once_with(self.connection, 9, [HOUSEHOLD_UUID])
+            household.assert_called_once_with(self.connection, 9, HOUSEHOLD_UUID)
+            members.assert_called_once_with(self.connection, 9, HOUSEHOLD_UUID)
+            references.assert_called_once_with(self.connection, 9)
+            self.factory.assert_called_once()
+            self.connection.execute.assert_called_once_with(
+                "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+            )
+
+    def test_missing_detail_never_loads_source_evidence(self):
+        with patch.object(repository, "find_household_assessment", return_value=None), \
+                patch.object(assessment_evidence, "list_member_sources") as members:
+            with self.assertRaisesRegex(service.AssessmentQueryError, "household_assessment_missing"):
+                service.get_active_assessment_detail(HOUSEHOLD_UUID, connection_factory=self.factory)
+            members.assert_not_called()
 
     def test_filtered_count_page_and_barangays_share_designated_snapshot(self):
         filters = AssessmentFilters(programs=("4Ps", "SLP"), completeness="unknown")
@@ -285,6 +313,81 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 if designate:
                     repository.designate_run(self.connection, batch_id, run_id)
         return run_id
+
+    def _detail_fixture(self):
+        """Store explicit synthetic findings and evidence in this isolated test schema."""
+        source = detail_source()
+        batch_id = self._batch(uuids=[HOUSEHOLD_UUID])
+        self.connection.execute("UPDATE dataset_batches SET is_active=false WHERE id=%s", (self.batch_id,))
+        self.connection.execute("UPDATE dataset_batches SET is_active=true WHERE id=%s", (batch_id,))
+        self.batch_id = batch_id
+        household = {**source["household"], "barangay": "Synthetic Barangay", "unrelated": "EXCLUDED_SOURCE_VALUE"}
+        self.connection.execute("UPDATE households SET responses=%s WHERE batch_id=%s", (Jsonb(household), batch_id))
+        for member in source["members"]:
+            responses = {**member["responses"], "a02_relation_to_hh_head": "1" if member["line_number"] == 1 else "3",
+                         "unrelated": "EXCLUDED_SOURCE_VALUE"}
+            self.connection.execute(
+                "INSERT INTO household_members (batch_id, uuid, line_number, source_row_number, responses) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (batch_id, HOUSEHOLD_UUID, member["line_number"], member["line_number"], Jsonb(responses)),
+            )
+            if member["line_number"] != 2:
+                self.connection.execute(
+                    "INSERT INTO member_health (batch_id, uuid, section_l_line_number, source_row_number, responses) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (batch_id, HOUSEHOLD_UUID, member["line_number"], member["line_number"], Jsonb(member["health_responses"])),
+                )
+        for name, table in service.dataset_batches.REFERENCE_TABLES.items():
+            with self.connection.cursor() as cursor:
+                cursor.executemany(
+                    sql.SQL("INSERT INTO {} (batch_id, source_row_number, responses) VALUES (%s, %s, %s)")
+                    .format(sql.Identifier(table)),
+                    [(batch_id, number, Jsonb(row)) for number, row in enumerate(source["references"][name], 1)],
+                )
+        source["findings"]["mpi"]["vulnerability_rank"] = 1
+        run_id = self._run(findings={HOUSEHOLD_UUID: source["findings"]})
+        return source, run_id
+
+    def test_detail_postgres_projection_member_join_batch_and_run_isolation(self):
+        source, selected = self._detail_fixture()
+        alternate = deepcopy(source["findings"])
+        alternate["mpi"]["assumptions_used"] += ("OTHER_UNSELECTED_RUN",)
+        self._run(findings={HOUSEHOLD_UUID: alternate}, designate=False)
+        other_batch = self._batch(uuids=[HOUSEHOLD_UUID])
+        self.connection.execute("UPDATE households SET responses=%s WHERE batch_id=%s",
+                                (Jsonb({"q01_main_water": "OTHER_BATCH_VALUE"}), other_batch))
+        self.connection.execute(
+            "INSERT INTO household_members (batch_id, uuid, line_number, source_row_number, responses) "
+            "VALUES (%s, %s, 1, 1, %s)",
+            (other_batch, HOUSEHOLD_UUID, Jsonb({"a01_first_name": "OTHER_BATCH_MEMBER"})),
+        )
+        result = service.get_active_assessment_detail(HOUSEHOLD_UUID, connection_factory=self._factory)
+        self.assertEqual(result["context"]["run_id"], selected)
+        self.assertEqual(result["findings"], source["findings"])
+        self.assertEqual(result["household"]["q01_main_water"], "3")
+        self.assertEqual(result["identity"]["first_name"], "Synthetic")
+        self.assertEqual([row["line_number"] for row in result["members"]], [1, 2, 3])
+        self.assertFalse(result["members"][1]["health_present"])
+        self.assertIsNone(result["members"][1]["health_responses"]["l34_has_been_sick"])
+        self.assertNotIn("EXCLUDED_SOURCE_VALUE", str(result))
+        self.assertNotIn("OTHER_BATCH_VALUE", str(result))
+        self.assertNotIn("OTHER_BATCH_MEMBER", str(result))
+        self.assertTrue(result["references"]["codebook"])
+        self.assertTrue(result["references"]["mpi_mapping"])
+        self.assertTrue(result["references"]["definitions"])
+
+    def test_detail_queries_preserve_sources_findings_and_read_only_boundary(self):
+        self._detail_fixture()
+        tables = ("households", "household_members", "member_health", "household_assessments")
+        def fingerprints():
+            return [self.connection.execute(sql.SQL(
+                "SELECT md5(string_agg(to_jsonb(t)::text, '' ORDER BY to_jsonb(t)::text)) FROM {} t",
+            ).format(sql.Identifier(table))).fetchone() for table in tables]
+        before = fingerprints()
+        service.get_active_assessment_detail(HOUSEHOLD_UUID, connection_factory=self._factory)
+        self.assertEqual(before, fingerprints())
+        with service._read_context(self._factory) as (connection, _):
+            self.assertEqual(connection.execute("SHOW transaction_read_only").fetchone(), ("on",))
 
     def test_resolution_uses_designation_among_multiple_completed_and_pending_runs(self):
         self._run(complete=False)

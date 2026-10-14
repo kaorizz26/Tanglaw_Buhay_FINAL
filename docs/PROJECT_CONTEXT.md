@@ -31,8 +31,10 @@ DataFrame reconstruction against the local CSV snapshot using read-only queries.
 Later completed assessment work is recorded in Developer Guide sections 15–21:
 corrected Run 2 is completed and explicitly designated, with 19,304 assessments
 and unchanged findings from the four subsidy engines. Historical Run 1 remains.
-Frontend Task 1 adds protected read-only Household Prioritization; other record
-and assessment views remain unimplemented. The minimal landing keeps its fixture
+Frontend Tasks 1–2 add protected read-only Household Prioritization and filters.
+Task 3 adds stored Overview and MPI Indicators with scoped original evidence;
+subsidy details, staff reviews and Household Records remain unimplemented.
+The minimal landing keeps its fixture
 guard, and actual records are read through a separate authenticated query route.
 
 ## CBMS source and provenance
