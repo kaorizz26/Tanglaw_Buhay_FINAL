@@ -21,7 +21,7 @@ This document sets the current staff-facing UI direction. [AGENTS.md](../AGENTS.
 | Module | Staff purpose and scope |
 | --- | --- |
 | Dashboard | Provide a clear entry point to available staff work and relevant system information. Add summary content only when its meaning and source are defined. |
-| Household Records | Find and read authorized household and member records through search, barangay filtering, and pagination when implemented. Keep imported source data read-only and show the household context needed to interpret answers. |
+| Household Records | Help authorized staff find and understand household and member records, with enough context to interpret answers. Define its navigation and any permitted staff actions in the approved implementation task; preserve original source data. |
 | Assessments — Household Prioritization | Find households by their stored vulnerability results using the existing search, filters, and pagination. Explain the score and municipal rank in everyday language; these controls must not change the rank calculated from the full selected source batch. |
 | Assessments — Household Assessment | Explain a household's Overview and MPI Indicators, with supporting evidence available when needed. Show the four dimensions and all 16 indicators without changing stored calculations or outcomes. |
 | Subsidy Screening | Present separate findings for 4Ps, SLP, SPISC, and TUPAD with understandable reasons and evidence. Screening results are decision support, not an approval or eligibility decision. |
@@ -35,11 +35,11 @@ The table states intended purposes, not a claim that every module is already imp
 
 - Make the household identity, historical survey context, score, municipal rank, and assessment findings understandable without requiring methodology knowledge. The score reflects recorded deprivation in the existing MPI; do not introduce new vulnerability categories or recompute results in the UI.
 - On the Overview, explain what the household's results mean across the four MPI dimensions. Let staff locate indicators needing attention or those with unknown findings in the relevant dimension.
-- For each of the 16 MPI indicators, present its name, Deprived/Not Deprived/Unknown status, a concise explanation of the finding, its points contribution, and access to relevant household or member evidence. An explanation should add meaning, not merely repeat the status.
+- For each of the 16 MPI indicators, present its name, Deprived, Not Deprived, or Unknown status, a concise explanation of the finding, its points contribution, and View Evidence for relevant household or member answers. An explanation should add meaning, not merely repeat the status.
 - Evidence should identify the relevant household or member and show understandable recorded answers. Include enough original survey context—such as population, reason, period, or units—when a shortened field label would change the answer's meaning. Decode known values accurately; describe genuinely missing, conflicting, or uncertain responses briefly.
-- Optional CBMS Record Details are secondary and limited to an understandable field label, stored variable identifier, recorded value or code, and concise decoded meaning. Do not place calculation rules, provenance narratives, or technical limitations there.
+- CBMS Record Details was intentionally removed from MPI Indicators. Preserve original source values and mappings internally; keep staff-facing View Evidence understandable without technical record details.
 - Keep the four subsidy programs' automated findings separate from MPI and from any later staff review. Do not add eligibility rules, change screening engines, or present a system flag as a staff decision.
-- Use system statuses precisely: MPI **Needs Data Review** identifies calculation gaps, while subsidy **For Review** is a screening signal. Neither is a staff review decision or automatically opens a staff review.
+- Use system statuses precisely: MPI indicator findings are **Deprived**, **Not Deprived**, or **Unknown**. Subsidy screening statuses, including **For Review** and **Needs Data Review**, are separate from staff review decisions and do not automatically open a review.
 
 ## Design and change boundaries
 

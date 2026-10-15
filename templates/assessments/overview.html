@@ -2,7 +2,13 @@
 {% if unknown_count %}
   <section class="overview-unknowns" aria-labelledby="unknown-heading">
     <h2 id="unknown-heading">{{ unknown_count }} indicator {{ 'result' if unknown_count == 1 else 'results' }} could not be determined</h2>
-    <p>The available information was not sufficient to determine these results. Select an indicator to view its supporting evidence.</p>
+    <p>
+      {% if unknown_count == 1 %}
+        The available information was not sufficient to determine this result. Select the indicator to view its supporting evidence.
+      {% else %}
+        The available information was not sufficient to determine these results. Select an indicator to view its supporting evidence.
+      {% endif %}
+    </p>
     <ul>
       {% for indicator in results.unknown_indicators %}
         <li>

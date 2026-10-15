@@ -314,7 +314,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertEqual(overview.headers["Cache-Control"], "no-store")
                 for text in ("HH-00008", "Synthetic Member 1", "36.11", HOUSEHOLD_UUID,
                              "Municipal Vulnerability Rank", "Needs Data Review",
-                             "No Review Signal", "15", "Select an indicator to view its supporting evidence."):
+                             "No Review Signal", "15", "Select the indicator to view its supporting evidence."):
                     self.assertIn(text, overview.text)
                 for removed in ("Assessment Run 2", "How it works", "data coverage",
                                 "Assessment information", "No Historical CBMS Trigger"):
@@ -351,6 +351,11 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                      "Households with equal scores share the same rank."):
             self.assertIn(text, summary)
         self.assertIn("1 indicator result could not be determined", response.text)
+        self.assertIn(
+            "The available information was not sufficient to determine this result. "
+            "Select the indicator to view its supporting evidence.",
+            " ".join(response.text.split()),
+        )
         self.assertIn("1 of 9 indicator results could not be determined.", " ".join(response.text.split()))
         self.assertIn("#mpi-internet", response.text)
         for text in ("Areas Contributing to Vulnerability", "Each can contribute up to 25 points.",
@@ -397,7 +402,11 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.assertIn("2 indicator results could not be determined", response.text)
         self.assertIn("#mpi-internet", response.text)
         self.assertIn("#mpi-working-child-not-in-school", response.text)
-        self.assertIn("Select an indicator to view its supporting evidence.", response.text)
+        self.assertIn(
+            "The available information was not sufficient to determine these results. "
+            "Select an indicator to view its supporting evidence.",
+            " ".join(response.text.split()),
+        )
         self.assertEqual(response.text.count('class="dimension-unknown-note"'), 2)
         self.assertNotIn("all answers", response.text.lower())
 

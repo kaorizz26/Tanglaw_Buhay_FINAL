@@ -19,7 +19,7 @@
 - Design for nontechnical LGU staff. Put understandable household conditions, assessment findings, supporting evidence, and staff actions first. Use clear labels, useful explanations, intuitive navigation, and readable, accessible responsive layouts.
 - Never copy technical documentation into operational screens. Omit synthetic-support labels, pilot-approximation or provenance narratives, developer notes, formulas, internal implementation details, and unnecessary methodology. Do not hide these in disclosures or tooltips.
 - Preserve material missing, conflicting, or uncertain information through brief, understandable messages. Do not imply that supplemental or derived values were directly observed or verified by PSA. Keep accurate origins, transformations, and limitations internally.
-- Show all 16 MPI indicators with their findings and relevant household/member evidence; keep system assessment findings distinct from staff review decisions. Optional CBMS Record Details may show only a plain-language field label, stored identifier, recorded value, and concise decoded meaning.
+- Show all 16 MPI indicators with Deprived, Not Deprived, or Unknown findings and relevant household/member information through View Evidence. CBMS Record Details was intentionally removed from MPI Indicators; preserve original source values and mappings internally. Keep MPI and subsidy screening findings separate from staff review decisions.
 - Review affected screens from an LGU staff member's perspective before marking UI work complete.
 
 ## Implementation and verification
