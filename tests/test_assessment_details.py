@@ -328,12 +328,12 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertTrue(all("open" not in dimension for dimension in dimensions))
                 self.assertNotIn('<details class="cbms-evidence" open', mpi.text)
                 self.assertIn("Synthetic Member 2", mpi.text)
-                self.assertIn("e15_want_more_hours", mpi.text)
+                self.assertNotIn("e15_want_more_hours", mpi.text)
                 self.assertNotIn("Synthetic Support", mpi.text)
                 self.assertIn("View Evidence", mpi.text)
-                self.assertEqual(mpi.text.count('class="cbms-record-details"'), 16)
-                self.assertNotIn('<details class="cbms-record-details" open', mpi.text)
-                self.assertIn("A school-age household member was recorded as not attending school.", mpi.text)
+                self.assertNotIn("CBMS Record Details", mpi.text)
+                self.assertNotIn('class="cbms-record-details"', mpi.text)
+                self.assertIn("Synthetic Member 2 (age 12) was recorded as not attending school", mpi.text)
                 self.assertNotIn("16 stored outcomes", mpi.text)
                 self.assertNotIn("<small>Weight</small>", mpi.text)
                 self.assertNotIn("Child Mortality", mpi.text)
@@ -503,7 +503,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.assertNotIn("meaning unconfirmed", mpi.text)
         self.assertIn("Recorded answers conflict; they do not establish a clear response.", mpi.text)
         self.assertIn("Not recorded", mpi.text)
-        self.assertIn("Recorded Value:", mpi.text)
+        self.assertNotIn("Recorded Value:", mpi.text)
         articles = re.findall(r'<article class="mpi-indicator".*?</article>', mpi.text, re.S)
         self.assertEqual(len(articles), 16)
         for article in articles:
@@ -512,10 +512,9 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 'class="indicator-number"', 'class="cbms-evidence"',
             )]
             self.assertEqual(positions, sorted(positions))
-            record_html = article.split('<div class="record-details-body">', 1)[1]
-            self.assertNotIn("<p>", record_html)
-            self.assertNotIn("Section ", record_html)
-            self.assertNotIn("section_a_e_indiv", record_html)
+            self.assertNotIn("CBMS Record Details", article)
+            self.assertNotIn("section_a_e_indiv", article)
+            self.assertNotIn("record-details-body", article)
         for name, expected in (("Internet", "Yes"), ("Public Transportation", "No")):
             article = next(article for article in articles if f"<h3>{name}</h3>" in article)
             self.assertIn(f"<dd>{expected}</dd>", article)
@@ -533,9 +532,8 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         for wording in ("money or other resources for food were insufficient",
                         "1 July 2021–30 June 2022", "Had to skip a meal"):
             self.assertIn(wording, food)
-        primary = food.split('<details class="cbms-record-details">')[0]
-        self.assertEqual(primary.count("<dd>Yes</dd>"), 4)
-        self.assertEqual(primary.count("<dd>No</dd>"), 4)
+        self.assertEqual(food.count("<dd>Yes</dd>"), 4)
+        self.assertEqual(food.count("<dd>No</dd>"), 4)
         for wording in ("Illness and Treatment", "month before the survey",
                         "Employment</h3>", "Worked at least one hour in the past week",
                         "members aged 5–17", "members aged 19 and older",

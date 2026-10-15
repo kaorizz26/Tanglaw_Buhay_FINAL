@@ -60,21 +60,5 @@
       {% endfor %}
     {% endif %}
 
-    <details class="cbms-record-details">
-      <summary>CBMS Record Details<span class="visually-hidden"> for {{ indicator.display_name }}</span></summary>
-      <div class="record-details-body">
-        {% if indicator.evidence.record_cells %}
-          <h5>Household answers</h5>
-          {% set source_cells = indicator.evidence.record_cells %}
-          {% include 'assessments/record_cells.html' %}
-        {% endif %}
-
-        {% for member in indicator.evidence.members %}
-          <h5>{{ member.name }} · line {{ member.line_number }}</h5>
-          {% set source_cells = member.record_cells %}
-          {% include 'assessments/record_cells.html' %}
-        {% endfor %}
-      </div>
-    </details>
   </div>
 </details>

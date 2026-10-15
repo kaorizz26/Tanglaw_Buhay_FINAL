@@ -6,10 +6,9 @@ from math import isclose
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
 from services.assessment_evidence_view import (
     DISPLAY_NAMES,
-    STAFF_EXPLANATIONS,
-    direct_condition,
     prepare_evidence_view,
 )
+from services.assessment_explanations import explain_indicator
 from services.assessment_queries import AssessmentQueryError, get_active_assessment_detail
 from services.mpi_evidence import build_evidence_index, build_indicator_evidence
 from services.mpi_indicator_content import INDICATORS
@@ -67,8 +66,7 @@ def _indicator(name, mpi, source, reference):
         "display_name": DISPLAY_NAMES.get(name, name),
         "status": "Unknown" if flag is None else ("Deprived" if flag else "Not Deprived"),
         "status_class": "unknown" if flag is None else ("deprived" if flag else "not-deprived"),
-        "explanation": direct_condition(name, flag, source_evidence)
-        or STAFF_EXPLANATIONS[name][2 if flag is None else flag],
+        "explanation": explain_indicator(name, flag, source_evidence, reference),
         "rule": spec["rule"], "weight": str(weight), "weight_pct": float(weight * 100),
         "contribution": float(contribution), "exact_contribution": contribution,
         "evidence": prepare_evidence_view(name, source_evidence, source["context"]["survey_year"]),
