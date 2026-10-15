@@ -1,6 +1,14 @@
 <details class="cbms-evidence">
-  <summary>View Evidence<span class="visually-hidden"> for {{ indicator.name }}</span></summary>
+  <summary>View Evidence<span class="visually-hidden"> for {{ indicator.display_name }}</span></summary>
   <div class="evidence-body">
+    {% if indicator.evidence.context %}
+      <p class="evidence-context">
+        {{ indicator.evidence.context }}
+        {% if indicator.evidence.reference_period %}
+          <span>{{ indicator.evidence.reference_period }}</span>
+        {% endif %}
+      </p>
+    {% endif %}
     {% for group in indicator.evidence.groups %}
       <section class="evidence-group" aria-label="{{ group.title }}">
         {% if indicator.name == 'Assets' or indicator.name == 'Food Insecurity' %}
@@ -25,10 +33,10 @@
 
     {% if indicator.evidence.member_based %}
       {% for member in indicator.evidence.members %}
-        <section class="member-evidence" aria-label="Member line {{ member.line_number }} evidence">
+        <section class="member-evidence" aria-label="{{ member.name }} evidence">
           <div class="member-heading">
             <h4>{{ member.name }}</h4>
-            <span>Line {{ member.line_number }} · age at survey:
+            <span>Age at survey:
               {{ member.age if member.age is not none else 'Not recorded' }}</span>
           </div>
           {% if member.health_missing %}
@@ -53,7 +61,7 @@
     {% endif %}
 
     <details class="cbms-record-details">
-      <summary>CBMS Record Details<span class="visually-hidden"> for {{ indicator.name }}</span></summary>
+      <summary>CBMS Record Details<span class="visually-hidden"> for {{ indicator.display_name }}</span></summary>
       <div class="record-details-body">
         {% if indicator.evidence.record_cells %}
           <h5>Household answers</h5>

@@ -5,6 +5,7 @@ from math import isclose
 
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
 from services.assessment_evidence_view import (
+    DISPLAY_NAMES,
     STAFF_EXPLANATIONS,
     direct_condition,
     prepare_evidence_view,
@@ -63,13 +64,14 @@ def _indicator(name, mpi, source, reference):
     source_evidence = build_indicator_evidence(name, source, reference)
     return {
         "name": name, "id": INDICATOR_IDS[name], "flag": flag,
+        "display_name": DISPLAY_NAMES.get(name, name),
         "status": "Unknown" if flag is None else ("Deprived" if flag else "Not Deprived"),
         "status_class": "unknown" if flag is None else ("deprived" if flag else "not-deprived"),
         "explanation": direct_condition(name, flag, source_evidence)
         or STAFF_EXPLANATIONS[name][2 if flag is None else flag],
         "rule": spec["rule"], "weight": str(weight), "weight_pct": float(weight * 100),
         "contribution": float(contribution), "exact_contribution": contribution,
-        "evidence": prepare_evidence_view(name, source_evidence),
+        "evidence": prepare_evidence_view(name, source_evidence, source["context"]["survey_year"]),
     }
 
 
@@ -101,7 +103,8 @@ def prepare_assessment_detail(source):
         "mpi": mpi, "determined_count": 16 - mpi["unknown_indicator_count"],
         "dimensions": dimensions,
         "unknown_indicators": [
-            {"id": indicator["id"], "name": indicator["name"], "dimension": dimension["name"]}
+            {"id": indicator["id"], "name": indicator["name"],
+             "display_name": indicator["display_name"], "dimension": dimension["name"]}
             for dimension in dimensions for indicator in dimension["indicators"]
             if indicator["flag"] is None
         ],

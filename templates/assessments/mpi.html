@@ -15,7 +15,7 @@
         {% for indicator in results.unknown_indicators %}
           <li>
             <a class="mpi-indicator-link" href="#{{ indicator.id }}">
-              <span>{{ indicator.name }}</span>
+              <span>{{ indicator.display_name }}</span>
               <small>View under {{ indicator.dimension }} <span aria-hidden="true">→</span></small>
             </a>
           </li>
@@ -26,16 +26,16 @@
 
   <dl class="indicator-status-guide" aria-label="Indicator status guide">
     <div>
-      <dt>Deprived</dt>
-      <dd>Criterion met</dd>
+      <dt class="indicator-status status-deprived">Deprived</dt>
+      <dd>The household meets the assessment's condition of concern.</dd>
     </div>
     <div>
-      <dt>Not Deprived</dt>
-      <dd>Criterion not met</dd>
+      <dt class="indicator-status status-not-deprived">Not Deprived</dt>
+      <dd>The household does not meet that condition of concern.</dd>
     </div>
     <div>
-      <dt>Unknown</dt>
-      <dd>Insufficient information</dd>
+      <dt class="indicator-status status-unknown">Unknown</dt>
+      <dd>Available information cannot establish the result.</dd>
     </div>
   </dl>
 
@@ -51,9 +51,9 @@
         </summary>
         <div class="dimension-indicators">
           {% for indicator in dimension.indicators %}
-            <article class="mpi-indicator" id="{{ indicator.id }}" aria-label="{{ indicator.name }}" tabindex="-1">
+            <article class="mpi-indicator" id="{{ indicator.id }}" aria-label="{{ indicator.display_name }}" tabindex="-1">
               <div class="indicator-summary">
-                <h3>{{ indicator.name }}</h3>
+                <h3>{{ indicator.display_name }}</h3>
                 <span class="indicator-status status-{{ indicator.status_class }}">{{ indicator.status }}</span>
                 <p class="indicator-explanation">{{ indicator.explanation }}</p>
                 <span class="indicator-number">
@@ -61,6 +61,9 @@
                   <small>points added</small>
                 </span>
               </div>
+              {% if indicator.flag is none %}
+                <p class="indicator-unknown-note">No points are added for this unknown result. This does not establish an absence of deprivation.</p>
+              {% endif %}
               {% include 'assessments/evidence.html' %}
             </article>
           {% endfor %}

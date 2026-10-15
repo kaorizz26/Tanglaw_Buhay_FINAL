@@ -162,14 +162,29 @@ class AssessmentDetailPresentationTests(unittest.TestCase):
         self.assertNotIn("benchmark", crowding["space_comparison"])
         self.assertEqual(self.source["findings"], before)
 
+    def test_priority_indicators_present_all_statuses_without_reassessing_answers(self):
+        before = deepcopy(self.source)
+        reference = build_evidence_index(self.source)
+        for name in ("Food Insecurity", "School Attendance", "Educational Attainment",
+                     "Employment Proxy", "Illness/Treatment Proxy"):
+            for flag, status in ((0, "Not Deprived"), (1, "Deprived"), (None, "Unknown")):
+                with self.subTest(name=name, flag=flag):
+                    stored = {**self.source["findings"]["mpi"], name: flag}
+                    indicator = details._indicator(name, stored, self.source, reference)
+                    self.assertEqual(indicator["status"], status)
+                    self.assertEqual(indicator["flag"], flag)
+                    self.assertTrue(indicator["evidence"]["context"])
+                    self.assertTrue(indicator["explanation"])
+        self.assertEqual(self.source, before)
+
     def test_illness_display_distinguishes_both_codes_and_keeps_uncertainty(self):
         self.source["household"]["l33_member_who_has_been_sick"] = "1"
         cases = (
-            ("1", "Affected by illness; needs verification"),
-            ("1.0", "Affected by illness; needs verification"),
-            ("2", "Not affected by illness; needs verification"),
-            ("2.0", "Not affected by illness; needs verification"),
-            ("77", "Meaning needs verification"),
+            ("1", "Affected by illness"),
+            ("1.0", "Affected by illness"),
+            ("2", "Not affected by illness"),
+            ("2.0", "Not affected by illness"),
+            ("77", "Meaning unclear"),
             ("NA", "Not recorded"),
             ("", "Not recorded"),
             (None, "Not recorded"),
@@ -483,9 +498,10 @@ class AssessmentDetailRouteTests(unittest.TestCase):
             ):
                 with self.subTest(text=text):
                     self.assertNotIn(text.lower(), response.text.lower())
-        self.assertIn("Affected by illness; needs verification", mpi.text)
-        self.assertIn("Not affected by illness; needs verification", mpi.text)
-        self.assertIn("Recorded answers conflict and need staff verification.", mpi.text)
+        self.assertIn("Affected by illness", mpi.text)
+        self.assertIn("Not affected by illness", mpi.text)
+        self.assertNotIn("meaning unconfirmed", mpi.text)
+        self.assertIn("Recorded answers conflict; they do not establish a clear response.", mpi.text)
         self.assertIn("Not recorded", mpi.text)
         self.assertIn("Recorded Value:", mpi.text)
         articles = re.findall(r'<article class="mpi-indicator".*?</article>', mpi.text, re.S)
@@ -504,10 +520,34 @@ class AssessmentDetailRouteTests(unittest.TestCase):
             article = next(article for article in articles if f"<h3>{name}</h3>" in article)
             self.assertIn(f"<dd>{expected}</dd>", article)
         underemployment = next(article for article in articles
-                               if "<h3>Underemployment Proxy</h3>" in article)
-        self.assertIn("Wants more work hours</dt>", underemployment)
+                               if "<h3>Wanting More Work Hours</h3>" in article)
+        self.assertIn("Wanted more work hours in the past week</dt>", underemployment)
         self.assertIn("<dd>Yes</dd>", underemployment)
         self.assertEqual(self.source, before)
+
+    def test_mpi_context_and_display_names_preserve_answers_and_historical_period(self):
+        self._session()
+        before = deepcopy(self.source)
+        page = self.client.get(self.path + "?tab=mpi").text
+        food = re.search(r'<article[^>]+id="mpi-food-insecurity".*?</article>', page, re.S)[0]
+        for wording in ("money or other resources for food were insufficient",
+                        "1 July 2021–30 June 2022", "Had to skip a meal"):
+            self.assertIn(wording, food)
+        primary = food.split('<details class="cbms-record-details">')[0]
+        self.assertEqual(primary.count("<dd>Yes</dd>"), 4)
+        self.assertEqual(primary.count("<dd>No</dd>"), 4)
+        for wording in ("Illness and Treatment", "month before the survey",
+                        "Employment</h3>", "Worked at least one hour in the past week",
+                        "members aged 5–17", "members aged 19 and older",
+                        "Available information cannot establish the result.",
+                        "This does not establish an absence of deprivation."):
+            self.assertIn(wording, page)
+        self.assertNotIn("Proxy", page)
+        self.assertNotIn("· age at survey", page)
+        self.assertIn("Age at survey:", page)
+        self.assertEqual(self.source, before)
+        self.source["context"]["survey_year"] = 2025
+        self.assertNotIn("1 July 2021–30 June 2022", self.client.get(self.path + "?tab=mpi").text)
 
     def test_back_links_and_sections_preserve_only_validated_internal_list_state(self):
         self._session()

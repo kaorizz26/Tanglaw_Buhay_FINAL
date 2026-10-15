@@ -13,7 +13,7 @@ FOOD_LABELS = {
     "j01_worried": "Worried about enough food",
     "j02_not_eaten_healthy": "Could not eat healthy food",
     "j03_ate_few_food": "Ate only a few kinds of food",
-    "j04_skipped_meal": "Skipped a meal",
+    "j04_skipped_meal": "Had to skip a meal",
     "j05_ate_less": "Ate less than needed",
     "j06_ran_out_of_food": "Ran out of food",
     "j07_hungry": "Was hungry but did not eat",
@@ -29,7 +29,7 @@ FIELD_LABELS = {
     "r04_outer_walls": "Outer walls",
     "r06_floor": "Floor",
     "r07_floor_area": "Floor area",
-    "r10_tenure": "House and lot tenure",
+    "r10_tenure": "House and lot arrangement",
     "r12_electricity": "Electricity",
     "n01_internet_access": "Internet access",
     "h01_access_to_public_transportation": "Public transportation access",
@@ -39,8 +39,58 @@ FIELD_LABELS = {
     "c02_hgc_group": "Educational attainment",
     "c03_currently_attending_school": "Currently attending school",
     "b06_ofi": "Overseas Filipino status",
-    "e01_employed": "Working",
-    "e15_want_more_hours": "Wants more work hours",
+    "e01_employed": "Worked at least one hour in the past week",
+    "e15_want_more_hours": "Wanted more work hours in the past week",
+}
+
+DISPLAY_NAMES = {
+    "Illness/Treatment Proxy": "Illness and Treatment",
+    "Employment Proxy": "Employment",
+    "Underemployment Proxy": "Wanting More Work Hours",
+}
+
+# Wording checked against the project variable definitions and indicator catalog.
+EVIDENCE_CONTEXT = {
+    "School Attendance": (
+        "School attendance is shown for members aged 5–17 at the time of the survey."
+    ),
+    "Educational Attainment": (
+        "The highest grade or year completed is shown for members aged 19 and older. "
+        "This is separate from current school attendance."
+    ),
+    "Food Insecurity": (
+        "These eight answers concern food-access difficulties experienced by adults or "
+        "the household because money or other resources for food were insufficient."
+    ),
+    "Illness/Treatment Proxy": (
+        "Illness includes sickness or injury in the month before the survey. Treatment "
+        "answers concern the member’s current or most recent illness, sickness or injury."
+    ),
+    "Sanitation": (
+        "The answers describe the household’s toilet facility and whether it is shared "
+        "with other households."
+    ),
+    "Assets": "Values are recorded quantities of household items, grouped by their use.",
+    "Housing Materials": (
+        "These answers describe the main materials of the home’s roof, outer walls and floor."
+    ),
+    "Overcrowding": (
+        "The recorded housing floor area is compared with the number of household members. "
+        "Space per person is shown in square metres."
+    ),
+    "Employment Proxy": (
+        "Recorded work answers concern at least one hour during the past week, including "
+        "work from home, for members aged 18–65. Missing does not mean No."
+    ),
+    "Underemployment Proxy": (
+        "Shown for members aged 18–65. The answers concern work and the desire for "
+        "additional work hours during the past week."
+    ),
+    "Working Child Not in School": (
+        "Shown for members aged 5–17. Work means at least one hour during the past week, "
+        "including work from home; attendance describes whether the child was currently "
+        "attending school."
+    ),
 }
 
 DIRECT_CONDITIONS = {
@@ -124,7 +174,7 @@ STAFF_EXPLANATIONS = {
     ),
     "Underemployment Proxy": (
         "The assessed share wanting more work hours does not exceed half.",
-        "More than half of applicable working adults meet the additional-hours criterion.",
+        "More than half of applicable working adults wanted more work hours.",
         "Work-hours information does not establish a clear household result.",
     ),
     "Working Child Not in School": (
@@ -143,12 +193,12 @@ def _display_value(cell):
     if cell["variable"] == "l34_has_been_sick":
         # Retain the existing provisional distinction without presenting it as verified.
         if meaning.startswith("Affected by illness (provisional"):
-            return "Affected by illness; needs verification"
+            return "Affected by illness"
         if meaning.startswith("Unaffected by illness (provisional"):
-            return "Not affected by illness; needs verification"
-        return "Meaning needs verification"
+            return "Not affected by illness"
+        return "Meaning unclear"
     if "needs verification" in meaning.lower() or "no verified code meaning" in meaning.lower():
-        return "Meaning needs verification"
+        return "Meaning unclear"
     if cell["variable"] == "r07_floor_area":
         return f"{cell['raw']} m²" if meaning.startswith("Recorded floor area") else meaning
     if cell["variable"].startswith("r16_"):
@@ -201,7 +251,7 @@ def _member_cautions(notes):
     cautions = []
     for note in notes:
         if "routing conflict" in note or "conflicting follow-up" in note:
-            cautions.append("Recorded answers conflict and need staff verification.")
+            cautions.append("Recorded answers conflict; they do not establish a clear response.")
     return list(dict.fromkeys(cautions))
 
 
@@ -220,7 +270,7 @@ def _space_comparison(evidence):
     return f"{area / count:.2f} m² per person"
 
 
-def prepare_evidence_view(name, evidence):
+def prepare_evidence_view(name, evidence, survey_year=None):
     """Group decoded answers without changing the source cells or stored outcome."""
     members = []
     for member in evidence["members"]:
@@ -239,6 +289,11 @@ def prepare_evidence_view(name, evidence):
         "members": members,
         "record_cells": [_record_cell(cell) for cell in evidence["household_cells"]],
         "space_comparison": _space_comparison(evidence) if name == "Overcrowding" else None,
+        "context": EVIDENCE_CONTEXT.get(name),
+        "reference_period": (
+            "Reference period: 1 July 2021–30 June 2022."
+            if name == "Food Insecurity" and survey_year == 2022 else None
+        ),
     }
 
 
@@ -247,6 +302,6 @@ def direct_condition(name, flag, evidence):
     if name not in DIRECT_CONDITIONS or flag is None or not evidence["household_cells"]:
         return None
     value = _display_value(evidence["household_cells"][0])
-    if value in ("Not recorded", "Meaning needs verification"):
+    if value in ("Not recorded", "Meaning unclear"):
         return None
     return f"{DIRECT_CONDITIONS[name]} recorded: {value}."
