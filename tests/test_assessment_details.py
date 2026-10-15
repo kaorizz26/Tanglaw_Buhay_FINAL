@@ -314,7 +314,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertEqual(overview.headers["Cache-Control"], "no-store")
                 for text in ("HH-00008", "Synthetic Member 1", "36.11", HOUSEHOLD_UUID,
                              "Municipal Vulnerability Rank", "Needs Data Review",
-                             "No Review Signal", "15", "understate its needs"):
+                             "No Review Signal", "15", "Select an indicator to view its supporting evidence."):
                     self.assertIn(text, overview.text)
                 for removed in ("Assessment Run 2", "How it works", "data coverage",
                                 "Assessment information", "No Historical CBMS Trigger"):
@@ -350,7 +350,8 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                      "1 unknown result.", "Higher scores indicate greater assessed household vulnerability.",
                      "Households with equal scores share the same rank."):
             self.assertIn(text, summary)
-        self.assertIn("Indicator with an unknown result", response.text)
+        self.assertIn("1 indicator result could not be determined", response.text)
+        self.assertIn("1 of 9 indicator results could not be determined.", " ".join(response.text.split()))
         self.assertIn("#mpi-internet", response.text)
         for text in ("Areas Contributing to Vulnerability", "Each can contribute up to 25 points.",
                      "Overall Vulnerability Score", "This does not mean the household is ineligible.",
@@ -386,17 +387,42 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.assertIn("16 <small>of 16 determined</small>", response.text)
         self.assertIn("0 unknown results.", response.text)
         self.assertNotIn('id="unknown-heading"', response.text)
+        self.assertNotIn('class="dimension-unknown-note"', response.text)
         mpi.update({"Internet": None, "Working Child Not in School": None,
                     "unknown_indicator_count": 2,
                     "unknown_zero_point_indicators": ("Internet", "Working Child Not in School")})
         response = self.client.get(self.path)
         self.assertIn("14 <small>of 16 determined</small>", response.text)
         self.assertIn("2 unknown results.", response.text)
-        self.assertIn("Indicators with unknown results", response.text)
+        self.assertIn("2 indicator results could not be determined", response.text)
         self.assertIn("#mpi-internet", response.text)
         self.assertIn("#mpi-working-child-not-in-school", response.text)
-        self.assertIn("whether these conditions apply", response.text)
+        self.assertIn("Select an indicator to view its supporting evidence.", response.text)
+        self.assertEqual(response.text.count('class="dimension-unknown-note"'), 2)
         self.assertNotIn("all answers", response.text.lower())
+
+    def test_overview_unknown_employment_names_counts_and_links(self):
+        self._session()
+        mpi = self.source["findings"]["mpi"]
+        names = ("Employment Proxy", "Underemployment Proxy", "Working Child Not in School")
+        mpi.update(dict.fromkeys(names, None))
+        mpi.update(Internet=0, unknown_indicator_count=3,
+                   unknown_zero_point_indicators=names,
+                   vulnerability_score=27.77777777777778)
+        before = deepcopy(self.source)
+        response = self.client.get(self.path)
+        notice = re.search(r'<section class="overview-unknowns".*?</section>', response.text, re.S)[0]
+        self.assertIn("3 indicator results could not be determined", notice)
+        self.assertNotIn("Proxy", notice)
+        self.assertNotIn("NA", notice)
+        for name, anchor in (("Employment", "mpi-employment"),
+                             ("Wanting More Work Hours", "mpi-underemployment"),
+                             ("Working Child Not in School", "mpi-working-child-not-in-school")):
+            self.assertIn(f'>{name}<', notice)
+            self.assertIn(f'#{anchor}', notice)
+        self.assertIn("3 of 3 indicator results could not be determined.", " ".join(response.text.split()))
+        self.assertEqual(response.text.count('class="dimension-unknown-note"'), 1)
+        self.assertEqual(self.source, before)
 
     def test_identity_survey_year_and_unknown_navigation_use_existing_context(self):
         self._session()
@@ -404,8 +430,8 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.source["identity"].update(first_name="Synthetic", middle_name="Recorded",
                                       last_name="Full Name")
         response = self.client.get(self.path + "?page=2&completeness=unknown")
-        self.assertIn("Historical CBMS 2025", response.text)
-        self.assertNotIn("Historical CBMS 2022", response.text)
+        self.assertIn("CBMS Data · 2025", response.text)
+        self.assertNotIn("CBMS Data · 2022", response.text)
         self.assertIn("Synthetic Recorded Full Name", response.text)
         self.assertIn(f'<dd class="detail-record-id">{HOUSEHOLD_UUID}</dd>', response.text)
         self.assertIn("<dt>Barangay</dt>", response.text)

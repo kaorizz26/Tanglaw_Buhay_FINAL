@@ -1,19 +1,17 @@
-{% if results.mpi.unknown_indicator_count %}
+{% set unknown_count = results.unknown_indicators | length %}
+{% if unknown_count %}
   <section class="overview-unknowns" aria-labelledby="unknown-heading">
-    <h2 id="unknown-heading">{{ 'Indicator with an unknown result' if results.mpi.unknown_indicator_count == 1 else 'Indicators with unknown results' }}</h2>
+    <h2 id="unknown-heading">{{ unknown_count }} indicator {{ 'result' if unknown_count == 1 else 'results' }} could not be determined</h2>
+    <p>The available information was not sufficient to determine these results. Select an indicator to view its supporting evidence.</p>
     <ul>
       {% for indicator in results.unknown_indicators %}
         <li>
           <a
             href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='mpi', _anchor=indicator.id, **list_parameters) }}"
-          >{{ indicator.name }}<span class="visually-hidden"> — view supporting evidence</span></a>
+          >{{ indicator.display_name }}<span class="visually-hidden"> — view supporting evidence</span></a>
         </li>
       {% endfor %}
     </ul>
-    <p>
-      The available records do not establish whether {{ 'this condition applies' if results.mpi.unknown_indicator_count == 1 else 'these conditions apply' }}.
-      The household's vulnerability score may therefore understate its needs.
-    </p>
   </section>
 {% endif %}
 
@@ -40,6 +38,12 @@
             value="{{ dimension.points }}"
             aria-label="{{ dimension.name }} contribution: {{ '%.2f' | format(dimension.points) }} of 25 points"
           >{{ '%.2f' | format(dimension.points) }} of 25</meter>
+          {% set dimension_unknowns = dimension.indicators | selectattr('status', 'equalto', 'Unknown') | list | length %}
+          {% if dimension_unknowns %}
+            <p class="dimension-unknown-note">
+              {{ dimension_unknowns }} of {{ dimension.indicators | length }} indicator results could not be determined.
+            </p>
+          {% endif %}
         </div>
       {% endfor %}
     </div>
