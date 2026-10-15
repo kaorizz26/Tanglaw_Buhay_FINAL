@@ -297,18 +297,20 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 overview = self.client.get(self.path)
                 self.assertEqual(overview.status_code, 200)
                 self.assertEqual(overview.headers["Cache-Control"], "no-store")
-                for text in ("HH-00008", "Synthetic Member 1", "36.11", "Assessment Run 2",
-                             "How it works", "Weighted assessment coverage", "Needs Data Review",
-                             "No Historical CBMS Trigger", "15", "underestimate"):
+                for text in ("HH-00008", "Synthetic Member 1", "36.11", HOUSEHOLD_UUID,
+                             "Municipal Vulnerability Rank", "Needs Data Review",
+                             "No Review Signal", "15", "understate its needs"):
                     self.assertIn(text, overview.text)
+                for removed in ("Assessment Run 2", "How it works", "data coverage",
+                                "Assessment information", "No Historical CBMS Trigger"):
+                    self.assertNotIn(removed, overview.text)
                 mpi = self.client.get(self.path + "?tab=mpi")
                 self.assertEqual(mpi.status_code, 200)
                 self.assertEqual(mpi.text.count('class="mpi-indicator"'), 16)
                 self.assertEqual(mpi.text.count('class="cbms-evidence"'), 16)
                 dimensions = re.findall(r'<details class="mpi-dimension"[^>]*>', mpi.text)
                 self.assertEqual(len(dimensions), 4)
-                self.assertIn("open", dimensions[0])
-                self.assertTrue(all("open" not in dimension for dimension in dimensions[1:]))
+                self.assertTrue(all("open" not in dimension for dimension in dimensions))
                 self.assertNotIn('<details class="cbms-evidence" open', mpi.text)
                 self.assertIn("Synthetic Member 2", mpi.text)
                 self.assertIn("e15_want_more_hours", mpi.text)
@@ -321,6 +323,137 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertNotIn("<small>Weight</small>", mpi.text)
                 self.assertNotIn("Child Mortality", mpi.text)
                 self.assertNotIn("Access to Health Facilities", mpi.text)
+
+    def test_overview_summary_uses_stored_results_and_visible_explanations(self):
+        self._session()
+        before = deepcopy(self.source)
+        response = self.client.get(self.path)
+        self.assertEqual(response.status_code, 200)
+        summary = re.search(r'<dl class="assessment-metrics".*?</dl>', response.text, re.S)[0]
+        self.assertEqual(summary.count("<dt>"), 3)
+        for text in ("36.11", "/ 100", "7", "of 51", "15", "of 16 determined",
+                     "1 unknown result.", "Higher scores indicate greater assessed household vulnerability.",
+                     "Households with equal scores share the same rank."):
+            self.assertIn(text, summary)
+        self.assertIn("Indicator with an unknown result", response.text)
+        self.assertIn("#mpi-internet", response.text)
+        for text in ("Areas Contributing to Vulnerability", "Each can contribute up to 25 points.",
+                     "Overall Vulnerability Score", "This does not mean the household is ineligible.",
+                     "Missing or conflicting information prevents determining a screening match."):
+            self.assertIn(text, response.text)
+        bars = re.findall(r'<meter.*?value="([^"]+)".*?</meter>', response.text, re.S)
+        expected = details.prepare_assessment_detail(self.source)["dimensions"]
+        self.assertEqual([float(value) for value in bars], [item["points"] for item in expected])
+        screening = re.search(r'<dl class="screening-summary-list">.*?</dl>',
+                              response.text, re.S)[0]
+        findings = re.findall(r'<dt>(.*?)</dt>\s*<dd\b[^>]*>\s*(.*?)\s*</dd>',
+                              screening, re.S)
+        self.assertEqual(findings, [
+            ("4Ps", "For Review"), ("SLP", "Needs Data Review"),
+            ("SPISC", "No Review Signal"), ("TUPAD", "For Review"),
+        ])
+        self.assertEqual(screening.count('class="screening-status screening-status--review"'), 2)
+        self.assertIn('class="screening-status screening-status--data"', screening)
+        self.assertIn('class="screening-status"', screening)
+        self.assertEqual(self.source, before)
+        for program in self.source["findings"]["programs"].values():
+            program["screening_status"] = "For Review"
+        response = self.client.get(self.path)
+        guide = re.search(r'<dl class="screening-status-guide".*?</dl>', response.text, re.S)[0]
+        self.assertEqual(re.findall(r'<dt>(.*?)</dt>', guide), ["For Review"])
+
+    def test_complete_and_multiple_unknown_results_have_accurate_descriptions(self):
+        self._session()
+        mpi = self.source["findings"]["mpi"]
+        mpi.update({"Internet": 0, "unknown_indicator_count": 0,
+                    "unknown_zero_point_indicators": (), "coverage_pct": 100})
+        response = self.client.get(self.path)
+        self.assertIn("16 <small>of 16 determined</small>", response.text)
+        self.assertIn("0 unknown results.", response.text)
+        self.assertNotIn('id="unknown-heading"', response.text)
+        mpi.update({"Internet": None, "Working Child Not in School": None,
+                    "unknown_indicator_count": 2,
+                    "unknown_zero_point_indicators": ("Internet", "Working Child Not in School")})
+        response = self.client.get(self.path)
+        self.assertIn("14 <small>of 16 determined</small>", response.text)
+        self.assertIn("2 unknown results.", response.text)
+        self.assertIn("Indicators with unknown results", response.text)
+        self.assertIn("#mpi-internet", response.text)
+        self.assertIn("#mpi-working-child-not-in-school", response.text)
+        self.assertIn("whether these conditions apply", response.text)
+        self.assertNotIn("all answers", response.text.lower())
+
+    def test_identity_survey_year_and_unknown_navigation_use_existing_context(self):
+        self._session()
+        self.source["context"].update(survey_year=2025, household_count=19304)
+        self.source["identity"].update(first_name="Synthetic", middle_name="Recorded",
+                                      last_name="Full Name")
+        response = self.client.get(self.path + "?page=2&completeness=unknown")
+        self.assertIn("Historical CBMS 2025", response.text)
+        self.assertNotIn("Historical CBMS 2022", response.text)
+        self.assertIn("Synthetic Recorded Full Name", response.text)
+        self.assertIn(f'<dd class="detail-record-id">{HOUSEHOLD_UUID}</dd>', response.text)
+        self.assertIn("<dt>Barangay</dt>", response.text)
+        self.assertIn("<dd>Synthetic Barangay</dd>", response.text)
+        self.assertNotIn("Synthetic Barangay · Pozorrubio", response.text)
+        self.assertIn("of 19,304", response.text)
+        link = re.search(r'href="([^"]+)"\s*>Internet',
+                         response.text)[1]
+        url = urlsplit(unescape(link))
+        self.assertEqual(url.path, self.path)
+        self.assertEqual(url.fragment, "mpi-internet")
+        self.assertEqual(parse_qs(url.query), {
+            "tab": ["mpi"], "page": ["2"], "completeness": ["unknown"],
+        })
+        destination = self.client.get(url.path + "?" + url.query)
+        self.assertEqual(destination.status_code, 200)
+        self.assertIn('id="mpi-heading"', destination.text)
+        self.assertEqual(destination.text.count('class="cbms-evidence"'), 16)
+
+    def test_both_tabs_share_summary_and_only_unknown_households_have_mpi_notice(self):
+        self._session()
+        for unknown_count in (1, 0):
+            if not unknown_count:
+                self.source["findings"]["mpi"].update({
+                    "Internet": 0, "unknown_indicator_count": 0,
+                    "unknown_zero_point_indicators": (),
+                })
+            overview = self.client.get(self.path)
+            mpi = self.client.get(self.path + "?tab=mpi")
+            summaries = [re.search(r'<dl class="assessment-metrics".*?</dl>',
+                                   page.text, re.S)[0] for page in (overview, mpi)]
+            self.assertEqual(summaries[0], summaries[1])
+            self.assertEqual(summaries[0].count("<dt>"), 3)
+            self.assertEqual('id="mpi-unknown-heading"' in mpi.text, bool(unknown_count))
+            if unknown_count:
+                self.assertIn("1 indicator could not be determined", " ".join(mpi.text.split()))
+                self.assertIn("View under Housing, Water and Sanitation", mpi.text)
+
+    def test_all_indicators_have_distinct_stable_links_and_actual_dimension_context(self):
+        self._session()
+        mpi = self.source["findings"]["mpi"]
+        mpi.update(dict.fromkeys(INDICATOR_WEIGHTS, None))
+        mpi.update(vulnerability_score=0, unknown_indicator_count=16,
+                   unknown_zero_point_indicators=tuple(INDICATOR_WEIGHTS))
+        before = deepcopy(self.source)
+        prepared = details.prepare_assessment_detail(self.source)
+        unknowns = prepared["unknown_indicators"]
+        self.assertEqual(len(unknowns), 16)
+        self.assertEqual(len({item["id"] for item in unknowns}), 16)
+        self.assertEqual(set(details.INDICATOR_IDS), set(INDICATOR_WEIGHTS))
+        overview = self.client.get(self.path + "?page=2&program=4Ps")
+        destination = self.client.get(self.path + "?tab=mpi&page=2&program=4Ps")
+        for item in unknowns:
+            with self.subTest(indicator=item["name"]):
+                self.assertRegex(item["id"], r"^mpi-[a-z-]+$")
+                self.assertIn(f'#{item["id"]}', overview.text)
+                self.assertIn(f'href="#{item["id"]}"', destination.text)
+                self.assertIn(f'id="{item["id"]}"', destination.text)
+                self.assertIn(f'View under {item["dimension"]}', destination.text)
+                self.assertIn(item["name"], DIMENSIONS[item["dimension"]][1])
+        self.assertNotIn('<details class="mpi-dimension" open', destination.text)
+        self.assertNotIn('<details class="cbms-evidence" open', destination.text)
+        self.assertEqual(self.source, before)
 
     def test_operational_html_excludes_methodology_but_retains_answers_and_conflicts(self):
         self._session()

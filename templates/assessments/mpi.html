@@ -6,6 +6,24 @@
     <p class="section-helper">Open a dimension to see household conditions.</p>
   </div>
 
+  {% if results.unknown_indicators %}
+    <aside class="mpi-unknowns" aria-labelledby="mpi-unknown-heading">
+      <h3 id="mpi-unknown-heading">
+        {{ results.unknown_indicators | length }} {{ 'indicator could' if results.unknown_indicators | length == 1 else 'indicators could' }} not be determined
+      </h3>
+      <ul>
+        {% for indicator in results.unknown_indicators %}
+          <li>
+            <a class="mpi-indicator-link" href="#{{ indicator.id }}">
+              <span>{{ indicator.name }}</span>
+              <small>View under {{ indicator.dimension }} <span aria-hidden="true">→</span></small>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </aside>
+  {% endif %}
+
   <dl class="indicator-status-guide" aria-label="Indicator status guide">
     <div>
       <dt>Deprived</dt>
@@ -23,7 +41,7 @@
 
   <div class="mpi-dimensions">
     {% for dimension in results.dimensions %}
-      <details class="mpi-dimension" {% if loop.first %}open{% endif %}>
+      <details class="mpi-dimension">
         <summary>
           <span>
             <strong>{{ dimension.name }}</strong>
@@ -33,7 +51,7 @@
         </summary>
         <div class="dimension-indicators">
           {% for indicator in dimension.indicators %}
-            <article class="mpi-indicator" aria-label="{{ indicator.name }}">
+            <article class="mpi-indicator" id="{{ indicator.id }}" aria-label="{{ indicator.name }}" tabindex="-1">
               <div class="indicator-summary">
                 <h3>{{ indicator.name }}</h3>
                 <span class="indicator-status status-{{ indicator.status_class }}">{{ indicator.status }}</span>

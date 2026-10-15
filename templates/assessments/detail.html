@@ -17,7 +17,7 @@
         <span aria-current="page">Household Assessment</span>
       </nav>
       <p class="dataset-reference">
-        Historical CBMS {{ results.context.survey_year }} · Assessment Run {{ results.context.run_id }}
+        Historical CBMS {{ results.context.survey_year }}
       </p>
     </div>
     <a class="back-to-prioritization" href="{{ url_for('assessments.prioritization', **list_parameters) }}">
@@ -25,30 +25,26 @@
     </a>
     <div class="page-heading">
       <h1>Household Assessment</h1>
-      <p class="detail-household-id">{{ results.household_reference_id }}</p>
-      <h2 class="detail-head-name">{{ results.head_name }}</h2>
-      <p>{{ results.barangay }} · {{ results.context.municipality }}</p>
+      <div class="household-identity">
+        <div>
+          <h2 class="detail-head-name">{{ results.head_name }}</h2>
+          <p class="detail-household-id">{{ results.household_reference_id }}</p>
+        </div>
+        <dl class="household-records">
+          <div>
+            <dt>Barangay</dt>
+            <dd>{{ results.barangay }}</dd>
+          </div>
+          <div>
+            <dt>Household UUID</dt>
+            <dd class="detail-record-id">{{ results.household_uuid }}</dd>
+          </div>
+        </dl>
+      </div>
     </div>
   </header>
 
-  <dl class="detail-metrics" aria-label="Household assessment metrics">
-    <div>
-      <dt>Vulnerability Score</dt>
-      <dd>{{ '%.2f' | format(results.mpi.vulnerability_score) }} <small>/ 100</small></dd>
-    </div>
-    <div>
-      <dt>Original Municipality-wide Rank</dt>
-      <dd>{{ '{:,}'.format(results.mpi.vulnerability_rank) }} <small>/ {{ '{:,}'.format(results.context.household_count) }}</small></dd>
-    </div>
-    <div>
-      <dt>Determined MPI Indicators</dt>
-      <dd>{{ results.determined_count }} <small>/ 16</small></dd>
-    </div>
-    <div>
-      <dt>Unknown MPI Indicators</dt>
-      <dd>{{ results.mpi.unknown_indicator_count }}</dd>
-    </div>
-  </dl>
+  {% include 'assessments/summary.html' %}
 
   <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
     {% for value, label in [('overview', 'Overview'), ('mpi', 'MPI Indicators')] %}

@@ -128,7 +128,7 @@ class PrioritizationTests(unittest.TestCase):
                 self.assertEqual(response.text.count('scope="row"'), 25)
                 self.assertIn(label, response.text)
                 self.assertIn("synthetic_staff", response.text)
-                self.assertIn("Assessment Run 2", response.text)
+                self.assertNotIn("Assessment Run", response.text)
                 self.assertIn("Household ID", response.text)
                 self.assertIn("Household Head", response.text)
                 self.assertIn("not official", response.text)

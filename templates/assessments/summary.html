@@ -1,0 +1,20 @@
+<dl class="assessment-metrics" aria-label="Assessment summary">
+  <div>
+    <dt>Vulnerability Score</dt>
+    <dd>{{ '%.2f' | format(results.mpi.vulnerability_score) }} <small>/ 100</small></dd>
+    <dd class="metric-explanation">Higher scores indicate greater assessed household vulnerability.</dd>
+  </div>
+  <div>
+    <dt>Municipal Vulnerability Rank</dt>
+    <dd>{{ '{:,}'.format(results.mpi.vulnerability_rank) }} <small>of {{ '{:,}'.format(results.context.household_count) }}</small></dd>
+    <dd class="metric-explanation">Households are ranked by vulnerability score. Households with equal scores share the same rank.</dd>
+  </div>
+  <div>
+    <dt>MPI Indicator Results</dt>
+    <dd>{{ results.determined_count }} <small>of 16 determined</small></dd>
+    <dd class="metric-explanation">
+      {{ results.mpi.unknown_indicator_count }} unknown {{ 'result' if results.mpi.unknown_indicator_count == 1 else 'results' }}.
+      These indicators assess household conditions across four areas.
+    </dd>
+  </div>
+</dl>

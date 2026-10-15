@@ -16,6 +16,26 @@ from services.prioritization import PROGRAM_ORDER, _head_name, _household_refere
 from services.vulnerability.scoring import DIMENSIONS, INDICATOR_WEIGHTS
 
 
+INDICATOR_IDS = {
+    "School Attendance": "mpi-school-attendance",
+    "Educational Attainment": "mpi-educational-attainment",
+    "Food Insecurity": "mpi-food-insecurity",
+    "Illness/Treatment Proxy": "mpi-illness-treatment",
+    "Sanitation": "mpi-sanitation",
+    "Water": "mpi-water",
+    "Assets": "mpi-assets",
+    "Tenure": "mpi-tenure",
+    "Housing Materials": "mpi-housing-materials",
+    "Electricity": "mpi-electricity",
+    "Internet": "mpi-internet",
+    "Overcrowding": "mpi-overcrowding",
+    "Public Transportation": "mpi-public-transportation",
+    "Employment Proxy": "mpi-employment",
+    "Underemployment Proxy": "mpi-underemployment",
+    "Working Child Not in School": "mpi-working-child-not-in-school",
+}
+
+
 def detail_navigation(arguments):
     """Validate tab and list state; return only internally generated link parameters."""
     tab_values = arguments.getlist("tab")
@@ -42,7 +62,7 @@ def _indicator(name, mpi, source, reference):
     spec = INDICATORS[name]
     source_evidence = build_indicator_evidence(name, source, reference)
     return {
-        "name": name, "flag": flag,
+        "name": name, "id": INDICATOR_IDS[name], "flag": flag,
         "status": "Unknown" if flag is None else ("Deprived" if flag else "Not Deprived"),
         "status_class": "unknown" if flag is None else ("deprived" if flag else "not-deprived"),
         "explanation": direct_condition(name, flag, source_evidence)
@@ -80,6 +100,11 @@ def prepare_assessment_detail(source):
         "barangay": _source_text(identity["barangay"]) or "Not recorded",
         "mpi": mpi, "determined_count": 16 - mpi["unknown_indicator_count"],
         "dimensions": dimensions,
+        "unknown_indicators": [
+            {"id": indicator["id"], "name": indicator["name"], "dimension": dimension["name"]}
+            for dimension in dimensions for indicator in dimension["indicators"]
+            if indicator["flag"] is None
+        ],
         "programs": [{"name": code, "status": source["findings"]["programs"][code]["screening_status"]}
                      for code in PROGRAM_ORDER],
     }
