@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header">
+  <header class="page-header prioritization-header">
     <div class="context-bar">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <span>Assessments</span>
@@ -82,6 +82,7 @@
           <col class="column-household">
           <col class="column-barangay">
           <col class="column-score">
+          <col class="column-priority">
           <col class="column-subsidies">
           <col class="column-action">
         </colgroup>
@@ -92,6 +93,7 @@
             <th scope="col">Household Head</th>
             <th scope="col">Barangay</th>
             <th scope="col" class="score-cell">Vulnerability Score</th>
+            <th scope="col">Subsidy Priority</th>
             <th scope="col">Subsidies for Review</th>
             <th scope="col" class="action-cell">Action</th>
           </tr>
@@ -109,6 +111,9 @@
               <td class="score-cell">
                 <strong>{{ '%.2f' | format(household.vulnerability_score) }}</strong>
                 <span class="score-scale">/ 100</span>
+              </td>
+              <td>
+                <span class="subsidy-priority subsidy-priority--{{ household.priority_display.style }}">{{ household.priority_display.label }}</span>
               </td>
               <td>
                 {% if household.review_programs %}
@@ -136,7 +141,7 @@
             </tr>
           {% else %}
             <tr>
-              <td class="empty-results" colspan="7">
+              <td class="empty-results" colspan="8">
                 {% if results.filters.active %}
                   <strong>No households match these filters.</strong>
                   <p>Try another name or Household ID, adjust your selections, or clear the filters.</p>
@@ -154,10 +159,12 @@
   </section>
 
   <p class="ranking-explanation" id="ranking-explanation">
-    Household IDs are Tanglaw-Buhay references within this source batch, not official
-    PSA identifiers. Shared municipal ranks have equal priority; display order does
-    not break ties. Original ranks are retained across pages and filters. Unknown indicators
-    contribute zero points and can underestimate vulnerability. For Review signals
+    Household IDs are Tanglaw-Buhay references for these historical records, not official
+    PSA identifiers. Households with equal scores share municipal ranks; display order does
+    not break ties. Original ranks are retained across pages and filters. Missing household
+    information can make vulnerability appear lower. For Review signals
     do not create staff reviews.
+    Subsidy Priority recommends the order of consideration; Subsidies for Review
+    lists programs with relevant historical findings.
   </p>
 {% endblock %}

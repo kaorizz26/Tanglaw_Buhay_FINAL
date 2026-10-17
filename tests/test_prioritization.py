@@ -13,6 +13,7 @@ from app import create_app
 from services.assessment_queries import AssessmentQueryError
 from services.assessment_filters import AssessmentFilters
 from services import prioritization
+from services.subsidy_priority import derive_subsidy_priority
 
 
 def summary_page(page=1, *, total=51):
@@ -42,6 +43,9 @@ def summary_page(page=1, *, total=51):
                 "barangay": "Synthetic Barangay",
             },
         })
+        items[-1]["subsidy_priority"] = derive_subsidy_priority(
+            items[-1]["vulnerability_score"], items[-1]["program_statuses"],
+        )
     return {
         "context": {"run_id": 2, "survey_year": 2022, "municipality": "Pozorrubio",
                     "household_count": 51},
@@ -50,6 +54,10 @@ def summary_page(page=1, *, total=51):
         "page_size": 25,
         "total": total,
         "barangays": ["Synthetic Barangay", "Synthetic Other"],
+        "priority_counts": {
+            "all": total, "primary": int(total > 1), "secondary": max(0, total - 2),
+            "both": max(0, total - 1), "other": int(total > 0),
+        },
     }
 
 
@@ -124,7 +132,7 @@ class PrioritizationTests(unittest.TestCase):
                     for name in ("base", "staff", "assessments")
                 ]
                 self.assertEqual(stylesheets, sorted(stylesheets))
-                self.assertEqual(response.text.count('scope="col"'), 7)
+                self.assertEqual(response.text.count('scope="col"'), 8)
                 self.assertEqual(response.text.count('scope="row"'), 25)
                 self.assertIn(label, response.text)
                 self.assertIn("synthetic_staff", response.text)
@@ -146,7 +154,7 @@ class PrioritizationTests(unittest.TestCase):
                 self.assertNotIn("Needs Data Review KPI", response.text)
         self.query.assert_called_with(
             page=1, page_size=25, include_household_identity=True,
-            filters=AssessmentFilters(), include_barangays=True,
+            filters=AssessmentFilters(), include_barangays=True, include_priority_counts=True,
         )
         for name in ("base", "staff", "assessments"):
             with self.client.get(f"/static/css/{name}.css") as stylesheet:
@@ -188,7 +196,7 @@ class PrioritizationTests(unittest.TestCase):
             filters=AssessmentFilters(
                 search="synthetic head", barangay="Synthetic Barangay",
                 programs=("4Ps", "TUPAD"), completeness="unknown",
-            ), include_barangays=True,
+            ), include_barangays=True, include_priority_counts=True,
         )
         self.assertIn('value="synthetic head"', response.text)
         self.assertIn("matching households", response.text)
@@ -221,7 +229,7 @@ class PrioritizationTests(unittest.TestCase):
                 self.assertEqual(self.client.get(f"/assessments?{query}").status_code, 400)
         self.query.assert_not_called()
 
-    def test_priority_filter_and_summary_data_pass_through_without_new_ui(self):
+    def test_priority_filter_and_summary_data_reach_staff_controls(self):
         source = summary_page(page=2)
         source["items"][0]["subsidy_priority"] = "Secondary Priority"
         self.query.side_effect = None
@@ -234,12 +242,47 @@ class PrioritizationTests(unittest.TestCase):
         self._session()
         response = self.client.get("/assessments?page=2&priority=secondary")
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn('name="priority"', response.text)
-        self.assertNotIn("Secondary Priority", response.text)
+        self.assertIn('name="priority"', response.text)
+        self.assertIn("Secondary Priority", response.text)
+        self.assertIn("Subsidy Priority", response.text)
         for href in re.findall(r'href="([^"]+)"', response.text):
             parameters = parse_qs(urlsplit(unescape(href)).query)
             if "page" in parameters:
                 self.assertEqual(parameters["priority"], ["secondary"])
+
+    def test_priority_selectors_preserve_applied_filters_reset_page_and_show_counts(self):
+        self._session()
+        query = ("q=Synthetic&barangay=Synthetic+Barangay&program=4Ps&program=TUPAD"
+                 "&subsidy_mode=exact&completeness=unknown")
+        for priority in ("all", "both", "primary", "secondary", "other"):
+            response = self.client.get(f"/assessments?page=2&priority={priority}&{query}")
+            selectors = re.search(r'<nav class="priority-selectors".*?</nav>', response.text, re.S)[0]
+            links = re.findall(r'<a\b.*?</a>', selectors, re.S)
+            self.assertEqual(len(links), 4)
+            for value, link in zip(("all", "both", "primary", "secondary"), links):
+                parameters = parse_qs(urlsplit(unescape(re.search(r'href="([^"]+)"', link)[1])).query)
+                self.assertNotIn("page", parameters)
+                self.assertEqual(parameters.get("priority", ["all"]), [value])
+                self.assertEqual(parameters["program"], ["4Ps", "TUPAD"])
+                self.assertEqual(parameters["completeness"], ["unknown"])
+                self.assertEqual(parameters["subsidy_mode"], ["exact"])
+                self.assertEqual(parameters["q"], ["Synthetic"])
+                self.assertEqual(parameters["barangay"], ["Synthetic Barangay"])
+                self.assertEqual('aria-current="true"' in link, value == priority)
+            self.assertIn("Outside Priority Groups", response.text)
+            self.assertIn("Group counts reflect your other applied filters.", response.text)
+            self.assertIn('value="'+priority+'" selected', response.text)
+            self.assertEqual(response.text.count('name="priority"'), 1)
+        default = self.client.get("/assessments").text
+        selectors = re.search(r'<nav class="priority-selectors".*?</nav>', default, re.S)[0]
+        self.assertIn("<strong>51</strong>", selectors)
+        self.assertIn("<strong>50</strong>", selectors)
+        self.assertNotIn('class="more-filters" open', default)
+        self.assertIn("Needs Assessment Attention", default)
+        self.assertIn("Some household conditions could not be assessed using the available information.",
+                      " ".join(default.split()))
+        self.assertNotIn("MPI completeness", default)
+        self.assertNotIn("No Subsidy Priority", default)
 
     def test_subsidy_mode_rendering_pagination_reset_and_all_badges(self):
         self._session()
@@ -284,7 +327,7 @@ class PrioritizationTests(unittest.TestCase):
         self.assertIn("0–0", response.text)
         self.assertIn("of 0 households", response.text)
         self.assertIn('value="unmatched"', response.text)
-        self.assertEqual(response.text.count('scope="col"'), 7)
+        self.assertEqual(response.text.count('scope="col"'), 8)
         self.assertNotIn('scope="row"', response.text)
         self.assertEqual(self.client.get("/assessments?page=2&q=unmatched").status_code, 404)
 

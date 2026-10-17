@@ -102,12 +102,16 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         )
         with patch.object(repository, "count_assessment_summaries", return_value=3) as count, \
                 patch.object(repository, "list_assessment_summaries", return_value=[]) as page, \
-                patch.object(service.dataset_batches, "list_barangays", return_value=["Synthetic East"]) as options:
+                patch.object(service.dataset_batches, "list_barangays", return_value=["Synthetic East"]) as options, \
+                patch.object(repository, "count_priority_groups", return_value={"all": 8}) as groups:
             result = service.list_active_assessment_summaries(
-                page=2, filters=filters, include_barangays=True, connection_factory=self.factory,
+                page=2, filters=filters, include_barangays=True, include_priority_counts=True,
+                connection_factory=self.factory,
             )
         self.assertEqual(result["total"], 3)
         self.assertEqual(result["barangays"], ["Synthetic East"])
+        self.assertEqual(result["priority_counts"], {"all": 8})
+        groups.assert_called_once_with(self.connection, 17, filters=filters)
         count.assert_called_once_with(self.connection, 17, filters=filters)
         page.assert_called_once_with(self.connection, 17, limit=25, offset=25, filters=filters)
         options.assert_called_once_with(self.connection, 9)
@@ -639,6 +643,7 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
         findings = self._filter_fixture(
             scores=[40] + [19.999] * 7 + [20] * 8 + [25] * 8 + [25.001] * 8,
         )
+        run_id = repository.find_designated_run(self.connection, self.batch_id)["run_id"]
         before = self.connection.execute(
             "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY household_uuid)) "
             "FROM household_assessments h",
@@ -683,6 +688,16 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 )
                 self.assertEqual(empty["items"], [])
                 self.assertEqual(empty["total"], len(numbers))
+                counted = repository.count_priority_groups(
+                    self.connection, run_id,
+                    filters=AssessmentFilters(priority=priority),
+                )
+                self.assertEqual(counted, {key: len(values) for key, values in groups.items()})
+        counted = repository.count_priority_groups(self.connection, run_id, filters=AssessmentFilters(
+            priority="primary", search="Synthetic Common", barangay="Synthetic West",
+            programs=("4Ps",), subsidy_mode="exact", completeness="unknown",
+        ))
+        self.assertEqual(counted, {"all": 3, "primary": 0, "secondary": 1, "both": 1, "other": 2})
         self._assert_filtered_rows(AssessmentFilters(priority="secondary", search="HH-00010"), [10], findings)
         self._assert_filtered_rows(AssessmentFilters(priority="primary", search="HH-00010"), [], findings)
         after = self.connection.execute(

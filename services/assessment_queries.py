@@ -59,7 +59,7 @@ def get_active_assessment_context(*, connection_factory=get_connection):
 
 def list_active_assessment_summaries(
     *, page=1, page_size=25, include_household_identity=False,
-    filters=None, include_barangays=False,
+    filters=None, include_barangays=False, include_priority_counts=False,
     connection_factory=get_connection,
 ):
     """Return a bounded rank/UUID page and optional identities in one snapshot.
@@ -112,6 +112,10 @@ def list_active_assessment_summaries(
         }
         if include_barangays:
             result["barangays"] = dataset_batches.list_barangays(connection, context["batch_id"])
+        if include_priority_counts:
+            result["priority_counts"] = assessment_runs.count_priority_groups(
+                connection, context["run_id"], filters=filters,
+            )
         return result
 
 

@@ -479,6 +479,43 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertIn("1 indicator could not be determined", " ".join(mpi.text.split()))
                 self.assertIn("View under Housing, Water and Sanitation", mpi.text)
 
+    def test_shared_score_card_shows_priority_without_changing_completed_content(self):
+        self._session()
+        original = deepcopy(self.source)
+        for status in ("Primary Priority", "Secondary Priority", "Not in Priority Groups"):
+            self.source.clear()
+            self.source.update(deepcopy(original))
+            if status == "Secondary Priority":
+                self.source["findings"]["mpi"].update({
+                    "Water": 0, "Employment Proxy": 0, "vulnerability_score": 25,
+                    "deprived_indicator_count": 2, "not_deprived_indicator_count": 13,
+                })
+            elif status == "Not in Priority Groups":
+                for program in self.source["findings"]["programs"].values():
+                    program["screening_status"] = "Needs Data Review"
+            before = deepcopy(self.source)
+            summaries = []
+            for tab in ("overview", "mpi"):
+                response = self.client.get(
+                    self.path + f"?tab={tab}&page=2&priority=secondary&completeness=unknown",
+                )
+                self.assertEqual(response.status_code, 200)
+                summary = re.search(r'<dl class="assessment-metrics".*?</dl>', response.text, re.S)[0]
+                summaries.append(summary)
+                self.assertEqual(summary.count("<dt>"), 3)
+                self.assertIn("Subsidy Review Priority", summary)
+                self.assertIn(status, summary)
+                self.assertIn("priority=secondary", response.text)
+                self.assertNotIn("No Subsidy Priority", response.text)
+                if tab == "mpi":
+                    self.assertEqual(response.text.count('class="cbms-evidence"'), 16)
+                    self.assertNotIn("CBMS Record Details", response.text)
+                else:
+                    self.assertIn("Areas Contributing to Vulnerability", response.text)
+                    self.assertIn("Subsidy Screening Summary", response.text)
+            self.assertEqual(summaries[0], summaries[1])
+            self.assertEqual(self.source, before)
+
     def test_all_indicators_have_distinct_stable_links_and_actual_dimension_context(self):
         self._session()
         mpi = self.source["findings"]["mpi"]

@@ -4,7 +4,7 @@
 
 - Extend the existing Flask BSIT capstone application one approved task and deliverable at a time. Follow the current prompt's scope, report the result for review, and stop before starting another task.
 - For every task, read this file and any relevant skill, then inspect the affected implementation directly. Search or read bounded sections of project documents only as needed; `DEVELOPER_GUIDE.md` is an optional technical reference, not required preliminary reading.
-- Use [UI_SPEC.md](docs/UI_SPEC.md) for current staff-facing UI requirements and [PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) for system context. The implementation plan and Developer Guide may record history and technical decisions; historical layouts and task notes do not override the current approved UI direction. Follow task-specific instructions within the permanent safety rules below.
+- Use [UI_SPEC.md](docs/UI_SPEC.md) for current UI requirements, including portal-specific responsive design guidance, and [PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) for system context. The implementation plan and Developer Guide may record history and technical decisions; historical layouts and task notes do not override the current approved UI direction. Follow task-specific instructions within the permanent safety rules below.
 - Preserve unrelated work. Keep milestone status accurate when the task calls for an implementation-plan update: mark Completed only after its acceptance criteria are verified.
 
 ## Permanent system, security, and data rules
@@ -26,5 +26,5 @@
 
 - Keep code simple, readable, modular, and consistent with repository conventions and PEP 8. Separate routes, services, repository access, templates, styles, and interaction scripts. Keep frontend source expanded and organized by feature; preserve keyboard access and readable contrast.
 - Prefer the smallest maintainable change. Avoid unnecessary files, abstractions, dependencies, unrelated refactoring, and lengthy documentation logs. Update essential technical documentation when architecture or developer-facing behavior materially changes.
-- Check changes proportionately: focused tests and relevant desktop/mobile screen checks for small UI work; the full unittest suite and relevant Developer Guide checks for backend/database changes, higher-risk behavior changes, or final integration. Documentation-only work needs content, link, and diff review rather than application tests.
+- Check changes proportionately: focused tests and relevant viewport checks under [UI_SPEC.md](docs/UI_SPEC.md) for small UI work; the full unittest suite and relevant Developer Guide checks for backend/database changes, higher-risk behavior changes, or final integration. Documentation-only work needs content, link, and diff review rather than application tests.
 - For an explicitly authorized behavior-preserving engine refactor, compare complete outputs before and after; equal totals alone are insufficient. Keep private comparisons in Git-ignored storage.

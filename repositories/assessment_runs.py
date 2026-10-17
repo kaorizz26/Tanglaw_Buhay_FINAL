@@ -1,6 +1,7 @@
 """Batch-scoped assessment storage; callers own transactions and authorization."""
 
 from copy import deepcopy
+from dataclasses import replace
 import json
 from numbers import Integral, Real
 import re
@@ -258,6 +259,24 @@ def _head_search(search):
     return condition, f"%{pattern}%"
 
 
+def _priority_condition(priority):
+    """Share the approved stored-result predicates between rows and selector counts."""
+    score = "(h.findings #>> '{mpi,vulnerability_score}')::numeric"
+    has_review = " OR ".join(
+        f"h.findings #>> '{{programs,{code},screening_status}}' = 'For Review'"
+        for code in PROGRAMS
+    )
+    if priority == "primary":
+        score_rule, parameters = f"{score} > %s", (PRIMARY_CUTOFF,)
+    elif priority == "secondary":
+        score_rule = f"{score} >= %s AND {score} <= %s"
+        parameters = (SECONDARY_MIN_SCORE, PRIMARY_CUTOFF)
+    else:
+        score_rule, parameters = f"{score} >= %s", (SECONDARY_MIN_SCORE,)
+    rule = f"({score_rule} AND COALESCE(({has_review}), false))"
+    return (f"NOT {rule}" if priority == "other" else rule), parameters
+
+
 def _summary_selection(run_id, filters):
     """Build shared count/page predicates from trusted SQL and bound values.
 
@@ -307,23 +326,9 @@ def _summary_selection(run_id, filters):
     elif filters.completeness == "unknown":
         conditions.append("(h.findings #>> '{mpi,unknown_indicator_count}')::integer > 0")
     if filters.priority != "all":
-        score = "(h.findings #>> '{mpi,vulnerability_score}')::numeric"
-        has_review = " OR ".join(
-            f"h.findings #>> '{{programs,{code},screening_status}}' = 'For Review'"
-            for code in PROGRAMS
-        )
-        if filters.priority == "primary":
-            score_rule = f"{score} > %s"
-            parameters.append(PRIMARY_CUTOFF)
-        elif filters.priority == "secondary":
-            score_rule = f"{score} >= %s AND {score} <= %s"
-            parameters.extend((SECONDARY_MIN_SCORE, PRIMARY_CUTOFF))
-        else:
-            score_rule = f"{score} >= %s"
-            parameters.append(SECONDARY_MIN_SCORE)
-        # Other is the complement of both tiers, including households without signals.
-        priority_rule = f"({score_rule} AND COALESCE(({has_review}), false))"
-        conditions.append(f"NOT {priority_rule}" if filters.priority == "other" else priority_rule)
+        rule, values = _priority_condition(filters.priority)
+        conditions.append(rule)
+        parameters.extend(values)
     return joins + " WHERE " + " AND ".join(conditions), tuple(parameters)
 
 
@@ -331,6 +336,22 @@ def count_assessment_summaries(connection, run_id, *, filters):
     """Count all matching stored findings using the same predicates as the page."""
     selection, parameters = _summary_selection(run_id, filters)
     return connection.execute("SELECT count(*) " + selection, parameters).fetchone()[0]
+
+
+def count_priority_groups(connection, run_id, *, filters):
+    """Count groups in one SELECT, respecting every applied non-priority filter."""
+    selection, parameters = _summary_selection(run_id, replace(filters, priority="all"))
+    primary, primary_values = _priority_condition("primary")
+    secondary, secondary_values = _priority_condition("secondary")
+    total, first, next_group = connection.execute(
+        f"SELECT count(*), count(*) FILTER (WHERE {primary}), "
+        f"count(*) FILTER (WHERE {secondary}) " + selection,
+        (*primary_values, *secondary_values, *parameters),
+    ).fetchone()
+    return {
+        "all": total, "primary": first, "secondary": next_group,
+        "both": first + next_group, "other": total - first - next_group,
+    }
 
 
 def list_assessment_summaries(connection, run_id, *, limit, offset, filters=None):

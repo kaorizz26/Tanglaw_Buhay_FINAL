@@ -121,6 +121,27 @@
   line-height: 1.45;
 }
 
+/* Subsidy review priority within the score card */
+.assessment-metrics .priority-summary {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.summary-priority-title {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.priority-summary p {
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+
 /* Overview */
 .overview-unknowns {
   margin-bottom: 20px;

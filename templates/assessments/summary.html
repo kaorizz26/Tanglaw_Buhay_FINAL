@@ -3,6 +3,11 @@
     <dt>Vulnerability Score</dt>
     <dd>{{ '%.2f' | format(results.mpi.vulnerability_score) }} <small>/ 100</small></dd>
     <dd class="metric-explanation">Higher scores indicate greater assessed household vulnerability.</dd>
+    <dd class="priority-summary">
+      <span class="summary-priority-title">Subsidy Review Priority</span>
+      <strong class="subsidy-priority subsidy-priority--{{ results.priority_display.style }}">{{ results.priority_display.label }}</strong>
+      <p>{{ results.priority_display.explanation }}</p>
+    </dd>
   </div>
   <div>
     <dt>Municipal Vulnerability Rank</dt>

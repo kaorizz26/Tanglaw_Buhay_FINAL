@@ -1487,7 +1487,7 @@ Filters links to the unfiltered route.
 | `program` (repeatable) | 4Ps, SLP, SPISC or TUPAD; match stored `For Review` according to the selected subsidy mode. No selection imposes no subsidy restriction. |
 | `subsidy_mode` | `any` (default): at least one selected program has `For Review`. `exact`: all selected programs, and no unselected programs, have `For Review`. |
 | `completeness` | `all` (All Households), `determined` (All 16 Indicators Determined) or `unknown` (With Unknown Indicators). |
-| `priority` | `all` (default), `both`, `primary`, `secondary` or `other`; backend support only, with staff controls deferred. |
+| `priority` | `all` (default), `both`, `primary`, `secondary` or `other`; four compact group links plus Outside Priority Groups under More Filters. |
 | `page` | Existing positive page number, with 25 records per page. |
 
 `services/assessment_filters.py` validates an immutable filter selection, rejects
@@ -1550,6 +1550,18 @@ independent filter. These categories are staff prioritization policy, not MPI
 classifications, program eligibility or staff review decisions. Nothing is
 persisted or recalculated. Policy is applied to the dynamically selected run;
 current import restrictions and all stored findings/ranks remain unchanged.
+
+Selector counts use `count_priority_groups()` in the same read-only snapshot as
+the list. They retain all non-priority filters and omit the selected priority
+restriction, so each group shows its available matches. Counts and rows reuse
+the same stored-result predicates. Group links preserve applied filters and
+reset pagination; one priority select in More Filters carries form state.
+`completeness=unknown` is presented as Needs Assessment Attention, separately
+from program Needs Data Review findings. `priority_display()` shares staff
+labels between the table and the existing score card on both detail tabs;
+the latter calls the approved policy over stored results. Internal No Subsidy
+Priority is displayed as Not in Priority Groups. The three-card summary,
+Overview, indicator/evidence content and planned tabs retain their existing roles.
 
 All views preserve original municipal ranks, scores, ties, UUID order and ID
 generation. The top summary retains the municipality's assessed-household total;

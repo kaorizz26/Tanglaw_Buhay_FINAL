@@ -12,8 +12,11 @@ from services.assessment_explanations import explain_indicator
 from services.assessment_queries import AssessmentQueryError, get_active_assessment_detail
 from services.mpi_evidence import build_evidence_index, build_indicator_evidence
 from services.mpi_indicator_content import INDICATORS
-from services.prioritization import PROGRAM_ORDER, _head_name, _household_reference_id, _source_text
+from services.prioritization import (
+    PROGRAM_ORDER, _head_name, _household_reference_id, _source_text, priority_display,
+)
 from services.vulnerability.scoring import DIMENSIONS, INDICATOR_WEIGHTS
+from services.subsidy_priority import derive_subsidy_priority
 
 
 INDICATOR_IDS = {
@@ -99,6 +102,11 @@ def prepare_assessment_detail(source):
         "head_name": _head_name(identity),
         "barangay": _source_text(identity["barangay"]) or "Not recorded",
         "mpi": mpi, "determined_count": 16 - mpi["unknown_indicator_count"],
+        "priority_display": priority_display(derive_subsidy_priority(
+            mpi["vulnerability_score"],
+            {code: program["screening_status"]
+             for code, program in source["findings"]["programs"].items()},
+        )),
         "dimensions": dimensions,
         "unknown_indicators": [
             {"id": indicator["id"], "name": indicator["name"],

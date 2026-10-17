@@ -1,20 +1,35 @@
-# Tanglaw-Buhay staff UI/UX specification
+# Tanglaw-Buhay UI/UX specification
 
 ## Purpose and authority
 
 Tanglaw-Buhay helps authorized LGU staff understand historical household conditions, automated vulnerability assessments, and separate subsidy screening findings. It supports decisions; it does not issue official poverty classifications, determine eligibility, approve benefits, or replace staff judgment.
 
-This document sets the current staff-facing UI direction. [AGENTS.md](../AGENTS.md) holds permanent development, security, and data rules; [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) explains the system and approved assessment boundaries. The [implementation plan](IMPLEMENTATION_PLAN.md) and [Developer Guide](../DEVELOPER_GUIDE.md) retain task history and technical detail, but historical screen arrangements and testing records are not current UI requirements. Follow the current approved task within the permanent rules.
+This document sets the current staff-facing UI direction and responsive expectations for a future citizen portal. [AGENTS.md](../AGENTS.md) holds permanent development, security, and data rules; [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) explains the system and approved assessment boundaries. The [implementation plan](IMPLEMENTATION_PLAN.md) and [Developer Guide](../DEVELOPER_GUIDE.md) retain task history and technical detail, but historical screen arrangements and testing records are not current UI requirements. Follow the current approved task within the permanent rules.
 
 ## General experience
 
 - Design for LGU personnel who have not read the CBMS questionnaire or developer documentation. Use plain, precise labels and explain what a finding means for the household.
 - Make the next relevant action and related information easy to find. Use a clear visual hierarchy: essential household information and findings first, supporting evidence on demand. Preserve existing branding while allowing layouts and components to improve when an approved task calls for it.
 - Make available and planned destinations clear in navigation. Staff should be able to find Dashboard, Household Records, Assessments, Submissions, and Administration, then the relevant assessment information, without dead-end links.
-- Keep pages readable at common desktop and mobile sizes, with keyboard-operable controls, visible focus, sufficient contrast, and meaningful labels. Disclosures must open and close predictably without obstructing other controls.
+- Keep pages readable and accessible at the viewports appropriate to each portal, with keyboard-operable controls, visible focus, sufficient contrast, and meaningful labels. Disclosures must open and close predictably without obstructing other controls.
 - Show uncertainty where it matters, briefly and accurately. Never invent missing answers or imply that supplemental or derived values were directly collected or verified by PSA.
 - Keep routine screens free of synthetic-support labels, pilot-development or provenance narratives, technical formulas, data-preparation notes, internal task references, developer assumptions, and lengthy methodology. Retain those details in internal metadata and technical documentation.
 - Check usability from a first-time staff perspective as well as functional correctness before completing a screen.
+
+## Responsive design by portal
+
+### LGU staff portal
+
+- Design primarily for desktop and laptop browsers. Use **1440px** as the primary design and testing viewport, with quick compatibility checks at **1366px** and **1920px**.
+- Prioritize readable tables, efficient navigation, accessible controls, and professional desktop workflows. Keep important information and actions easy to scan and reach.
+- Maintain basic responsiveness at smaller widths: layouts must not break, the page must not overflow horizontally, and functionality must remain accessible. Wide data tables may scroll within their own containers when necessary.
+- Routine staff portal tasks do not require extensive mobile-specific optimization or testing. Check smaller widths when the affected layout or interaction warrants it.
+
+### Citizen portal (future implementation)
+
+- Design mobile-first for citizens using smartphones, tablets, laptops, or desktop computers. Provide a complete, usable experience across screen sizes.
+- Keep forms, document uploads, navigation, and other citizen features accessible on both mobile and desktop.
+- When the citizen portal is implemented, perform appropriate mobile and desktop usability testing for its affected workflows. Its access and security rules require an approved implementation task.
 
 ## Staff modules
 
