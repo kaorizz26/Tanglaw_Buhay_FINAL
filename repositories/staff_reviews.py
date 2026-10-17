@@ -2,6 +2,67 @@
 
 from psycopg.rows import dict_row
 
+from repositories.assessment_runs import _head_search, _reference_position
+
+
+def _queue_selection(batch_id, run_id, filters):
+    """Choose latest records before filtering; a cancellation supersedes history."""
+    statement = """WITH latest AS (
+        SELECT DISTINCT ON (household_uuid, program)
+            id, household_uuid, program, status, closing_recommendation,
+            created_at, finished_at
+        FROM staff_reviews WHERE batch_id = %s
+        ORDER BY household_uuid, program, created_at DESC, id DESC
+    ) """
+    selection = """FROM latest review
+        JOIN household_assessments h ON h.household_uuid = review.household_uuid
+            AND h.batch_id = %s AND h.run_id = %s
+        JOIN households source ON source.batch_id = h.batch_id
+            AND source.uuid = h.household_uuid
+        WHERE """
+    parameters = [batch_id, batch_id, run_id]
+    if filters.status == 'in-review':
+        conditions = ["review.status = 'In Review'"]
+    else:
+        conditions = ["review.status = 'Closed'", 'review.closing_recommendation = %s']
+        parameters.append({
+            'follow-up': 'For LGU Follow-Up', 'no-action': 'No Further Action',
+        }[filters.status])
+    if filters.programs:
+        conditions.append('review.program = ANY(%s)')
+        parameters.append(list(filters.programs))
+    if filters.barangay:
+        conditions.append("btrim(source.responses ->> 'barangay') = %s")
+        parameters.append(filters.barangay)
+    if filters.search:
+        position = _reference_position(filters.search)
+        if position is not None:
+            conditions.append('source.source_row_number = %s')
+            parameters.append(position)
+        else:
+            condition, pattern = _head_search(filters.search)
+            conditions.append(condition)
+            parameters.append(pattern)
+    return statement, selection + ' AND '.join(conditions), tuple(parameters)
+
+
+def count_queue(connection, batch_id, run_id, filters):
+    prefix, selection, parameters = _queue_selection(batch_id, run_id, filters)
+    return connection.execute(prefix + 'SELECT count(*) ' + selection, parameters).fetchone()[0]
+
+
+def list_queue(connection, batch_id, run_id, filters, *, limit, offset):
+    """Project bounded summary rows only; do not load evidence, findings or notes."""
+    prefix, selection, parameters = _queue_selection(batch_id, run_id, filters)
+    ordering = ('review.created_at ASC, review.id ASC' if filters.status == 'in-review'
+                else 'review.finished_at DESC, review.id DESC')
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            prefix + """SELECT review.*, h.vulnerability_rank """ + selection
+            + ' ORDER BY ' + ordering + ' LIMIT %s OFFSET %s',
+            (*parameters, limit, offset),
+        ).fetchall()
+
 
 def list_history(connection, batch_id, household_uuid):
     """Read household-scoped review history and notes in two bounded queries."""

@@ -23,7 +23,7 @@
       {% if review_error %}
         <p id="review-error" class="review-error" role="alert">{{ review_error }}</p>
       {% endif %}
-      <form method="post" action="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=start_program.name, **list_parameters) }}">
+      <form method="post" action="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=start_program.name, **detail_parameters) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="batch_id" value="{{ results.context.batch_id }}">
         <input type="hidden" name="run_id" value="{{ results.context.run_id }}">
@@ -35,7 +35,7 @@
         <p class="review-confirmation-note">This review will be recorded under your staff account, {{ staff_username }}.</p>
         <div class="review-form-actions">
           <button class="review-button" type="submit">Start Review</button>
-          <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **list_parameters) }}">Cancel</a>
+          <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **detail_parameters) }}">Cancel</a>
         </div>
       </form>
     </section>
@@ -74,7 +74,7 @@
             {% if program.review.starting_reason %}
               <p class="review-starting-reason"><strong>Starting reason</strong><br>{{ program.review.starting_reason }}</p>
             {% endif %}
-            <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.review.id, **list_parameters) }}">Open Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+            <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.review.id, **detail_parameters) }}">Open Review<span class="visually-hidden"> for {{ program.name }}</span></a>
           {% else %}
             {% if program.latest %}
               {% if program.latest.status == 'Closed' %}
@@ -83,7 +83,7 @@
                 <p class="review-outcome-copy">This review ended without a recommendation.</p>
               {% endif %}
             {% endif %}
-            <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **list_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+            <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **detail_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
           {% endif %}
           {% set previous = program.history | rejectattr('status', 'equalto', 'In Review') | list %}
           {% if previous %}
@@ -91,7 +91,7 @@
               <summary>View Review History ({{ previous | length }})</summary>
               <ol>
                 {% for saved in previous %}
-                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **list_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ saved.closing_recommendation if saved.closing_recommendation else 'Cancelled' }}</a></li>
+                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **detail_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ saved.closing_recommendation if saved.closing_recommendation else 'Cancelled' }}</a></li>
                 {% endfor %}
               </ol>
             </details>

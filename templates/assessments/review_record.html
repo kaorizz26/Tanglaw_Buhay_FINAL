@@ -1,9 +1,9 @@
 {% set review = review_record %}
-{% set record_url = url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, **list_parameters) %}
+{% set record_url = url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, **detail_parameters) %}
 <nav class="review-navigation" aria-label="Review and household links">
-  <a class="review-return-link" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **list_parameters) }}"><span aria-hidden="true">←</span> Back to Staff Reviews</a>
-  <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **list_parameters) }}">View Assessment</a>
-  <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **list_parameters) }}">View Subsidy Screening</a>
+  <a class="review-return-link context-navigation" href="{{ queue_return_url or url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}"><span aria-hidden="true">←</span> Back to {{ 'Review Queue' if queue_return_url else 'Staff Reviews' }}</a>
+  <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **detail_parameters) }}">View Household Assessment <span aria-hidden="true">→</span></a>
+  <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **detail_parameters) }}">View Subsidy Screening</a>
 </nav>
 
 <div class="review-workspace">
@@ -120,8 +120,8 @@
     {% else %}
       <p class="section-helper">This review is in progress. You can save notes before choosing a final action.</p>
       <div class="review-action-buttons">
-        <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='finish', **list_parameters) }}">Finish Review</a>
-        <a class="review-secondary-link" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='cancel', **list_parameters) }}">Cancel Review</a>
+        <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='finish', **detail_parameters) }}">Finish Review</a>
+        <a class="review-secondary-link" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='cancel', **detail_parameters) }}">Cancel Review</a>
       </div>
     {% endif %}
   </aside>

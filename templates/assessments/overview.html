@@ -13,7 +13,7 @@
       {% for indicator in results.unknown_indicators %}
         <li>
           <a
-            href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='mpi', _anchor=indicator.id, **list_parameters) }}"
+            href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='mpi', _anchor=indicator.id, **detail_parameters) }}"
           >{{ indicator.display_name }}<span class="visually-hidden"> — view supporting evidence</span></a>
         </li>
       {% endfor %}
@@ -26,7 +26,7 @@
     <section class="detail-section review-status-panel" aria-labelledby="review-status-heading">
       <div class="review-status-panel-heading">
         <h2 id="review-status-heading">Staff Review Status</h2>
-        <a class="review-button" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **list_parameters) }}">View Staff Reviews →</a>
+        <a class="review-button" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}">View Staff Reviews →</a>
       </div>
       {% if results.review_summary %}
         <ul class="review-status-list">
@@ -102,7 +102,7 @@
       <p class="section-helper">
         Examine the household conditions and supporting information behind these findings.
       </p>
-      <a class="review-button overview-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='mpi', _anchor='mpi-heading', **list_parameters) }}">View MPI Indicators →</a>
+      <a class="review-button overview-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='mpi', _anchor='mpi-heading', **detail_parameters) }}">View MPI Indicators →</a>
     </section>
   </div>
 
@@ -146,6 +146,6 @@
     <p class="section-helper">
       Examine the recorded circumstances and supporting information behind these findings.
     </p>
-    <a class="review-button overview-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **list_parameters) }}">View Subsidy Screening →</a>
+    <a class="review-button overview-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **detail_parameters) }}">View Subsidy Screening →</a>
   </section>
 </div>

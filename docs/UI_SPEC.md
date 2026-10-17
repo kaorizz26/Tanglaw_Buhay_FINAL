@@ -41,7 +41,7 @@ This document sets the current staff-facing UI direction and responsive expectat
 | Assessments — Household Assessment | Explain a household's Overview and MPI Indicators, with supporting evidence available when needed. Show the four dimensions and all 16 indicators without changing stored calculations or outcomes. |
 | Subsidy Screening | Present separate historical findings for 4Ps, SLP, SPISC, and TUPAD with understandable reasons and focused recorded information. Use the staff-facing labels For Review, Not Enough Information, and No Review Signal while preserving stored statuses. Screening results are decision support, not an approval, eligibility decision, or opened staff review. |
 | Staff Reviews | Either authorized role can start and open a program review, append attributed notes, finish with a recommendation and explanation, or cancel without a recommendation. Preserve read-only history and keep screening findings, review status, and recommendations distinct. |
-| Review Queue | Future work: a cross-household review queue. Household-specific history is available within Staff Reviews. |
+| Review Queue | Municipality-wide staff work under In Review, For LGU Follow-Up, and No Further Action. Show only the latest explicitly initiated review per household/program, with direct access to the existing review workspace. Cancelled records remain in household history. |
 | Submissions | When implemented, provide a clear place for the approved staff submission workflow. Define its actions and permissions in the task that implements it. |
 | Administration | Let System Admins manage approved import and staff-account functions. Keep these actions admin-only and behind the existing source-access controls. |
 
@@ -60,6 +60,14 @@ The table states intended purposes, not a claim that every module is already imp
 - Open Review presents the saved start details and chronological notes. Show one small note form; Finish Review and Cancel Review open separate short forms. Finishing requires **For LGU Follow-Up** or **No Further Action** and an explanation. Cancellation makes no recommendation. Closed and Cancelled records and their notes remain read-only; another review may then start for the same program.
 - Show Staff Review Status only inside Overview, above Areas Contributing to Vulnerability in the wider left column. Keep Subsidy Screening Summary at the top of the narrower right column; stack these panels in that order on smaller screens. Show a compact No Staff Review Started state when no reviews exist, otherwise each reviewed program's latest state or recorded recommendation. Individual program cards retain their statuses on Staff Reviews.
 - Each Overview panel has a navy-blue navigation link with white text: View Staff Reviews →, View MPI Indicators →, or View Subsidy Screening →. View Staff Reviews uses a URL fragment to reveal its heading and program cards directly. All assessment/review navigation preserves validated return filters; do not duplicate evidence or show internal review identifiers.
+
+## Review Queue
+
+- Assessments provides working Prioritization and Review Queue tabs. Queue status tabs are In Review (default), For LGU Follow-Up, and No Further Action, with one short explanation for the selected tab. Automated screening findings never create queue rows.
+- Show Municipal Rank, Household ID, Household Head, Barangay, Subsidy, Staff Review, Date Started/Finished, and Action. Ranks come unchanged from the designated completed run. Ongoing reviews are oldest first; finished reviews are most recently finished first. A newer review supersedes earlier records for that household/program, including when the latest review was cancelled.
+- Search by household reference or head name; filter by barangay and any selected subsidy programs. Use 25 reviews per page, distinct empty states for an empty status versus unmatched filters, and a contained scrollable table at narrow widths. Status changes and filter submissions reset pagination while preserving applied selections.
+- Open Review and View Review go directly to the existing focused record. Compact individually bordered navigation controls provide Back to Review Queue and View Household Assessment, preserving status, search, barangay, subsidies, and page. Household-origin reviews retain Back to Staff Reviews, and Prioritization-origin assessments retain Back to Prioritization. Keep useful screening navigation without duplicating rows.
+- After finishing, show the read-only record and name the recommendation tab where it can be found. It leaves In Review; cancellation preserves history without adding a queue row.
 
 ## Design and change boundaries
 

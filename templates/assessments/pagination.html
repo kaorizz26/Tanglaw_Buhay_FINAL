@@ -1,16 +1,17 @@
+{% set pagination_endpoint = pagination_endpoint | default('assessments.prioritization') %}
 <div class="pagination-footer">
   <p class="record-count">
     <strong>{{ '{:,}'.format(results.first_record) }}–{{ '{:,}'.format(results.last_record) }}</strong>
-    of {{ '{:,}'.format(results.total) }} households
+    of {{ '{:,}'.format(results.total) }} {{ record_label | default('households') }}
   </p>
   <div class="pagination-controls">
     <p class="page-count">Page {{ results.page }} of {{ results.page_count }} · 25 per page</p>
-    <nav class="pagination" aria-label="Household ranking pages">
+    <nav class="pagination" aria-label="{{ pagination_label | default('Household ranking pages') }}">
       {% if results.page > 1 %}
         <a
           class="page-link page-direction"
           href="{{ url_for(
-            'assessments.prioritization',
+            pagination_endpoint,
             page=results.page - 1,
             **results.filter_parameters
           ) }}"
@@ -32,7 +33,7 @@
           <a
             class="page-link"
             href="{{ url_for(
-              'assessments.prioritization',
+              pagination_endpoint,
               page=page_number,
               **results.filter_parameters
             ) }}"
@@ -45,7 +46,7 @@
         <a
           class="page-link page-direction"
           href="{{ url_for(
-            'assessments.prioritization',
+            pagination_endpoint,
             page=results.page + 1,
             **results.filter_parameters
           ) }}"

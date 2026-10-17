@@ -35,7 +35,7 @@
 
     <nav class="assessment-tabs" aria-label="Assessment views">
       <a href="{{ url_for('assessments.prioritization') }}" aria-current="page">Prioritization</a>
-      <span aria-disabled="true">Review Queue <small>Planned</small></span>
+      <a href="{{ url_for('assessments.queue') }}">Review Queue</a>
     </nav>
 
     <p class="assessment-summary">

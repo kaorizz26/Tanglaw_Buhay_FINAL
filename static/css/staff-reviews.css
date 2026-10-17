@@ -302,7 +302,7 @@
 .review-navigation a {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 44px;
   font-weight: 600;
 }
 

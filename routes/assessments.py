@@ -12,9 +12,49 @@ from services.staff_reviews import (
     act_on_review,
 )
 from services.subsidy_screening_content import PROGRAM_NAMES
+from services.review_queue import (
+    get_review_queue_page, parse_queue_arguments, parse_queue_return,
+    queue_return_parameters,
+)
 
 
 assessments = Blueprint("assessments", __name__)
+
+
+def _assessment_navigation(arguments):
+    tab, list_parameters = detail_navigation(arguments)
+    queue_state = parse_queue_return(arguments)
+    queue_parameters = {}
+    queue_url = None
+    if queue_state:
+        page, filters = queue_state
+        queue_parameters = queue_return_parameters(page, filters)
+        queue_url = url_for('assessments.queue', page=page, **filters.parameters)
+    return tab, {
+        'list_parameters': list_parameters,
+        'detail_parameters': {**list_parameters, **queue_parameters},
+        'queue_return_url': queue_url,
+    }
+
+
+@assessments.get('/assessments/queue')
+def queue():
+    """Read explicit staff work through the existing staff authorization guard."""
+    try:
+        page, filters = parse_queue_arguments(request.args)
+        results = get_review_queue_page(page, filters)
+    except InvalidAssessmentFilters:
+        abort(400, description='Choose valid review status and filter values.')
+    except AssessmentQueryError:
+        abort(503, description='Staff reviews are unavailable. Please try again later.')
+    if results is None:
+        flash('This queue page is no longer available. Showing the first page.')
+        return redirect(url_for('assessments.queue', page=1, **filters.parameters), code=303)
+    return render_template(
+        'assessments/queue.html', results=results,
+        role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
+        staff_username=g.user['username'], csrf_token=csrf_token(),
+    )
 
 
 @assessments.get("/assessments")
@@ -54,7 +94,7 @@ def prioritization():
 def detail(household_uuid):
     """Show one stored household only after the unchanged staff authorization guard."""
     try:
-        tab, list_parameters = detail_navigation(request.args)
+        tab, navigation = _assessment_navigation(request.args)
         if tab == "reviews":
             results = get_staff_review_detail(str(household_uuid))
         else:
@@ -68,7 +108,7 @@ def detail(household_uuid):
     role_label = "System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff"
     return render_template(
         "assessments/detail.html", results=results, tab=tab,
-        list_parameters=list_parameters, role_label=role_label,
+        **navigation, role_label=role_label,
         staff_username=g.user["username"], csrf_token=csrf_token(),
     )
 
@@ -84,7 +124,7 @@ def start_review(household_uuid, review_program):
     if program not in PROGRAM_NAMES:
         abort(404, description="Choose one of the available subsidy programs.")
     try:
-        _, list_parameters = detail_navigation(request.args)
+        _, navigation = _assessment_navigation(request.args)
     except InvalidAssessmentFilters:
         abort(400, description="Choose valid return filters.")
     error = None
@@ -135,7 +175,7 @@ def start_review(household_uuid, review_program):
         if error is None:
             return redirect(url_for(
                 "assessments.detail", household_uuid=household_uuid, tab="reviews",
-                **list_parameters,
+                **navigation['detail_parameters'],
             ), code=303)
     try:
         results = get_staff_review_detail(str(household_uuid))
@@ -151,11 +191,11 @@ def start_review(household_uuid, review_program):
     if selected["review"]:
         return redirect(url_for(
             "assessments.detail", household_uuid=household_uuid, tab="reviews",
-            **list_parameters,
+            **navigation['detail_parameters'],
         ), code=303)
     return render_template(
         "assessments/detail.html", results=results, tab="reviews", start_program=selected,
-        review_error=error, starting_reason=reason[:1000], list_parameters=list_parameters,
+        review_error=error, starting_reason=reason[:1000], **navigation,
         role_label="System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff",
         staff_username=g.user["username"], csrf_token=csrf_token(),
     ), (400 if error else 200)
@@ -173,7 +213,7 @@ def review_record(household_uuid, review_program, review_id):
     if program not in PROGRAM_NAMES or review_id < 1:
         abort(404)
     try:
-        _, list_parameters = detail_navigation(request.args)
+        _, navigation = _assessment_navigation(request.args)
     except InvalidAssessmentFilters:
         abort(400, description='Choose valid return filters.')
     mode = request.args.get('action', '')
@@ -229,11 +269,17 @@ def review_record(household_uuid, review_program, review_id):
                     'The action could not be saved. Check the review before trying again.'
                 ))
         else:
-            flash({'note': 'Note saved.', 'finish': 'Review finished.',
-                   'cancel': 'Review cancelled. No recommendation was made.'}[action])
+            flash({
+                'note': 'Note saved.',
+                'finish': (
+                    f'Review finished. Find this record under {recommendation} '
+                    'in the Review Queue.'
+                ),
+                'cancel': 'Review cancelled. No recommendation was made.',
+            }[action])
             return redirect(url_for(
                 'assessments.review_record', household_uuid=household_uuid,
-                review_program=program, review_id=review_id, **list_parameters,
+                review_program=program, review_id=review_id, **navigation['detail_parameters'],
             ), code=303)
     try:
         results = get_staff_review_detail(str(household_uuid))
@@ -253,7 +299,7 @@ def review_record(household_uuid, review_program, review_id):
     return render_template(
         'assessments/detail.html', results=results, tab='reviews', review_record=record,
         review_mode=mode, review_error=error, review_text=text[:2000],
-        recommendation=recommendation, list_parameters=list_parameters,
+        recommendation=recommendation, **navigation,
         role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
         staff_username=g.user['username'], csrf_token=csrf_token(),
     ), (400 if error else 200)

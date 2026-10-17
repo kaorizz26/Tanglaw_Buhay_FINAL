@@ -13,6 +13,33 @@
   font-weight: 600;
 }
 
+.context-navigation {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--navy);
+  background: var(--surface);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.context-navigation:hover {
+  background: var(--surface-muted);
+  text-decoration: none;
+}
+
+.context-navigation:focus-visible {
+  outline: 3px solid #167eb5;
+  outline-offset: 3px;
+}
+
 .detail-household-id {
   margin-top: 4px;
   color: var(--gold-text);

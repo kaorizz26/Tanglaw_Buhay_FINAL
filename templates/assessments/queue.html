@@ -1,0 +1,178 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Review Queue{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/assessments.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-reviews.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/review-queue.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set review_label = 'review' if results.total == 1 else 'reviews' %}
+  <header class="page-header queue-header">
+    <div class="context-bar">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <span>Assessments</span><span aria-hidden="true">/</span>
+        <span aria-current="page">Review Queue</span>
+      </nav>
+      <p class="dataset-reference">CBMS Data · {{ results.context.survey_year }}</p>
+    </div>
+    <div class="page-heading">
+      <h1>Review Queue</h1>
+      <p>Subsidy reviews started by LGU staff · Municipality of {{ results.context.municipality }}</p>
+    </div>
+    <nav class="assessment-tabs" aria-label="Assessment views">
+      <a href="{{ url_for('assessments.prioritization') }}">Prioritization</a>
+      <a href="{{ url_for('assessments.queue') }}" aria-current="page">Review Queue</a>
+    </nav>
+  </header>
+
+  <nav class="assessment-tabs queue-status-tabs" aria-label="Review status">
+    {% for value, label in results.status_options %}
+      <a
+        href="{{ url_for('assessments.queue', status=value, **results.tab_filter_parameters) }}"
+        {% if results.filters.status == value %}aria-current="page"{% endif %}
+      >{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <p class="queue-explanation">{{ results.status_explanation }}</p>
+
+  {% for message in get_flashed_messages() %}
+    <p class="review-notice" role="status">{{ message }}</p>
+  {% endfor %}
+
+  <section class="ranking-panel" aria-labelledby="queue-table-heading">
+    <form
+      class="prioritization-filters queue-filters"
+      method="get"
+      action="{{ url_for('assessments.queue') }}"
+      aria-label="Filter staff reviews"
+    >
+      <input type="hidden" name="status" value="{{ results.filters.status }}">
+      <div class="filter-fields">
+        <div class="filter-field filter-search">
+          <label for="queue-search">Household search</label>
+          <input
+            type="search" id="queue-search" name="q"
+            value="{{ results.filters.search }}"
+            placeholder="Head name or HH-00001" maxlength="200"
+          >
+        </div>
+        <div class="filter-field">
+          <label for="queue-barangay">Barangay</label>
+          <select id="queue-barangay" name="barangay">
+            <option value="">All Barangays</option>
+            {% if results.filters.barangay and results.filters.barangay not in results.barangays %}
+              <option selected value="{{ results.filters.barangay }}">{{ results.filters.barangay }} (unavailable)</option>
+            {% endif %}
+            {% for barangay in results.barangays %}
+              <option value="{{ barangay }}" {% if barangay == results.filters.barangay %}selected{% endif %}>{{ barangay }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button class="apply-filters" type="submit">Apply Filters</button>
+          <a class="clear-filters" href="{{ url_for('assessments.queue', status=results.filters.status) }}">Clear Filters</a>
+        </div>
+      </div>
+      <fieldset class="subsidy-filters queue-programs" aria-describedby="queue-program-help">
+        <legend>Subsidy programs</legend>
+        <div class="program-choices">
+          {% for program in results.program_options %}
+            <label class="program-choice">
+              <input
+                type="checkbox" name="program" value="{{ program }}"
+                {% if program in results.filters.programs %}checked{% endif %}
+              >
+              <span>{{ program }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <p class="filter-help" id="queue-program-help">Show any selected program. Leave all unchecked to show every program.</p>
+      </fieldset>
+    </form>
+
+    <div class="ranking-heading">
+      <h2 id="queue-table-heading">{{ 'Reviews in progress' if results.filters.status == 'in-review' else results.status_label }}</h2>
+      <p>{{ '{:,}'.format(results.total) }} {% if results.filters.active %}matching {% endif %}{{ review_label }}</p>
+    </div>
+    <p class="queue-rank-explanation" id="queue-rank-explanation">Municipal Rank reflects household vulnerability across the municipality, not review order.</p>
+    <div class="table-scroll" role="region" aria-label="Staff review table" tabindex="0">
+      <table class="ranking-table queue-table" aria-describedby="queue-rank-explanation">
+        <caption class="visually-hidden">
+          {{ results.status_label }} household subsidy reviews.
+          {{ 'Oldest started first.' if results.filters.status == 'in-review' else 'Most recently finished first.' }}
+        </caption>
+        <colgroup>
+          <col class="queue-rank">
+          <col class="queue-reference">
+          <col class="queue-head">
+          <col class="queue-barangay">
+          <col class="queue-program">
+          <col class="queue-status">
+          <col class="queue-date">
+          <col class="queue-action">
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col" class="rank-cell">Municipal Rank</th>
+            <th scope="col">Household ID</th>
+            <th scope="col">Household Head</th>
+            <th scope="col">Barangay</th>
+            <th scope="col">Subsidy</th>
+            <th scope="col">Staff Review</th>
+            <th scope="col">Date {{ 'Started' if results.filters.status == 'in-review' else 'Finished' }}</th>
+            <th scope="col" class="action-cell">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for review in results['items'] %}
+            <tr>
+              <td class="rank-cell">{{ '{:,}'.format(review.vulnerability_rank) }}</td>
+              <td class="household-reference-id">{{ review.household_reference_id }}</td>
+              <th scope="row" class="household-cell">
+                <span class="household-name">{{ review.head_name }}</span>
+              </th>
+              <td>{{ review.barangay }}</td>
+              <td>{{ review.program }}</td>
+              <td>
+                <span class="staff-review-badge staff-review-badge--{{ results.status_style }}">{{ results.status_label }}</span>
+              </td>
+              {% set timestamp = review.created_at if results.filters.status == 'in-review' else review.finished_at %}
+              <td>
+                <time datetime="{{ timestamp.isoformat() }}">{{ timestamp.strftime('%d %b %Y') }}</time>
+              </td>
+              <td class="action-cell">
+                <a
+                  class="review-button queue-review-action"
+                  href="{{ url_for(
+                    'assessments.review_record', household_uuid=review.household_uuid,
+                    review_program=review.program, review_id=review.id,
+                    **results.return_parameters
+                  ) }}"
+                  aria-label="{{ 'Open' if results.filters.status == 'in-review' else 'View' }} {{ review.program }} review for {{ review.household_reference_id }}"
+                >{{ 'Open Review' if results.filters.status == 'in-review' else 'View Review' }}</a>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td class="empty-results" colspan="8">
+              {% if results.filters.active %}
+                <strong>No reviews match your search or filters.</strong>
+                <p>Try another Household ID or name, adjust your selections, or clear the filters.</p>
+              {% else %}
+                <strong>No reviews {{ 'are currently in progress.' if results.filters.status == 'in-review' else 'have this recommendation yet.' }}</strong>
+                <p>{{ 'Start a review from a household’s Staff Reviews tab after examining its findings.' if results.filters.status == 'in-review' else 'Finished reviews with this recommendation will appear here.' }}</p>
+              {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% with pagination_endpoint='assessments.queue', record_label=review_label, pagination_label='Review queue pages' %}
+      {% include 'assessments/pagination.html' %}
+    {% endwith %}
+  </section>
+{% endblock %}

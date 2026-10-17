@@ -1907,3 +1907,21 @@ latest review per program supplies the compact status panel. Missing migration
 0006 causes a safe unavailable response on assessment details; apply it before
 using this version. Source records, findings, scores, ranks and priority are never
 updated by review actions. Tests use only synthetic disposable test schemas.
+
+### Review Queue
+
+`GET /assessments/queue` uses the existing staff guard. `services/review_queue.py`
+validates `status` (`in-review`, `follow-up`, `no-action`), `q`, `barangay`, repeated
+`program`, and `page`, then uses the shared repeatable-read, read-only active-batch
+and designated-run context. Repository count/page queries select the latest review
+per batch/household/program before status filtering; a latest cancellation excludes
+older recommendations. Rank comes from the currently designated run, while each
+review retains its original run association. Page identities are loaded together;
+queue rows do not load notes or MPI/subsidy evidence. No migration is added.
+
+Review links carry `from_queue=1` and validated `queue_status`, `queue_q`,
+`queue_barangay`, repeated `queue_program`, and `queue_page`. The app builds internal
+return URLs; it accepts no redirect URL. These parameters remain separate from
+Prioritization filters and survive existing note/finish/cancel forms and assessment
+tabs. If a queue page disappears after a transition, return to page 1 with filters
+intact. Focused coverage: `python -B -m unittest discover -s tests -p test_review_queue.py`.

@@ -1,0 +1,92 @@
+/* Municipality-wide, staff-initiated subsidy reviews. */
+.queue-header {
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.queue-status-tabs {
+  margin-bottom: 12px;
+}
+
+.queue-explanation {
+  margin: 0 0 20px;
+  max-width: 90ch;
+  color: var(--text-muted);
+}
+
+.queue-filters {
+  padding: 18px 16px 16px;
+}
+
+.queue-programs {
+  margin-top: 16px;
+}
+
+.queue-programs .filter-help {
+  margin-top: 8px;
+}
+
+.queue-rank-explanation {
+  margin: 0;
+  padding: 0 16px 16px;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.queue-table .queue-rank {
+  width: 10%;
+}
+
+.queue-table .queue-reference {
+  width: 11%;
+}
+
+.queue-table .queue-head {
+  width: 17%;
+}
+
+.queue-table .queue-barangay {
+  width: 11%;
+}
+
+.queue-table .queue-program {
+  width: 9%;
+}
+
+.queue-table .queue-status {
+  width: 17%;
+}
+
+.queue-table .queue-date {
+  width: 12%;
+}
+
+.queue-table .queue-action {
+  width: 13%;
+}
+
+.queue-table {
+  min-width: 1024px;
+}
+
+.queue-table th,
+.queue-table td {
+  padding-right: 12px;
+  padding-left: 12px;
+}
+
+.queue-table td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.queue-table time {
+  white-space: nowrap;
+  font-size: 0.9375rem;
+}
+
+.queue-review-action {
+  padding: 8px 12px;
+  min-height: 44px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}

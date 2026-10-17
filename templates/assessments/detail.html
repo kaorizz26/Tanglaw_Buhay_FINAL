@@ -14,7 +14,7 @@
   <header class="page-header detail-header">
     <div class="context-bar">
       <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="{{ url_for('assessments.prioritization', **list_parameters) }}">Assessments</a>
+        <a href="{{ queue_return_url or url_for('assessments.prioritization', **list_parameters) }}">{{ 'Review Queue' if queue_return_url else 'Assessments' }}</a>
         <span aria-hidden="true">/</span>
         <span aria-current="page">{{ 'Staff Review' if focused_review else 'Household Assessment' }}</span>
       </nav>
@@ -23,8 +23,8 @@
       </p>
     </div>
     {% if not focused_review %}
-      <a class="back-to-prioritization" href="{{ url_for('assessments.prioritization', **list_parameters) }}">
-        <span aria-hidden="true">←</span> Back to Prioritization
+      <a class="back-to-prioritization context-navigation" href="{{ queue_return_url or url_for('assessments.prioritization', **list_parameters) }}">
+        <span aria-hidden="true">←</span> Back to {{ 'Review Queue' if queue_return_url else 'Prioritization' }}
       </a>
     {% endif %}
     <div class="page-heading">
@@ -61,7 +61,7 @@
         ('screening', 'Subsidy Screening'), ('reviews', 'Staff Reviews')
       ] %}
         <a
-          href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **list_parameters) }}"
+          href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **detail_parameters) }}"
           {% if tab == value %}aria-current="page"{% endif %}
         >{{ label }}</a>
       {% endfor %}
