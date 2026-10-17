@@ -7,18 +7,29 @@ PROGRAM_NAMES = {
     "TUPAD": "Tulong Panghanapbuhay sa Ating Disadvantaged / Displaced Workers",
 }
 
+STATUS_LABELS = {
+    "For Review": "For Review",
+    "Needs Data Review": "Not Enough Information",
+    "No Historical CBMS Trigger": "No Review Signal",
+}
+
+STATUS_CLASSES = {
+    "For Review": "review",
+    "Needs Data Review": "data",
+    "No Historical CBMS Trigger": "none",
+}
+
 STATUS_EXPLANATIONS = {
     "For Review": (
-        "Recorded circumstances support considering this household for program review. "
-        "This finding does not start a staff review or confirm eligibility."
+        "A supported condition was found in the recorded CBMS information for staff "
+        "consideration."
     ),
     "No Historical CBMS Trigger": (
-        "No supported historical screening match was identified in the available "
-        "information. This does not mean the household is ineligible."
+        "No supported screening match was established from the available historical records."
     ),
     "Needs Data Review": (
-        "Missing or conflicting information prevented a clear screening result. "
-        "Missing answers do not mean No."
+        "The available historical records did not contain enough clear information to "
+        "establish a screening match."
     ),
 }
 
@@ -34,7 +45,7 @@ FIELD_LABELS = {
     "b06_ofi": "Overseas Filipino status",
     "c07_tvet_graduate": "Completed technical or vocational training",
     "c08_tvet_currently_attending": "Attending technical or vocational training",
-    "e01_employed": "Worked at least one hour in the past week",
+    "e01_employed": "Worked at least one hour during the survey reference week",
     "e11_nature_of_employment": "Nature of work",
     "e18_class_of_worker": "Type of worker",
     "l01_with_member_who_has_been_pregnant": "Household reported a member who had been pregnant",
@@ -86,7 +97,7 @@ REASON_TEXT = {
     "household_pregnancy": "The household reported a pregnant member at the time of the survey.",
     "member_pregnancy": (
         "The stored finding links this member to the household's pregnancy report. "
-        "The member's pregnancy answer still needs confirmation."
+        "The meaning of the member's pregnancy answer remains uncertain."
     ),
     "EF": (
         "Recorded as not working during the week before the survey, supporting "
@@ -99,7 +110,7 @@ REASON_TEXT = {
     "observed_nonwork": "Recorded as not working during the week before the survey.",
     "assumed_nonwork": (
         "No work answer was recorded. The stored finding treated this member as "
-        "possibly not working; this was not a recorded No answer and must be confirmed."
+        "possibly not working; this was not a recorded No answer."
     ),
     "irregular_work": "Short-term, seasonal, casual, or day-to-day work was recorded at the survey.",
     "assumed_overseas_work": (
@@ -111,7 +122,27 @@ REASON_TEXT = {
     ),
     "senior_disability": (
         "The stored finding links a disability response to this senior member. "
-        "The response's meaning still needs confirmation."
+        "The response's meaning remains uncertain."
+    ),
+}
+
+WARNING_FIELDS = {
+    "pregnancy_routing_conflict": (),
+    "pregnancy_member_conflict": ("a07_age", "a05_sex", "l07_currently_pregnant"),
+    "pregnancy_invalid_member_code": ("a07_age", "a05_sex", "l07_currently_pregnant"),
+    "pregnancy_household_member_conflict": (),
+    "pregnancy_member_unresolved": (),
+    "disability_household_member_conflict": (),
+    "disability_member_conflict": ("a07_age", "l16_pwd"),
+    "disability_invalid_member_code": ("a07_age", "l16_pwd"),
+    "senior_disability_unresolved": ("a07_age", "l16_pwd"),
+    "employment_skip_conflict": (
+        "a07_age", "b06_ofi", "e01_employed", "e11_nature_of_employment",
+        "e18_class_of_worker",
+    ),
+    "nonwork_imputation_conflict": (
+        "a07_age", "b06_ofi", "e01_employed", "e11_nature_of_employment",
+        "e18_class_of_worker",
     ),
 }
 

@@ -75,8 +75,8 @@
       {% for program in results.programs %}
         <div>
           <dt>{{ program.name }}</dt>
-          <dd class="screening-status{% if program.status == 'For Review' %} screening-status--review{% elif program.status == 'Needs Data Review' %} screening-status--data{% endif %}">
-            {{ 'No Review Signal' if program.status == 'No Historical CBMS Trigger' else program.status }}
+          <dd class="screening-status screening-status--{{ program.status_class }}">
+            {{ program.status_label }}
           </dd>
         </div>
       {% endfor %}
@@ -97,8 +97,8 @@
       {% endif %}
       {% if 'Needs Data Review' in screening_statuses %}
         <div>
-          <dt>Needs Data Review</dt>
-          <dd>Missing or conflicting information prevents determining a screening match.</dd>
+          <dt>Not Enough Information</dt>
+          <dd>The available historical records did not contain enough clear information to establish a screening match.</dd>
         </div>
       {% endif %}
     </dl>

@@ -17,6 +17,7 @@ from services.prioritization import (
 )
 from services.vulnerability.scoring import DIMENSIONS, INDICATOR_WEIGHTS
 from services.subsidy_priority import derive_subsidy_priority
+from services.subsidy_screening_content import STATUS_CLASSES, STATUS_LABELS
 from services.subsidy_screening_details import prepare_subsidy_screening
 
 
@@ -115,8 +116,19 @@ def prepare_assessment_detail(source):
             for dimension in dimensions for indicator in dimension["indicators"]
             if indicator["flag"] is None
         ],
-        "programs": [{"name": code, "status": source["findings"]["programs"][code]["screening_status"]}
-                     for code in PROGRAM_ORDER],
+        "programs": [
+            {
+                "name": code,
+                "status": source["findings"]["programs"][code]["screening_status"],
+                "status_label": STATUS_LABELS[
+                    source["findings"]["programs"][code]["screening_status"]
+                ],
+                "status_class": STATUS_CLASSES[
+                    source["findings"]["programs"][code]["screening_status"]
+                ],
+            }
+            for code in PROGRAM_ORDER
+        ],
         "screening_programs": prepare_subsidy_screening(source, reference),
     }
 

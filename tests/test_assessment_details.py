@@ -113,6 +113,26 @@ class AssessmentDetailPresentationTests(unittest.TestCase):
         e15 = evidence_cell("e15_want_more_hours", "1", "section_a_e_indiv", index)
         self.assertTrue(any("Synthetic Support" in note for note in e15["notes"]))
 
+    def test_educational_attainment_evidence_keeps_level_and_graduate_labels_distinct(self):
+        expected = {
+            "4": "Junior High School Level",
+            "5": "Junior High School Graduate",
+            "6": "Senior High School Level",
+            "7": "Senior High School Graduate",
+        }
+        for code, label in expected.items():
+            with self.subTest(code=code):
+                source = deepcopy(self.source)
+                source["members"][0]["responses"]["c02_hgc_group"] = code
+                index = build_evidence_index(source)
+                evidence = prepare_evidence_view(
+                    "Educational Attainment",
+                    build_indicator_evidence("Educational Attainment", source, index),
+                )
+                member = next(item for item in evidence["members"]
+                              if item["line_number"] == 1)
+                self.assertEqual(member["display_cells"][0]["value"], label)
+
     def test_staff_evidence_groups_preserve_source_and_label_uncertainty(self):
         index = build_evidence_index(self.source)
         food = prepare_evidence_view(
@@ -313,7 +333,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertEqual(overview.status_code, 200)
                 self.assertEqual(overview.headers["Cache-Control"], "no-store")
                 for text in ("HH-00008", "Synthetic Member 1", "36.11", HOUSEHOLD_UUID,
-                             "Municipal Vulnerability Rank", "Needs Data Review",
+                             "Municipal Vulnerability Rank", "Not Enough Information",
                              "No Review Signal", "15", "Select the indicator to view its supporting evidence."):
                     self.assertIn(text, overview.text)
                 for removed in ("Assessment Run 2", "How it works", "data coverage",
@@ -360,7 +380,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.assertIn("#mpi-internet", response.text)
         for text in ("Areas Contributing to Vulnerability", "Each can contribute up to 25 points.",
                      "Overall Vulnerability Score", "This does not mean the household is ineligible.",
-                     "Missing or conflicting information prevents determining a screening match."):
+                     "The available historical records did not contain enough clear information"):
             self.assertIn(text, response.text)
         bars = re.findall(r'<meter.*?value="([^"]+)".*?</meter>', response.text, re.S)
         expected = details.prepare_assessment_detail(self.source)["dimensions"]
@@ -370,12 +390,12 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         findings = re.findall(r'<dt>(.*?)</dt>\s*<dd\b[^>]*>\s*(.*?)\s*</dd>',
                               screening, re.S)
         self.assertEqual(findings, [
-            ("4Ps", "For Review"), ("SLP", "Needs Data Review"),
+            ("4Ps", "For Review"), ("SLP", "Not Enough Information"),
             ("SPISC", "No Review Signal"), ("TUPAD", "For Review"),
         ])
         self.assertEqual(screening.count('class="screening-status screening-status--review"'), 2)
         self.assertIn('class="screening-status screening-status--data"', screening)
-        self.assertIn('class="screening-status"', screening)
+        self.assertIn('class="screening-status screening-status--none"', screening)
         self.assertEqual(self.source, before)
         for program in self.source["findings"]["programs"].values():
             program["screening_status"] = "For Review"

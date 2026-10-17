@@ -2,9 +2,8 @@
   <div class="screening-introduction">
     <h2 id="subsidy-screening-heading">Subsidy Screening</h2>
     <p class="section-helper">
-      These findings use CBMS {{ results.context.survey_year }} information. Household
-      circumstances may have changed. Confirm current information and official program
-      requirements before any decision about eligibility or assistance.
+      Findings are based on CBMS {{ results.context.survey_year }} information and do not
+      determine official subsidy eligibility.
     </p>
     <nav class="screening-program-links" aria-label="Jump to a subsidy program">
       {% for program in results.screening_programs %}
@@ -14,7 +13,7 @@
   </div>
 
   {% for program in results.screening_programs %}
-    <article class="detail-section screening-program" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
+    <article class="detail-section screening-program screening-program--{{ program.status_class }}" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
       <header class="screening-program-heading">
         <div>
           <h3 id="screening-title-{{ program.code | lower }}">{{ program.code }}</h3>
@@ -25,49 +24,36 @@
       <p class="screening-explanation">{{ program.explanation }}</p>
 
       {% if program.reasons %}
-        <div class="screening-reasons">
-          <h4>Why this household was flagged</h4>
+        <section class="screening-reasons" aria-label="Recorded reasons for {{ program.code }}">
+          <h4>Why this household received For Review</h4>
           <ul>
             {% for reason in program.reasons %}
               <li><strong>{{ reason.subject }}:</strong> {{ reason.text }}</li>
             {% endfor %}
           </ul>
-        </div>
+        </section>
       {% endif %}
 
-      <div class="screening-checks">
-        {% if program.issues %}
-          <section class="screening-information" aria-label="Information needing confirmation for {{ program.code }}">
-            <h4>Information to check</h4>
-            <ul>
-              {% for issue in program.issues %}
-                <li>{{ issue }}</li>
-              {% endfor %}
-            </ul>
-          </section>
-        {% endif %}
-        {% if program.requirements %}
-          <section aria-label="Program information to verify for {{ program.code }}">
-            <h4>Still to verify</h4>
-            <ul>
-              {% for requirement in program.requirements %}
-                <li>{{ requirement }}</li>
-              {% endfor %}
-            </ul>
-          </section>
-        {% endif %}
-      </div>
+      {% if program.issues %}
+        <section class="screening-information" aria-label="Unavailable or unclear information for {{ program.code }}">
+          <h4>Information unavailable or unclear</h4>
+          <ul>
+            {% for issue in program.issues %}
+              <li>{{ issue }}</li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
 
       <details class="screening-evidence">
-        <summary>View supporting evidence<span class="visually-hidden"> for {{ program.code }}</span></summary>
+        <summary>View Recorded Information<span class="visually-hidden"> for {{ program.code }}</span></summary>
         <div class="evidence-body">
           <p class="evidence-context">
-            Recorded information from CBMS {{ results.context.survey_year }}.
-            Ages refer to the survey date.
+            Recorded CBMS {{ results.context.survey_year }} information.
             {% if program.code in ['SLP', 'TUPAD'] %}
-              Work answers concern the week before the survey.
+              Work answers refer to the survey reference week.
             {% endif %}
-            A missing answer may reflect a skipped question; it does not mean No.
+            “Not recorded” may reflect an expected questionnaire skip and does not mean No.
           </p>
           {% if program.supporting_context %}
             <section>
@@ -80,7 +66,7 @@
             </section>
           {% endif %}
           {% if program.differences %}
-            <section class="screening-information">
+            <section class="screening-differences">
               <h4>Information that differs</h4>
               {% for difference in program.differences %}
                 <p><strong>{{ difference.subject }} — {{ difference.label }}</strong><br>

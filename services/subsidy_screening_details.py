@@ -5,8 +5,8 @@ from services.mpi_evidence import _member_heading, _relevant_age
 from services.screening.metadata import PROGRAMS
 from services.subsidy_screening_content import (
     FIELD_LABELS, HEALTH_FIELDS, HOUSEHOLD_FIELDS, PROGRAM_FIELDS, PROGRAM_NAMES,
-    REASON_TEXT, REQUIREMENT_TEXT, SLP_UNRESOLVED_NOTE, STATUS_EXPLANATIONS,
-    WARNING_TEXT,
+    REASON_TEXT, SLP_UNRESOLVED_NOTE, STATUS_CLASSES, STATUS_EXPLANATIONS,
+    STATUS_LABELS, WARNING_FIELDS, WARNING_TEXT,
 )
 
 
@@ -14,7 +14,11 @@ def _missing(value):
     return value is None or str(value).strip().upper() in ("", "NA")
 
 
-def _answer(field, raw, index):
+def _field_label(field, survey_year):
+    return f"Age in {survey_year}" if field == "a07_age" else FIELD_LABELS[field]
+
+
+def _answer(field, raw, index, survey_year):
     """Reuse batch decoding; never expose raw codes or reference metadata."""
     dataset = (
         "section_l02_to_l41" if field in HEALTH_FIELDS else
@@ -27,12 +31,13 @@ def _answer(field, raw, index):
     elif "verification" in meaning.lower() or "no verified" in meaning.lower():
         value = "Meaning needs confirmation"
     elif field == "a07_age":
-        value = meaning
+        age = code_key(raw)
+        value = f"{int(age)} years" if age and age.isdecimal() else "Meaning needs confirmation"
     elif field in HEALTH_FIELDS:
         value = f"{meaning.rstrip('.')} — meaning needs confirmation"
     else:
         value = meaning.rstrip(".")
-    return {"label": FIELD_LABELS[field], "value": value}
+    return {"label": _field_label(field, survey_year), "value": value}
 
 
 def _member_name(line, members):
@@ -79,33 +84,74 @@ def _stored_items(code, finding, members):
 
 def _record_evidence(code, finding, source, index, members):
     spec = PROGRAM_FIELDS[code]
+    survey_year = source["context"]["survey_year"]
     household_cells = [
-        _answer(field, source["household"].get(field), index)
+        _answer(field, source["household"].get(field), index, survey_year)
         for field in spec["household"]
     ]
     selected_lines = {
         code_key(item.get("member_line_number"))
         for item in (*finding["supporting_evidence"], *finding["data_quality_warnings"])
     }
+    selected_lines.discard(None)
+    evidence_fields = {}
+    for item in finding["supporting_evidence"]:
+        line = code_key(item.get("member_line_number"))
+        if line is None:
+            continue
+        fields = evidence_fields.setdefault(line, set())
+        fields.update(
+            field for field in item.get("observed_values", {})
+            if field in FIELD_LABELS and field not in HOUSEHOLD_FIELDS
+        )
+    for warning in finding["data_quality_warnings"]:
+        line = code_key(warning.get("member_line_number"))
+        if line is not None:
+            evidence_fields.setdefault(line, set()).update(
+                WARNING_FIELDS.get(warning.get("code"), ())
+            )
+    for member in source["members"]:
+        age = code_key(member["responses"].get("a07_age"))
+        if age is None or not age.isdecimal():
+            line = code_key(member["line_number"])
+            if line is not None:
+                selected_lines.add(line)
+                evidence_fields.setdefault(line, set()).add("a07_age")
+
     member_rows = []
     for member in source["members"]:
-        if not (
-            code_key(member["line_number"]) in selected_lines
-            or _relevant_age(
-                member["responses"].get("a07_age"), (spec["minimum_age"], None),
-            )
-        ):
+        line = code_key(member["line_number"])
+        directly_related = line in selected_lines
+        minimum_age = 60 if code == "SPISC" else spec["minimum_age"]
+        broadly_relevant = _relevant_age(
+            member["responses"].get("a07_age"), (minimum_age, None),
+        )
+        if finding["screening_status"] == "For Review":
+            include_member = directly_related
+        else:
+            include_member = directly_related or broadly_relevant
+        if not include_member:
             continue
-        fields = list(spec["member"])
-        age = member["responses"].get("a07_age")
-        if code == "4Ps" and _relevant_age(age, (10, None)):
-            fields += list(spec["health"])
-        if code == "SPISC" and _relevant_age(age, (60, None)):
-            fields += list(spec["health"])
+        focused_fields = (
+            finding["screening_status"] == "For Review" and evidence_fields.get(line)
+        )
+        if focused_fields:
+            allowed = evidence_fields[line]
+            fields = [
+                field for field in (*spec["member"], *spec["health"])
+                if field in allowed
+            ]
+        else:
+            fields = list(spec["member"])
+            age = member["responses"].get("a07_age")
+            if code == "4Ps" and _relevant_age(age, (10, None)):
+                fields += list(spec["health"])
+            if code == "SPISC" and _relevant_age(age, (60, None)):
+                fields += list(spec["health"])
         member_rows.append({
             "name": _member_heading(member),
             "cells": [
-                _answer(field, _source_value(source, member, field), index)
+                _answer(field, _source_value(source, member, field), index, survey_year)
                 for field in fields
             ],
         })
@@ -129,9 +175,9 @@ def _record_evidence(code, finding, source, index, members):
                 continue
             differences.append({
                 "subject": "Household" if line is None else _member_name(line, members),
-                "label": FIELD_LABELS[field],
-                "stored": _answer(field, stored, index)["value"],
-                "recorded": _answer(field, recorded, index)["value"],
+                "label": _field_label(field, survey_year),
+                "stored": _answer(field, stored, index, survey_year)["value"],
+                "recorded": _answer(field, recorded, index, survey_year)["value"],
             })
     return household_cells, member_rows, differences
 
@@ -148,8 +194,8 @@ def _information_issues(code, finding, source, members):
         )
     for warning in finding["data_quality_warnings"]:
         text = WARNING_TEXT.get(
-            warning.get("code"), "The stored finding notes an unresolved "
-            "information issue; confirm the relevant answers.",
+            warning.get("code"),
+            "The stored finding notes an unresolved information issue.",
         )
         line = warning.get("member_line_number")
         issues.append(
@@ -157,46 +203,14 @@ def _information_issues(code, finding, source, members):
         )
     if not source["members"]:
         issues.append("No household member records are available to check the finding.")
-    if code == "4Ps" and finding["screening_status"] == "Needs Data Review":
-        absent = [
-            FIELD_LABELS[field].lower()
-            for field in PROGRAM_FIELDS[code]["household"]
-            if _missing(source["household"].get(field))
-        ]
-        if absent:
-            issues.append(
-                f"Not recorded — {', '.join(absent)}. "
-                "Some questions may have been skipped; missing does not mean No."
-            )
     for member in source["members"]:
         age = code_key(member["responses"].get("a07_age"))
         if age is None or not age.isdecimal():
             issues.append(f"{_member_heading(member)}: age is missing or unclear.")
-        if (
-            finding["screening_status"] != "Needs Data Review"
-            or code not in ("SLP", "TUPAD")
-        ):
-            continue
-        if not _relevant_age(
-            member["responses"].get("a07_age"),
-            (PROGRAM_FIELDS[code]["minimum_age"], None),
-        ):
-            continue
-        absent = [
-            FIELD_LABELS[field].lower() for field in (
-                "b06_ofi", "e01_employed", "e18_class_of_worker",
-                "e11_nature_of_employment",
-            ) if _missing(member["responses"].get(field))
-        ]
-        if absent:
-            issues.append(
-                f"{_member_heading(member)}: not recorded — {', '.join(absent)}. "
-                "Some questions may have been skipped; missing does not mean No."
-            )
     if finding["screening_status"] == "Needs Data Review" and not issues:
         issues.append(
-            "The stored finding does not identify the exact unresolved answer. "
-            "Check the available household and member information."
+            "The stored finding does not identify one reliable cause. Some questions "
+            "may have been skipped as expected, and a missing answer does not mean No."
         )
     return list(dict.fromkeys(issues))
 
@@ -224,32 +238,20 @@ def prepare_subsidy_screening(source, index):
         if status == "For Review" and not reasons:
             issues.append(
                 "The stored result is For Review, but a specific supporting "
-                "reason is not available. Confirm the basis before making "
-                "a program decision."
+                "reason is not available in the saved evidence."
             )
         if differences:
             issues.append(
                 "Some saved screening evidence differs from the available CBMS "
-                "record. Both are shown below for confirmation; the stored "
+                "record. Both recorded values are shown below; the stored "
                 "screening status is retained."
             )
         programs.append({
             "code": code, "name": PROGRAM_NAMES[code], "status": status,
-            "status_label": (
-                "No Review Signal"
-                if status == "No Historical CBMS Trigger" else status
-            ),
-            "status_class": {
-                "For Review": "review", "Needs Data Review": "data",
-            }.get(status, "none"),
+            "status_label": STATUS_LABELS[status],
+            "status_class": STATUS_CLASSES[status],
             "explanation": STATUS_EXPLANATIONS[status], "reasons": reasons,
             "supporting_context": context, "issues": issues,
-            "requirements": list(dict.fromkeys(
-                REQUIREMENT_TEXT.get(
-                    text, "Other program requirements still need confirmation.",
-                )
-                for text in finding["key_unverified_requirements"]
-            )),
             "household_cells": household, "members": rows, "differences": differences,
         })
     return programs

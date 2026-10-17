@@ -14,7 +14,9 @@ from assessment_detail_fixtures import HOUSEHOLD_UUID, screening_source
 from services import assessment_details
 from services.mpi_evidence import build_evidence_index
 from services.screening.metadata import PROGRAMS, STATUSES
-from services.subsidy_screening_content import REASON_TEXT, SLP_UNRESOLVED_NOTE, WARNING_TEXT
+from services.subsidy_screening_content import (
+    REASON_TEXT, SLP_UNRESOLVED_NOTE, STATUS_LABELS, WARNING_TEXT,
+)
 from services.subsidy_screening_details import prepare_subsidy_screening
 
 
@@ -35,6 +37,9 @@ class ScreeningPresentationTests(unittest.TestCase):
                 self.assertEqual(self.source, before)
                 self.assertEqual([p["code"] for p in programs], list(PROGRAMS))
                 self.assertTrue(all(p["status"] == status for p in programs))
+                self.assertTrue(all(p["status_label"] == STATUS_LABELS[status]
+                                    for p in programs))
+                self.assertTrue(all("requirements" not in p for p in programs))
                 if status != "For Review":
                     self.assertTrue(all(not p["reasons"] for p in programs))
 
@@ -60,13 +65,22 @@ class ScreeningPresentationTests(unittest.TestCase):
 
     def test_decodes_batch_answers_and_retains_assumed_work_and_unconfirmed_health(self):
         self.source["members"][2]["health_responses"]["l16_pwd"] = "1"
+        self.source["findings"]["programs"]["SPISC"]["supporting_evidence"] += ({
+            "member_line_number": 3, "trigger_code": "senior_disability",
+            "evidence_role": "supporting_context",
+            "observed_values": {"a07_age": "80", "l16_pwd": "1"},
+        },)
         programs = {p["code"]: p for p in self.present()}
         tupad = programs["TUPAD"]
         self.assertIn("not a recorded No answer", tupad["reasons"][0]["text"])
         values = {cell["label"]: cell["value"] for cell in tupad["members"][0]["cells"]}
-        self.assertEqual(values["Worked at least one hour in the past week"], "Not recorded")
+        self.assertEqual(
+            values["Worked at least one hour during the survey reference week"],
+            "Not recorded",
+        )
+        self.assertEqual(values["Age in 2022"], "45 years")
         senior = programs["SPISC"]["members"][-1]
-        self.assertIn("80 years old", senior["cells"][0]["value"])
+        self.assertEqual(senior["cells"][0]["value"], "80 years")
         self.assertEqual(senior["cells"][1]["value"], "Yes — meaning needs confirmation")
         slp_values = str(programs["SLP"]["members"][-1]["cells"])
         self.assertIn("Self-employed without any paid employee", slp_values)
@@ -83,7 +97,6 @@ class ScreeningPresentationTests(unittest.TestCase):
         self.assertFalse(result["reasons"])
         for text in WARNING_TEXT.values():
             self.assertIn(text, str(result["issues"]))
-        self.assertIn("missing does not mean No", str(result["issues"]))
         self.assertNotIn("PRIVATE_RAW_WARNING", str(result))
         self.source["members"] = []
         result = self.present()[1]
@@ -105,7 +118,7 @@ class ScreeningPresentationTests(unittest.TestCase):
         finding["supporting_evidence"] = ()
         self.assertIn("specific supporting reason is not available", str(self.present()[0]["issues"]))
         finding["screening_status"] = "Needs Data Review"
-        self.assertIn("exact unresolved answer", str(self.present()[0]["issues"]))
+        self.assertIn("does not identify one reliable cause", str(self.present()[0]["issues"]))
         finding["data_quality_warnings"] = ({"code": "future_unknown", "message": "RAW_TECHNICAL"},)
         finding["key_unverified_requirements"] = ("RAW_TECHNICAL",)
         result = self.present()[0]
@@ -116,16 +129,58 @@ class ScreeningPresentationTests(unittest.TestCase):
         self.source["members"][0]["responses"].update(a07_age="NA", b06_ofi="77")
         slp = self.source["findings"]["programs"]["SLP"]
         slp["methodology_notes"] = (SLP_UNRESOLVED_NOTE,)
+        slp["supporting_evidence"] = ({
+            "member_line_number": 1, "pathway": "EF",
+            "observed_values": {"a07_age": "NA", "b06_ofi": "77",
+                                "e01_employed": "NA"},
+        }, *slp["supporting_evidence"])
         result = self.present()[1]
         self.assertEqual(result["status"], "For Review")
         self.assertIn("Some work or livelihood information remains unclear", str(result["issues"]))
         self.assertIn("age is missing or unclear", str(result["issues"]))
         values = {cell["label"]: cell["value"] for cell in result["members"][0]["cells"]}
-        self.assertEqual(values["Age at survey"], "Not recorded")
+        self.assertEqual(values["Age in 2022"], "Not recorded")
         self.assertEqual(values["Overseas Filipino status"], "Meaning needs confirmation")
         self.assertNotIn("pathways", str(result))
         slp["screening_status"] = "Needs Data Review"
         self.assertNotIn("supports the For Review", str(self.present()[1]))
+
+    def test_expected_work_skips_are_not_presented_as_specific_problems(self):
+        finding = self.source["findings"]["programs"]["SLP"]
+        finding.update(screening_status="Needs Data Review", supporting_evidence=(),
+                       data_quality_warnings=(), methodology_notes=())
+        member = self.source["members"][0]
+        member["responses"].update(
+            e01_employed="2", e11_nature_of_employment="NA",
+            e18_class_of_worker="NA",
+        )
+        result = self.present()[1]
+        issues = " ".join(result["issues"])
+        self.assertIn("may have been skipped as expected", issues)
+        self.assertNotIn("nature of work", issues.lower())
+        self.assertNotIn("type of worker", issues.lower())
+        self.assertEqual(result["status"], "Needs Data Review")
+
+    def test_for_review_evidence_prioritizes_members_in_saved_findings(self):
+        programs = {program["code"]: program for program in self.present()}
+        self.assertEqual([member["name"] for member in programs["SLP"]["members"]],
+                         ["Synthetic Member 3"])
+        self.assertEqual([member["name"] for member in programs["TUPAD"]["members"]],
+                         ["Synthetic Member 1", "Synthetic Member 3"])
+        self.assertEqual([cell["label"] for cell in programs["SLP"]["members"][0]["cells"]], [
+            "Age in 2022", "Overseas Filipino status",
+            "Worked at least one hour during the survey reference week",
+            "Type of worker",
+        ])
+
+    def test_member_named_for_unclear_age_remains_available_in_recorded_information(self):
+        self.source["members"][0]["responses"]["a07_age"] = "NA"
+        program = self.present()[0]
+        self.assertIn("Synthetic Member 1: age is missing or unclear.", program["issues"])
+        member = next(item for item in program["members"]
+                      if item["name"] == "Synthetic Member 1")
+        self.assertEqual(member["cells"], [{"label": "Age in 2022",
+                                           "value": "Not recorded"}])
 
     def test_saved_household_corroboration_is_compared_with_original_record(self):
         finding = self.source["findings"]["programs"]["4Ps"]
@@ -170,7 +225,9 @@ class ScreeningRouteTests(unittest.TestCase):
             self.assertEqual(response.headers["Cache-Control"], "no-store")
             self.assertEqual(response.text.count('class="screening-evidence"'), 4)
             self.assertNotIn('<details class="screening-evidence" open', response.text)
-            self.assertEqual(response.text.count('class="detail-section screening-program"'), 4)
+            self.assertEqual(response.text.count(
+                'class="detail-section screening-program screening-program--'
+            ), 4)
             self.assertRegex(response.text, r'tab=screening[^>]+aria-current="page"')
             for href in re.findall(r'href="([^"]+)"', response.text):
                 url = urlsplit(unescape(href))
@@ -180,10 +237,13 @@ class ScreeningRouteTests(unittest.TestCase):
                     self.assertEqual(params["priority"], ["secondary"])
                     self.assertEqual(params["program"], ["4Ps"])
                     self.assertEqual(params["completeness"], ["unknown"])
-            for text in ("Synthetic Member 2", "80 years old", "Self-employed",
-                         "Why this household was flagged", "Still to verify",
-                         "not a recorded No answer", "circumstances may have changed"):
-                self.assertIn(text, response.text)
+            normalized = " ".join(response.text.split())
+            for text in ("Synthetic Member 2", "80 years", "Self-employed",
+                         "Why this household received For Review",
+                         "View Recorded Information", "not a recorded No answer",
+                         "do not determine official subsidy eligibility"):
+                self.assertIn(text, normalized)
+            self.assertNotIn("Still to verify", response.text)
 
     def test_all_statuses_render_with_no_ineligibility_claim_or_status_promotion(self):
         self.session()
@@ -191,10 +251,12 @@ class ScreeningRouteTests(unittest.TestCase):
             self.source["findings"]["programs"][code]["screening_status"] = status
         page = self.client.get(self.path + "?tab=screening").text
         self.assertIn("No Review Signal", page)
-        self.assertIn("This does not mean the household is ineligible", page)
+        self.assertIn("Not Enough Information", page)
+        self.assertIn("do not determine official subsidy eligibility", " ".join(page.split()))
         article = re.search(r'<article[^>]+id="screening-spisc".*?</article>', page, re.S)[0]
-        self.assertIn("Needs Data Review", article)
-        self.assertNotIn("Why this household was flagged", article)
+        self.assertIn("Not Enough Information", article)
+        self.assertNotIn("Needs Data Review", article)
+        self.assertNotIn("Why this household received For Review", article)
         self.assertNotIn("screening-status--review", article)
 
     def test_source_names_are_escaped_and_technical_private_and_unimplemented_content_is_absent(self):
@@ -205,7 +267,9 @@ class ScreeningRouteTests(unittest.TestCase):
         self.assertIn("&lt;script&gt;", page)
         for text in ("<script>alert", "PRIVATE_UNRELATED_VALUE", "INTERNAL_TECHNICAL",
                      "trigger_code", "e01_employed", "L06=", "provisional", "pilot",
-                     "Synthetic Support", "Assessment Run", "Start Staff Review", "General Welfare Review"):
+                     "Synthetic Support", "Assessment Run", "Start Staff Review",
+                     "General Welfare Review", "Still to verify",
+                     "Official poverty-targeting classification"):
             self.assertNotIn(text, page)
         self.assertIn('aria-disabled="true">Review History', page)
 
