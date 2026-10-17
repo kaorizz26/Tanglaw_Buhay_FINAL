@@ -1487,6 +1487,7 @@ Filters links to the unfiltered route.
 | `program` (repeatable) | 4Ps, SLP, SPISC or TUPAD; match stored `For Review` according to the selected subsidy mode. No selection imposes no subsidy restriction. |
 | `subsidy_mode` | `any` (default): at least one selected program has `For Review`. `exact`: all selected programs, and no unselected programs, have `For Review`. |
 | `completeness` | `all` (All Households), `determined` (All 16 Indicators Determined) or `unknown` (With Unknown Indicators). |
+| `priority` | `all` (default), `both`, `primary`, `secondary` or `other`; backend support only, with staff controls deferred. |
 | `page` | Existing positive page number, with 25 records per page. |
 
 `services/assessment_filters.py` validates an immutable filter selection, rejects
@@ -1536,6 +1537,19 @@ Source joins are added only when required; unfiltered total retains the verified
 completed-run count. Filtered totals use a separate count SELECT with the same
 predicates, so even an empty/out-of-range page has an accurate matching total.
 Only bounded summary fields and current-page identities reach the presentation.
+
+The shared project policy in `services/subsidy_priority.py` derives
+`subsidy_priority` in returned summaries from stored scores and the four stored
+program statuses. Primary Priority requires a score strictly above 25 and at
+least one `For Review`; Secondary Priority requires 20 through 25 inclusive and
+at least one `For Review`. Everything else is No Subsidy Priority. `both` selects
+either tier; `other` is their complement. The SQL filters share the policy's
+threshold constants and the existing count/page selection. Unknown MPI
+indicators neither grant nor remove priority; `completeness=unknown` remains an
+independent filter. These categories are staff prioritization policy, not MPI
+classifications, program eligibility or staff review decisions. Nothing is
+persisted or recalculated. Policy is applied to the dynamically selected run;
+current import restrictions and all stored findings/ranks remain unchanged.
 
 All views preserve original municipal ranks, scores, ties, UUID order and ID
 generation. The top summary retains the municipality's assessed-household total;

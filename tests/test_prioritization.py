@@ -215,10 +215,31 @@ class PrioritizationTests(unittest.TestCase):
             "completeness=high", "program=Unknown", "q=%00", "barangay=%00", "q=" + "a" * 201,
             "barangay=" + "b" * 201,
             "subsidy_mode=invalid", "subsidy_mode=", "subsidy_mode=any&subsidy_mode=exact",
+            "priority=invalid", "priority=", "priority=all&priority=primary",
         ):
             with self.subTest(query=query[:30]):
                 self.assertEqual(self.client.get(f"/assessments?{query}").status_code, 400)
         self.query.assert_not_called()
+
+    def test_priority_filter_and_summary_data_pass_through_without_new_ui(self):
+        source = summary_page(page=2)
+        source["items"][0]["subsidy_priority"] = "Secondary Priority"
+        self.query.side_effect = None
+        self.query.return_value = source
+        result = prioritization.get_prioritization_page(2, AssessmentFilters(priority="secondary"))
+        self.assertEqual(self.query.call_args.kwargs["filters"].priority, "secondary")
+        self.assertEqual(result["filter_parameters"], {"priority": "secondary"})
+        self.assertEqual(result["items"][0]["subsidy_priority"], "Secondary Priority")
+        self.assertEqual(result["priority_options"][0], ("all", "All Households"))
+        self._session()
+        response = self.client.get("/assessments?page=2&priority=secondary")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('name="priority"', response.text)
+        self.assertNotIn("Secondary Priority", response.text)
+        for href in re.findall(r'href="([^"]+)"', response.text):
+            parameters = parse_qs(urlsplit(unescape(href)).query)
+            if "page" in parameters:
+                self.assertEqual(parameters["priority"], ["secondary"])
 
     def test_subsidy_mode_rendering_pagination_reset_and_all_badges(self):
         self._session()

@@ -2,6 +2,10 @@
 
 from dataclasses import dataclass
 
+from services.subsidy_priority import (
+    NO_SUBSIDY_PRIORITY, PRIMARY_PRIORITY, SECONDARY_PRIORITY,
+)
+
 
 PROGRAM_ORDER = ("4Ps", "SLP", "SPISC", "TUPAD")
 COMPLETENESS_OPTIONS = (
@@ -12,6 +16,13 @@ COMPLETENESS_OPTIONS = (
 MAX_SEARCH_LENGTH = 200
 MAX_BARANGAY_LENGTH = 200
 SUBSIDY_MODES = ("any", "exact")
+PRIORITY_OPTIONS = (
+    ("all", "All Households"),
+    ("both", "Primary or Secondary Priority"),
+    ("primary", PRIMARY_PRIORITY),
+    ("secondary", SECONDARY_PRIORITY),
+    ("other", NO_SUBSIDY_PRIORITY),
+)
 
 
 class InvalidAssessmentFilters(ValueError):
@@ -27,10 +38,14 @@ class AssessmentFilters:
     programs: tuple[str, ...] = ()
     completeness: str = "all"
     subsidy_mode: str = "any"
+    priority: str = "all"
 
     @property
     def active(self):
-        return bool(self.search or self.barangay or self.programs or self.completeness != "all")
+        return bool(
+            self.search or self.barangay or self.programs
+            or self.completeness != "all" or self.priority != "all"
+        )
 
     @property
     def parameters(self):
@@ -46,6 +61,8 @@ class AssessmentFilters:
             values["subsidy_mode"] = self.subsidy_mode
         if self.completeness != "all":
             values["completeness"] = self.completeness
+        if self.priority != "all":
+            values["priority"] = self.priority
         return values
 
 
@@ -69,6 +86,8 @@ def normalize_filters(filters=None):
         or filters.completeness not in dict(COMPLETENESS_OPTIONS)
         or not isinstance(filters.subsidy_mode, str)
         or filters.subsidy_mode not in SUBSIDY_MODES
+        or not isinstance(filters.priority, str)
+        or filters.priority not in dict(PRIORITY_OPTIONS)
     ):
         raise InvalidAssessmentFilters("invalid_assessment_filters")
     return AssessmentFilters(
@@ -77,6 +96,7 @@ def normalize_filters(filters=None):
         programs=tuple(program for program in PROGRAM_ORDER if program in filters.programs),
         completeness=filters.completeness,
         subsidy_mode=filters.subsidy_mode,
+        priority=filters.priority,
     )
 
 
@@ -85,6 +105,7 @@ def parse_filter_arguments(arguments):
     values = {}
     for parameter, default in (
         ("q", ""), ("barangay", ""), ("completeness", "all"), ("subsidy_mode", "any"),
+        ("priority", "all"),
     ):
         supplied = arguments.getlist(parameter)
         if len(supplied) > 1:
@@ -96,4 +117,5 @@ def parse_filter_arguments(arguments):
         programs=tuple(arguments.getlist("program")),
         completeness=values["completeness"],
         subsidy_mode=values["subsidy_mode"],
+        priority=values["priority"],
     ))

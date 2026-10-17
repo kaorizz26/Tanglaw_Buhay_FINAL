@@ -9,6 +9,7 @@ from db import get_connection
 from repositories import assessment_runs, dataset_batches
 from repositories import assessment_evidence
 from services.assessment_filters import normalize_filters
+from services.subsidy_priority import derive_subsidy_priority
 
 
 class AssessmentQueryError(RuntimeError):
@@ -84,6 +85,12 @@ def list_active_assessment_summaries(
             connection, context["run_id"], limit=page_size, offset=(page - 1) * page_size,
             **selection,
         )
+        items = [
+            {**item, "subsidy_priority": derive_subsidy_priority(
+                item["vulnerability_score"], item["program_statuses"],
+            )}
+            for item in items
+        ]
         if include_household_identity:
             identities = dataset_batches.find_household_identities(
                 connection, context["batch_id"],

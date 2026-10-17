@@ -24,6 +24,9 @@ from services.assessment_filters import (
 )
 from services.assessments import build_unified_assessments
 from services.development_data import development_sources
+from services.subsidy_priority import (
+    NO_SUBSIDY_PRIORITY, PRIMARY_PRIORITY, SECONDARY_PRIORITY,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,7 +97,9 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             members.assert_not_called()
 
     def test_filtered_count_page_and_barangays_share_designated_snapshot(self):
-        filters = AssessmentFilters(programs=("4Ps", "SLP"), completeness="unknown")
+        filters = AssessmentFilters(
+            programs=("4Ps", "SLP"), completeness="unknown", priority="both",
+        )
         with patch.object(repository, "count_assessment_summaries", return_value=3) as count, \
                 patch.object(repository, "list_assessment_summaries", return_value=[]) as page, \
                 patch.object(service.dataset_batches, "list_barangays", return_value=["Synthetic East"]) as options:
@@ -113,6 +118,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             {}, AssessmentFilters(search=2), AssessmentFilters(barangay=None),
             AssessmentFilters(programs=("INVALID",)), AssessmentFilters(completeness=[]),
             AssessmentFilters(subsidy_mode="invalid"), AssessmentFilters(subsidy_mode=[]),
+            AssessmentFilters(priority="invalid"), AssessmentFilters(priority=[]),
         ):
             with self.subTest(filters=filters), self.assertRaises(InvalidAssessmentFilters):
                 service.list_active_assessment_summaries(filters=filters, connection_factory=self.factory)
@@ -123,6 +129,31 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             )),
             AssessmentFilters(search="Synthetic Name", barangay="East", programs=("4Ps", "TUPAD")),
         )
+
+    def test_priority_summaries_preserve_stored_values_and_future_context(self):
+        self.batch["survey_year"] = 2030
+        items = [
+            {"household_uuid": "SYNTHETIC_PRIMARY", "vulnerability_score": 30,
+             "vulnerability_rank": 8, "unknown_indicator_count": 2,
+             "program_statuses": {"SLP": "For Review"}},
+            {"household_uuid": "SYNTHETIC_SECONDARY", "vulnerability_score": 25,
+             "vulnerability_rank": 19, "unknown_indicator_count": 1,
+             "program_statuses": {"4Ps": "For Review"}},
+            {"household_uuid": "SYNTHETIC_OTHER", "vulnerability_score": 40,
+             "vulnerability_rank": 3, "unknown_indicator_count": 0,
+             "program_statuses": {"SLP": "Needs Data Review"}},
+        ]
+        before = deepcopy(items)
+        with patch.object(repository, "list_assessment_summaries", return_value=items):
+            result = service.list_active_assessment_summaries(connection_factory=self.factory)
+        self.assertEqual(result["context"]["survey_year"], 2030)
+        self.assertEqual(result["context"]["batch_id"], 9)
+        self.assertEqual(result["context"]["run_id"], 17)
+        self.assertEqual([row["subsidy_priority"] for row in result["items"]],
+                         [PRIMARY_PRIORITY, SECONDARY_PRIORITY, NO_SUBSIDY_PRIORITY])
+        self.assertEqual([{key: value for key, value in row.items() if key != "subsidy_priority"}
+                          for row in result["items"]], before)
+        self.assertEqual(items, before)
 
     def test_exact_sql_binds_all_programs_and_no_selection_adds_no_predicate(self):
         filters = AssessmentFilters(programs=("4Ps", "TUPAD"), subsidy_mode="exact")
@@ -150,7 +181,11 @@ class AssessmentQueryServiceTests(unittest.TestCase):
                     service.get_active_assessment_context(connection_factory=self.factory)
 
     def test_identity_lookup_is_bounded_to_page_and_uses_same_snapshot(self):
-        items = [{"household_uuid": "SYNTHETIC_B"}, {"household_uuid": "SYNTHETIC_A"}]
+        items = [
+            {"household_uuid": uuid, "vulnerability_score": 25,
+             "program_statuses": {"4Ps": "For Review"}}
+            for uuid in ("SYNTHETIC_B", "SYNTHETIC_A")
+        ]
         identities = [{"household_uuid": "SYNTHETIC_A"}, {"household_uuid": "SYNTHETIC_B"}]
         with patch.object(repository, "list_assessment_summaries", return_value=items), \
                 patch.object(service.dataset_batches, "find_household_identities", return_value=identities) as query:
@@ -541,10 +576,12 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
         ).fetchone()
         self.assertEqual(before, after)
 
-    def _filter_fixture(self):
+    def _filter_fixture(self, *, scores=None):
         """Prepare explicit synthetic search identities and stored filter findings."""
         findings = deepcopy(self.findings)
         for number, (uuid, finding) in enumerate(findings.items(), 1):
+            if scores is not None:
+                finding["mpi"]["vulnerability_score"] = scores[number - 1]
             unknown = number % 4 == 0
             finding["mpi"]["unknown_indicator_count"] = int(unknown)
             finding["mpi"]["data_quality_status"] = "Needs Data Review" if unknown else "Complete Data"
@@ -574,19 +611,19 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
         self._run(findings=findings)
         return findings
 
-    def _assert_filtered_rows(self, filters, expected_numbers, findings):
+    def _assert_filtered_rows(self, filters, expected_numbers, findings, *, page_size=25):
         """Check full matching sets/counts across pages and original stored values."""
         expected = [value for number, value in enumerate(findings.values(), 1) if number in expected_numbers]
         expected.sort(key=lambda row: (row["mpi"]["vulnerability_rank"], row["household_uuid"]))
         actual = []
-        for page in range(1, max(1, (len(expected) + 24) // 25) + 1):
+        for page in range(1, max(1, (len(expected) + page_size - 1) // page_size) + 1):
             result = service.list_active_assessment_summaries(
-                page=page, filters=filters, include_household_identity=True,
+                page=page, page_size=page_size, filters=filters, include_household_identity=True,
                 include_barangays=True, connection_factory=self._factory,
             )
             self.assertEqual(result["total"], len(expected))
             self.assertEqual(result["barangays"], ["Synthetic East", "Synthetic West"])
-            self.assertLessEqual(len(result["items"]), 25)
+            self.assertLessEqual(len(result["items"]), page_size)
             actual.extend(result["items"])
         self.assertEqual([row["household_uuid"] for row in actual], [row["household_uuid"] for row in expected])
         for row, original in zip(actual, expected):
@@ -596,6 +633,63 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 code: value["screening_status"] for code, value in original["programs"].items()
             })
         return actual
+
+    def test_priority_boundaries_combinations_pagination_and_unchanged_findings(self):
+        # Number 1 has only Needs Data Review, even with its high stored score.
+        findings = self._filter_fixture(
+            scores=[40] + [19.999] * 7 + [20] * 8 + [25] * 8 + [25.001] * 8,
+        )
+        before = self.connection.execute(
+            "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY household_uuid)) "
+            "FROM household_assessments h",
+        ).fetchone()
+        primary = {25, 26, 27, 28, 30, 32}
+        secondary = {9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24}
+        groups = {
+            "all": set(range(1, 33)), "primary": primary, "secondary": secondary,
+            "both": primary | secondary, "other": set(range(1, 33)) - primary - secondary,
+        }
+        labels = {
+            number: PRIMARY_PRIORITY if number in primary else (
+                SECONDARY_PRIORITY if number in secondary else NO_SUBSIDY_PRIORITY
+            ) for number in range(1, 33)
+        }
+        by_uuid = {finding["household_uuid"]: labels[number]
+                   for number, finding in enumerate(findings.values(), 1)}
+        for priority, numbers in groups.items():
+            with self.subTest(priority=priority):
+                actual = self._assert_filtered_rows(
+                    AssessmentFilters(priority=priority), numbers, findings, page_size=7,
+                )
+                for row in actual:
+                    self.assertEqual(row["subsidy_priority"], by_uuid[row["household_uuid"]])
+                for mode in ("any", "exact"):
+                    for completeness in ("all", "unknown", "determined"):
+                        # Combine name, barangay, program matching and MPI completeness.
+                        matches = {2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30}
+                        if mode == "exact":
+                            matches = {2, 4, 8, 16, 22, 26}
+                        if completeness == "unknown":
+                            matches &= {4, 8, 12, 16, 20, 24, 28, 32}
+                        elif completeness == "determined":
+                            matches -= {4, 8, 12, 16, 20, 24, 28, 32}
+                        self._assert_filtered_rows(AssessmentFilters(
+                            priority=priority, search="Synthetic Common", barangay="Synthetic West",
+                            programs=("4Ps",), subsidy_mode=mode, completeness=completeness,
+                        ), numbers & matches, findings, page_size=7)
+                empty = service.list_active_assessment_summaries(
+                    page=20, page_size=7, filters=AssessmentFilters(priority=priority),
+                    connection_factory=self._factory,
+                )
+                self.assertEqual(empty["items"], [])
+                self.assertEqual(empty["total"], len(numbers))
+        self._assert_filtered_rows(AssessmentFilters(priority="secondary", search="HH-00010"), [10], findings)
+        self._assert_filtered_rows(AssessmentFilters(priority="primary", search="HH-00010"), [], findings)
+        after = self.connection.execute(
+            "SELECT md5(string_agg(to_jsonb(h)::text, '' ORDER BY household_uuid)) "
+            "FROM household_assessments h",
+        ).fetchone()
+        self.assertEqual(before, after)
 
     def test_all_subsidy_sets_in_broad_and_exact_modes_with_other_filters(self):
         findings = self._filter_fixture()

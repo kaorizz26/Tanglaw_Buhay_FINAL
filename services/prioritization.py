@@ -1,7 +1,9 @@
 """Prepare stored prioritization summaries for the authenticated staff template."""
 
 from services.assessment_queries import AssessmentQueryError, list_active_assessment_summaries
-from services.assessment_filters import COMPLETENESS_OPTIONS, PROGRAM_ORDER, normalize_filters
+from services.assessment_filters import (
+    COMPLETENESS_OPTIONS, PRIORITY_OPTIONS, PROGRAM_ORDER, normalize_filters,
+)
 
 
 PAGE_SIZE = 25
@@ -90,4 +92,5 @@ def get_prioritization_page(page, filters=None):
         "filter_parameters": filters.parameters,
         "program_options": PROGRAM_ORDER,
         "completeness_options": COMPLETENESS_OPTIONS,
+        "priority_options": PRIORITY_OPTIONS,
     }

@@ -10,6 +10,7 @@ from psycopg.types.json import Jsonb
 
 from services.assessment_filters import AssessmentFilters, PROGRAM_ORDER
 from services.screening.metadata import OUTPUT_COLUMNS, PROGRAMS, STATUSES
+from services.subsidy_priority import PRIMARY_CUTOFF, SECONDARY_MIN_SCORE
 from services.vulnerability.scoring import INDICATOR_WEIGHTS, METRIC_COLUMNS
 
 
@@ -305,6 +306,24 @@ def _summary_selection(run_id, filters):
         conditions.append("(h.findings #>> '{mpi,unknown_indicator_count}')::integer = 0")
     elif filters.completeness == "unknown":
         conditions.append("(h.findings #>> '{mpi,unknown_indicator_count}')::integer > 0")
+    if filters.priority != "all":
+        score = "(h.findings #>> '{mpi,vulnerability_score}')::numeric"
+        has_review = " OR ".join(
+            f"h.findings #>> '{{programs,{code},screening_status}}' = 'For Review'"
+            for code in PROGRAMS
+        )
+        if filters.priority == "primary":
+            score_rule = f"{score} > %s"
+            parameters.append(PRIMARY_CUTOFF)
+        elif filters.priority == "secondary":
+            score_rule = f"{score} >= %s AND {score} <= %s"
+            parameters.extend((SECONDARY_MIN_SCORE, PRIMARY_CUTOFF))
+        else:
+            score_rule = f"{score} >= %s"
+            parameters.append(SECONDARY_MIN_SCORE)
+        # Other is the complement of both tiers, including households without signals.
+        priority_rule = f"({score_rule} AND COALESCE(({has_review}), false))"
+        conditions.append(f"NOT {priority_rule}" if filters.priority == "other" else priority_rule)
     return joins + " WHERE " + " AND ".join(conditions), tuple(parameters)
 
 
