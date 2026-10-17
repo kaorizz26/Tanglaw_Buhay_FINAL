@@ -103,7 +103,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
                 patch.object(assessment_evidence, "find_household_sources", return_value=source["household"]), \
                 patch.object(assessment_evidence, "list_member_sources", return_value=source["members"]), \
                 patch.object(assessment_evidence, "list_evidence_references", return_value=source["references"]), \
-                patch.object(service.staff_reviews, "list_active", return_value=[]) as reviews:
+                patch.object(service.staff_reviews, "list_history", return_value=[]) as reviews:
             result = service.get_active_assessment_detail(
                 HOUSEHOLD_UUID, include_staff_reviews=True, connection_factory=self.factory,
             )

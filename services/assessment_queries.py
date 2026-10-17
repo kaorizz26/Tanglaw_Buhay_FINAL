@@ -170,7 +170,7 @@ def get_active_assessment_detail(
             ),
         }
         if include_staff_reviews:
-            result["staff_reviews"] = staff_reviews.list_active(
+            result["staff_reviews"] = staff_reviews.list_history(
                 connection, context["batch_id"], household_uuid,
             )
         return result

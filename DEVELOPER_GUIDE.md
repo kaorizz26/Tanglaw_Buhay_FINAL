@@ -1857,8 +1857,7 @@ psql -h localhost -d tanglaw_buhay_dev -U YOUR_DB_USER -1 -v ON_ERROR_STOP=1 -f 
 
 Replace `YOUR_DB_USER` with the local database account. The transaction creates only
 `staff_reviews` and its partial unique index; existing source, finding and account
-tables are unchanged. Until applied, Staff Reviews fails safely; existing assessment
-tabs continue to use their original queries.
+tables are unchanged. The complete workflow below also requires migration 0006.
 
 Both authorized roles can use the Household Assessment Staff Reviews tab. A GET
 opens confirmation; a session-authenticated, CSRF-protected POST creates `In Review`.
@@ -1879,5 +1878,32 @@ review status is separate from screening status, priority and eligibility.
 Focused tests: `python -B -m unittest discover -s tests -p test_staff_reviews.py`.
 Database-writing tests require `TANGLAW_TEST_DATABASE_URL` for loopback
 `tanglaw_buhay_test` and use disposable `review_check_*` schemas with synthetic
-stored findings. Notes, closing outcomes, history, queue and citizen workflows
-remain outside this implementation.
+stored findings. Queue and citizen workflows remain outside this implementation.
+
+### Staff review completion
+
+After migration 0005, explicitly apply `0006_staff_review_completion.sql` once:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -U tanglaw_final -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0006_staff_review_completion.sql"
+```
+
+Use the configured local database account and enter its password locally. Application
+startup never applies migrations. Migration 0006 preserves existing active reviews,
+foreign keys, run associations and the partial unique index. It extends review
+constraints and adds independent, append-only-through-staff-operations notes.
+
+Both roles may append a note (up to 2,000 characters), finish with an allowed
+recommendation and required explanation (up to 2,000), or cancel with an optional
+reason (up to 1,000). Each CSRF-protected POST rechecks the active validated batch,
+designated completed run, authenticated account and household/program association.
+A review-row lock serializes notes and transitions. Only In Review accepts writes;
+Closed/Cancelled records remain readable and allow a new independent review.
+Original assessment-run links remain unchanged after designation changes.
+
+All assessment tabs share review history from their existing read-only snapshot
+(up to two household-scoped reads for reviews and notes, no per-program queries). The
+latest review per program supplies the compact status panel. Missing migration
+0006 causes a safe unavailable response on assessment details; apply it before
+using this version. Source records, findings, scores, ranks and priority are never
+updated by review actions. Tests use only synthetic disposable test schemas.

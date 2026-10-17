@@ -9,6 +9,7 @@ from services.prioritization import get_prioritization_page
 from services.assessment_details import detail_navigation, get_assessment_detail
 from services.staff_reviews import (
     StaffReviewError, get_staff_review_detail, start_staff_review,
+    act_on_review,
 )
 from services.subsidy_screening_content import PROGRAM_NAMES
 
@@ -73,10 +74,11 @@ def detail(household_uuid):
 
 
 @assessments.route(
-    "/assessments/<uuid:household_uuid>/reviews/<program>", methods=["GET", "POST"],
+    "/assessments/<uuid:household_uuid>/reviews/<review_program>", methods=["GET", "POST"],
 )
-def start_review(household_uuid, program):
+def start_review(household_uuid, review_program):
     """Confirm and explicitly initiate a review using the authenticated staff ID."""
+    program = review_program
     if request.method == "POST":
         check_csrf()
     if program not in PROGRAM_NAMES:
@@ -156,4 +158,102 @@ def start_review(household_uuid, program):
         review_error=error, starting_reason=reason[:1000], list_parameters=list_parameters,
         role_label="System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff",
         staff_username=g.user["username"], csrf_token=csrf_token(),
+    ), (400 if error else 200)
+
+
+@assessments.route(
+    '/assessments/<uuid:household_uuid>/reviews/<review_program>/<int:review_id>',
+    methods=['GET', 'POST'],
+)
+def review_record(household_uuid, review_program, review_id):
+    """Read history or perform one explicit, authenticated review action."""
+    program = review_program
+    if request.method == 'POST':
+        check_csrf()
+    if program not in PROGRAM_NAMES or review_id < 1:
+        abort(404)
+    try:
+        _, list_parameters = detail_navigation(request.args)
+    except InvalidAssessmentFilters:
+        abort(400, description='Choose valid return filters.')
+    mode = request.args.get('action', '')
+    if len(request.args.getlist('action')) > 1 or mode not in ('', 'finish', 'cancel'):
+        abort(400, description='Choose a valid review action.')
+    error = None
+    text = ''
+    recommendation = ''
+    if request.method == 'POST':
+        try:
+            for key in ('batch_id', 'run_id', 'action', 'text', 'recommendation'):
+                if len(request.form.getlist(key)) > 1:
+                    raise StaffReviewError('invalid_request')
+            context = []
+            for key in ('batch_id', 'run_id'):
+                value = request.form.get(key, '')
+                if not value.isascii() or not value.isdecimal() or len(value) > 18:
+                    raise StaffReviewError('invalid_request')
+                context.append(int(value))
+            action = request.form.get('action', '')
+            if action != (mode or 'note'):
+                raise StaffReviewError('invalid_request')
+            text = request.form.get('text', '')
+            recommendation = request.form.get('recommendation', '')
+            act_on_review(
+                str(household_uuid), program, review_id, action, g.user['id'],
+                *context, text=text, recommendation=recommendation,
+            )
+        except StaffReviewError as failure:
+            code = str(failure)
+            if code in ('text_required', 'invalid_text', 'invalid_recommendation'):
+                error = {
+                    'text_required': 'Enter a brief note or explanation before saving.',
+                    'invalid_text': 'Use up to 2,000 characters, or 1,000 for a cancellation reason.',
+                    'invalid_recommendation': 'Choose one of the two closing recommendations.',
+                }[code]
+            elif code == 'not_active':
+                abort(409, description=(
+                    'This review has already ended. Return to Staff Reviews '
+                    'to see its saved outcome.'
+                ))
+            elif code == 'unauthorized':
+                abort(403, description='Your account cannot update this review.')
+            elif code == 'review_missing':
+                abort(404, description='This staff review is unavailable for this household.')
+            elif code in ('invalid_request', 'context_changed'):
+                abort(400, description=(
+                    'The selection changed or the form expired. '
+                    'Return to Staff Reviews and try again.'
+                ))
+            else:
+                abort(503, description=(
+                    'The action could not be saved. Check the review before trying again.'
+                ))
+        else:
+            flash({'note': 'Note saved.', 'finish': 'Review finished.',
+                   'cancel': 'Review cancelled. No recommendation was made.'}[action])
+            return redirect(url_for(
+                'assessments.review_record', household_uuid=household_uuid,
+                review_program=program, review_id=review_id, **list_parameters,
+            ), code=303)
+    try:
+        results = get_staff_review_detail(str(household_uuid))
+    except AssessmentQueryError as failure:
+        if str(failure) == 'household_assessment_missing':
+            abort(404, description='This household assessment is unavailable in the selected batch.')
+        abort(503, description='Staff reviews are unavailable. Please try again later.')
+    record = next((row for row in results['review_history']
+                   if row['id'] == review_id and row['program'] == program), None)
+    if record is None:
+        abort(404, description='This staff review is unavailable for this household.')
+    if mode and record['status'] != 'In Review':
+        abort(409, description=(
+            'This review has already ended. Return to Staff Reviews '
+            'to see its saved outcome.'
+        ))
+    return render_template(
+        'assessments/detail.html', results=results, tab='reviews', review_record=record,
+        review_mode=mode, review_error=error, review_text=text[:2000],
+        recommendation=recommendation, list_parameters=list_parameters,
+        role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
+        staff_username=g.user['username'], csrf_token=csrf_token(),
     ), (400 if error else 200)

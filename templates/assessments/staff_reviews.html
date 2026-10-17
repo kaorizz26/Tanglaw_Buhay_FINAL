@@ -2,21 +2,24 @@
   <div class="section-heading-row">
     <h2 id="staff-reviews-heading">Staff Reviews</h2>
   </div>
-  <p class="section-helper">Start a review for a program you want to consider for this household. Starting a review does not confirm eligibility or approval.</p>
+  <p class="section-helper">Record staff observations and recommendations separately for each subsidy program.</p>
 
   {% for message in get_flashed_messages() %}
     <p class="review-notice" role="status">{{ message }}</p>
   {% endfor %}
 
-  {% if start_program %}
+  {% if review_record %}
+    {% include 'assessments/review_record.html' %}
+  {% elif start_program %}
     <section class="review-confirmation" aria-labelledby="start-review-heading">
       <h3 id="start-review-heading">Start {{ start_program.name }} Review</h3>
       <p>{{ results.head_name }} · {{ results.household_reference_id }} · {{ results.barangay }}</p>
       <p>Historical screening finding: <strong>{{ start_program.status_label }}</strong></p>
+      <p>Starting a review means LGU staff have selected this household for further examination. You can record observations and later recommend whether the household needs further LGU consideration.</p>
       {% if review_error %}
         <p id="review-error" class="review-error" role="alert">{{ review_error }}</p>
       {% endif %}
-      <form method="post" action="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, program=start_program.name, **list_parameters) }}">
+      <form method="post" action="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=start_program.name, **list_parameters) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="batch_id" value="{{ results.context.batch_id }}">
         <input type="hidden" name="run_id" value="{{ results.context.run_id }}">
@@ -47,7 +50,7 @@
             </div>
             <div>
               <dt>Staff review</dt>
-              <dd class="review-state{% if program.review %} review-state--active{% endif %}">{{ 'In Review' if program.review else 'Not Started' }}</dd>
+              <dd class="review-state{% if program.review %} review-state--active{% endif %}">{{ program.latest.status if program.latest else 'Not Started' }}</dd>
             </div>
           </dl>
           {% if program.review %}
@@ -55,8 +58,28 @@
             {% if program.review.starting_reason %}
               <p class="review-starting-reason"><strong>Starting reason</strong><br>{{ program.review.starting_reason }}</p>
             {% endif %}
+            <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.review.id, **list_parameters) }}">Open Review<span class="visually-hidden"> for {{ program.name }}</span></a>
           {% else %}
-            <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, program=program.name, **list_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+            {% if program.latest %}
+              {% if program.latest.status == 'Closed' %}
+                <p><strong>{{ program.latest.closing_recommendation }}</strong></p>
+                <p class="review-starting-reason">{{ program.latest.closing_explanation }}</p>
+              {% else %}
+                <p>The review was cancelled. No recommendation was made.</p>
+              {% endif %}
+            {% endif %}
+            <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **list_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+          {% endif %}
+          {% set previous = program.history | rejectattr('status', 'equalto', 'In Review') | list %}
+          {% if previous %}
+            <details class="review-history">
+              <summary>Review History ({{ previous | length }})</summary>
+              <ol>
+                {% for saved in previous %}
+                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **list_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ saved.status }}</a>{% if saved.closing_recommendation %} · {{ saved.closing_recommendation }}{% endif %}</li>
+                {% endfor %}
+              </ol>
+            </details>
           {% endif %}
         </article>
       {% endfor %}

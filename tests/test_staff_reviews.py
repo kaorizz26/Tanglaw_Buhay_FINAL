@@ -128,6 +128,7 @@ class StaffReviewRouteTests(unittest.TestCase):
     def test_reviews_display_account_date_reason_and_no_duplicate_actions(self):
         self.session()
         self.source['staff_reviews'] = [{
+            'id': 42, 'status': 'In Review',
             'program': 'SLP', 'username': 'synthetic_admin', 'starting_reason': '<script>reason</script>',
             'created_at': datetime(2026, 10, 17, tzinfo=timezone.utc),
         }]
@@ -138,8 +139,9 @@ class StaffReviewRouteTests(unittest.TestCase):
                      'Not Enough Information', 'No Review Signal', '&lt;script&gt;reason&lt;/script&gt;'):
             self.assertIn(text, response.text)
         self.assertNotIn('program=SLP', response.text)
-        self.assertNotIn('/reviews/SLP', response.text)
-        for text in ('Continue Review', 'Close Review', 'Add Notes', 'Review History'):
+        self.assertIn('/reviews/SLP/42', response.text)
+        self.assertIn('Open Review', response.text)
+        for text in ('Continue Review', 'Close Review', 'Add Notes'):
             self.assertNotIn(text, response.text)
         self.assertEqual(self.client.get(self.path + '/reviews/SLP').status_code, 303)
         self.creator.assert_not_called()
@@ -345,7 +347,7 @@ class StaffReviewDatabaseTests(unittest.TestCase):
         for text in ('In Review', 'synthetic_staff', 'Staff received a request for consideration.',
                      'The SLP staff review has started.'):
             self.assertIn(text, response.text)
-        self.assertNotIn('/reviews/SLP', response.text)
+        self.assertIn('Open Review', response.text)
         with self.connect() as connection:
             self.assertEqual(self.snapshot(connection), self.originals)
 
@@ -390,6 +392,188 @@ class StaffReviewDatabaseTests(unittest.TestCase):
                        VALUES (%s, %s, %s, '4Ps', %s)""",
                     (self.batch_id, HOUSEHOLD_UUID, self.run_id, self.staff_ids[0]),
                 )
+
+    def act(self, review_id, action, *, staff_id=None, **values):
+        return service.act_on_review(
+            HOUSEHOLD_UUID, values.pop('program', '4Ps'), review_id, action,
+            staff_id or self.staff_ids[1], values.pop('batch_id', self.batch_id),
+            values.pop('run_id', self.run_id), connection_factory=self.connect, **values,
+        )
+
+    def test_notes_outcomes_history_and_restarting_preserve_all_findings(self):
+        first = self.start()
+        self.act(first, 'note', text='  Examined information supplied by the household.  ')
+        self.act(first, 'note', staff_id=self.staff_ids[0], text='Follow-up observation.')
+        self.act(first, 'finish', recommendation='For LGU Follow-Up', text='Recommend office follow-up.')
+        for action in ('note', 'finish', 'cancel'):
+            with self.assertRaisesRegex(service.StaffReviewError, 'not_active'):
+                self.act(first, action, text='Repeated action.', recommendation='No Further Action')
+        second = self.start()
+        self.act(second, 'cancel', text='Started by mistake.')
+        with self.assertRaisesRegex(service.StaffReviewError, 'not_active'):
+            self.act(second, 'note', text='Cannot add this.')
+        third = self.start()
+        self.act(third, 'finish', recommendation='No Further Action', text='No further action at this time.')
+        fourth = self.start()
+        with self.connect() as connection:
+            history = repository.list_history(connection, self.batch_id, HOUSEHOLD_UUID)
+            self.assertEqual([row['id'] for row in history], [first, second, third, fourth])
+            self.assertEqual([row['status'] for row in history], ['Closed', 'Cancelled', 'Closed', 'In Review'])
+            self.assertEqual([note['authored_by'] for note in history[0]['notes']], self.staff_ids[::-1])
+            self.assertEqual(history[0]['finished_by'], self.staff_ids[1])
+            self.assertIsNotNone(history[0]['finished_at'])
+            self.assertEqual(history[1]['cancelled_by'], self.staff_ids[1])
+            self.assertIsNotNone(history[1]['cancelled_at'])
+            self.assertIsNone(history[1]['closing_recommendation'])
+            self.assertEqual(len(repository.list_active(connection, self.batch_id, HOUSEHOLD_UUID)), 1)
+            self.assertEqual(self.snapshot(connection), self.originals)
+
+    def test_invalid_actions_associations_and_required_fields_write_nothing(self):
+        review_id = self.start()
+        cases = [
+            ('note', {'text': ' \n '}, 'text_required'),
+            ('note', {'text': 'x' * 2001}, 'invalid_text'),
+            ('cancel', {'text': 'x' * 1001}, 'invalid_text'),
+            ('finish', {'text': 'Reason', 'recommendation': 'Approved'}, 'invalid_recommendation'),
+            ('finish', {'recommendation': 'No Further Action'}, 'text_required'),
+            ('note', {'text': 'Reason', 'program': 'TUPAD'}, 'review_missing'),
+            ('note', {'text': 'Reason', 'batch_id': self.other_batch,
+                      'run_id': self.other_run}, 'context_changed'),
+            ('note', {'text': 'Reason', 'staff_id': 999999}, 'unauthorized'),
+            ('delete', {}, 'invalid_request'),
+        ]
+        for action, values, error in cases:
+            with self.subTest(error=error), self.assertRaisesRegex(service.StaffReviewError, error):
+                self.act(review_id, action, **values)
+        with self.connect() as connection:
+            self.assertEqual(connection.execute('SELECT count(*) FROM staff_review_notes').fetchone()[0], 0)
+            self.assertEqual(connection.execute('SELECT status FROM staff_reviews').fetchone()[0], 'In Review')
+            self.assertEqual(self.snapshot(connection), self.originals)
+
+    def test_competing_finish_and_cancel_have_one_winner(self):
+        review_id = self.start()
+        barrier = Barrier(2)
+
+        def perform(action):
+            barrier.wait(timeout=10)
+            try:
+                self.act(review_id, action, text='Completed examination.',
+                         recommendation='No Further Action')
+                return 'saved'
+            except service.StaffReviewError as error:
+                return str(error)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(perform, ('finish', 'cancel')))
+        self.assertCountEqual(results, ['saved', 'not_active'])
+        with self.connect() as connection:
+            self.assertEqual(connection.execute('SELECT count(*) FROM staff_reviews').fetchone()[0], 1)
+            self.assertEqual(self.snapshot(connection), self.originals)
+
+    def test_migration_completion_constraints_and_action_rollback(self):
+        review_id = self.start()
+        with self.connect() as connection:
+            for statement in (
+                "UPDATE staff_reviews SET status = 'Closed'",
+                "UPDATE staff_reviews SET status = 'Cancelled', closing_recommendation = 'No Further Action'",
+            ):
+                with self.assertRaises(psycopg.errors.CheckViolation), connection.transaction():
+                    connection.execute(statement)
+        original = repository.add_note
+
+        def fail_after_note(*args):
+            original(*args)
+            raise RuntimeError('PRIVATE DATABASE DETAIL')
+
+        with patch.object(repository, 'add_note', side_effect=fail_after_note):
+            with self.assertRaisesRegex(service.StaffReviewError, '^unavailable$'):
+                self.act(review_id, 'note', text='Must roll back.')
+        with self.connect() as connection:
+            self.assertEqual(connection.execute('SELECT count(*) FROM staff_review_notes').fetchone()[0], 0)
+
+    def test_full_http_workflow_access_csrf_history_summary_and_escaping(self):
+        review_id = self.start()
+        app = create_app({'TESTING': True, 'SECRET_KEY': token_urlsafe(48), 'DATABASE_URL': self.url})
+        client = app.test_client()
+        path = f'/assessments/{HOUSEHOLD_UUID}'
+        record = path + f'/reviews/4Ps/{review_id}'
+        data = {'csrf_token': 'test-token', 'batch_id': self.batch_id, 'run_id': self.run_id,
+                'action': 'note', 'text': '<script>observed</script>', 'staff_id': self.staff_ids[0]}
+        self.assertEqual(client.post(record, data=data).location, '/login')
+        with client.session_transaction() as session:
+            session.update(user_id=self.staff_ids[1], session_version=1,
+                           issued_at=int(time()), csrf_token='test-token')
+        for action in ('note', 'finish', 'cancel'):
+            suffix = '' if action == 'note' else '?action=' + action
+            self.assertEqual(client.post(record + suffix, data={**data, 'action': action,
+                                                               'csrf_token': 'bad'}).status_code, 400)
+        response = client.post(record + '?page=2&priority=both&program=SLP', data=data, follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('&lt;script&gt;observed&lt;/script&gt;', response.text)
+        self.assertNotIn('<script>observed', response.text)
+        self.assertIn('page=2', response.text)
+        self.assertIn('program=SLP', response.text)
+        self.assertEqual(response.text.count('<form'), 2)  # logout and Add Note
+        for mode in ('finish', 'cancel'):
+            page = client.get(record + '?action=' + mode)
+            self.assertEqual(page.status_code, 200)
+            self.assertNotIn('id="review-note"', page.text)
+        self.assertEqual(client.post(record + '?action=finish', data={**data, 'action': 'finish',
+                              'recommendation': 'No Further Action', 'text': ''}).status_code, 400)
+        response = client.post(record + '?action=finish', data={**data, 'action': 'finish',
+                              'recommendation': 'No Further Action', 'text': 'Reviewed circumstances.'},
+                               follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('No Further Action', response.text)
+        self.assertNotIn('id="review-note"', response.text)
+        self.assertEqual(client.post(record, data=data).status_code, 409)
+        for tab in ('overview', 'mpi', 'screening', 'reviews'):
+            page = client.get(path + '?tab=' + tab)
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('Staff Review Status', page.text)
+            self.assertIn('No Further Action', page.text)
+            self.assertIn('View Staff Reviews', page.text)
+        self.assertIn('View Subsidy Screening', client.get(path).text)
+        self.assertIn('Review History', client.get(path + '?tab=reviews').text)
+        self.assertEqual(client.get(path + f'/reviews/TUPAD/{review_id}').status_code, 404)
+        second = self.start()
+        self.assertEqual(client.post(path + f'/reviews/4Ps/{second}?action=cancel',
+                                    data={**data, 'action': 'cancel', 'text': ''}).status_code, 303)
+        with self.connect() as connection:
+            rows = repository.list_history(connection, self.batch_id, HOUSEHOLD_UUID)
+            self.assertEqual(rows[0]['notes'][0]['authored_by'], self.staff_ids[1])
+            self.assertEqual(rows[0]['finished_by'], self.staff_ids[1])
+            self.assertEqual(rows[1]['status'], 'Cancelled')
+            self.assertIsNone(rows[1]['cancellation_reason'])
+            self.assertEqual(self.snapshot(connection), self.originals)
+
+    def test_migration_preserves_preexisting_active_review_and_allows_cancellation(self):
+        schema = 'review_check_' + uuid4().hex
+        with self.connect() as connection:
+            connection.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
+            try:
+                connection.execute(sql.SQL('SET LOCAL search_path TO {}').format(sql.Identifier(schema)))
+                paths = sorted((ROOT / 'migrations').glob('*.sql'))
+                for path in paths:
+                    if not path.name.startswith('0006'):
+                        connection.execute(path.read_text(encoding='utf-8'))
+                staff_id = connection.execute(
+                    "INSERT INTO staff_users (username, password_hash, role) VALUES ('synthetic', %s, 'lgu_staff') RETURNING id",
+                    (generate_password_hash(token_urlsafe(24)),),
+                ).fetchone()[0]
+                batch, run = self.make_batch(connection, active=True)
+                review_id = repository.insert_active(
+                    connection, batch_id=batch, household_uuid=HOUSEHOLD_UUID,
+                    run_id=run, program='TUPAD', starting_reason=None, staff_id=staff_id,
+                )
+                before = connection.execute('SELECT * FROM staff_reviews').fetchone()
+                connection.execute((ROOT / 'migrations/0006_staff_review_completion.sql').read_text(encoding='utf-8'))
+                after = connection.execute('SELECT * FROM staff_reviews').fetchone()
+                self.assertEqual(after[:len(before)], before)
+                repository.cancel(connection, review_id, staff_id, 'Started by mistake.')
+                self.assertEqual(connection.execute('SELECT status FROM staff_reviews').fetchone()[0], 'Cancelled')
+            finally:
+                connection.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))
 
 
 if __name__ == '__main__':

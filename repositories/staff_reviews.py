@@ -3,6 +3,68 @@
 from psycopg.rows import dict_row
 
 
+def list_history(connection, batch_id, household_uuid):
+    """Read household-scoped review history and notes in two bounded queries."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        rows = cursor.execute(
+            """SELECT r.*, u.username, f.username AS finished_username,
+                      c.username AS cancelled_username
+               FROM staff_reviews r JOIN staff_users u ON u.id = r.started_by
+               LEFT JOIN staff_users f ON f.id = r.finished_by
+               LEFT JOIN staff_users c ON c.id = r.cancelled_by
+               WHERE r.batch_id = %s AND r.household_uuid = %s
+               ORDER BY r.created_at, r.id""", (batch_id, household_uuid),
+        ).fetchall()
+        if not rows:
+            return rows
+        indexed = {row['id']: row for row in rows}
+        for row in rows:
+            row['notes'] = []
+        notes = cursor.execute(
+            """SELECT n.*, u.username FROM staff_review_notes n
+               JOIN staff_reviews r ON r.id = n.review_id
+               JOIN staff_users u ON u.id = n.authored_by
+               WHERE r.batch_id = %s AND r.household_uuid = %s
+               ORDER BY n.created_at, n.id""", (batch_id, household_uuid),
+        ).fetchall()
+        for note in notes:
+            indexed[note['review_id']]['notes'].append(note)
+        return rows
+
+
+def lock_review(connection, review_id, batch_id, household_uuid, program):
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT * FROM staff_reviews WHERE id = %s AND batch_id = %s
+               AND household_uuid = %s AND program = %s FOR UPDATE""",
+            (review_id, batch_id, household_uuid, program),
+        ).fetchone()
+
+
+def add_note(connection, review_id, staff_id, body):
+    connection.execute(
+        """INSERT INTO staff_review_notes (review_id, authored_by, body)
+           VALUES (%s, %s, %s)""", (review_id, staff_id, body),
+    )
+
+
+def finish(connection, review_id, staff_id, recommendation, explanation):
+    connection.execute(
+        """UPDATE staff_reviews SET status = 'Closed', closing_recommendation = %s,
+           closing_explanation = %s, finished_by = %s, finished_at = clock_timestamp()
+           WHERE id = %s AND status = 'In Review'""",
+        (recommendation, explanation, staff_id, review_id),
+    )
+
+
+def cancel(connection, review_id, staff_id, reason):
+    connection.execute(
+        """UPDATE staff_reviews SET status = 'Cancelled', cancellation_reason = %s,
+           cancelled_by = %s, cancelled_at = clock_timestamp()
+           WHERE id = %s AND status = 'In Review'""", (reason, staff_id, review_id),
+    )
+
+
 def list_active(connection, batch_id, household_uuid):
     """Keep reviews tied to their original batch, including after run redesignation."""
     with connection.cursor(row_factory=dict_row) as cursor:

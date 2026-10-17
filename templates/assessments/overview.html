@@ -102,5 +102,9 @@
         </div>
       {% endif %}
     </dl>
+    <p class="section-helper">
+      <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **list_parameters) }}">View Subsidy Screening</a>
+      to examine the recorded circumstances and supporting information behind these findings.
+    </p>
   </section>
 </div>

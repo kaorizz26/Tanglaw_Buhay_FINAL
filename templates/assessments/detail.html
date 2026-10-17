@@ -6,9 +6,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessments.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessment-details.css') }}">
   <script src="{{ url_for('static', filename='js/assessment-details.js') }}" defer></script>
-  {% if tab == 'reviews' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-reviews.css') }}">
-  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -48,6 +46,31 @@
   </header>
 
   {% include 'assessments/summary.html' %}
+
+  {% if results.review_summary %}
+    <section class="review-status-panel" aria-labelledby="review-status-heading">
+      <div class="section-heading-row">
+        <h2 id="review-status-heading">Staff Review Status</h2>
+        <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **list_parameters) }}">View Staff Reviews</a>
+      </div>
+      <div class="review-status-list">
+        {% for review in results.review_summary %}
+          <div>
+            <strong>{{ review.program }} — {{ review.closing_recommendation if review.status == 'Closed' else review.status }}</strong>
+            {% if review.status == 'In Review' %}
+              <p>LGU staff are currently reviewing this household for {{ review.program }}. No final recommendation has been recorded yet.</p>
+            {% elif review.status == 'Cancelled' %}
+              <p>The review was cancelled. No recommendation was made.</p>
+            {% elif review.closing_recommendation == 'For LGU Follow-Up' %}
+              <p>Staff recommend this household for further consideration by the responsible LGU office.</p>
+            {% else %}
+              <p>Staff completed their review and do not recommend further action at this time.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
 
   <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
     {% for value, label in [

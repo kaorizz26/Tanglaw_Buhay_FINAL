@@ -98,7 +98,11 @@ def prepare_assessment_detail(source):
     if not isclose(float(total), mpi["vulnerability_score"], rel_tol=0, abs_tol=1e-8):
         raise AssessmentQueryError("stored_score_contribution_mismatch")
     identity = source["identity"]
+    reviews = source.get("staff_reviews", [])
+    latest = {row["program"]: row for row in reviews}
     return {
+        "review_history": reviews,
+        "review_summary": list(latest.values()),
         "context": source["context"], "household_uuid": source["findings"]["household_uuid"],
         "household_reference_id": _household_reference_id(identity["source_row_number"]),
         "head_name": _head_name(identity),
@@ -135,4 +139,6 @@ def prepare_assessment_detail(source):
 
 def get_assessment_detail(household_uuid):
     """Prepare one protected detail response from existing read-only query context."""
-    return prepare_assessment_detail(get_active_assessment_detail(household_uuid))
+    return prepare_assessment_detail(get_active_assessment_detail(
+        household_uuid, include_staff_reviews=True,
+    ))

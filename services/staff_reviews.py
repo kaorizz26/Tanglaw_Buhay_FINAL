@@ -17,14 +17,65 @@ def get_staff_review_detail(household_uuid):
     """Load the assessment and staff reviews from one read-only snapshot."""
     source = get_active_assessment_detail(household_uuid, include_staff_reviews=True)
     result = prepare_assessment_detail(source)
-    active = {row['program']: row for row in source['staff_reviews']}
+    history = source['staff_reviews']
+    active = {row['program']: row for row in history if row['status'] == 'In Review'}
     result['staff_reviews'] = [
         {**program, 'full_name': PROGRAM_NAMES[program['name']],
          'review': active.get(program['name']),
+         'history': [row for row in history if row['program'] == program['name']],
+         'latest': next((row for row in reversed(history)
+                         if row['program'] == program['name']), None),
          'requires_reason': program['status'] != 'For Review'}
         for program in result['programs']
     ]
     return result
+
+
+RECOMMENDATIONS = ('For LGU Follow-Up', 'No Further Action')
+
+
+def act_on_review(household_uuid, program, review_id, action, staff_id,
+                  batch_id, run_id, *, text='', recommendation='',
+                  connection_factory=get_connection):
+    """Serialize all actions on a review; never alter source or assessment results."""
+    if (program not in PROGRAM_NAMES or action not in ('note', 'finish', 'cancel')
+            or not isinstance(household_uuid, str) or not household_uuid.strip()
+            or len(household_uuid) > 128 or '\x00' in household_uuid
+            or any(type(value) is not int or value < 1
+                   for value in (review_id, staff_id, batch_id, run_id))):
+        raise StaffReviewError('invalid_request')
+    limit = 1000 if action == 'cancel' else 2000
+    if not isinstance(text, str) or '\x00' in text or len(text) > limit:
+        raise StaffReviewError('invalid_text')
+    text = text.strip()
+    if action != 'cancel' and not text:
+        raise StaffReviewError('text_required')
+    if action == 'finish' and recommendation not in RECOMMENDATIONS:
+        raise StaffReviewError('invalid_recommendation')
+    try:
+        with connection_factory() as connection:
+            with connection.transaction():
+                if not staff_reviews.lock_selected_context(connection, batch_id, run_id):
+                    raise StaffReviewError('context_changed')
+                if not staff_reviews.authorized_staff_exists(connection, staff_id):
+                    raise StaffReviewError('unauthorized')
+                review = staff_reviews.lock_review(
+                    connection, review_id, batch_id, household_uuid, program,
+                )
+                if review is None:
+                    raise StaffReviewError('review_missing')
+                if review['status'] != 'In Review':
+                    raise StaffReviewError('not_active')
+                if action == 'note':
+                    staff_reviews.add_note(connection, review_id, staff_id, text)
+                elif action == 'finish':
+                    staff_reviews.finish(connection, review_id, staff_id, recommendation, text)
+                else:
+                    staff_reviews.cancel(connection, review_id, staff_id, text or None)
+    except StaffReviewError:
+        raise
+    except (psycopg.Error, RuntimeError, KeyError, TypeError):
+        raise StaffReviewError('unavailable') from None
 
 
 def start_staff_review(household_uuid, program, starting_reason, staff_id,
