@@ -1,0 +1,148 @@
+/* Independent staff reviews within the existing household assessment layout. */
+.staff-reviews > .section-helper {
+  margin: 10px 0 22px;
+  max-width: 78ch;
+}
+
+.staff-review-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.staff-review-card,
+.review-confirmation {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.staff-reviews h3 {
+  margin: 0 0 5px;
+  font-size: 1.125rem;
+}
+
+.review-program-heading p,
+.review-attribution,
+.review-confirmation-note {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.review-findings {
+  display: grid;
+  gap: 16px;
+  margin: 22px 0;
+}
+
+.review-findings dt {
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.review-findings dd {
+  margin: 0;
+}
+
+.review-state {
+  font-weight: 600;
+}
+
+.review-state--active {
+  color: #27594a;
+}
+
+.review-button {
+  display: inline-block;
+  padding: 10px 18px;
+  border: 1px solid var(--navy);
+  border-radius: 6px;
+  color: var(--surface);
+  background: var(--navy);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.review-button:hover {
+  background: var(--navy-active);
+}
+
+.review-notice,
+.review-error {
+  margin: 16px 0;
+  padding: 14px 18px;
+  border: 1px solid var(--gold-border);
+  border-radius: 6px;
+  background: var(--notice);
+}
+
+.review-error {
+  border-color: #b66c67;
+  color: #8a302a;
+  background: #fcf1ef;
+}
+
+.review-confirmation {
+  max-width: 760px;
+}
+
+.review-confirmation > p {
+  margin-top: 10px;
+}
+
+.review-confirmation form {
+  margin-top: 24px;
+}
+
+.review-confirmation label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.review-confirmation textarea {
+  display: block;
+  width: 100%;
+  margin: 10px 0 18px;
+  padding: 12px;
+  border: 1px solid var(--text-muted);
+  border-radius: 6px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  resize: vertical;
+}
+
+.review-confirmation textarea:focus-visible {
+  outline: 3px solid #167eb5;
+  outline-offset: 3px;
+}
+
+.review-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 20px;
+}
+
+.review-starting-reason {
+  margin-top: 14px;
+  white-space: pre-wrap;
+}
+
+.review-starting-reason,
+.review-attribution,
+.review-confirmation p {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1050px) {
+  .staff-review-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

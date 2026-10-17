@@ -96,6 +96,24 @@ class AssessmentQueryServiceTests(unittest.TestCase):
                 service.get_active_assessment_detail(HOUSEHOLD_UUID, connection_factory=self.factory)
             members.assert_not_called()
 
+    def test_staff_reviews_share_the_designated_detail_read_only_snapshot(self):
+        source = detail_source()
+        with patch.object(repository, "find_household_assessment", return_value=source["findings"]), \
+                patch.object(service.dataset_batches, "find_household_identities", return_value=[source["identity"]]), \
+                patch.object(assessment_evidence, "find_household_sources", return_value=source["household"]), \
+                patch.object(assessment_evidence, "list_member_sources", return_value=source["members"]), \
+                patch.object(assessment_evidence, "list_evidence_references", return_value=source["references"]), \
+                patch.object(service.staff_reviews, "list_active", return_value=[]) as reviews:
+            result = service.get_active_assessment_detail(
+                HOUSEHOLD_UUID, include_staff_reviews=True, connection_factory=self.factory,
+            )
+        reviews.assert_called_once_with(self.connection, 9, HOUSEHOLD_UUID)
+        self.assertEqual(result["staff_reviews"], [])
+        self.factory.assert_called_once()
+        self.connection.execute.assert_called_once_with(
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+        )
+
     def test_filtered_count_page_and_barangays_share_designated_snapshot(self):
         filters = AssessmentFilters(
             programs=("4Ps", "SLP"), completeness="unknown", priority="both",

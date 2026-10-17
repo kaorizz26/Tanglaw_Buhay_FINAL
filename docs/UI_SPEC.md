@@ -40,7 +40,8 @@ This document sets the current staff-facing UI direction and responsive expectat
 | Assessments — Household Prioritization | Find households by their stored vulnerability results using the existing search, filters, and pagination. Explain the score and municipal rank in everyday language; these controls must not change the rank calculated from the full selected source batch. |
 | Assessments — Household Assessment | Explain a household's Overview and MPI Indicators, with supporting evidence available when needed. Show the four dimensions and all 16 indicators without changing stored calculations or outcomes. |
 | Subsidy Screening | Present separate historical findings for 4Ps, SLP, SPISC, and TUPAD with understandable reasons and focused recorded information. Use the staff-facing labels For Review, Not Enough Information, and No Review Signal while preserving stored statuses. Screening results are decision support, not an approval, eligibility decision, or opened staff review. |
-| Review Queue and History | When implemented, let authorized staff independently initiate and follow household/program subsidy reviews, including households without an automated For Review signal. Keep staff decisions separate from automated assessment and screening findings. |
+| Staff Reviews | Within Household Assessment, let either authorized staff role explicitly start a review for 4Ps, SLP, SPISC, or TUPAD. Show the historical screening finding separately from Not Started or In Review, with the initiating account and date for saved reviews. |
+| Review Queue and History | Future work: following reviews, notes, closing outcomes, history, and a review queue. Keep staff decisions separate from automated assessment and screening findings. |
 | Submissions | When implemented, provide a clear place for the approved staff submission workflow. Define its actions and permissions in the task that implements it. |
 | Administration | Let System Admins manage approved import and staff-account functions. Keep these actions admin-only and behind the existing source-access controls. |
 
@@ -55,6 +56,7 @@ The table states intended purposes, not a claim that every module is already imp
 - CBMS Record Details was intentionally removed from MPI Indicators. Preserve original source values and mappings internally; keep staff-facing View Evidence understandable without technical record details.
 - Keep the four subsidy programs' automated findings separate from MPI and from any later staff review. Do not add eligibility rules, change screening engines, or present a system flag as a staff decision.
 - Use system statuses precisely: MPI indicator findings are **Deprived**, **Not Deprived**, or **Unknown**. For routine subsidy screens, display stored `For Review` as **For Review**, `Needs Data Review` as **Not Enough Information**, and `No Historical CBMS Trigger` as **No Review Signal**. These labels are separate from staff review decisions and do not automatically open a review.
+- Staff Reviews replaces the planned Review History tab. Start Review opens a short household/program confirmation form. Require a brief reason for Not Enough Information or No Review Signal; do not ask for an extra justification for For Review. An active review has no duplicate Start Review or unfinished Continue Review action. Starting a review does not imply eligibility, contact, document submission, or approval.
 
 ## Design and change boundaries
 

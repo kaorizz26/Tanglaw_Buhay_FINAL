@@ -7,7 +7,7 @@ from psycopg.pq import TransactionStatus
 
 from db import get_connection
 from repositories import assessment_runs, dataset_batches
-from repositories import assessment_evidence
+from repositories import assessment_evidence, staff_reviews
 from services.assessment_filters import normalize_filters
 from services.subsidy_priority import derive_subsidy_priority
 
@@ -132,7 +132,9 @@ def get_active_household_assessment(household_uuid, *, connection_factory=get_co
         return {"context": context, "findings": findings}
 
 
-def get_active_assessment_detail(household_uuid, *, connection_factory=get_connection):
+def get_active_assessment_detail(
+    household_uuid, *, include_staff_reviews=False, connection_factory=get_connection,
+):
     """Read one stored assessment and relevant sources in the same stable snapshot.
 
     The caller enforces staff authorization. No engine, loader or write operation
@@ -157,7 +159,7 @@ def get_active_assessment_detail(household_uuid, *, connection_factory=get_conne
         )
         if len(identities) != 1 or household is None:
             raise AssessmentQueryError("household_identity_missing")
-        return {
+        result = {
             "context": context, "findings": findings, "identity": identities[0],
             "household": household,
             "members": assessment_evidence.list_member_sources(
@@ -167,3 +169,8 @@ def get_active_assessment_detail(household_uuid, *, connection_factory=get_conne
                 connection, context["batch_id"],
             ),
         }
+        if include_staff_reviews:
+            result["staff_reviews"] = staff_reviews.list_active(
+                connection, context["batch_id"], household_uuid,
+            )
+        return result

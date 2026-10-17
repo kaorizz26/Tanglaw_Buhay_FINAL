@@ -271,7 +271,9 @@ class ScreeningRouteTests(unittest.TestCase):
                      "General Welfare Review", "Still to verify",
                      "Official poverty-targeting classification"):
             self.assertNotIn(text, page)
-        self.assertIn('aria-disabled="true">Review History', page)
+        self.assertIn('tab=reviews', page)
+        self.assertIn('>Staff Reviews</a>', page)
+        self.assertNotIn('Review History', page)
 
     def test_unauthorized_sessions_never_load_screening_findings(self):
         self.assertEqual(self.client.get(self.path + "?tab=screening").location, "/login")

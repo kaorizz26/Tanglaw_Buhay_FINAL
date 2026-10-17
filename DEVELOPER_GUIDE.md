@@ -1845,3 +1845,39 @@ space on either side. The required full suite passed **276 tests without skips**
 all **292** database connections were guarded to local `tanglaw_buhay_test`.
 Original source data, stored findings, calculations, routes and authentication
 were untouched.
+
+## Staff review initiation
+
+Migration `0005_staff_reviews.sql` adds independent staff review records. Apply it
+explicitly after migrations 0001-0004; application startup never migrates the database:
+
+```powershell
+psql -h localhost -d tanglaw_buhay_dev -U YOUR_DB_USER -1 -v ON_ERROR_STOP=1 -f migrations/0005_staff_reviews.sql
+```
+
+Replace `YOUR_DB_USER` with the local database account. The transaction creates only
+`staff_reviews` and its partial unique index; existing source, finding and account
+tables are unchanged. Until applied, Staff Reviews fails safely; existing assessment
+tabs continue to use their original queries.
+
+Both authorized roles can use the Household Assessment Staff Reviews tab. A GET
+opens confirmation; a session-authenticated, CSRF-protected POST creates `In Review`.
+The service rechecks active validated batch/designated completed run, the selected
+household's stored program finding, and the initiating active staff account in the
+write transaction. Shared locks keep batch, designation, run and account state
+stable through insertion. Confirmation context is validated again to reject stale
+forms. Stored `For Review` requires no reason; the other two stored screening
+statuses require a trimmed reason of up to 1,000 characters.
+
+Foreign keys retain household batch, assessment run and starting staff identity.
+A partial unique index on batch/household/program prevents duplicate active reviews,
+including concurrent POSTs. A run redesignation does not relink or erase an existing
+review. Display reads share the assessment's read-only repeatable-read snapshot.
+No assessment engine, source update or stored-finding update is invoked. The new
+review status is separate from screening status, priority and eligibility.
+
+Focused tests: `python -B -m unittest discover -s tests -p test_staff_reviews.py`.
+Database-writing tests require `TANGLAW_TEST_DATABASE_URL` for loopback
+`tanglaw_buhay_test` and use disposable `review_check_*` schemas with synthetic
+stored findings. Notes, closing outcomes, history, queue and citizen workflows
+remain outside this implementation.

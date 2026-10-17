@@ -48,7 +48,7 @@ def detail_navigation(arguments):
     tab = tab_values[0] if tab_values else "overview"
     page = page_values[0] if page_values else "1"
     if (
-        len(tab_values) > 1 or tab not in ("overview", "mpi", "screening")
+        len(tab_values) > 1 or tab not in ("overview", "mpi", "screening", "reviews")
         or len(page_values) > 1 or not page.isascii() or not page.isdecimal()
         or len(page) > 9 or int(page) < 1
     ):

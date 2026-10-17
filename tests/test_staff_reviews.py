@@ -1,0 +1,396 @@
+"""Synthetic initiation tests; writes are confined to disposable local test schemas."""
+
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from datetime import datetime, timezone
+import os
+from pathlib import Path
+from secrets import token_urlsafe
+from threading import Barrier
+from time import time
+import unittest
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
+
+from dotenv import load_dotenv
+import psycopg
+from psycopg import sql
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from psycopg.types.json import Jsonb
+from werkzeug.datastructures import MultiDict
+from werkzeug.security import generate_password_hash
+
+from app import create_app
+from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
+from repositories import assessment_runs, staff_reviews as repository
+from services import staff_reviews as service
+from services.assessment_details import prepare_assessment_detail
+from services.assessment_queries import AssessmentQueryError
+
+ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / '.env')
+TEST_URL = os.getenv('TANGLAW_TEST_DATABASE_URL')
+
+
+def review_source():
+    source = detail_source()
+    source['staff_reviews'] = []
+    return source
+
+
+class StaffReviewRouteTests(unittest.TestCase):
+    def setUp(self):
+        self.source = review_source()
+        self.app = create_app({
+            'TESTING': True, 'SECRET_KEY': token_urlsafe(48), 'DATABASE_URL': None,
+        })
+        self.client = self.app.test_client()
+        self.user = {'id': 7, 'username': 'synthetic_staff', 'role': 'lgu_staff',
+                     'is_active': True, 'session_version': 1}
+        patches = (
+            patch('psycopg.connect', side_effect=AssertionError('Real connection blocked')),
+            patch('services.auth.get_connection', return_value=MagicMock()),
+            patch('repositories.staff_users.find_by_id', side_effect=lambda *args: dict(self.user)),
+            patch.object(service, 'get_active_assessment_detail', return_value=self.source),
+            patch('routes.assessments.get_assessment_detail',
+                  side_effect=lambda *args: prepare_assessment_detail(self.source)),
+            patch('routes.assessments.start_staff_review', return_value=42),
+        )
+        for patcher in patches:
+            self.creator = patcher.start()
+            self.addCleanup(patcher.stop)
+        self.path = f'/assessments/{HOUSEHOLD_UUID}'
+        self.start_path = self.path + '/reviews/4Ps'
+
+    def session(self):
+        with self.client.session_transaction() as session:
+            session.update(user_id=7, session_version=1, issued_at=int(time()), csrf_token='test-token')
+
+    def post(self, program='4Ps', **overrides):
+        data = {'csrf_token': 'test-token', 'batch_id': '1', 'run_id': '2', **overrides}
+        return self.client.post(self.path + '/reviews/' + program, data=data)
+
+    def test_both_roles_start_only_by_post_and_return_to_reviews(self):
+        before = deepcopy(self.source)
+        for role in ('system_administrator', 'lgu_staff'):
+            with self.subTest(role=role):
+                self.user['role'] = role
+                self.session()
+                page = self.client.get(self.start_path + '?page=2&priority=both')
+                self.assertEqual(page.status_code, 200)
+                self.assertIn('Start 4Ps Review', page.text)
+                self.assertIn('HH-00008', page.text)
+                self.assertNotIn('<textarea', page.text)
+                self.creator.assert_not_called()
+                result = self.client.post(
+                    self.start_path + '?page=2&priority=both',
+                    data={'csrf_token': 'test-token', 'batch_id': '1', 'run_id': '2',
+                          'staff_id': '999'},
+                )
+                self.assertEqual(result.status_code, 303)
+                self.assertIn('tab=reviews', result.location)
+                self.assertIn('page=2', result.location)
+                self.assertIn('priority=both', result.location)
+                self.creator.assert_called_once_with(HOUSEHOLD_UUID, '4Ps', '', 7, 1, 2)
+                self.creator.reset_mock()
+        self.assertEqual(self.source, before)
+
+    def test_unauthenticated_inactive_unknown_role_and_csrf_cannot_create(self):
+        self.assertEqual(self.post().location, '/login')
+        for change in ({'is_active': False}, {'role': 'citizen'}, {'session_version': 8}):
+            original = dict(self.user)
+            self.user.update(change)
+            self.session()
+            self.assertEqual(self.post().location, '/login')
+            self.user.clear()
+            self.user.update(original)
+        self.session()
+        for token in ('', 'wrong'):
+            self.assertEqual(self.post(csrf_token=token).status_code, 400)
+        self.creator.assert_not_called()
+
+    def test_reason_form_only_when_required_and_validation_is_accessible(self):
+        self.session()
+        for program, label in (('SLP', 'Not Enough Information'), ('SPISC', 'No Review Signal')):
+            page = self.client.get(self.path + '/reviews/' + program)
+            self.assertEqual(page.status_code, 200)
+            self.assertIn(label, page.text)
+            self.assertIn('name="starting_reason"', page.text)
+            self.assertIn('maxlength="1000" required', page.text)
+            self.creator.side_effect = service.StaffReviewError('reason_required')
+            response = self.post(program)
+            self.assertEqual(response.status_code, 400)
+            self.assertIn('role="alert"', response.text)
+            self.assertIn('aria-invalid="true"', response.text)
+        self.creator.side_effect = None
+        self.assertEqual(self.post('SLP', starting_reason='Staff received a request.').status_code, 303)
+
+    def test_reviews_display_account_date_reason_and_no_duplicate_actions(self):
+        self.session()
+        self.source['staff_reviews'] = [{
+            'program': 'SLP', 'username': 'synthetic_admin', 'starting_reason': '<script>reason</script>',
+            'created_at': datetime(2026, 10, 17, tzinfo=timezone.utc),
+        }]
+        response = self.client.get(self.path + '?tab=reviews')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text.count('class="staff-review-card"'), 4)
+        for text in ('Not Started', 'In Review', 'synthetic_admin', '17 Oct 2026',
+                     'Not Enough Information', 'No Review Signal', '&lt;script&gt;reason&lt;/script&gt;'):
+            self.assertIn(text, response.text)
+        self.assertNotIn('program=SLP', response.text)
+        self.assertNotIn('/reviews/SLP', response.text)
+        for text in ('Continue Review', 'Close Review', 'Add Notes', 'Review History'):
+            self.assertNotIn(text, response.text)
+        self.assertEqual(self.client.get(self.path + '/reviews/SLP').status_code, 303)
+        self.creator.assert_not_called()
+        for tab in ('overview', 'mpi', 'screening'):
+            self.assertEqual(self.client.get(self.path + '?tab=' + tab).status_code, 200)
+
+    def test_invalid_program_context_duplicate_and_database_errors_are_safe(self):
+        self.session()
+        self.assertEqual(self.post('OTHER').status_code, 404)
+        self.assertEqual(self.post(batch_id='invalid').status_code, 400)
+        duplicate_values = MultiDict([
+            ('csrf_token', 'test-token'), ('batch_id', '1'), ('batch_id', '2'), ('run_id', '2'),
+        ])
+        self.assertEqual(self.client.post(self.start_path, data=duplicate_values).status_code, 400)
+        self.creator.assert_not_called()
+        for code, expected in (('already_active', 303), ('context_changed', 400),
+                               ('household_missing', 404), ('unauthorized', 403),
+                               ('unavailable', 503)):
+            self.creator.side_effect = service.StaffReviewError(code)
+            response = self.post()
+            self.assertEqual(response.status_code, expected)
+            self.assertNotIn('Traceback', response.text)
+        with patch.object(service, 'get_active_assessment_detail',
+                          side_effect=AssessmentQueryError('assessment_query_unavailable')):
+            self.assertEqual(self.client.get(self.path + '?tab=reviews').status_code, 503)
+
+
+@unittest.skipUnless(TEST_URL, 'Set the isolated local test database URL.')
+class StaffReviewDatabaseTests(unittest.TestCase):
+    def setUp(self):
+        settings = conninfo_to_dict(TEST_URL)
+        self.assertEqual(settings.get('dbname'), 'tanglaw_buhay_test')
+        self.assertIn(settings.get('host'), ('localhost', '127.0.0.1', '::1'))
+        self.assertIn(settings.get('hostaddr', '127.0.0.1'), ('127.0.0.1', '::1'))
+        self.assertNotIn('service', settings)
+        self.assertNotIn('options', settings)
+        self.assertFalse(any(os.getenv(name) for name in ('PGSERVICE', 'PGSERVICEFILE', 'PGOPTIONS')))
+        self.schema = 'review_check_' + uuid4().hex
+        self.address = '::1' if settings['host'] == '::1' else '127.0.0.1'
+        self.url = make_conninfo(TEST_URL, hostaddr=self.address, connect_timeout=5,
+                                 options=f'-c search_path={self.schema}')
+        self.source = review_source()
+        with psycopg.connect(TEST_URL, hostaddr=self.address) as connection:
+            self.assertEqual(connection.info.dbname, 'tanglaw_buhay_test')
+            connection.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(self.schema)))
+            connection.execute(sql.SQL('SET LOCAL search_path TO {}').format(sql.Identifier(self.schema)))
+            for path in sorted((ROOT / 'migrations').glob('*.sql')):
+                connection.execute(path.read_text(encoding='utf-8'))
+        self.addCleanup(self.drop_schema)
+        with self.connect() as connection:
+            self.staff_ids = []
+            password_hash = generate_password_hash(token_urlsafe(24))
+            for username, role in (('synthetic_admin', 'system_administrator'),
+                                   ('synthetic_staff', 'lgu_staff')):
+                self.staff_ids.append(connection.execute(
+                    'INSERT INTO staff_users (username, password_hash, role) VALUES (%s, %s, %s) RETURNING id',
+                    (username, password_hash, role),
+                ).fetchone()[0])
+            self.batch_id, self.run_id = self.make_batch(connection, active=True)
+            self.other_batch, self.other_run = self.make_batch(connection, active=False)
+            self.originals = self.snapshot(connection)
+
+    def connect(self):
+        return psycopg.connect(self.url)
+
+    def drop_schema(self):
+        with psycopg.connect(TEST_URL, hostaddr=self.address) as connection:
+            connection.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(self.schema)))
+
+    def make_batch(self, connection, *, active):
+        batch_id = connection.execute(
+            """INSERT INTO dataset_batches
+               (survey_year, municipality, source_columns, validation_status, is_active)
+               VALUES (2022, 'Pozorrubio', '{}'::jsonb, 'validated', %s) RETURNING id""", (active,),
+        ).fetchone()[0]
+        connection.execute('INSERT INTO households VALUES (%s, %s, 8, %s)',
+                           (batch_id, HOUSEHOLD_UUID, Jsonb(self.source['household'])))
+        run_id = assessment_runs.create_run(
+            connection, batch_id, calculation_version='synthetic',
+            calculation_provenance={'kind': 'synthetic stored test findings'},
+        )
+        assessment_runs.store_household_assessments(
+            connection, run_id, {HOUSEHOLD_UUID: self.source['findings']},
+        )
+        assessment_runs.complete_run(connection, run_id)
+        assessment_runs.designate_run(connection, batch_id, run_id)
+        return batch_id, run_id
+
+    def snapshot(self, connection):
+        return {table: connection.execute(sql.SQL('SELECT * FROM {} ORDER BY 1, 2').format(
+            sql.Identifier(table),
+        )).fetchall() for table in (
+            'dataset_batches', 'households', 'household_members', 'member_health',
+            'child_death_records', 'codebook_values', 'mpi_code_mappings',
+            'variable_definitions', 'assessment_runs', 'household_assessments',
+            'assessment_run_selections',
+        )}
+
+    def start(self, program='4Ps', reason='', staff_id=None, **overrides):
+        return service.start_staff_review(
+            overrides.get('household_uuid', HOUSEHOLD_UUID), program, reason,
+            staff_id or self.staff_ids[0], overrides.get('batch_id', self.batch_id),
+            overrides.get('run_id', self.run_id), connection_factory=self.connect,
+        )
+
+    def test_both_roles_all_programs_persist_exact_identities_without_source_changes(self):
+        for index, program in enumerate(('4Ps', 'SLP', 'SPISC', 'TUPAD')):
+            staff_id = self.staff_ids[index % 2]
+            self.start(program, '  Staff request for consideration.  ', staff_id)
+        with self.connect() as connection:
+            rows = connection.execute(
+                'SELECT batch_id, household_uuid, assessment_run_id, program, status, starting_reason, started_by, created_at FROM staff_reviews ORDER BY id',
+            ).fetchall()
+            self.assertEqual(len(rows), 4)
+            for index, row in enumerate(rows):
+                self.assertEqual(row[:3], (self.batch_id, HOUSEHOLD_UUID, self.run_id))
+                self.assertEqual(row[4:7], ('In Review', 'Staff request for consideration.', self.staff_ids[index % 2]))
+                self.assertIsNotNone(row[7])
+            self.assertEqual(self.snapshot(connection), self.originals)
+            self.assertEqual(len(repository.list_active(connection, self.batch_id, HOUSEHOLD_UUID)), 4)
+            self.assertEqual(repository.list_active(connection, self.other_batch, HOUSEHOLD_UUID), [])
+
+    def test_stored_status_requires_reason_for_both_non_signal_states(self):
+        for program in ('SLP', 'SPISC'):
+            for reason in ('', ' \n '):
+                with self.assertRaisesRegex(service.StaffReviewError, 'reason_required'):
+                    self.start(program, reason)
+            self.start(program, 'Staff identified a circumstance to review.')
+        self.start('4Ps')
+        self.start('TUPAD')
+
+    def test_invalid_inactive_stale_and_unassessed_requests_save_nothing(self):
+        for program, reason, overrides, code in (
+            ('INVALID', '', {}, 'invalid_program'),
+            ('4Ps', 'x' * 1001, {}, 'invalid_reason'),
+            ('4Ps', '\x00', {}, 'invalid_reason'),
+            ('4Ps', '', {'household_uuid': str(uuid4())}, 'household_missing'),
+            ('4Ps', '', {'batch_id': self.other_batch, 'run_id': self.other_run}, 'context_changed'),
+            ('4Ps', '', {'run_id': self.other_run}, 'context_changed'),
+            ('4Ps', '', {'staff_id': 99999}, 'unauthorized'),
+        ):
+            with self.subTest(code=code), self.assertRaisesRegex(service.StaffReviewError, code):
+                self.start(program, reason, **overrides)
+        with self.connect() as connection:
+            connection.execute('UPDATE staff_users SET is_active = false WHERE id = %s', (self.staff_ids[0],))
+        with self.assertRaisesRegex(service.StaffReviewError, 'unauthorized'):
+            self.start()
+        with self.connect() as connection:
+            self.assertEqual(connection.execute('SELECT count(*) FROM staff_reviews').fetchone()[0], 0)
+
+    def test_concurrent_and_repeated_initiations_create_exactly_one_review(self):
+        ready = Barrier(2)
+        insert = repository.insert_active
+
+        def simultaneous_insert(connection, **kwargs):
+            ready.wait(timeout=10)
+            return insert(connection, **kwargs)
+
+        def attempt(_):
+            try:
+                return self.start()
+            except service.StaffReviewError as error:
+                return str(error)
+        with patch.object(repository, 'insert_active', side_effect=simultaneous_insert), \
+                ThreadPoolExecutor(max_workers=2) as executor:
+            outcomes = list(executor.map(attempt, range(2)))
+        self.assertEqual(outcomes.count('already_active'), 1)
+        self.assertEqual(sum(type(value) is int for value in outcomes), 1)
+        with self.assertRaisesRegex(service.StaffReviewError, 'already_active'):
+            self.start()
+        with self.connect() as connection:
+            self.assertEqual(connection.execute('SELECT count(*) FROM staff_reviews').fetchone()[0], 1)
+
+    def test_database_failure_rolls_back_insert_and_hides_details(self):
+        original = repository.insert_active
+
+        def failing(connection, **kwargs):
+            original(connection, **kwargs)
+            raise psycopg.OperationalError('PRIVATE_CONNECTION_DETAILS')
+
+        with patch.object(repository, 'insert_active', side_effect=failing):
+            with self.assertRaisesRegex(service.StaffReviewError, '^unavailable$'):
+                self.start()
+        with self.connect() as connection:
+            self.assertEqual(connection.execute('SELECT count(*) FROM staff_reviews').fetchone()[0], 0)
+
+    def test_authenticated_http_round_trip_uses_real_storage_and_read_only_detail(self):
+        app = create_app({
+            'TESTING': True, 'SECRET_KEY': token_urlsafe(48), 'DATABASE_URL': self.url,
+        })
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session.update(user_id=self.staff_ids[1], session_version=1,
+                           issued_at=int(time()), csrf_token='test-token')
+        path = f'/assessments/{HOUSEHOLD_UUID}'
+        self.assertEqual(client.get(path + '?tab=reviews').status_code, 200)
+        self.assertEqual(client.get(path + '/reviews/SLP').status_code, 200)
+        response = client.post(path + '/reviews/SLP', data={
+            'csrf_token': 'test-token', 'batch_id': self.batch_id, 'run_id': self.run_id,
+            'starting_reason': 'Staff received a request for consideration.',
+        }, follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        for text in ('In Review', 'synthetic_staff', 'Staff received a request for consideration.',
+                     'The SLP staff review has started.'):
+            self.assertIn(text, response.text)
+        self.assertNotIn('/reviews/SLP', response.text)
+        with self.connect() as connection:
+            self.assertEqual(self.snapshot(connection), self.originals)
+
+    def test_run_redesignation_rejects_stale_form_and_preserves_existing_review(self):
+        self.start()
+        with self.connect() as connection:
+            new_run = assessment_runs.create_run(
+                connection, self.batch_id, calculation_version='synthetic-second',
+                calculation_provenance={'kind': 'synthetic stored test findings'},
+            )
+            assessment_runs.store_household_assessments(
+                connection, new_run, {HOUSEHOLD_UUID: self.source['findings']},
+            )
+            assessment_runs.complete_run(connection, new_run)
+            assessment_runs.designate_run(connection, self.batch_id, new_run)
+        with self.assertRaisesRegex(service.StaffReviewError, 'context_changed'):
+            self.start('TUPAD')
+        self.start('TUPAD', run_id=new_run)
+        with self.connect() as connection:
+            self.assertEqual(len(repository.list_active(connection, self.batch_id, HOUSEHOLD_UUID)), 2)
+            self.assertEqual(connection.execute(
+                "SELECT assessment_run_id FROM staff_reviews WHERE program = '4Ps'",
+            ).fetchone()[0], self.run_id)
+
+    def test_database_references_and_unique_index_reject_invalid_direct_writes(self):
+        self.start()
+        with self.connect() as connection:
+            for changes, exception in (
+                ({'staff_id': 99999, 'program': 'TUPAD'}, psycopg.errors.ForeignKeyViolation),
+                ({'batch_id': self.other_batch, 'program': 'TUPAD'}, psycopg.errors.ForeignKeyViolation),
+                ({'program': 'INVALID'}, psycopg.errors.CheckViolation),
+            ):
+                values = {'batch_id': self.batch_id, 'household_uuid': HOUSEHOLD_UUID,
+                          'run_id': self.run_id, 'program': '4Ps', 'starting_reason': None,
+                          'staff_id': self.staff_ids[0], **changes}
+                with self.assertRaises(exception), connection.transaction():
+                    repository.insert_active(connection, **values)
+            with self.assertRaises(psycopg.errors.UniqueViolation), connection.transaction():
+                connection.execute(
+                    """INSERT INTO staff_reviews
+                       (batch_id, household_uuid, assessment_run_id, program, started_by)
+                       VALUES (%s, %s, %s, '4Ps', %s)""",
+                    (self.batch_id, HOUSEHOLD_UUID, self.run_id, self.staff_ids[0]),
+                )
+
+
+if __name__ == '__main__':
+    unittest.main()

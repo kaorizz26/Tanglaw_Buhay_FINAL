@@ -6,6 +6,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessments.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessment-details.css') }}">
   <script src="{{ url_for('static', filename='js/assessment-details.js') }}" defer></script>
+  {% if tab == 'reviews' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-reviews.css') }}">
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -47,19 +50,23 @@
   {% include 'assessments/summary.html' %}
 
   <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
-    {% for value, label in [('overview', 'Overview'), ('mpi', 'MPI Indicators'), ('screening', 'Subsidy Screening')] %}
+    {% for value, label in [
+      ('overview', 'Overview'), ('mpi', 'MPI Indicators'),
+      ('screening', 'Subsidy Screening'), ('reviews', 'Staff Reviews')
+    ] %}
       <a
         href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **list_parameters) }}"
         {% if tab == value %}aria-current="page"{% endif %}
       >{{ label }}</a>
     {% endfor %}
-    <span aria-disabled="true">Review History <small>Planned</small></span>
   </nav>
 
   {% if tab == 'mpi' %}
     {% include 'assessments/mpi.html' %}
   {% elif tab == 'screening' %}
     {% include 'assessments/screening.html' %}
+  {% elif tab == 'reviews' %}
+    {% include 'assessments/staff_reviews.html' %}
   {% else %}
     {% include 'assessments/overview.html' %}
   {% endif %}
