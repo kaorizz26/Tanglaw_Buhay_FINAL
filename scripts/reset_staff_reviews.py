@@ -60,7 +60,7 @@ def local_settings(database_url, environment):
 
 def verify_target(connection, settings):
     row = connection.execute(
-        'SELECT current_database(), inet_server_addr()::text, inet_server_port(), '
+        'SELECT current_database(), host(inet_server_addr()), inet_server_port(), '
         'current_user, current_schema()',
     ).fetchone()
     if (row[0] != 'tanglaw_buhay_dev' or not row[1]

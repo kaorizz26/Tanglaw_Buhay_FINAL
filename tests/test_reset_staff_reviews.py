@@ -6,7 +6,7 @@ import os
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from psycopg.conninfo import conninfo_to_dict
 
@@ -17,6 +17,35 @@ import test_staff_reviews as reviews
 
 
 class ResetTargetTests(unittest.TestCase):
+    def test_identity_guard_accepts_plain_ipv4_and_ipv6_loopback_addresses(self):
+        for address in ('127.0.0.1', '::1'):
+            with self.subTest(address=address):
+                settings = reset.local_settings(
+                    f'dbname=tanglaw_buhay_dev host={address} user=staff', {})
+                connection = MagicMock()
+                connection.execute.return_value.fetchone.return_value = (
+                    'tanglaw_buhay_dev', address, 5432, 'staff', 'public')
+                self.assertIn(address, reset.verify_target(connection, settings))
+                # PostgreSQL inet::text includes /32 or /128; host() omits it.
+                query = connection.execute.call_args.args[0]
+                self.assertIn('host(inet_server_addr())', query)
+
+    def test_identity_guard_still_rejects_every_target_identity_mismatch(self):
+        settings = reset.local_settings(
+            'dbname=tanglaw_buhay_dev host=localhost user=staff', {})
+        good = ['tanglaw_buhay_dev', '127.0.0.1', 5432, 'staff', 'public']
+        mismatches = ((0, 'tanglaw_buhay_test'), (1, '192.0.2.1'),
+                      (1, '127.0.0.2'), (1, '::1'), (1, None),
+                      (2, 5433), (3, 'other_staff'), (4, 'other_schema'))
+        for index, value in mismatches:
+            with self.subTest(field=index, value=value):
+                row = good.copy()
+                row[index] = value
+                connection = MagicMock()
+                connection.execute.return_value.fetchone.return_value = tuple(row)
+                with self.assertRaises(reset.ResetError):
+                    reset.verify_target(connection, settings)
+
     def test_rejects_wrong_remote_ambiguous_and_environment_targets(self):
         for url in ('', 'dbname=tanglaw_buhay_test host=localhost user=staff',
                     'dbname=production host=localhost user=staff',
