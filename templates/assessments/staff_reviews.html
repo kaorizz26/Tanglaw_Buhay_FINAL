@@ -55,9 +55,11 @@
             <div>
               <dt>{{ 'Staff review status' if not program.latest or program.latest.status != 'Closed' else 'Staff recommendation' }}</dt>
               <dd>
-                {% if program.review %}
+                {% if program.latest and program.latest.withdrawn %}
+                  <span class="staff-review-badge staff-review-badge--withdrawn">Recommendation Withdrawn</span>
+                {% elif program.review %}
                   <span class="staff-review-badge staff-review-badge--active">In Review</span>
-                {% elif program.latest and program.latest.status == 'Closed' and program.latest.closing_recommendation == 'For LGU Follow-Up' %}
+                {% elif program.latest and program.latest.status == 'Closed' and program.latest.effective_recommendation == 'For LGU Follow-Up' %}
                   <span class="staff-review-badge staff-review-badge--follow-up">For LGU Follow-Up</span>
                 {% elif program.latest and program.latest.status == 'Closed' %}
                   <span class="staff-review-badge staff-review-badge--no-action">No Further Action</span>
@@ -77,13 +79,19 @@
             <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.review.id, **detail_parameters) }}">Open Review<span class="visually-hidden"> for {{ program.name }}</span></a>
           {% else %}
             {% if program.latest %}
-              {% if program.latest.status == 'Closed' %}
-                <p class="review-starting-reason">{{ program.latest.closing_explanation }}</p>
+              {% if program.latest.withdrawn %}
+                <p class="review-outcome-copy">The completed review remains in history. You can start a new review.</p>
+              {% elif program.latest.status == 'Closed' %}
+                <p class="review-starting-reason">{{ program.latest.effective_explanation }}</p>
               {% else %}
                 <p class="review-outcome-copy">This review ended without a recommendation.</p>
               {% endif %}
             {% endif %}
-            <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **detail_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+            {% if program.latest and program.latest.status == 'Closed' and not program.latest.withdrawn %}
+              <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.latest.id, **detail_parameters) }}">View Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+            {% else %}
+              <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **detail_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+            {% endif %}
           {% endif %}
           {% set previous = program.history | rejectattr('status', 'equalto', 'In Review') | list %}
           {% if previous %}
@@ -91,7 +99,7 @@
               <summary>View Review History ({{ previous | length }})</summary>
               <ol>
                 {% for saved in previous %}
-                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **detail_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ saved.closing_recommendation if saved.closing_recommendation else 'Cancelled' }}</a></li>
+                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **detail_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ 'Recommendation Withdrawn' if saved.withdrawn else saved.effective_recommendation or 'Cancelled' }}</a></li>
                 {% endfor %}
               </ol>
             </details>

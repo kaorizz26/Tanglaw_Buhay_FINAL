@@ -34,9 +34,11 @@
             <li class="review-status-item">
               <div class="review-status-item-heading">
                 <strong>{{ review.program }}</strong>
-                {% if review.status == 'In Review' %}
+                {% if review.withdrawn %}
+                  <span class="staff-review-badge staff-review-badge--withdrawn">Recommendation Withdrawn</span>
+                {% elif review.status == 'In Review' %}
                   <span class="staff-review-badge staff-review-badge--active">In Review</span>
-                {% elif review.status == 'Closed' and review.closing_recommendation == 'For LGU Follow-Up' %}
+                {% elif review.status == 'Closed' and review.effective_recommendation == 'For LGU Follow-Up' %}
                   <span class="staff-review-badge staff-review-badge--follow-up">For LGU Follow-Up</span>
                 {% elif review.status == 'Closed' %}
                   <span class="staff-review-badge staff-review-badge--no-action">No Further Action</span>
@@ -44,9 +46,11 @@
                   <span class="staff-review-badge staff-review-badge--cancelled">Cancelled</span>
                 {% endif %}
               </div>
-              {% if review.status == 'In Review' %}
+              {% if review.withdrawn %}
+                <p>The {{ review.program }} recommendation was withdrawn. The completed review remains in history.</p>
+              {% elif review.status == 'In Review' %}
                 <p>Staff are examining this household for {{ review.program }}. No final recommendation has been recorded.</p>
-              {% elif review.status == 'Closed' and review.closing_recommendation == 'For LGU Follow-Up' %}
+              {% elif review.status == 'Closed' and review.effective_recommendation == 'For LGU Follow-Up' %}
                 <p>Staff recommend further consideration by the responsible LGU office. This recommendation is not an approval.</p>
               {% elif review.status == 'Closed' %}
                 <p>Staff recorded no further action at this time. This is a staff recommendation, not a subsidy decision.</p>

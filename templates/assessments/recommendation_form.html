@@ -1,0 +1,65 @@
+{% set correcting = review_mode == 'correct' %}
+<section class="review-record-section recommendation-form" aria-labelledby="recommendation-change-heading">
+  <p class="recommendation-eyebrow">{{ results.household_reference_id }} · {{ review.program }}</p>
+  <h3 id="recommendation-change-heading">{{ ('Review Correction' if correcting else 'Review Withdrawal') if change_confirmation else ('Correct Recommendation' if correcting else 'Withdraw Recommendation') }}</h3>
+  <div class="recommendation-previous">
+    <h4>{{ 'Previously saved recommendation' if correcting else 'Current effective recommendation' }}</h4>
+    <p><strong>{{ review.effective_recommendation }}</strong></p>
+    <p class="review-preserved-text">{{ review.effective_explanation }}</p>
+    <p class="review-note-meta">{{ 'Corrected' if review.recommendation_version else 'Finished' }} by {{ review.effective_username }} · {{ review.effective_at.strftime('%d %b %Y, %I:%M %p %Z') }}</p>
+  </div>
+  {% if not correcting %}
+    <p class="section-helper">Withdrawing removes this recommendation from the current review results. The completed review will remain in history.</p>
+  {% endif %}
+  {% if review_error %}<p id="change-error" class="review-error" role="alert">{{ review_error }}</p>{% endif %}
+  <form method="post" {% if review_error %}aria-describedby="change-error"{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if change_confirmation %}
+      <p class="section-helper">Check this {{ 'correction' if correcting else 'withdrawal' }} for <strong>{{ results.head_name }} · {{ results.household_reference_id }} · {{ review.program }}</strong> before saving.</p>
+      <dl class="recommendation-summary">
+        {% if correcting %}
+          <div><dt>Corrected recommendation</dt><dd>{{ change_values.recommendation }}</dd></div>
+        {% else %}
+          <div><dt>After withdrawal</dt><dd>No current recommendation from this review.</dd></div>
+        {% endif %}
+        <div><dt>Reason for {{ 'correction' if correcting else 'withdrawal' }}</dt><dd class="review-preserved-text">{{ change_values.reason }}</dd></div>
+        {% if correcting %}
+          <div><dt>Updated explanation</dt><dd class="review-preserved-text">{{ change_values.explanation }}</dd></div>
+        {% endif %}
+      </dl>
+      <input type="hidden" name="confirmation_token" value="{{ confirmation_token }}">
+      <div class="review-form-actions">
+        <button type="submit" name="step" value="confirm" class="review-button">{{ 'Confirm and Save' if correcting else 'Confirm Withdrawal' }}</button>
+        <button type="submit" name="step" value="edit" class="review-button review-button--secondary">Back to Edit</button>
+        <a class="review-keep-link" href="{{ record_url }}">{{ 'Cancel' if correcting else 'Keep Current Recommendation' }}</a>
+      </div>
+    {% else %}
+      <input type="hidden" name="batch_id" value="{{ change_values.batch_id }}">
+      <input type="hidden" name="run_id" value="{{ change_values.run_id }}">
+      <input type="hidden" name="version" value="{{ change_values.version }}">
+      {% if correcting %}
+        <fieldset>
+          <legend>Corrected recommendation (required)</legend>
+          {% for value, meaning in [('For LGU Follow-Up', 'Recommend further consideration by the LGU.'), ('No Further Action', 'Recommend no additional action at this time.')] %}
+            <label class="recommendation-choice">
+              <input type="radio" name="recommendation" value="{{ value }}" required {% if change_values.recommendation == value %}checked{% endif %}>
+              <span><strong>{{ value }}</strong><span>{{ meaning }}</span></span>
+            </label>
+          {% endfor %}
+        </fieldset>
+      {% endif %}
+      <label for="change-reason">Reason for {{ 'correction' if correcting else 'withdrawal' }} (required)</label>
+      <p class="field-help" id="change-reason-help">Up to 1,000 characters.</p>
+      <textarea id="change-reason" name="reason" rows="3" maxlength="1000" required aria-describedby="change-reason-help" placeholder="{{ 'Why does the saved recommendation need to be corrected?' if correcting else 'Why should this recommendation be withdrawn?' }}">{{ change_values.reason[:1000] }}</textarea>
+      {% if correcting %}
+        <label for="change-explanation">Updated explanation (required)</label>
+        <p class="field-help" id="change-explanation-help">Explain the corrected staff recommendation. Up to 2,000 characters.</p>
+        <textarea id="change-explanation" name="explanation" rows="4" maxlength="2000" required aria-describedby="change-explanation-help">{{ change_values.explanation[:2000] }}</textarea>
+      {% endif %}
+      <div class="review-form-actions">
+        <button type="submit" name="step" value="review" class="review-button">{{ 'Review Correction' if correcting else 'Review Withdrawal' }}</button>
+        <a class="review-keep-link" href="{{ record_url }}">{{ 'Cancel' if correcting else 'Keep Current Recommendation' }}</a>
+      </div>
+    {% endif %}
+  </form>
+</section>

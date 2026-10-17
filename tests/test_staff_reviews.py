@@ -128,7 +128,7 @@ class StaffReviewRouteTests(unittest.TestCase):
     def test_reviews_display_account_date_reason_and_no_duplicate_actions(self):
         self.session()
         self.source['staff_reviews'] = [{
-            'id': 42, 'status': 'In Review',
+            'id': 42, 'current_review_id': 42, 'status': 'In Review',
             'program': 'SLP', 'username': 'synthetic_admin', 'starting_reason': '<script>reason</script>',
             'created_at': datetime(2026, 10, 17, tzinfo=timezone.utc),
         }]
@@ -195,30 +195,30 @@ class StaffReviewRouteTests(unittest.TestCase):
         first = datetime(2026, 10, 1, tzinfo=timezone.utc)
         self.source['staff_reviews'] = [
             {
-                'id': 41, 'program': '4Ps', 'status': 'In Review',
+                'id': 41, 'current_review_id': 41, 'program': '4Ps', 'status': 'In Review',
                 'username': 'synthetic_staff', 'starting_reason': 'Staff examination requested.',
                 'created_at': first, 'closing_recommendation': None,
             },
             {
-                'id': 42, 'program': 'SLP', 'status': 'Closed',
+                'id': 42, 'current_review_id': 42, 'program': 'SLP', 'status': 'Closed',
                 'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
                 'created_at': first, 'closing_recommendation': 'For LGU Follow-Up',
                 'closing_explanation': 'Recommend further consideration.',
             },
             {
-                'id': 43, 'program': 'SPISC', 'status': 'Closed',
+                'id': 43, 'current_review_id': 43, 'program': 'SPISC', 'status': 'Closed',
                 'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
                 'created_at': first, 'closing_recommendation': 'No Further Action',
                 'closing_explanation': 'No further action is recommended.',
             },
             {
-                'id': 44, 'program': 'TUPAD', 'status': 'Closed',
+                'id': 44, 'current_review_id': 44, 'program': 'TUPAD', 'status': 'Closed',
                 'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
                 'created_at': first, 'closing_recommendation': 'For LGU Follow-Up',
                 'closing_explanation': 'Earlier recommendation.',
             },
             {
-                'id': 45, 'program': 'TUPAD', 'status': 'Cancelled',
+                'id': 45, 'current_review_id': 44, 'program': 'TUPAD', 'status': 'Cancelled',
                 'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
                 'created_at': first.replace(day=2), 'closing_recommendation': None,
                 'cancellation_reason': 'The review was started in error.',
@@ -232,7 +232,7 @@ class StaffReviewRouteTests(unittest.TestCase):
                 if tab != 'overview':
                     self.assertNotIn('id="review-status-heading"', response.text)
                     continue
-                for text in ('In Review', 'For LGU Follow-Up', 'No Further Action', 'Cancelled'):
+                for text in ('In Review', 'For LGU Follow-Up', 'No Further Action'):
                     self.assertIn(text, response.text)
                 status_list = response.text.split('<ul class="review-status-list">', 1)[1].split(
                     '</ul>', 1,
@@ -240,8 +240,8 @@ class StaffReviewRouteTests(unittest.TestCase):
                 tupad_summary = status_list.split('<strong>TUPAD</strong>', 1)[1].split(
                     '</li>', 1,
                 )[0]
-                self.assertIn('Cancelled', tupad_summary)
-                self.assertNotIn('For LGU Follow-Up', tupad_summary)
+                self.assertNotIn('Cancelled', tupad_summary)
+                self.assertIn('For LGU Follow-Up', tupad_summary)
 
         reviews = self.client.get(self.path + '?tab=reviews')
         self.assertEqual(reviews.status_code, 200)
@@ -260,13 +260,14 @@ class StaffReviewRouteTests(unittest.TestCase):
             '</article>', 1,
         )[0]
         tupad_current = tupad_card.split('<details class="review-history">', 1)[0]
-        self.assertIn('Cancelled', tupad_current)
-        self.assertNotIn('For LGU Follow-Up', tupad_current)
-        self.assertIn('Start Review', tupad_card)
+        self.assertNotIn('Cancelled', tupad_current)
+        self.assertIn('For LGU Follow-Up', tupad_current)
+        self.assertNotIn('Start Review', tupad_card)
+        self.assertIn('View Review', tupad_current)
         self.assertIn('For LGU Follow-Up', tupad_card)
 
         self.source['staff_reviews'] = [{
-            'id': 46, 'program': 'SLP', 'status': 'Cancelled',
+            'id': 46, 'current_review_id': 46, 'program': 'SLP', 'status': 'Cancelled',
             'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
             'created_at': first, 'closing_recommendation': None,
             'cancellation_reason': 'The review was started in error.',
@@ -383,6 +384,15 @@ class StaffReviewDatabaseTests(unittest.TestCase):
             overrides.get('run_id', self.run_id), connection_factory=self.connect,
         )
 
+    def legacy_start(self, program='4Ps', staff_id=None):
+        """Represent pre-restriction history without bypassing the public service."""
+        with self.connect() as connection:
+            return repository.insert_active(
+                connection, batch_id=self.batch_id, household_uuid=HOUSEHOLD_UUID,
+                run_id=self.run_id, program=program, starting_reason='Historical test review.',
+                staff_id=staff_id or self.staff_ids[0],
+            )
+
     def test_both_roles_all_programs_persist_exact_identities_without_source_changes(self):
         for index, program in enumerate(('4Ps', 'SLP', 'SPISC', 'TUPAD')):
             staff_id = self.staff_ids[index % 2]
@@ -430,18 +440,18 @@ class StaffReviewDatabaseTests(unittest.TestCase):
 
     def test_concurrent_and_repeated_initiations_create_exactly_one_review(self):
         ready = Barrier(2)
-        insert = repository.insert_active
+        lock = repository.lock_household_reviews
 
-        def simultaneous_insert(connection, **kwargs):
+        def simultaneous_lock(*args):
             ready.wait(timeout=10)
-            return insert(connection, **kwargs)
+            return lock(*args)
 
         def attempt(_):
             try:
                 return self.start()
             except service.StaffReviewError as error:
                 return str(error)
-        with patch.object(repository, 'insert_active', side_effect=simultaneous_insert), \
+        with patch.object(repository, 'lock_household_reviews', side_effect=simultaneous_lock), \
                 ThreadPoolExecutor(max_workers=2) as executor:
             outcomes = list(executor.map(attempt, range(2)))
         self.assertEqual(outcomes.count('already_active'), 1)
@@ -545,13 +555,13 @@ class StaffReviewDatabaseTests(unittest.TestCase):
         for action in ('note', 'finish', 'cancel'):
             with self.assertRaisesRegex(service.StaffReviewError, 'not_active'):
                 self.act(first, action, text='Repeated action.', recommendation='No Further Action')
-        second = self.start()
+        second = self.legacy_start()
         self.act(second, 'cancel', text='Started by mistake.')
         with self.assertRaisesRegex(service.StaffReviewError, 'not_active'):
             self.act(second, 'note', text='Cannot add this.')
-        third = self.start()
+        third = self.legacy_start()
         self.act(third, 'finish', recommendation='No Further Action', text='No further action at this time.')
-        fourth = self.start()
+        fourth = self.legacy_start()
         with self.connect() as connection:
             history = repository.list_history(connection, self.batch_id, HOUSEHOLD_UUID)
             self.assertEqual([row['id'] for row in history], [first, second, third, fourth])
@@ -677,7 +687,7 @@ class StaffReviewDatabaseTests(unittest.TestCase):
         self.assertIn('View Subsidy Screening', client.get(path).text)
         self.assertIn('Review History', client.get(path + '?tab=reviews').text)
         self.assertEqual(client.get(path + f'/reviews/TUPAD/{review_id}').status_code, 404)
-        second = self.start()
+        second = self.legacy_start()
         self.assertEqual(client.post(path + f'/reviews/4Ps/{second}?action=cancel',
                                     data={**data, 'action': 'cancel', 'text': ''}).status_code, 303)
         with self.connect() as connection:

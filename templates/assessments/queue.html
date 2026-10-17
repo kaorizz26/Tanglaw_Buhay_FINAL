@@ -24,15 +24,18 @@
     </div>
   </header>
 
-  <nav class="assessment-tabs queue-status-tabs" aria-label="Review status">
-    {% for value, label in results.status_options %}
-      <a
-        href="{{ url_for('assessments.queue', status=value, **results.tab_filter_parameters) }}"
-        {% if results.filters.status == value %}aria-current="page"{% endif %}
-      >{{ label }}</a>
-    {% endfor %}
-  </nav>
-  <p class="queue-explanation">{{ results.status_explanation }}</p>
+  <div class="queue-status-guide">
+    <nav class="queue-status-cards" aria-label="Review status">
+      {% for value, label in results.status_options %}
+        <a href="{{ url_for('assessments.queue', status=value, **results.tab_filter_parameters) }}"
+           {% if results.filters.status == value %}aria-current="page"{% endif %}>
+          <span class="queue-status-card-heading"><strong>{{ label }}</strong><span class="queue-status-selection">{{ 'Selected' if results.filters.status == value else 'View reviews →' }}</span></span>
+          <span class="queue-status-card-meaning">{{ results.status_explanations[value] }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+    <p>Staff recommendations do not mean subsidy approval or denial of eligibility.</p>
+  </div>
 
   <div class="queue-scope-section">
     <nav class="queue-scope-switch" aria-label="Review assignment">

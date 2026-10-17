@@ -194,8 +194,12 @@ class QueueRouteTests(unittest.TestCase):
                     expected = ('Reviews assigned to you as the responsible staff member.'
                                 if scope == 'mine' else 'Reviews assigned to authorized LGU personnel.')
                     self.assertIn(expected, response.text)
-                    self.assertLess(response.text.index('queue-explanation'),
+                    self.assertLess(response.text.index('queue-status-guide'),
                                     response.text.index('queue-scope-switch'))
+                    for meaning in queue.STATUS_EXPLANATIONS.values():
+                        self.assertIn(meaning, response.text)
+                    self.assertIn('Staff recommendations do not mean subsidy approval '
+                                  'or denial of eligibility.', response.text)
                     self.assertLess(response.text.index('queue-scope-switch'),
                                     response.text.index('Filter staff reviews'))
         for bad in ('scope=', 'scope=unknown', 'scope=mine&scope=all',
@@ -244,7 +248,7 @@ class QueueRouteTests(unittest.TestCase):
         parameters = queue.queue_return_parameters(2, filters)
         query = urlencode(parameters, doseq=True)
         self.fixture.source['staff_reviews'] = [{
-            'id': 42, 'program': '4Ps', 'status': 'In Review', 'username': 'synthetic_staff',
+            'id': 42, 'current_review_id': 42, 'program': '4Ps', 'status': 'In Review', 'username': 'synthetic_staff',
             'created_at': datetime(2026, 10, 17, tzinfo=timezone.utc), 'notes': [],
             'starting_reason': '', 'closing_recommendation': None,
         }]
@@ -301,13 +305,13 @@ class QueueDatabaseTests(unittest.TestCase):
         fx = self.fixture
         old = fx.start()
         fx.act(old, 'finish', recommendation='For LGU Follow-Up', text='Further consideration.')
-        active = fx.start()
+        active = fx.legacy_start()
         no_action = fx.start('SLP', 'Staff request.')
         self.assertEqual({r['id'] for r in self.page()['items']}, {active, no_action})
         fx.act(no_action, 'finish', program='SLP', recommendation='No Further Action', text='Examined.')
         previous = fx.start('TUPAD')
         fx.act(previous, 'finish', program='TUPAD', recommendation='For LGU Follow-Up', text='Examined.')
-        cancelled = fx.start('TUPAD')
+        cancelled = fx.legacy_start('TUPAD')
         fx.act(cancelled, 'cancel', program='TUPAD', text='Started in error.')
         with self.connect() as connection:
             staff_reviews.insert_active(connection, batch_id=fx.other_batch,
@@ -316,7 +320,7 @@ class QueueDatabaseTests(unittest.TestCase):
                                         staff_id=fx.staff_ids[0])
         self.assertEqual([r['id'] for r in self.page()['items']], [active])
         self.assertEqual([r['id'] for r in self.page('no-action')['items']], [no_action])
-        self.assertEqual(self.page('follow-up')['total'], 0)
+        self.assertEqual(self.page('follow-up')['total'], 1)
         with self.connect() as connection:
             self.assertEqual(fx.snapshot(connection), fx.originals)
             self.assertEqual(len(staff_reviews.list_history(connection, fx.batch_id, HOUSEHOLD_UUID)), 5)
@@ -405,7 +409,7 @@ class QueueDatabaseTests(unittest.TestCase):
         self.assertNotIn('id="review-note"', response.text)
         self.assertEqual(self.page()['total'], 0)
         self.assertEqual(self.page('follow-up')['total'], 1)
-        second = fx.start()
+        second = fx.legacy_start()
         response = client.post(path.rsplit('/', 1)[0] + '/' + str(second) + '?' + state + '&action=cancel', data={
             'csrf_token': 'test-token', 'action': 'cancel', 'batch_id': fx.batch_id,
             'run_id': fx.run_id, 'text': 'Started in error.',
@@ -413,7 +417,7 @@ class QueueDatabaseTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('Back to Review Queue', response.text)
         self.assertIn('Review cancelled. No recommendation was made.', response.text)
-        self.assertEqual(self.page('follow-up')['total'], 0)
+        self.assertEqual(self.page('follow-up')['total'], 1)
         with self.connect() as connection:
             self.assertEqual(fx.snapshot(connection), fx.originals)
             self.assertEqual(len(staff_reviews.list_history(connection, fx.batch_id, HOUSEHOLD_UUID)), 2)

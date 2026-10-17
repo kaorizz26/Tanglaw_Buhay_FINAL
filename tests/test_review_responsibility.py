@@ -168,7 +168,7 @@ class ResponsibilityDatabaseTests(unittest.TestCase):
                     repository.finish(connection, review_id, self.admin, 'No Further Action', 'Examined.')
                     connection.commit()
                     self.assertEqual(future.result(timeout=10), 'not_active')
-        second = self.fixture.start()
+        second = self.fixture.legacy_start()
         original = repository.reassign
 
         def failing(*args):
@@ -207,7 +207,7 @@ class ResponsibilityDatabaseTests(unittest.TestCase):
         self.assertEqual([r['id'] for r in self.page('follow-up')['items']], ids[::-1])
         self.assertEqual([r['id'] for r in self.page('follow-up', sort='asc')['items']], ids)
         self.assertEqual(self.page('follow-up', scope='mine', staff_id=self.staff)['total'], 2)
-        newer = fx.start()
+        newer = fx.legacy_start()
         self.change(newer, self.staff)
         fx.act(newer, 'finish', recommendation='No Further Action', text='Examined.')
         self.assertEqual(self.page('no-action', scope='mine', staff_id=self.staff)['total'], 1)

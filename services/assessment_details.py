@@ -98,11 +98,24 @@ def prepare_assessment_detail(source):
     if not isclose(float(total), mpi["vulnerability_score"], rel_tol=0, abs_tol=1e-8):
         raise AssessmentQueryError("stored_score_contribution_mismatch")
     identity = source["identity"]
-    reviews = source.get("staff_reviews", [])
-    latest = {row["program"]: row for row in reviews}
+    reviews = [dict(row) for row in source.get("staff_reviews", [])]
+    for row in reviews:
+        row.setdefault('effective_recommendation', row.get('closing_recommendation'))
+        row.setdefault('effective_explanation', row.get('closing_explanation'))
+        row.setdefault('effective_username', row.get('finished_username'))
+        row.setdefault('effective_at', row.get('finished_at'))
+        row.setdefault('withdrawn', False)
+        row.setdefault('recommendation_version', 0)
+        row.setdefault('recommendation_changes', [])
+    for row in reviews:
+        row['is_latest_review'] = row['current_review_id'] == row['id']
+        row['can_change_recommendation'] = (
+            row['status'] == 'Closed' and not row['withdrawn']
+            and row['is_latest_review']
+        )
     return {
         "review_history": reviews,
-        "review_summary": list(latest.values()),
+        "review_summary": [row for row in reviews if row['is_latest_review']],
         "context": source["context"], "household_uuid": source["findings"]["household_uuid"],
         "household_reference_id": _household_reference_id(identity["source_row_number"]),
         "head_name": _head_name(identity),

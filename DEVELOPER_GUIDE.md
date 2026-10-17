@@ -1898,12 +1898,14 @@ recommendation and required explanation (up to 2,000), or cancel with an optiona
 reason (up to 1,000). Each CSRF-protected POST rechecks the active validated batch,
 designated completed run, authenticated account and household/program association.
 A review-row lock serializes notes and transitions. Only In Review accepts writes;
-Closed/Cancelled records remain readable and allow a new independent review.
+Closed/Cancelled records remain readable. The finalized initiation rule below
+blocks repeats while an effective completed recommendation exists.
 Original assessment-run links remain unchanged after designation changes.
 
 All assessment tabs share review history from their existing read-only snapshot
-(up to two household-scoped reads for reviews and notes, no per-program queries). The
-latest review per program supplies the compact status panel. Missing migration
+(four household-scoped reads including assignments and recommendation changes,
+no per-program queries). The
+selected current review per program supplies the compact status panel. Missing migration
 0006 causes a safe unavailable response on assessment details; apply it before
 using this version. Source records, findings, scores, ranks and priority are never
 updated by review actions. Tests use only synthetic disposable test schemas.
@@ -1914,9 +1916,10 @@ updated by review actions. Tests use only synthetic disposable test schemas.
 validates `status` (`in-review`, `follow-up`, `no-action`), `q`, `barangay`, repeated
 `program`, `page`, `scope` (`all` or `mine`), and `sort` (default, `asc`, `desc`),
 then uses the shared repeatable-read, read-only active-batch
-and designated-run context. Repository count/page queries select the latest review
-per batch/household/program before status filtering; a latest cancellation excludes
-older recommendations. Rank comes from the currently designated run, while each
+and designated-run context. Repository count/page queries use the shared current
+review selection before status filtering: active first, otherwise latest completed,
+otherwise latest cancellation. A cancellation cannot withdraw an older completion.
+Rank comes from the currently designated run, while each
 review retains its original run association. Page identities are loaded together;
 queue rows do not load notes or MPI/subsidy evidence. The responsible staff username
 is joined once; `mine` uses the authenticated staff ID supplied by the route.
@@ -1933,8 +1936,9 @@ intact. Focused coverage: `python -B -m unittest discover -s tests -p test_revie
 
 ### Review responsibility (Task 5.1)
 
-Apply migration 0007 once after 0006, explicitly against the intended development
-database. Startup never applies it:
+Migration 0007 has already been applied successfully to the local development
+database, as confirmed by the owner. For a separate database still at 0006, apply
+it once explicitly; startup never applies it:
 
 ```powershell
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_final -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0007_review_responsibility.sql"
@@ -1953,5 +1957,96 @@ remain unchanged. Closed/cancelled reviews retain their last Responsible Staff.
 
 Focused coverage: `python -B -m unittest discover -s tests -p test_review_responsibility.py`.
 Database checks and browser fixtures use disposable schemas only in the guarded
-local `tanglaw_buhay_test` database. The existing development database requires
-the explicit command above before using the updated review screens.
+local `tanglaw_buhay_test` database.
+
+### Completed recommendation changes (Task 5.2)
+
+Migration `0008_recommendation_changes.sql` has already been applied to the local
+development database, as confirmed by the owner. Do not reapply 0007 or 0008 there.
+For a separate database still at 0007, apply 0008 explicitly once.
+It creates `staff_review_recommendation_changes`, an append-only table with a
+per-review sequence, previous/new recommendation and explanation, required reason,
+actor and timestamp. An UPDATE/DELETE trigger protects history. Original review
+closing values, notes and assignments are unchanged. A shared SQL view,
+`staff_review_recommendation_state`, projects the latest change (or original closing
+values), including explicit withdrawal, for household details and queue filtering.
+
+Command for a separate database still requiring this migration:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_final -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0008_recommendation_changes.sql"
+```
+
+Both authorized roles retain shared access. `services/recommendation_changes.py`
+validates previews and saves using the same transaction checks. Starts and completed
+changes and finish/cancel transitions lock the household before the review row,
+serializing initiation, completion and withdrawal. Saving also checks selected
+batch/run, active actor, current review,
+Closed/unwithdrawn state and the expected change sequence. A correction must change
+the category or trimmed explanation. A stale form, including an A→B→A change,
+cannot replace a newer decision. Existing active review actions keep their rules.
+
+`routes/recommendation_changes.py` renders the form in the existing focused review.
+Review Correction/Withdrawal performs validation without writing; a signed,
+30-minute confirmation binds the exact draft to the actor, household, program,
+review, action, context and expected sequence. Confirm revalidates under locks.
+Back to Edit preserves the draft, while cancel links perform no write. Every POST
+requires session CSRF; all navigation uses the existing validated structured state.
+No private draft is stored in the session or application logs.
+
+`repositories/staff_reviews.py::_current_review_cte` is the shared selection used
+by queue queries, household history, initiation and correction guards. Active work
+takes precedence; otherwise the latest completion (with its effective state) wins,
+then latest cancellation if no completion exists. Cancelled legacy repeats do not
+erase a completion. A withdrawn latest completion remains a barrier to older values.
+An effective completed recommendation blocks Start Review, including direct/stale
+POSTs. Correction changes the existing review; withdrawal permits starting again if
+there is no active review. Legacy active repeats remain usable and appear only once
+in In Review; cancellation preserves the prior completion, while finishing replaces
+it. Correction of an earlier completion waits until active work no longer takes
+precedence. No historical records are rewritten by this selection.
+
+Focused tests: `python -B -m unittest discover -s tests -p test_recommendation_changes.py`.
+All migration validation and browser previews use isolated synthetic test schemas.
+
+### Reset disposable development Staff Reviews
+
+**Destructive development utility: never use it for real operational LGU history.**
+Stop the local Flask app and coordinate with other developers before an approved
+cleanup. This command removes review records, notes, reassignments and recommendation
+changes; it must be approved separately from implementing or testing the utility:
+
+```powershell
+python scripts/reset_staff_reviews.py
+```
+
+Use the project virtual environment. There are no target, schema or automatic-confirm
+flags. The CLI accepts only an explicit `DATABASE_URL` for `tanglaw_buhay_dev` on
+localhost/127.0.0.1/::1, pins the numeric loopback address, rejects implicit PG*
+environment settings and connection redirection, and verifies the actual server,
+database, user and public schema in a read-only preflight. It prints identity and
+counts before removal. Matching-major PostgreSQL pg_dump/pg_restore must be installed
+(PATH or the normal Windows PostgreSQL installation directory).
+
+The command locks only the four review tables against writes, exports one snapshot,
+and creates a timestamped custom **data-only** pg_dump archive in Git-ignored
+`notes/staff_review_backups/`. It verifies pg_dump success, the exact four TABLE DATA
+entries, and a full read/decompression by pg_restore; an adjacent JSON file records
+counts, database/schema and SHA-256. Failed/incomplete backups never permit removal.
+Backups contain private review content/household references: keep them local and do
+not commit or share them. No CBMS source responses or staff passwords are backed up.
+
+After backup verification, type the exact interactive phrase:
+`RESET tanglaw_buhay_dev DISPOSABLE REVIEWS ONLY`. Any other answer aborts and keeps
+the verified backup. One transaction truncates only the fixed four-table FK dependency
+set, in child-before-parent order, with **CONTINUE IDENTITY RESTRICT**. No CASCADE,
+trigger disabling, schema change, account/session change or source/assessment write
+is performed. Failure rolls back all four tables. Final output lists removed counts.
+
+For recovery, stop the app, keep all four review tables empty, check the matching
+backup JSON/hash and target, then use the matching pg_restore with `--no-owner`,
+`--no-privileges`, `--exit-on-error`, `--single-transaction`, `--dbname=tanglaw_buhay_dev`
+and the archive path. Recovery requires the same household/staff IDs and schema;
+do not restore over newer review work. Isolated tests exercise an actual backup,
+reset and restore, plus wrong targets, refused confirmation, archive failure and
+rollback, while comparing every protected source/assessment table and staff account.

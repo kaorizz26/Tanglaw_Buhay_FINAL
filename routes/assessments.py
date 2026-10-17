@@ -16,6 +16,7 @@ from services.review_queue import (
     get_review_queue_page, parse_queue_arguments, parse_queue_return,
     queue_return_parameters,
 )
+from routes.recommendation_changes import recommendation_form
 
 
 assessments = Blueprint("assessments", __name__)
@@ -150,6 +151,9 @@ def start_review(household_uuid, review_program):
             code = str(failure)
             if code == "already_active":
                 flash("A review is already in progress for this program.")
+            elif code == 'recommendation_exists':
+                flash('A completed recommendation already exists for this program. '
+                      'Choose View Review to correct or withdraw it.')
             elif code in ("reason_required", "invalid_reason"):
                 error = (
                     "Enter a brief reason for starting this review."
@@ -190,7 +194,11 @@ def start_review(household_uuid, review_program):
     selected = next(
         item for item in results["staff_reviews"] if item["name"] == program
     )
-    if selected["review"]:
+    if selected['review'] or (selected['latest'] and selected['latest']['status'] == 'Closed'
+                              and not selected['latest']['withdrawn']):
+        if not selected['review']:
+            flash('A completed recommendation already exists. '
+                  'Choose View Review to correct or withdraw it.')
         return redirect(url_for(
             "assessments.detail", household_uuid=household_uuid, tab="reviews",
             **navigation['detail_parameters'],
@@ -219,8 +227,11 @@ def review_record(household_uuid, review_program, review_id):
     except InvalidAssessmentFilters:
         abort(400, description='Choose valid return filters.')
     mode = request.args.get('action', '')
-    if len(request.args.getlist('action')) > 1 or mode not in ('', 'finish', 'cancel', 'reassign'):
+    if len(request.args.getlist('action')) > 1 or mode not in (
+            '', 'finish', 'cancel', 'reassign', 'correct', 'withdraw'):
         abort(400, description='Choose a valid review action.')
+    if mode in ('correct', 'withdraw'):
+        return recommendation_form(household_uuid, program, review_id, mode, navigation)
     error = None
     text = ''
     recommendation = ''

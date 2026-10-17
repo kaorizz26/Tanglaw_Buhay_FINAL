@@ -17,14 +17,14 @@ def get_staff_review_detail(household_uuid):
     """Load the assessment and staff reviews from one read-only snapshot."""
     source = get_active_assessment_detail(household_uuid, include_staff_reviews=True)
     result = prepare_assessment_detail(source)
-    history = source['staff_reviews']
+    history = result['review_history']
     active = {row['program']: row for row in history if row['status'] == 'In Review'}
+    current = {row['program']: row for row in result['review_summary']}
     result['staff_reviews'] = [
         {**program, 'full_name': PROGRAM_NAMES[program['name']],
          'review': active.get(program['name']),
          'history': [row for row in history if row['program'] == program['name']],
-         'latest': next((row for row in reversed(history)
-                         if row['program'] == program['name']), None),
+         'latest': current.get(program['name']),
          'requires_reason': program['status'] != 'For Review'}
         for program in result['programs']
     ]
@@ -71,6 +71,9 @@ def act_on_review(household_uuid, program, review_id, action, staff_id,
                     raise StaffReviewError('context_changed')
                 if not staff_reviews.authorized_staff_exists(connection, staff_id):
                     raise StaffReviewError('unauthorized')
+                if action in ('finish', 'cancel') and not staff_reviews.lock_household_reviews(
+                        connection, batch_id, household_uuid):
+                    raise StaffReviewError('household_missing')
                 review = staff_reviews.lock_review(
                     connection, review_id, batch_id, household_uuid, program,
                 )
@@ -124,6 +127,14 @@ def start_staff_review(household_uuid, program, starting_reason, staff_id,
                     raise StaffReviewError('context_changed')
                 if not staff_reviews.authorized_staff_exists(connection, staff_id):
                     raise StaffReviewError('unauthorized')
+                if not staff_reviews.lock_household_reviews(connection, batch_id, household_uuid):
+                    raise StaffReviewError('household_missing')
+                if any(row['program'] == program for row in staff_reviews.list_active(
+                        connection, batch_id, household_uuid)):
+                    raise StaffReviewError('already_active')
+                if staff_reviews.effective_completed_review(
+                        connection, batch_id, household_uuid, program):
+                    raise StaffReviewError('recommendation_exists')
                 finding = assessment_runs.find_household_assessment(
                     connection, run_id, household_uuid,
                 )

@@ -11,8 +11,14 @@
 
 <div class="review-workspace">
   <div class="review-main">
+    {% if review_mode in ('correct', 'withdraw') %}
+      {% include 'assessments/recommendation_form.html' %}
+    {% endif %}
     <section class="review-record-section" aria-labelledby="review-details-heading">
       <h3 id="review-details-heading">Review details</h3>
+      {% if not review.is_latest_review %}
+        <p class="section-helper">Another review is currently shown for this program. This record remains available in history.</p>
+      {% endif %}
       <dl class="review-details-list">
         <div>
           <dt>Program</dt>
@@ -39,7 +45,9 @@
           </div>
         {% endif %}
       </dl>
-      <p class="section-helper">Responsible Staff coordinates this subsidy review. Other authorized staff can also add notes and finish it.</p>
+      {% if review.status == 'In Review' %}
+        <p class="section-helper">Responsible Staff coordinates this subsidy review. Other authorized staff can also add notes and finish it.</p>
+      {% endif %}
       <p class="section-helper">The screening finding is separate from this staff review and is not an approval of assistance.</p>
     </section>
 
@@ -60,6 +68,10 @@
         <p class="review-empty-notes">No notes have been saved for this review yet.</p>
       {% endif %}
     </section>
+
+    {% if review.status == 'Closed' and review.recommendation_changes %}
+      {% include 'assessments/recommendation_history.html' %}
+    {% endif %}
 
     {% if review.reassignments %}
       <section class="review-record-section" aria-labelledby="assignment-history-heading">
@@ -96,9 +108,11 @@
 
   <aside class="review-action-panel" aria-labelledby="review-status-heading">
     <h3 id="review-status-heading">Staff review status</h3>
-    {% if review.status == 'In Review' %}
+    {% if review.withdrawn %}
+      <p class="staff-review-badge staff-review-badge--withdrawn">Recommendation Withdrawn</p>
+    {% elif review.status == 'In Review' %}
       <p class="staff-review-badge staff-review-badge--active">In Review</p>
-    {% elif review.status == 'Closed' and review.closing_recommendation == 'For LGU Follow-Up' %}
+    {% elif review.status == 'Closed' and review.effective_recommendation == 'For LGU Follow-Up' %}
       <p class="staff-review-badge staff-review-badge--follow-up">For LGU Follow-Up</p>
     {% elif review.status == 'Closed' %}
       <p class="staff-review-badge staff-review-badge--no-action">No Further Action</p>
@@ -106,10 +120,20 @@
       <p class="staff-review-badge staff-review-badge--cancelled">Cancelled</p>
     {% endif %}
     {% if review.status == 'Closed' %}
-      <h4>Closing recommendation</h4>
-      <p class="review-recommendation">{{ review.closing_recommendation }}</p>
-      <p class="review-preserved-text">{{ review.closing_explanation }}</p>
-      <p class="review-attribution">Finished by <strong>{{ review.finished_username }}</strong> on <time datetime="{{ review.finished_at.isoformat() }}">{{ review.finished_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time>.</p>
+      {% if review.withdrawn %}
+        <p>This recommendation is no longer part of current review results. The completed review remains in history.</p>
+      {% else %}
+        <h4>{{ 'Current recommendation' if review.is_latest_review else 'Saved recommendation' }}</h4>
+        <p class="review-recommendation">{{ review.effective_recommendation }}</p>
+        <p class="review-preserved-text">{{ review.effective_explanation }}</p>
+        <p class="review-attribution">{{ 'Corrected' if review.recommendation_version else 'Finished' }} by <strong>{{ review.effective_username }}</strong> on <time datetime="{{ review.effective_at.isoformat() }}">{{ review.effective_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time>.</p>
+      {% endif %}
+      {% if review.can_change_recommendation and not review_mode %}
+        <div class="review-action-buttons">
+          <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='correct', **detail_parameters) }}">Correct Recommendation</a>
+          <a class="review-secondary-link" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='withdraw', **detail_parameters) }}">Withdraw Recommendation</a>
+        </div>
+      {% endif %}
     {% elif review.status == 'Cancelled' %}
       <p>No recommendation was made. This review was cancelled.</p>
       {% if review.cancellation_reason %}<p class="review-preserved-text">{{ review.cancellation_reason }}</p>{% endif %}

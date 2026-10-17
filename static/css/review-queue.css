@@ -4,14 +4,76 @@
   margin-bottom: 18px;
 }
 
-.queue-status-tabs {
-  margin-bottom: 12px;
+.queue-status-guide {
+  margin: 0 0 18px;
 }
 
-.queue-explanation {
-  margin: 0 0 20px;
-  max-width: 90ch;
+.queue-status-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.queue-status-cards a {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--navy);
+}
+
+.queue-status-cards a:hover {
+  border-color: var(--gold-border);
+  background: var(--surface-muted);
+}
+
+.queue-status-cards a[aria-current="page"] {
+  border-color: var(--navy);
+  color: var(--surface);
+  background: var(--navy);
+  box-shadow: inset 0 -3px var(--gold);
+}
+
+.queue-status-cards a:focus-visible {
+  outline: 3px solid #167eb5;
+  outline-offset: 3px;
+}
+
+.queue-status-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 0.9375rem;
+}
+
+.queue-status-selection {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.queue-status-card-meaning {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.queue-status-guide > p {
+  margin: 8px 0 0;
   color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 760px) {
+  .queue-status-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .queue-scope-section {

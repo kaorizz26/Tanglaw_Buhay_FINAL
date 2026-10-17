@@ -21,10 +21,9 @@ STATUS_OPTIONS = (
     ('no-action', 'No Further Action'),
 )
 STATUS_EXPLANATIONS = {
-    'in-review': 'Household subsidy reviews started by LGU staff that have not yet been completed.',
-    'follow-up': 'Reviews where staff recommended further consideration by the responsible LGU '
-                 'office. These are not subsidy approvals.',
-    'no-action': 'Reviews where staff recommended no further action at this time.',
+    'in-review': 'Staff have started these reviews but have not finished them yet.',
+    'follow-up': 'Staff have finished these reviews and recommend further consideration by the LGU.',
+    'no-action': 'Staff have finished these reviews and recommend no additional action at this time.',
 }
 RETURN_KEYS = ('status', 'q', 'barangay', 'program', 'page', 'scope', 'sort')
 
@@ -151,6 +150,7 @@ def get_review_queue_page(page, filters=None, *, staff_id=None, connection_facto
         'program_options': PROGRAM_ORDER, 'status_options': STATUS_OPTIONS,
         'status_label': dict(STATUS_OPTIONS)[filters.status],
         'status_explanation': STATUS_EXPLANATIONS[filters.status],
+        'status_explanations': STATUS_EXPLANATIONS,
         'status_style': {'in-review': 'active', 'follow-up': 'follow-up',
                          'no-action': 'no-action'}[filters.status],
         'return_parameters': queue_return_parameters(page, filters),
