@@ -141,12 +141,148 @@ class StaffReviewRouteTests(unittest.TestCase):
         self.assertNotIn('program=SLP', response.text)
         self.assertIn('/reviews/SLP/42', response.text)
         self.assertIn('Open Review', response.text)
+        self.assertIn('Automated historical screening finding', response.text)
+        self.assertIn('Staff review status', response.text)
+        self.assertIn('Staff recommendations are recorded separately', response.text)
         for text in ('Continue Review', 'Close Review', 'Add Notes'):
             self.assertNotIn(text, response.text)
         self.assertEqual(self.client.get(self.path + '/reviews/SLP').status_code, 303)
         self.creator.assert_not_called()
         for tab in ('overview', 'mpi', 'screening'):
             self.assertEqual(self.client.get(self.path + '?tab=' + tab).status_code, 200)
+
+    def test_no_review_status_panel_is_only_in_overview_with_direct_navigation(self):
+        self.session()
+        for tab in ('overview', 'mpi', 'screening', 'reviews'):
+            with self.subTest(tab=tab):
+                response = self.client.get(self.path + '?tab=' + tab + '&page=2&priority=both')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.text.count('class="assessment-metrics"'), 1)
+                if tab != 'overview':
+                    self.assertNotIn('id="review-status-heading"', response.text)
+                    self.assertNotIn('No Staff Review Started', response.text)
+                    if tab == 'reviews':
+                        self.assertEqual(response.text.count('class="staff-review-card"'), 4)
+                    continue
+                self.assertIn('No Staff Review Started', response.text)
+                self.assertIn(
+                    'LGU staff have not yet started a subsidy review for this household.',
+                    response.text,
+                )
+                self.assertIn('View Staff Reviews →', response.text)
+                self.assertNotIn('class="staff-review-card"', response.text)
+                self.assertIn(
+                    'tab=reviews&amp;page=2&amp;priority=both#staff-reviews-heading',
+                    response.text,
+                )
+                positions = [response.text.index(marker) for marker in (
+                    'class="overview-left"', 'id="review-status-heading"',
+                    'id="overview-heading"', 'id="screening-heading"',
+                )]
+                self.assertEqual(positions, sorted(positions))
+                for destination, label in (
+                    ('mpi', 'View MPI Indicators →'),
+                    ('screening', 'View Subsidy Screening →'),
+                ):
+                    self.assertIn(label, response.text)
+                    self.assertIn(
+                        f'tab={destination}&amp;page=2&amp;priority=both', response.text,
+                    )
+                self.assertEqual(response.text.count('class="review-button'), 3)
+
+    def test_latest_review_summary_and_program_cards_keep_outcomes_separate(self):
+        self.session()
+        first = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        self.source['staff_reviews'] = [
+            {
+                'id': 41, 'program': '4Ps', 'status': 'In Review',
+                'username': 'synthetic_staff', 'starting_reason': 'Staff examination requested.',
+                'created_at': first, 'closing_recommendation': None,
+            },
+            {
+                'id': 42, 'program': 'SLP', 'status': 'Closed',
+                'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
+                'created_at': first, 'closing_recommendation': 'For LGU Follow-Up',
+                'closing_explanation': 'Recommend further consideration.',
+            },
+            {
+                'id': 43, 'program': 'SPISC', 'status': 'Closed',
+                'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
+                'created_at': first, 'closing_recommendation': 'No Further Action',
+                'closing_explanation': 'No further action is recommended.',
+            },
+            {
+                'id': 44, 'program': 'TUPAD', 'status': 'Closed',
+                'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
+                'created_at': first, 'closing_recommendation': 'For LGU Follow-Up',
+                'closing_explanation': 'Earlier recommendation.',
+            },
+            {
+                'id': 45, 'program': 'TUPAD', 'status': 'Cancelled',
+                'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
+                'created_at': first.replace(day=2), 'closing_recommendation': None,
+                'cancellation_reason': 'The review was started in error.',
+            },
+        ]
+
+        for tab in ('overview', 'mpi', 'screening'):
+            with self.subTest(tab=tab):
+                response = self.client.get(self.path + '?tab=' + tab)
+                self.assertEqual(response.status_code, 200)
+                if tab != 'overview':
+                    self.assertNotIn('id="review-status-heading"', response.text)
+                    continue
+                for text in ('In Review', 'For LGU Follow-Up', 'No Further Action', 'Cancelled'):
+                    self.assertIn(text, response.text)
+                status_list = response.text.split('<ul class="review-status-list">', 1)[1].split(
+                    '</ul>', 1,
+                )[0]
+                tupad_summary = status_list.split('<strong>TUPAD</strong>', 1)[1].split(
+                    '</li>', 1,
+                )[0]
+                self.assertIn('Cancelled', tupad_summary)
+                self.assertNotIn('For LGU Follow-Up', tupad_summary)
+
+        reviews = self.client.get(self.path + '?tab=reviews')
+        self.assertEqual(reviews.status_code, 200)
+        self.assertNotIn('id="review-status-heading"', reviews.text)
+        self.assertIn('id="staff-reviews-heading" tabindex="-1"', reviews.text)
+        self.assertEqual(reviews.text.count('class="staff-review-card"'), 4)
+        for text in ('Pantawid Pamilyang Pilipino Program',
+                     'Sustainable Livelihood Program',
+                     'Social Pension for Indigent Senior Citizens',
+                     'Tulong Panghanapbuhay sa Ating Disadvantaged / Displaced Workers',
+                     'Staff recommendation', 'For LGU Follow-Up', 'No Further Action',
+                     'Cancelled', 'View Review History (2)'):
+            self.assertIn(text, reviews.text)
+        self.assertNotIn('Closed', reviews.text)
+        tupad_card = reviews.text.split('id="review-tupad"', 1)[1].split(
+            '</article>', 1,
+        )[0]
+        tupad_current = tupad_card.split('<details class="review-history">', 1)[0]
+        self.assertIn('Cancelled', tupad_current)
+        self.assertNotIn('For LGU Follow-Up', tupad_current)
+        self.assertIn('Start Review', tupad_card)
+        self.assertIn('For LGU Follow-Up', tupad_card)
+
+        self.source['staff_reviews'] = [{
+            'id': 46, 'program': 'SLP', 'status': 'Cancelled',
+            'username': 'synthetic_staff', 'starting_reason': 'Review initiated.',
+            'created_at': first, 'closing_recommendation': None,
+            'cancellation_reason': 'The review was started in error.',
+        }]
+        cancelled_only = self.client.get(self.path + '?tab=reviews')
+        self.assertEqual(cancelled_only.status_code, 200)
+        self.assertIn('View Review History (1)', cancelled_only.text)
+        self.assertNotIn('Closed', cancelled_only.text)
+        slp_card = cancelled_only.text.split('id="review-slp"', 1)[1].split(
+            '</article>', 1,
+        )[0]
+        slp_current = slp_card.split('<details class="review-history">', 1)[0]
+        self.assertIn('Cancelled', slp_current)
+        self.assertNotIn('Staff recommendation', slp_current)
+        self.assertIn('This review ended without a recommendation.', slp_current)
+        self.assertIn('Start Review', slp_current)
 
     def test_invalid_program_context_duplicate_and_database_errors_are_safe(self):
         self.session()
@@ -530,9 +666,13 @@ class StaffReviewDatabaseTests(unittest.TestCase):
         for tab in ('overview', 'mpi', 'screening', 'reviews'):
             page = client.get(path + '?tab=' + tab)
             self.assertEqual(page.status_code, 200)
-            self.assertIn('Staff Review Status', page.text)
-            self.assertIn('No Further Action', page.text)
-            self.assertIn('View Staff Reviews', page.text)
+            if tab == 'overview':
+                self.assertIn('Staff Review Status', page.text)
+                self.assertIn('View Staff Reviews', page.text)
+            else:
+                self.assertNotIn('id="review-status-heading"', page.text)
+            if tab in ('overview', 'reviews'):
+                self.assertIn('No Further Action', page.text)
         self.assertIn('View Subsidy Screening', client.get(path).text)
         self.assertIn('Review History', client.get(path + '?tab=reviews').text)
         self.assertEqual(client.get(path + f'/reviews/TUPAD/{review_id}').status_code, 404)

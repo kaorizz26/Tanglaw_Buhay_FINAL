@@ -1,8 +1,12 @@
 <section class="staff-reviews" aria-labelledby="staff-reviews-heading">
-  <div class="section-heading-row">
-    <h2 id="staff-reviews-heading">Staff Reviews</h2>
-  </div>
-  <p class="section-helper">Record staff observations and recommendations separately for each subsidy program.</p>
+  {% if review_record %}
+    <h2 id="staff-reviews-heading" class="visually-hidden">Staff Review workspace</h2>
+  {% else %}
+    <div class="section-heading-row">
+      <h2 id="staff-reviews-heading" tabindex="-1">Staff Reviews</h2>
+    </div>
+    <p class="section-helper">Historical screening findings are system results. Staff recommendations are recorded separately and do not approve assistance.</p>
+  {% endif %}
 
   {% for message in get_flashed_messages() %}
     <p class="review-notice" role="status">{{ message }}</p>
@@ -45,12 +49,24 @@
           </div>
           <dl class="review-findings">
             <div>
-              <dt>Historical screening finding</dt>
+              <dt>Automated historical screening finding</dt>
               <dd><span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span></dd>
             </div>
             <div>
-              <dt>Staff review</dt>
-              <dd class="review-state{% if program.review %} review-state--active{% endif %}">{{ program.latest.status if program.latest else 'Not Started' }}</dd>
+              <dt>{{ 'Staff review status' if not program.latest or program.latest.status != 'Closed' else 'Staff recommendation' }}</dt>
+              <dd>
+                {% if program.review %}
+                  <span class="staff-review-badge staff-review-badge--active">In Review</span>
+                {% elif program.latest and program.latest.status == 'Closed' and program.latest.closing_recommendation == 'For LGU Follow-Up' %}
+                  <span class="staff-review-badge staff-review-badge--follow-up">For LGU Follow-Up</span>
+                {% elif program.latest and program.latest.status == 'Closed' %}
+                  <span class="staff-review-badge staff-review-badge--no-action">No Further Action</span>
+                {% elif program.latest and program.latest.status == 'Cancelled' %}
+                  <span class="staff-review-badge staff-review-badge--cancelled">Cancelled</span>
+                {% else %}
+                  <span class="staff-review-badge staff-review-badge--not-started">Not Started</span>
+                {% endif %}
+              </dd>
             </div>
           </dl>
           {% if program.review %}
@@ -62,10 +78,9 @@
           {% else %}
             {% if program.latest %}
               {% if program.latest.status == 'Closed' %}
-                <p><strong>{{ program.latest.closing_recommendation }}</strong></p>
                 <p class="review-starting-reason">{{ program.latest.closing_explanation }}</p>
               {% else %}
-                <p>The review was cancelled. No recommendation was made.</p>
+                <p class="review-outcome-copy">This review ended without a recommendation.</p>
               {% endif %}
             {% endif %}
             <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **list_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
@@ -73,10 +88,10 @@
           {% set previous = program.history | rejectattr('status', 'equalto', 'In Review') | list %}
           {% if previous %}
             <details class="review-history">
-              <summary>Review History ({{ previous | length }})</summary>
+              <summary>View Review History ({{ previous | length }})</summary>
               <ol>
                 {% for saved in previous %}
-                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **list_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ saved.status }}</a>{% if saved.closing_recommendation %} · {{ saved.closing_recommendation }}{% endif %}</li>
+                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **list_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ saved.closing_recommendation if saved.closing_recommendation else 'Cancelled' }}</a></li>
                 {% endfor %}
               </ol>
             </details>

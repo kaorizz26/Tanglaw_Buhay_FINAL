@@ -1,31 +1,34 @@
 {% extends 'staff/layout.html' %}
 
-{% block title %}Household Assessment · {{ results.household_reference_id }}{% endblock %}
+{% block title %}{{ review_record.program ~ ' Staff Review' if review_record is defined and review_record else 'Household Assessment' }} · {{ results.household_reference_id }}{% endblock %}
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessments.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessment-details.css') }}">
   <script src="{{ url_for('static', filename='js/assessment-details.js') }}" defer></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-reviews.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-reviews.css') }}">
 {% endblock %}
 
 {% block content %}
+  {% set focused_review = review_record is defined and review_record %}
   <header class="page-header detail-header">
     <div class="context-bar">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="{{ url_for('assessments.prioritization', **list_parameters) }}">Assessments</a>
         <span aria-hidden="true">/</span>
-        <span aria-current="page">Household Assessment</span>
+        <span aria-current="page">{{ 'Staff Review' if focused_review else 'Household Assessment' }}</span>
       </nav>
       <p class="dataset-reference">
         CBMS Data · {{ results.context.survey_year }}
       </p>
     </div>
-    <a class="back-to-prioritization" href="{{ url_for('assessments.prioritization', **list_parameters) }}">
-      <span aria-hidden="true">←</span> Back to Prioritization
-    </a>
+    {% if not focused_review %}
+      <a class="back-to-prioritization" href="{{ url_for('assessments.prioritization', **list_parameters) }}">
+        <span aria-hidden="true">←</span> Back to Prioritization
+      </a>
+    {% endif %}
     <div class="page-heading">
-      <h1>Household Assessment</h1>
+      <h1>{{ review_record.program ~ ' Staff Review' if focused_review else 'Household Assessment' }}</h1>
       <div class="household-identity">
         <div>
           <h2 class="detail-head-name">{{ results.head_name }}</h2>
@@ -36,53 +39,34 @@
             <dt>Barangay</dt>
             <dd>{{ results.barangay }}</dd>
           </div>
-          <div>
-            <dt>Household UUID</dt>
-            <dd class="detail-record-id">{{ results.household_uuid }}</dd>
-          </div>
+          {% if not focused_review %}
+            <div>
+              <dt>Household UUID</dt>
+              <dd class="detail-record-id">{{ results.household_uuid }}</dd>
+            </div>
+          {% endif %}
         </dl>
       </div>
     </div>
   </header>
 
-  {% include 'assessments/summary.html' %}
-
-  {% if results.review_summary %}
-    <section class="review-status-panel" aria-labelledby="review-status-heading">
-      <div class="section-heading-row">
-        <h2 id="review-status-heading">Staff Review Status</h2>
-        <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **list_parameters) }}">View Staff Reviews</a>
-      </div>
-      <div class="review-status-list">
-        {% for review in results.review_summary %}
-          <div>
-            <strong>{{ review.program }} — {{ review.closing_recommendation if review.status == 'Closed' else review.status }}</strong>
-            {% if review.status == 'In Review' %}
-              <p>LGU staff are currently reviewing this household for {{ review.program }}. No final recommendation has been recorded yet.</p>
-            {% elif review.status == 'Cancelled' %}
-              <p>The review was cancelled. No recommendation was made.</p>
-            {% elif review.closing_recommendation == 'For LGU Follow-Up' %}
-              <p>Staff recommend this household for further consideration by the responsible LGU office.</p>
-            {% else %}
-              <p>Staff completed their review and do not recommend further action at this time.</p>
-            {% endif %}
-          </div>
-        {% endfor %}
-      </div>
-    </section>
+  {% if not focused_review %}
+    {% include 'assessments/summary.html' %}
   {% endif %}
 
-  <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
-    {% for value, label in [
-      ('overview', 'Overview'), ('mpi', 'MPI Indicators'),
-      ('screening', 'Subsidy Screening'), ('reviews', 'Staff Reviews')
-    ] %}
-      <a
-        href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **list_parameters) }}"
-        {% if tab == value %}aria-current="page"{% endif %}
-      >{{ label }}</a>
-    {% endfor %}
-  </nav>
+  {% if not focused_review %}
+    <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
+      {% for value, label in [
+        ('overview', 'Overview'), ('mpi', 'MPI Indicators'),
+        ('screening', 'Subsidy Screening'), ('reviews', 'Staff Reviews')
+      ] %}
+        <a
+          href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **list_parameters) }}"
+          {% if tab == value %}aria-current="page"{% endif %}
+        >{{ label }}</a>
+      {% endfor %}
+    </nav>
+  {% endif %}
 
   {% if tab == 'mpi' %}
     {% include 'assessments/mpi.html' %}

@@ -181,6 +181,16 @@
   gap: 18px;
 }
 
+.overview-left {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+.overview-navigation {
+  margin-top: 16px;
+}
+
 .detail-section {
   min-width: 0;
   padding: 24px;

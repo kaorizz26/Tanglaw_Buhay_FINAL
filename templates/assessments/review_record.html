@@ -1,79 +1,128 @@
 {% set review = review_record %}
 {% set record_url = url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, **list_parameters) %}
-<section class="review-confirmation" aria-labelledby="record-heading">
-  <h3 id="record-heading">{{ review.program }} Staff Review</h3>
-  <p>{{ results.head_name }} · {{ results.household_reference_id }} · {{ results.barangay }}</p>
-  <p>Staff review status: <strong>{{ review.status }}</strong></p>
-  {% for program in results.programs if program.name == review.program %}
-    <p>Historical screening finding: <strong>{{ program.status_label }}</strong></p>
-  {% endfor %}
-  <p>Record observations and recommend whether further LGU consideration is needed. Official applications and eligibility decisions happen outside Tanglaw-Buhay.</p>
-  <nav class="review-form-actions" aria-label="Related household information">
-    <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **list_parameters) }}">Back to Staff Reviews</a>
-    <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **list_parameters) }}">View Assessment</a>
-    <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **list_parameters) }}">View Subsidy Screening</a>
-  </nav>
-  {% if review_error %}<p id="review-error" class="review-error" role="alert">{{ review_error }}</p>{% endif %}
-  {% if review_mode %}
-    <h4>{{ 'Finish Review' if review_mode == 'finish' else 'Cancel Review' }}</h4>
-    {% if review_mode == 'cancel' %}<p>Cancellation stops this review without making a recommendation. The record and notes will remain available.</p>{% endif %}
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="batch_id" value="{{ results.context.batch_id }}">
-      <input type="hidden" name="run_id" value="{{ results.context.run_id }}">
-      <input type="hidden" name="action" value="{{ review_mode }}">
-      {% if review_mode == 'finish' %}
-        <fieldset>
-          <legend>Closing recommendation (required)</legend>
-          {% for value, meaning in [('For LGU Follow-Up', 'Recommend further consideration by the responsible LGU office.'), ('No Further Action', 'Do not recommend further action at this time.')] %}
-            <label class="review-choice"><input type="radio" name="recommendation" value="{{ value }}" required {% if recommendation == value %}checked{% endif %}> {{ value }}</label>
-            <p class="section-helper">{{ meaning }}</p>
+<nav class="review-navigation" aria-label="Review and household links">
+  <a class="review-return-link" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **list_parameters) }}"><span aria-hidden="true">←</span> Back to Staff Reviews</a>
+  <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **list_parameters) }}">View Assessment</a>
+  <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **list_parameters) }}">View Subsidy Screening</a>
+</nav>
+
+<div class="review-workspace">
+  <div class="review-main">
+    <section class="review-record-section" aria-labelledby="review-details-heading">
+      <h3 id="review-details-heading">Review details</h3>
+      <dl class="review-details-list">
+        <div>
+          <dt>Program</dt>
+          <dd>{{ review.program }}</dd>
+        </div>
+        {% for program in results.programs if program.name == review.program %}
+          <div>
+            <dt>Historical subsidy screening finding</dt>
+            <dd><span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span></dd>
+          </div>
+        {% endfor %}
+        <div>
+          <dt>Started by</dt>
+          <dd>{{ review.username }} · <time datetime="{{ review.created_at.isoformat() }}">{{ review.created_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time></dd>
+        </div>
+        {% if review.starting_reason %}
+          <div>
+            <dt>Starting reason</dt>
+            <dd class="review-preserved-text">{{ review.starting_reason }}</dd>
+          </div>
+        {% endif %}
+      </dl>
+      <p class="section-helper">The screening finding is separate from this staff review and is not an approval of assistance.</p>
+    </section>
+
+    <section class="review-record-section" aria-labelledby="review-notes-heading">
+      <h3 id="review-notes-heading">Saved notes</h3>
+      {% if review.notes %}
+        <ol class="review-notes-list">
+          {% for note in review.notes %}
+            <li>
+              <article class="review-saved-note">
+                <p class="review-note-meta"><strong>{{ note.username }}</strong> · <time datetime="{{ note.created_at.isoformat() }}">{{ note.created_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time></p>
+                <p class="review-preserved-text">{{ note.body }}</p>
+              </article>
+            </li>
           {% endfor %}
-        </fieldset>
+        </ol>
+      {% else %}
+        <p class="review-empty-notes">No notes have been saved for this review yet.</p>
       {% endif %}
-      <label for="review-text">{{ 'Explanation (required)' if review_mode == 'finish' else 'Cancellation reason (optional)' }}</label>
-      <textarea id="review-text" name="text" rows="3" maxlength="{{ 2000 if review_mode == 'finish' else 1000 }}" {% if review_mode == 'finish' %}required{% endif %} {% if review_error %}aria-invalid="true" aria-describedby="review-error"{% endif %}>{{ review_text }}</textarea>
-      <div class="review-form-actions">
-        <button class="review-button" type="submit">{{ 'Finish Review' if review_mode == 'finish' else 'Cancel Review' }}</button>
-        <a href="{{ record_url }}">Keep Reviewing</a>
-      </div>
-    </form>
-  {% else %}
-    {% if review.status == 'Closed' %}
-      <h4>{{ review.closing_recommendation }}</h4>
-      <p class="review-starting-reason">{{ review.closing_explanation }}</p>
-    {% elif review.status == 'Cancelled' %}
-      <p><strong>No recommendation was made.</strong> This review was cancelled.</p>
+    </section>
+
+    {% if review.status == 'In Review' and not review_mode %}
+      <section class="review-record-section review-add-note" aria-labelledby="add-note-heading">
+        <h3 id="add-note-heading">Add Note</h3>
+        <p id="note-help" class="section-helper">Record observations, information examined, or actions taken. Saved notes cannot be edited or deleted. Up to 2,000 characters.</p>
+        {% if review_error %}<p id="review-error" class="review-error" role="alert">{{ review_error }}</p>{% endif %}
+        <form method="post" action="{{ record_url }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="batch_id" value="{{ results.context.batch_id }}">
+          <input type="hidden" name="run_id" value="{{ results.context.run_id }}">
+          <input type="hidden" name="action" value="note">
+          <label for="review-note">Note <span>(required)</span></label>
+          <textarea id="review-note" name="text" rows="4" maxlength="2000" required aria-describedby="note-help{% if review_error %} review-error{% endif %}" {% if review_error %}aria-invalid="true"{% endif %}>{{ review_text }}</textarea>
+          <button class="review-button" type="submit">Save Note</button>
+        </form>
+      </section>
     {% endif %}
-    <h4>Review Record</h4>
-    <p>Started by <strong>{{ review.username }}</strong> on {{ review.created_at.strftime('%d %b %Y, %I:%M %p %Z') }}.</p>
-    {% if review.starting_reason %}<p class="review-starting-reason"><strong>Starting reason</strong><br>{{ review.starting_reason }}</p>{% endif %}
-    {% for note in review.notes %}
-      <article class="review-saved-note">
-        <p><strong>{{ note.username }}</strong> · {{ note.created_at.strftime('%d %b %Y, %I:%M %p %Z') }}</p>
-        <p class="review-starting-reason">{{ note.body }}</p>
-      </article>
-    {% endfor %}
-    {% if review.status == 'Closed' %}
-      <p>Finished by <strong>{{ review.finished_username }}</strong> on {{ review.finished_at.strftime('%d %b %Y, %I:%M %p %Z') }}.</p>
-    {% elif review.status == 'Cancelled' %}
-      <p>Cancelled by <strong>{{ review.cancelled_username }}</strong> on {{ review.cancelled_at.strftime('%d %b %Y, %I:%M %p %Z') }}.</p>
-      {% if review.cancellation_reason %}<p class="review-starting-reason">{{ review.cancellation_reason }}</p>{% endif %}
+  </div>
+
+  <aside class="review-action-panel" aria-labelledby="review-status-heading">
+    <h3 id="review-status-heading">Staff review status</h3>
+    {% if review.status == 'In Review' %}
+      <p class="staff-review-badge staff-review-badge--active">In Review</p>
+    {% elif review.status == 'Closed' and review.closing_recommendation == 'For LGU Follow-Up' %}
+      <p class="staff-review-badge staff-review-badge--follow-up">For LGU Follow-Up</p>
+    {% elif review.status == 'Closed' %}
+      <p class="staff-review-badge staff-review-badge--no-action">No Further Action</p>
     {% else %}
-      <form method="post" action="{{ record_url }}">
+      <p class="staff-review-badge staff-review-badge--cancelled">Cancelled</p>
+    {% endif %}
+    {% if review.status == 'Closed' %}
+      <h4>Closing recommendation</h4>
+      <p class="review-recommendation">{{ review.closing_recommendation }}</p>
+      <p class="review-preserved-text">{{ review.closing_explanation }}</p>
+      <p class="review-attribution">Finished by <strong>{{ review.finished_username }}</strong> on <time datetime="{{ review.finished_at.isoformat() }}">{{ review.finished_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time>.</p>
+    {% elif review.status == 'Cancelled' %}
+      <p>No recommendation was made. This review was cancelled.</p>
+      {% if review.cancellation_reason %}<p class="review-preserved-text">{{ review.cancellation_reason }}</p>{% endif %}
+      <p class="review-attribution">Cancelled by <strong>{{ review.cancelled_username }}</strong> on <time datetime="{{ review.cancelled_at.isoformat() }}">{{ review.cancelled_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time>.</p>
+    {% elif review_mode %}
+      {% set recommendation_error = review_error == 'Choose one of the two closing recommendations.' %}
+      <h4>{{ 'Finish Review' if review_mode == 'finish' else 'Cancel Review' }}</h4>
+      <p class="section-helper">{{ 'Choose a recommendation and explain your decision. This does not approve assistance.' if review_mode == 'finish' else 'Cancellation stops this review without making a recommendation. The record and notes will remain available.' }}</p>
+      {% if review_error %}<p id="review-error" class="review-error" role="alert">{{ review_error }}</p>{% endif %}
+      <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="batch_id" value="{{ results.context.batch_id }}">
         <input type="hidden" name="run_id" value="{{ results.context.run_id }}">
-        <input type="hidden" name="action" value="note">
-        <label for="review-note">Add Note</label>
-        <p id="note-help" class="section-helper">Record observations, information examined, or actions taken. Saved notes cannot be edited or deleted. Up to 2,000 characters.</p>
-        <textarea id="review-note" name="text" rows="3" maxlength="2000" required aria-describedby="note-help{% if review_error %} review-error{% endif %}" {% if review_error %}aria-invalid="true"{% endif %}>{{ review_text }}</textarea>
-        <button class="review-button" type="submit">Save Note</button>
+        <input type="hidden" name="action" value="{{ review_mode }}">
+        {% if review_mode == 'finish' %}
+          <fieldset {% if recommendation_error %}aria-describedby="review-error"{% endif %}>
+            <legend>Closing recommendation (required)</legend>
+            {% for value, meaning in [('For LGU Follow-Up', 'Recommend further consideration by the responsible LGU office.'), ('No Further Action', 'Do not recommend further action at this time.')] %}
+              <label class="review-choice"><input type="radio" name="recommendation" value="{{ value }}" required {% if recommendation == value %}checked{% endif %} {% if recommendation_error %}aria-invalid="true"{% endif %}> {{ value }}</label>
+              <p class="section-helper">{{ meaning }}</p>
+            {% endfor %}
+          </fieldset>
+        {% endif %}
+        <label for="review-text">{{ 'Explanation (required)' if review_mode == 'finish' else 'Cancellation reason (optional)' }}</label>
+        <textarea id="review-text" name="text" rows="4" maxlength="{{ 2000 if review_mode == 'finish' else 1000 }}" {% if review_mode == 'finish' %}required{% endif %} {% if review_error and not recommendation_error %}aria-invalid="true" aria-describedby="review-error"{% endif %}>{{ review_text }}</textarea>
+        <div class="review-action-buttons">
+          <button class="review-button{% if review_mode == 'cancel' %} review-button--secondary{% endif %}" type="submit">{{ 'Finish Review' if review_mode == 'finish' else 'Cancel Review' }}</button>
+          <a class="review-keep-link" href="{{ record_url }}">Keep Reviewing</a>
+        </div>
       </form>
-      <div class="review-form-actions">
+    {% else %}
+      <p class="section-helper">This review is in progress. You can save notes before choosing a final action.</p>
+      <div class="review-action-buttons">
         <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='finish', **list_parameters) }}">Finish Review</a>
-        <a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='cancel', **list_parameters) }}">Cancel Review</a>
+        <a class="review-secondary-link" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='cancel', **list_parameters) }}">Cancel Review</a>
       </div>
     {% endif %}
-  {% endif %}
-</section>
+  </aside>
+</div>

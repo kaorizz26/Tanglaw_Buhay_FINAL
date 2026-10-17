@@ -22,48 +22,89 @@
 {% endif %}
 
 <div class="overview-layout">
-  <section class="detail-section overview-main" aria-labelledby="overview-heading">
-    <div class="section-heading-row">
-      <h2 id="overview-heading">Areas Contributing to Vulnerability</h2>
-    </div>
-
-    <p class="section-helper">
-      The assessment considers four areas equally. Each can contribute up to 25 points.
-      More points indicate greater assessed deprivation in that area.
-    </p>
-    <div class="dimension-contributions">
-      {% for dimension in results.dimensions %}
-        <div class="dimension-contribution">
-          <div class="contribution-label">
-            <span>{{ dimension.name }}</span>
-            <strong>{{ '%.2f' | format(dimension.points) }} / 25</strong>
-          </div>
-          <meter
-            min="0"
-            max="25"
-            value="{{ dimension.points }}"
-            aria-label="{{ dimension.name }} contribution: {{ '%.2f' | format(dimension.points) }} of 25 points"
-          >{{ '%.2f' | format(dimension.points) }} of 25</meter>
-          {% set dimension_unknowns = dimension.indicators | selectattr('status', 'equalto', 'Unknown') | list | length %}
-          {% if dimension_unknowns %}
-            <p class="dimension-unknown-note">
-              {{ dimension_unknowns }} of {{ dimension.indicators | length }} indicator results could not be determined.
-            </p>
-          {% endif %}
+  <div class="overview-left">
+    <section class="detail-section review-status-panel" aria-labelledby="review-status-heading">
+      <div class="review-status-panel-heading">
+        <h2 id="review-status-heading">Staff Review Status</h2>
+        <a class="review-button" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **list_parameters) }}">View Staff Reviews →</a>
+      </div>
+      {% if results.review_summary %}
+        <ul class="review-status-list">
+          {% for review in results.review_summary %}
+            <li class="review-status-item">
+              <div class="review-status-item-heading">
+                <strong>{{ review.program }}</strong>
+                {% if review.status == 'In Review' %}
+                  <span class="staff-review-badge staff-review-badge--active">In Review</span>
+                {% elif review.status == 'Closed' and review.closing_recommendation == 'For LGU Follow-Up' %}
+                  <span class="staff-review-badge staff-review-badge--follow-up">For LGU Follow-Up</span>
+                {% elif review.status == 'Closed' %}
+                  <span class="staff-review-badge staff-review-badge--no-action">No Further Action</span>
+                {% else %}
+                  <span class="staff-review-badge staff-review-badge--cancelled">Cancelled</span>
+                {% endif %}
+              </div>
+              {% if review.status == 'In Review' %}
+                <p>Staff are examining this household for {{ review.program }}. No final recommendation has been recorded.</p>
+              {% elif review.status == 'Closed' and review.closing_recommendation == 'For LGU Follow-Up' %}
+                <p>Staff recommend further consideration by the responsible LGU office. This recommendation is not an approval.</p>
+              {% elif review.status == 'Closed' %}
+                <p>Staff recorded no further action at this time. This is a staff recommendation, not a subsidy decision.</p>
+              {% else %}
+                <p>The latest {{ review.program }} review was cancelled. No recommendation was made.</p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="review-status-empty">
+          <strong>No Staff Review Started</strong>
+          <p>LGU staff have not yet started a subsidy review for this household. You can examine the screening findings before deciding whether to begin.</p>
         </div>
-      {% endfor %}
-    </div>
-    <p class="overview-total">
-      <span>Overall Vulnerability Score</span>
-      <strong>{{ '%.2f' | format(results.mpi.vulnerability_score) }} / 100</strong>
-    </p>
-    <p class="section-helper">
-      View <a
-        href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='mpi', **list_parameters) }}#mpi-heading"
-      >MPI Indicators</a>
-      to examine the household conditions and supporting information behind these findings.
-    </p>
-  </section>
+      {% endif %}
+    </section>
+
+    <section class="detail-section overview-main" aria-labelledby="overview-heading">
+      <div class="section-heading-row">
+        <h2 id="overview-heading">Areas Contributing to Vulnerability</h2>
+      </div>
+
+      <p class="section-helper">
+        The assessment considers four areas equally. Each can contribute up to 25 points.
+        More points indicate greater assessed deprivation in that area.
+      </p>
+      <div class="dimension-contributions">
+        {% for dimension in results.dimensions %}
+          <div class="dimension-contribution">
+            <div class="contribution-label">
+              <span>{{ dimension.name }}</span>
+              <strong>{{ '%.2f' | format(dimension.points) }} / 25</strong>
+            </div>
+            <meter
+              min="0"
+              max="25"
+              value="{{ dimension.points }}"
+              aria-label="{{ dimension.name }} contribution: {{ '%.2f' | format(dimension.points) }} of 25 points"
+            >{{ '%.2f' | format(dimension.points) }} of 25</meter>
+            {% set dimension_unknowns = dimension.indicators | selectattr('status', 'equalto', 'Unknown') | list | length %}
+            {% if dimension_unknowns %}
+              <p class="dimension-unknown-note">
+                {{ dimension_unknowns }} of {{ dimension.indicators | length }} indicator results could not be determined.
+              </p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <p class="overview-total">
+        <span>Overall Vulnerability Score</span>
+        <strong>{{ '%.2f' | format(results.mpi.vulnerability_score) }} / 100</strong>
+      </p>
+      <p class="section-helper">
+        Examine the household conditions and supporting information behind these findings.
+      </p>
+      <a class="review-button overview-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='mpi', _anchor='mpi-heading', **list_parameters) }}">View MPI Indicators →</a>
+    </section>
+  </div>
 
   <section class="detail-section" aria-labelledby="screening-heading">
     <h2 id="screening-heading">Subsidy Screening Summary</h2>
@@ -103,8 +144,8 @@
       {% endif %}
     </dl>
     <p class="section-helper">
-      <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **list_parameters) }}">View Subsidy Screening</a>
-      to examine the recorded circumstances and supporting information behind these findings.
+      Examine the recorded circumstances and supporting information behind these findings.
     </p>
+    <a class="review-button overview-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **list_parameters) }}">View Subsidy Screening →</a>
   </section>
 </div>
