@@ -1,0 +1,114 @@
+<section class="subsidy-screening" aria-labelledby="subsidy-screening-heading">
+  <div class="screening-introduction">
+    <h2 id="subsidy-screening-heading">Subsidy Screening</h2>
+    <p class="section-helper">
+      These findings use CBMS {{ results.context.survey_year }} information. Household
+      circumstances may have changed. Confirm current information and official program
+      requirements before any decision about eligibility or assistance.
+    </p>
+    <nav class="screening-program-links" aria-label="Jump to a subsidy program">
+      {% for program in results.screening_programs %}
+        <a href="#screening-{{ program.code | lower }}">{{ program.code }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  {% for program in results.screening_programs %}
+    <article class="detail-section screening-program" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
+      <header class="screening-program-heading">
+        <div>
+          <h3 id="screening-title-{{ program.code | lower }}">{{ program.code }}</h3>
+          <p class="screening-program-name">{{ program.name }}</p>
+        </div>
+        <span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span>
+      </header>
+      <p class="screening-explanation">{{ program.explanation }}</p>
+
+      {% if program.reasons %}
+        <div class="screening-reasons">
+          <h4>Why this household was flagged</h4>
+          <ul>
+            {% for reason in program.reasons %}
+              <li><strong>{{ reason.subject }}:</strong> {{ reason.text }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="screening-checks">
+        {% if program.issues %}
+          <section class="screening-information" aria-label="Information needing confirmation for {{ program.code }}">
+            <h4>Information to check</h4>
+            <ul>
+              {% for issue in program.issues %}
+                <li>{{ issue }}</li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endif %}
+        {% if program.requirements %}
+          <section aria-label="Program information to verify for {{ program.code }}">
+            <h4>Still to verify</h4>
+            <ul>
+              {% for requirement in program.requirements %}
+                <li>{{ requirement }}</li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endif %}
+      </div>
+
+      <details class="screening-evidence">
+        <summary>View supporting evidence<span class="visually-hidden"> for {{ program.code }}</span></summary>
+        <div class="evidence-body">
+          <p class="evidence-context">
+            Recorded information from CBMS {{ results.context.survey_year }}.
+            Ages refer to the survey date.
+            {% if program.code in ['SLP', 'TUPAD'] %}
+              Work answers concern the week before the survey.
+            {% endif %}
+            A missing answer may reflect a skipped question; it does not mean No.
+          </p>
+          {% if program.supporting_context %}
+            <section>
+              <h4>Other supporting information</h4>
+              <ul>
+                {% for item in program.supporting_context %}
+                  <li><strong>{{ item.subject }}:</strong> {{ item.text }}</li>
+                {% endfor %}
+              </ul>
+            </section>
+          {% endif %}
+          {% if program.differences %}
+            <section class="screening-information">
+              <h4>Information that differs</h4>
+              {% for difference in program.differences %}
+                <p><strong>{{ difference.subject }} — {{ difference.label }}</strong><br>
+                  Saved screening evidence: {{ difference.stored }}<br>
+                  CBMS record: {{ difference.recorded }}</p>
+              {% endfor %}
+            </section>
+          {% endif %}
+          {% if program.household_cells %}
+            <section>
+              <h4>Household answers</h4>
+              {% set cells = program.household_cells %}
+              {% set layout = 'rows' %}
+              {% include 'assessments/evidence_cells.html' %}
+            </section>
+          {% endif %}
+          {% for member in program.members %}
+            <section class="member-evidence">
+              <h4>{{ member.name }}</h4>
+              {% set cells = member.cells %}
+              {% set layout = 'grid' %}
+              {% include 'assessments/evidence_cells.html' %}
+            </section>
+          {% else %}
+            <p class="evidence-caution">No member records are available in this evidence view{% if program.code == 'SLP' %} for members aged 16 or older{% elif program.code == 'TUPAD' %} for members aged 18 or older{% endif %}.</p>
+          {% endfor %}
+        </div>
+      </details>
+    </article>
+  {% endfor %}
+</section>

@@ -47,18 +47,19 @@
   {% include 'assessments/summary.html' %}
 
   <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
-    {% for value, label in [('overview', 'Overview'), ('mpi', 'MPI Indicators')] %}
+    {% for value, label in [('overview', 'Overview'), ('mpi', 'MPI Indicators'), ('screening', 'Subsidy Screening')] %}
       <a
         href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **list_parameters) }}"
         {% if tab == value %}aria-current="page"{% endif %}
       >{{ label }}</a>
     {% endfor %}
-    <span aria-disabled="true">Subsidy Screening <small>Planned</small></span>
     <span aria-disabled="true">Review History <small>Planned</small></span>
   </nav>
 
   {% if tab == 'mpi' %}
     {% include 'assessments/mpi.html' %}
+  {% elif tab == 'screening' %}
+    {% include 'assessments/screening.html' %}
   {% else %}
     {% include 'assessments/overview.html' %}
   {% endif %}

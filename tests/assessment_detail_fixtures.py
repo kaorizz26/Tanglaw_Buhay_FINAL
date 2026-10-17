@@ -78,3 +78,47 @@ def detail_source():
             encoding="utf-8",
         ))["references"],
     }
+
+
+def screening_source():
+    """Explicit stored screening evidence; no screening or MPI calculation runs."""
+    from services.screening.metadata import UNVERIFIED_REQUIREMENTS
+
+    source = detail_source()
+    source["household"].update({
+        "l01_with_member_who_has_been_pregnant": "2",
+        "l06_with_member_currently_pregnant": "2", "l15_with_pwd_member": "1",
+    })
+    for member in source["members"]:
+        line = member["line_number"]
+        member["responses"].update({
+            "a02_relation_to_hh_head": "1" if line == 1 else "3", "a05_sex": "2",
+            "b06_ofi": "7", "e01_employed": "NA" if line == 1 else "1",
+            "e11_nature_of_employment": "2" if line == 3 else "NA",
+            "e18_class_of_worker": "3" if line == 3 else "NA",
+            "c07_tvet_graduate": "2", "c08_tvet_currently_attending": "2",
+        })
+        member["health_responses"].update(l07_currently_pregnant="2", l16_pwd="2")
+
+    def evidence(line, fields, **extra):
+        member = source["members"][line - 1]
+        return {"member_line_number": line, "source_dataset": "section_a_e_indiv",
+                "observed_values": {field: member["responses"][field] for field in fields},
+                "explanation": "INTERNAL_TECHNICAL_EXPLANATION", **extra}
+
+    evidence_by_program = {
+        "4Ps": (evidence(2, ("a07_age",)),),
+        "SLP": (evidence(3, ("a07_age", "b06_ofi", "e01_employed", "e18_class_of_worker"), pathway="MD"),),
+        "SPISC": (evidence(3, ("a07_age",)),),
+        "TUPAD": (
+            evidence(1, ("a07_age", "b06_ofi", "e01_employed"),
+                     trigger_code="assumed_nonwork", evidence_type="pilot_assumption"),
+            evidence(3, ("a07_age", "b06_ofi", "e01_employed", "e11_nature_of_employment"),
+                     trigger_code="irregular_work", evidence_type="observed"),
+        ),
+    }
+    for code, finding in source["findings"]["programs"].items():
+        finding.update(screening_status="For Review", supporting_evidence=evidence_by_program[code],
+                       trigger_reasons=("INTERNAL_TECHNICAL_REASON",),
+                       key_unverified_requirements=UNVERIFIED_REQUIREMENTS[code])
+    return source

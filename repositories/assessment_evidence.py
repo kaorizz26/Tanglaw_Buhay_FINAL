@@ -6,10 +6,17 @@ from psycopg.rows import dict_row
 from services.mpi_indicator_content import (
     HEALTH_FIELDS, HOUSEHOLD_FIELDS, MEMBER_FIELDS, REFERENCE_FIELDS,
 )
+from services import subsidy_screening_content as screening
+
+
+HOUSEHOLD_FIELDS = tuple(dict.fromkeys((*HOUSEHOLD_FIELDS, *screening.HOUSEHOLD_FIELDS)))
+MEMBER_FIELDS = tuple(dict.fromkeys((*MEMBER_FIELDS, *screening.MEMBER_FIELDS)))
+HEALTH_FIELDS = tuple(dict.fromkeys((*HEALTH_FIELDS, *screening.HEALTH_FIELDS)))
+REFERENCE_FIELDS = tuple(dict.fromkeys((*REFERENCE_FIELDS, *screening.REFERENCE_FIELDS)))
 
 
 def find_household_sources(connection, batch_id, household_uuid):
-    """Project relevant MPI fields, retaining missing values and exact source text."""
+    """Project assessment evidence, retaining missing values and exact source text."""
     row = connection.execute(
         """SELECT (
                SELECT jsonb_object_agg(field, h.responses -> field)

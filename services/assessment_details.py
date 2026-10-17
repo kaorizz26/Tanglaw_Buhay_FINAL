@@ -17,6 +17,7 @@ from services.prioritization import (
 )
 from services.vulnerability.scoring import DIMENSIONS, INDICATOR_WEIGHTS
 from services.subsidy_priority import derive_subsidy_priority
+from services.subsidy_screening_details import prepare_subsidy_screening
 
 
 INDICATOR_IDS = {
@@ -46,7 +47,7 @@ def detail_navigation(arguments):
     tab = tab_values[0] if tab_values else "overview"
     page = page_values[0] if page_values else "1"
     if (
-        len(tab_values) > 1 or tab not in ("overview", "mpi")
+        len(tab_values) > 1 or tab not in ("overview", "mpi", "screening")
         or len(page_values) > 1 or not page.isascii() or not page.isdecimal()
         or len(page) > 9 or int(page) < 1
     ):
@@ -116,6 +117,7 @@ def prepare_assessment_detail(source):
         ],
         "programs": [{"name": code, "status": source["findings"]["programs"][code]["screening_status"]}
                      for code in PROGRAM_ORDER],
+        "screening_programs": prepare_subsidy_screening(source, reference),
     }
 
 

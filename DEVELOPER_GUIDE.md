@@ -1717,7 +1717,16 @@ It contains no weights, rule text, notes, dataset/section metadata or provenance
 Technical metadata remains internal.
 User content is escaped. The status guide distinguishes Deprived, Not Deprived
 and Unknown.
-Subsidy Screening and Review History remain nonfunctional planned labels.
+Subsidy Screening is available through `tab=screening`. Its presentation lives
+in `services/subsidy_screening_details.py`, with staff wording and bounded
+source-field lists in `services/subsidy_screening_content.py`. It retains stored
+statuses, translates structured trigger/context evidence and warning codes,
+and decodes original batch-scoped answers. Read-only projections also include
+pregnancy, disability, worker-type and training fields. Missing work answers
+and unconfirmed member health meanings remain explicit; saved-evidence/source
+differences are shown without replacing either value. The existing summary
+cards and validated return filters are shared across all three active tabs.
+Review History remains planned; no staff review or case workflow is created.
 
 The existing staff layout and styles load before `assessment-details.css`, which
 owns the new page's metrics, sections, disclosures, evidence and responsive

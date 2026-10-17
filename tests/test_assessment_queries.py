@@ -17,7 +17,7 @@ from psycopg.types.json import Jsonb
 
 from repositories import assessment_runs as repository
 from repositories import assessment_evidence
-from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
+from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source, screening_source
 from services import assessment_queries as service
 from services.assessment_filters import (
     AssessmentFilters, InvalidAssessmentFilters, PROGRAM_ORDER, normalize_filters,
@@ -427,6 +427,34 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
         self.assertEqual(before, fingerprints())
         with service._read_context(self._factory) as (connection, _):
             self.assertEqual(connection.execute("SHOW transaction_read_only").fetchone(), ("on",))
+
+    def test_screening_source_projection_decodes_joined_fields_without_widening_scope(self):
+        self._detail_fixture()
+        source = screening_source()
+        self.connection.execute(
+            "UPDATE households SET responses = responses || %s WHERE batch_id = %s",
+            (Jsonb(source["household"]), self.batch_id),
+        )
+        for member in source["members"]:
+            line = member["line_number"]
+            self.connection.execute(
+                "UPDATE household_members SET responses = responses || %s "
+                "WHERE batch_id = %s AND uuid = %s AND line_number = %s",
+                (Jsonb(member["responses"]), self.batch_id, HOUSEHOLD_UUID, line),
+            )
+            self.connection.execute(
+                "UPDATE member_health SET responses = responses || %s "
+                "WHERE batch_id = %s AND uuid = %s AND section_l_line_number = %s",
+                (Jsonb(member["health_responses"]), self.batch_id, HOUSEHOLD_UUID, line),
+            )
+        result = service.get_active_assessment_detail(HOUSEHOLD_UUID, connection_factory=self._factory)
+        self.assertEqual(result["household"]["l15_with_pwd_member"], "1")
+        self.assertEqual(result["members"][2]["responses"]["e18_class_of_worker"], "3")
+        self.assertEqual(result["members"][2]["health_responses"]["l16_pwd"], "2")
+        self.assertIsNone(result["members"][1]["health_responses"]["l07_currently_pregnant"])
+        fields = {row["variable_name"] for row in result["references"]["codebook"]}
+        self.assertTrue({"l07_currently_pregnant", "l16_pwd", "e18_class_of_worker"} <= fields)
+        self.assertNotIn("EXCLUDED_SOURCE_VALUE", str(result))
 
     def test_resolution_uses_designation_among_multiple_completed_and_pending_runs(self):
         self._run(complete=False)
