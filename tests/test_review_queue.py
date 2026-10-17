@@ -21,7 +21,7 @@ from services.assessment_queries import AssessmentQueryError
 import test_staff_reviews as reviews
 
 
-def queue_fixture(page=1, filters=None, *, total=51):
+def queue_fixture(page=1, filters=None, *, total=51, staff_id=None):
     """Exercise actual presentation with mocked query boundaries and stored rows."""
     filters = filters or queue.QueueFilters()
     now = datetime(2026, 10, 17, 8, tzinfo=timezone.utc)
@@ -30,6 +30,7 @@ def queue_fixture(page=1, filters=None, *, total=51):
         'vulnerability_rank': 7, 'created_at': now, 'finished_at': now,
         'status': 'In Review' if filters.status == 'in-review' else 'Closed',
         'closing_recommendation': dict(queue.STATUS_OPTIONS)[filters.status],
+        'responsible_staff_id': 7, 'responsible_username': 'synthetic_staff',
     }
     identity = {
         'household_uuid': HOUSEHOLD_UUID, 'source_row_number': 8, 'head_count': 1,
@@ -45,7 +46,7 @@ def queue_fixture(page=1, filters=None, *, total=51):
                      return_value=[identity] if total else []),
         patch.object(queue.dataset_batches, 'list_barangays', return_value=['Synthetic Barangay']),
     ):
-        return queue.get_review_queue_page(page, filters)
+        return queue.get_review_queue_page(page, filters, staff_id=staff_id or 7)
 
 
 class QueueFilterTests(unittest.TestCase):
@@ -124,7 +125,7 @@ class QueueRouteTests(unittest.TestCase):
             ])
             status_nav = re.search(r'<nav[^>]*aria-label="Review status".*?</nav>',
                                    page.text, re.S)[0]
-            self.assertEqual(status_nav.count('<a '), 3)
+            self.assertEqual(len(re.findall(r'<a\s', status_nav)), 3)
             self.assertEqual(status_nav.count('aria-current="page"'), 1)
         self.fixture.user['role'] = 'citizen'
         self.fixture.session()
@@ -136,6 +137,7 @@ class QueueRouteTests(unittest.TestCase):
             page = self.client.get('/assessments/queue?' + urlencode({
                 'status': status, 'page': 2, 'q': 'Synthetic',
                 'barangay': 'Synthetic Barangay', 'program': ['4Ps', 'SLP'],
+                'scope': 'mine', 'sort': 'asc',
             }, doseq=True))
             self.assertEqual(page.status_code, 200)
             self.assertIn(label, page.text)
@@ -148,10 +150,15 @@ class QueueRouteTests(unittest.TestCase):
             self.assertEqual(arguments['queue_page'], ['2'])
             self.assertEqual(arguments['queue_status'], [status])
             self.assertEqual(arguments['queue_program'], ['4Ps', 'SLP'])
+            self.assertEqual(arguments['queue_scope'], ['mine'])
+            self.assertEqual(arguments['queue_sort'], ['asc'])
+            pagination = re.search(r'aria-label="Review queue pages".*?</nav>', page.text, re.S)[0]
+            self.assertIn('scope=mine', pagination)
+            self.assertIn('sort=asc', pagination)
             tab_links = [url for url in hrefs if '/queue?status=' in url and 'page=' not in url]
             self.assertGreaterEqual(len(tab_links), 3)
-        self.query.side_effect = lambda page, filters: queue_fixture(page, filters, total=0)
-        page = self.client.get('/assessments/queue')
+        self.query.side_effect = lambda page, filters, **kwargs: queue_fixture(page, filters, total=0)
+        page = self.client.get('/assessments/queue?scope=all')
         self.assertIn('No reviews are currently in progress.', page.text)
         page = self.client.get('/assessments/queue?q=missing')
         self.assertIn('No reviews match your search or filters.', page.text)
@@ -162,9 +169,78 @@ class QueueRouteTests(unittest.TestCase):
         self.assertIn('program=SLP', response.location)
         self.assertIn('page=1', response.location)
 
+    def test_visible_scope_control_uses_role_defaults_and_respects_explicit_choices(self):
+        self.fixture.session()
+        for role, default in (('lgu_staff', 'mine'), ('system_administrator', 'all')):
+            self.fixture.user['role'] = role
+            for choice in (None, 'mine', 'all'):
+                with self.subTest(role=role, choice=choice):
+                    response = self.client.get('/assessments/queue' + (
+                        '' if choice is None else '?scope=' + choice
+                    ))
+                    self.assertEqual(response.status_code, 200)
+                    scope = choice or default
+                    self.assertEqual(self.query.call_args.args[1].scope, scope)
+                    control = re.search(r'<nav[^>]*aria-label="Review assignment".*?</nav>',
+                                        response.text, re.S)[0]
+                    links = re.findall(r'<a\s.*?</a>', control, re.S)
+                    self.assertEqual(len(links), 2)
+                    self.assertIn('Assigned to Me', links[0])
+                    self.assertIn('All Staff Reviews', links[1])
+                    selected = next(link for link in links if 'aria-current="page"' in link)
+                    self.assertIn('scope=' + scope, selected)
+                    self.assertNotIn('id="queue-scope"', response.text)
+                    self.assertIn(f'name="scope" value="{scope}"', response.text)
+                    expected = ('Reviews assigned to you as the responsible staff member.'
+                                if scope == 'mine' else 'Reviews assigned to authorized LGU personnel.')
+                    self.assertIn(expected, response.text)
+                    self.assertLess(response.text.index('queue-explanation'),
+                                    response.text.index('queue-scope-switch'))
+                    self.assertLess(response.text.index('queue-scope-switch'),
+                                    response.text.index('Filter staff reviews'))
+        for bad in ('scope=', 'scope=unknown', 'scope=mine&scope=all',
+                    'scope=https://example.com'):
+            self.query.reset_mock()
+            self.assertEqual(self.client.get('/assessments/queue?' + bad).status_code, 400)
+            self.query.assert_not_called()
+
+    def test_scope_switch_and_clear_filters_preserve_selected_context(self):
+        self.fixture.session()
+        for scope in ('mine', 'all'):
+            parameters = {'status': 'follow-up', 'page': 2, 'scope': scope, 'q': 'Synthetic',
+                          'barangay': 'Synthetic Barangay', 'program': ['4Ps', 'SLP'], 'sort': 'asc'}
+            page = self.client.get('/assessments/queue?' + urlencode(parameters, doseq=True))
+            control = re.search(r'<nav[^>]*aria-label="Review assignment".*?</nav>', page.text, re.S)[0]
+            for href in re.findall(r'href="([^"]+)"', control):
+                parsed = parse_qs(urlsplit(unescape(href)).query)
+                self.assertNotIn('page', parsed)
+                for key in ('status', 'q', 'barangay', 'program', 'sort'):
+                    value = parameters[key]
+                    self.assertEqual(parsed[key], value if isinstance(value, list) else [value])
+            clear = unescape(re.search(r'class="clear-filters" href="([^"]+)"', page.text)[1])
+            self.assertEqual(parse_qs(urlsplit(clear).query), {'status': ['follow-up'], 'scope': [scope]})
+            self.client.get(clear)
+            self.assertEqual(self.query.call_args.args[1].scope, scope)
+            # Apply Filters submits the hidden selection and resets pagination.
+            self.client.get('/assessments/queue?' + urlencode({**parameters, 'page': 1}, doseq=True))
+            self.assertEqual(self.query.call_args.args[1].scope, scope)
+
+    def test_personal_empty_state_is_distinct_from_filtered_and_shared_lists(self):
+        self.fixture.session()
+        self.query.side_effect = lambda page, filters, **kwargs: queue_fixture(page, filters, total=0)
+        for status, _ in queue.STATUS_OPTIONS:
+            empty = self.client.get('/assessments/queue?status=' + status)
+            self.assertIn('No reviews are currently assigned to you.' if status == 'in-review'
+                          else 'No reviews assigned to you have this recommendation yet.', empty.text)
+            self.assertIn('View All Staff Reviews', empty.text)
+            filtered = self.client.get('/assessments/queue?status=' + status + '&q=missing')
+            self.assertIn('No reviews match your search or filters.', filtered.text)
+            self.assertNotIn('No reviews are currently assigned to you.', filtered.text)
+
     def test_safe_return_state_survives_assessment_links_and_review_forms(self):
         self.fixture.session()
-        filters = queue.QueueFilters('in-review', 'Synthetic', 'Synthetic Barangay', ('4Ps', 'SLP'))
+        filters = queue.QueueFilters('in-review', 'Synthetic', 'Synthetic Barangay',
+                                     ('4Ps', 'SLP'), 'mine', 'desc')
         parameters = queue.queue_return_parameters(2, filters)
         query = urlencode(parameters, doseq=True)
         self.fixture.source['staff_reviews'] = [{
@@ -180,6 +256,10 @@ class QueueRouteTests(unittest.TestCase):
         back = unescape(re.search(r'<a class="review-return-link context-navigation" href="([^"]+)"',
                                   page.text, re.S)[1])
         self.assertTrue(back.startswith('/assessments/queue?'))
+        self.assertEqual(parse_qs(urlsplit(back).query)['scope'], ['mine'])
+        self.assertEqual(parse_qs(urlsplit(back).query)['sort'], ['desc'])
+        self.client.get(back)
+        self.assertEqual(self.query.call_args.args[1], filters)
         links = [unescape(url) for url in re.findall(r'href="([^"]+)"', page.text)]
         finish = next(url for url in links if 'action=finish' in url)
         self.assertEqual(parse_qs(urlsplit(finish).query)['queue_page'], ['2'])

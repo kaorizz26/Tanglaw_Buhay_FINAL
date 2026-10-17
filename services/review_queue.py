@@ -26,7 +26,7 @@ STATUS_EXPLANATIONS = {
                  'office. These are not subsidy approvals.',
     'no-action': 'Reviews where staff recommended no further action at this time.',
 }
-RETURN_KEYS = ('status', 'q', 'barangay', 'program', 'page')
+RETURN_KEYS = ('status', 'q', 'barangay', 'program', 'page', 'scope', 'sort')
 
 
 @dataclass(frozen=True)
@@ -35,6 +35,12 @@ class QueueFilters:
     search: str = ''
     barangay: str = ''
     programs: tuple[str, ...] = ()
+    scope: str = 'all'
+    sort: str = ''
+
+    @property
+    def date_order(self):
+        return self.sort or ('asc' if self.status == 'in-review' else 'desc')
 
     @property
     def active(self):
@@ -42,7 +48,8 @@ class QueueFilters:
 
     @property
     def parameters(self):
-        return {'status': self.status, **AssessmentFilters(
+        return {'status': self.status, 'scope': self.scope,
+                **({'sort': self.sort} if self.sort else {}), **AssessmentFilters(
             search=self.search, barangay=self.barangay, programs=self.programs,
         ).parameters}
 
@@ -50,17 +57,20 @@ class QueueFilters:
 def normalize_queue_filters(filters=None):
     filters = QueueFilters() if filters is None else filters
     if (not isinstance(filters, QueueFilters) or not isinstance(filters.status, str)
-            or filters.status not in dict(STATUS_OPTIONS)):
+            or filters.status not in dict(STATUS_OPTIONS)
+            or filters.scope not in ('all', 'mine') or filters.sort not in ('', 'asc', 'desc')):
         raise InvalidAssessmentFilters('invalid_review_queue_filters')
     normalized = normalize_filters(AssessmentFilters(
         search=filters.search, barangay=filters.barangay, programs=filters.programs,
     ))
-    return QueueFilters(filters.status, normalized.search, normalized.barangay, normalized.programs)
+    return QueueFilters(filters.status, normalized.search, normalized.barangay, normalized.programs,
+                        filters.scope, filters.sort)
 
 
-def parse_queue_arguments(arguments):
+def parse_queue_arguments(arguments, *, default_scope='all'):
     values = {}
-    for key, default in (('status', 'in-review'), ('q', ''), ('barangay', ''), ('page', '1')):
+    for key, default in (('status', 'in-review'), ('q', ''), ('barangay', ''), ('page', '1'),
+                         ('scope', default_scope), ('sort', '')):
         supplied = arguments.getlist(key)
         if len(supplied) > 1:
             raise InvalidAssessmentFilters('invalid_review_queue_filters')
@@ -71,6 +81,7 @@ def parse_queue_arguments(arguments):
     filters = normalize_queue_filters(QueueFilters(
         status=values['status'], search=values['q'], barangay=values['barangay'],
         programs=tuple(arguments.getlist('program')),
+        scope=values['scope'], sort=values['sort'],
     ))
     return int(page), filters
 
@@ -94,20 +105,22 @@ def parse_queue_return(arguments):
     return parse_queue_arguments(values)
 
 
-def get_review_queue_page(page, filters=None, *, connection_factory=get_connection):
+def get_review_queue_page(page, filters=None, *, staff_id=None, connection_factory=get_connection):
     filters = normalize_queue_filters(filters)
     if type(page) is not int or page < 1:
         raise AssessmentQueryError('invalid_assessment_pagination')
+    if filters.scope == 'mine' and (type(staff_id) is not int or staff_id < 1):
+        raise InvalidAssessmentFilters('invalid_review_queue_staff')
     with _read_context(connection_factory) as (connection, context):
         total = staff_reviews.count_queue(
-            connection, context['batch_id'], context['run_id'], filters,
+            connection, context['batch_id'], context['run_id'], filters, staff_id=staff_id,
         )
         page_count = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
         if page > page_count:
             return None
         items = staff_reviews.list_queue(
             connection, context['batch_id'], context['run_id'], filters,
-            limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE,
+            limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE, staff_id=staff_id,
         )
         identities = dataset_batches.find_household_identities(
             connection, context['batch_id'], list({row['household_uuid'] for row in items}),
@@ -133,6 +146,8 @@ def get_review_queue_page(page, filters=None, *, connection_factory=get_connecti
         'filters': filters, 'filter_parameters': filters.parameters, 'barangays': barangays,
         'tab_filter_parameters': {key: value for key, value in filters.parameters.items()
                                   if key != 'status'},
+        'scope_filter_parameters': {key: value for key, value in filters.parameters.items()
+                                    if key != 'scope'},
         'program_options': PROGRAM_ORDER, 'status_options': STATUS_OPTIONS,
         'status_label': dict(STATUS_OPTIONS)[filters.status],
         'status_explanation': STATUS_EXPLANATIONS[filters.status],

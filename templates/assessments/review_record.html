@@ -2,6 +2,9 @@
 {% set record_url = url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, **detail_parameters) %}
 <nav class="review-navigation" aria-label="Review and household links">
   <a class="review-return-link context-navigation" href="{{ queue_return_url or url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}"><span aria-hidden="true">←</span> Back to {{ 'Review Queue' if queue_return_url else 'Staff Reviews' }}</a>
+  {% if queue_return_url %}
+    <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}">View Staff Reviews</a>
+  {% endif %}
   <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **detail_parameters) }}">View Household Assessment <span aria-hidden="true">→</span></a>
   <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **detail_parameters) }}">View Subsidy Screening</a>
 </nav>
@@ -22,6 +25,10 @@
           </div>
         {% endfor %}
         <div>
+          <dt>Responsible Staff</dt>
+          <dd>{{ review.responsible_username }}{% if review.responsible_staff_id == g.user.id %} (you){% endif %}</dd>
+        </div>
+        <div>
           <dt>Started by</dt>
           <dd>{{ review.username }} · <time datetime="{{ review.created_at.isoformat() }}">{{ review.created_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time></dd>
         </div>
@@ -32,6 +39,7 @@
           </div>
         {% endif %}
       </dl>
+      <p class="section-helper">Responsible Staff coordinates this subsidy review. Other authorized staff can also add notes and finish it.</p>
       <p class="section-helper">The screening finding is separate from this staff review and is not an approval of assistance.</p>
     </section>
 
@@ -52,6 +60,21 @@
         <p class="review-empty-notes">No notes have been saved for this review yet.</p>
       {% endif %}
     </section>
+
+    {% if review.reassignments %}
+      <section class="review-record-section" aria-labelledby="assignment-history-heading">
+        <h3 id="assignment-history-heading">Assignment history</h3>
+        <ol class="review-notes-list">
+          {% for change in review.reassignments %}
+            <li class="review-saved-note">
+              <p><strong>{{ change.previous_username }}</strong> → <strong>{{ change.responsible_username }}</strong></p>
+              <p class="review-note-meta">Changed by {{ change.changed_username }} · <time datetime="{{ change.created_at.isoformat() }}">{{ change.created_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time></p>
+              <p class="review-preserved-text">{{ change.reason }}</p>
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+    {% endif %}
 
     {% if review.status == 'In Review' and not review_mode %}
       <section class="review-record-section review-add-note" aria-labelledby="add-note-heading">
@@ -93,14 +116,24 @@
       <p class="review-attribution">Cancelled by <strong>{{ review.cancelled_username }}</strong> on <time datetime="{{ review.cancelled_at.isoformat() }}">{{ review.cancelled_at.strftime('%d %b %Y, %I:%M %p %Z') }}</time>.</p>
     {% elif review_mode %}
       {% set recommendation_error = review_error == 'Choose one of the two closing recommendations.' %}
-      <h4>{{ 'Finish Review' if review_mode == 'finish' else 'Cancel Review' }}</h4>
-      <p class="section-helper">{{ 'Choose a recommendation and explain your decision. This does not approve assistance.' if review_mode == 'finish' else 'Cancellation stops this review without making a recommendation. The record and notes will remain available.' }}</p>
+      <h4>{{ {'finish': 'Finish Review', 'cancel': 'Cancel Review', 'reassign': 'Reassign Staff'}[review_mode] }}</h4>
+      <p class="section-helper">{{ {'finish': 'Choose a recommendation and explain your decision. This does not approve assistance.', 'cancel': 'Cancellation stops this review without making a recommendation. The record and notes will remain available.', 'reassign': 'Choose who will coordinate this review and explain the change. Confirming saves the new Responsible Staff and the reason.'}[review_mode] }}</p>
       {% if review_error %}<p id="review-error" class="review-error" role="alert">{{ review_error }}</p>{% endif %}
       <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="batch_id" value="{{ results.context.batch_id }}">
         <input type="hidden" name="run_id" value="{{ results.context.run_id }}">
         <input type="hidden" name="action" value="{{ review_mode }}">
+        {% if review_mode == 'reassign' %}
+          <input type="hidden" name="responsibility_version" value="{{ review.responsibility_version }}">
+          <label for="responsible-staff">New Responsible Staff (required)</label>
+          <select id="responsible-staff" name="responsible_staff_id" required {% if review_error %}aria-describedby="review-error"{% endif %}>
+            <option value="">Choose a staff member</option>
+            {% for staff in assignable_staff if staff.id != review.responsible_staff_id %}
+              <option value="{{ staff.id }}" {% if selected_staff == staff.id|string %}selected{% endif %}>{{ staff.username }}{% if staff.id == g.user.id %} (you){% endif %}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
         {% if review_mode == 'finish' %}
           <fieldset {% if recommendation_error %}aria-describedby="review-error"{% endif %}>
             <legend>Closing recommendation (required)</legend>
@@ -110,16 +143,17 @@
             {% endfor %}
           </fieldset>
         {% endif %}
-        <label for="review-text">{{ 'Explanation (required)' if review_mode == 'finish' else 'Cancellation reason (optional)' }}</label>
-        <textarea id="review-text" name="text" rows="4" maxlength="{{ 2000 if review_mode == 'finish' else 1000 }}" {% if review_mode == 'finish' %}required{% endif %} {% if review_error and not recommendation_error %}aria-invalid="true" aria-describedby="review-error"{% endif %}>{{ review_text }}</textarea>
+        <label for="review-text">{{ {'finish': 'Explanation (required)', 'cancel': 'Cancellation reason (optional)', 'reassign': 'Reason for reassignment (required)'}[review_mode] }}</label>
+        <textarea id="review-text" name="text" rows="4" maxlength="{{ 2000 if review_mode == 'finish' else 1000 }}" {% if review_mode != 'cancel' %}required{% endif %} {% if review_error and not recommendation_error %}aria-invalid="true" aria-describedby="review-error"{% endif %}>{{ review_text }}</textarea>
         <div class="review-action-buttons">
-          <button class="review-button{% if review_mode == 'cancel' %} review-button--secondary{% endif %}" type="submit">{{ 'Finish Review' if review_mode == 'finish' else 'Cancel Review' }}</button>
+          <button class="review-button{% if review_mode == 'cancel' %} review-button--secondary{% endif %}" type="submit">{{ {'finish': 'Finish Review', 'cancel': 'Cancel Review', 'reassign': 'Confirm Reassignment'}[review_mode] }}</button>
           <a class="review-keep-link" href="{{ record_url }}">Keep Reviewing</a>
         </div>
       </form>
     {% else %}
       <p class="section-helper">This review is in progress. You can save notes before choosing a final action.</p>
       <div class="review-action-buttons">
+        <a class="review-secondary-link" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='reassign', **detail_parameters) }}">Reassign Staff</a>
         <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='finish', **detail_parameters) }}">Finish Review</a>
         <a class="review-secondary-link" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='cancel', **detail_parameters) }}">Cancel Review</a>
       </div>

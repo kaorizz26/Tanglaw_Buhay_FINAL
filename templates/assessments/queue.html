@@ -22,10 +22,6 @@
       <h1>Review Queue</h1>
       <p>Subsidy reviews started by LGU staff · Municipality of {{ results.context.municipality }}</p>
     </div>
-    <nav class="assessment-tabs" aria-label="Assessment views">
-      <a href="{{ url_for('assessments.prioritization') }}">Prioritization</a>
-      <a href="{{ url_for('assessments.queue') }}" aria-current="page">Review Queue</a>
-    </nav>
   </header>
 
   <nav class="assessment-tabs queue-status-tabs" aria-label="Review status">
@@ -37,6 +33,18 @@
     {% endfor %}
   </nav>
   <p class="queue-explanation">{{ results.status_explanation }}</p>
+
+  <div class="queue-scope-section">
+    <nav class="queue-scope-switch" aria-label="Review assignment">
+      {% for value, label in [('mine', 'Assigned to Me'), ('all', 'All Staff Reviews')] %}
+        <a
+          href="{{ url_for('assessments.queue', scope=value, **results.scope_filter_parameters) }}"
+          {% if results.filters.scope == value %}aria-current="page"{% endif %}
+        >{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <p class="queue-scope-explanation">{{ 'Reviews assigned to you as the responsible staff member.' if results.filters.scope == 'mine' else 'Reviews assigned to authorized LGU personnel.' }}</p>
+  </div>
 
   {% for message in get_flashed_messages() %}
     <p class="review-notice" role="status">{{ message }}</p>
@@ -50,6 +58,7 @@
       aria-label="Filter staff reviews"
     >
       <input type="hidden" name="status" value="{{ results.filters.status }}">
+      <input type="hidden" name="scope" value="{{ results.filters.scope }}">
       <div class="filter-fields">
         <div class="filter-field filter-search">
           <label for="queue-search">Household search</label>
@@ -73,9 +82,18 @@
         </div>
         <div class="filter-actions">
           <button class="apply-filters" type="submit">Apply Filters</button>
-          <a class="clear-filters" href="{{ url_for('assessments.queue', status=results.filters.status) }}">Clear Filters</a>
+          <a class="clear-filters" href="{{ url_for('assessments.queue', status=results.filters.status, scope=results.filters.scope) }}">Clear Filters</a>
         </div>
       </div>
+      <div class="queue-secondary-filters">
+        <div class="filter-field queue-sort">
+          <label for="queue-sort">Sort by Date {{ 'Started' if results.filters.status == 'in-review' else 'Finished' }}</label>
+          <select id="queue-sort" name="sort">
+            <option value="">Default · {{ 'oldest first' if results.filters.status == 'in-review' else 'newest first' }}</option>
+            <option value="asc" {% if results.filters.sort == 'asc' %}selected{% endif %}>Ascending · oldest first</option>
+            <option value="desc" {% if results.filters.sort == 'desc' %}selected{% endif %}>Descending · newest first</option>
+          </select>
+        </div>
       <fieldset class="subsidy-filters queue-programs" aria-describedby="queue-program-help">
         <legend>Subsidy programs</legend>
         <div class="program-choices">
@@ -91,6 +109,7 @@
         </div>
         <p class="filter-help" id="queue-program-help">Show any selected program. Leave all unchecked to show every program.</p>
       </fieldset>
+      </div>
     </form>
 
     <div class="ranking-heading">
@@ -98,11 +117,12 @@
       <p>{{ '{:,}'.format(results.total) }} {% if results.filters.active %}matching {% endif %}{{ review_label }}</p>
     </div>
     <p class="queue-rank-explanation" id="queue-rank-explanation">Municipal Rank reflects household vulnerability across the municipality, not review order.</p>
+    <p class="queue-rank-explanation">Each subsidy review has its own row and Responsible Staff. Other authorized staff can also help.</p>
     <div class="table-scroll" role="region" aria-label="Staff review table" tabindex="0">
       <table class="ranking-table queue-table" aria-describedby="queue-rank-explanation">
         <caption class="visually-hidden">
           {{ results.status_label }} household subsidy reviews.
-          {{ 'Oldest started first.' if results.filters.status == 'in-review' else 'Most recently finished first.' }}
+          {{ 'Oldest first.' if results.filters.date_order == 'asc' else 'Newest first.' }}
         </caption>
         <colgroup>
           <col class="queue-rank">
@@ -138,6 +158,7 @@
               <td>{{ review.program }}</td>
               <td>
                 <span class="staff-review-badge staff-review-badge--{{ results.status_style }}">{{ results.status_label }}</span>
+                <span class="queue-responsible">Responsible Staff:<br><strong>{{ review.responsible_username }}</strong>{% if review.responsible_staff_id == g.user.id %} <span class="assigned-to-you">(you)</span>{% endif %}</span>
               </td>
               {% set timestamp = review.created_at if results.filters.status == 'in-review' else review.finished_at %}
               <td>
@@ -161,6 +182,9 @@
               {% if results.filters.active %}
                 <strong>No reviews match your search or filters.</strong>
                 <p>Try another Household ID or name, adjust your selections, or clear the filters.</p>
+              {% elif results.filters.scope == 'mine' %}
+                <strong>{{ 'No reviews are currently assigned to you.' if results.filters.status == 'in-review' else 'No reviews assigned to you have this recommendation yet.' }}</strong>
+                <p><a href="{{ url_for('assessments.queue', scope='all', **results.scope_filter_parameters) }}">View All Staff Reviews</a></p>
               {% else %}
                 <strong>No reviews {{ 'are currently in progress.' if results.filters.status == 'in-review' else 'have this recommendation yet.' }}</strong>
                 <p>{{ 'Start a review from a household’s Staff Reviews tab after examining its findings.' if results.filters.status == 'in-review' else 'Finished reviews with this recommendation will appear here.' }}</p>

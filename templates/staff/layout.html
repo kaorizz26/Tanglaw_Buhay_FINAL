@@ -60,19 +60,18 @@
             ] %}
               <li>
                 {% if icon == 'assessments' %}
-                  <a
-                    class="navigation-item navigation-item-active"
-                    href="{{ url_for('assessments.prioritization') }}"
-                    aria-current="page"
-                  >
-                    <img
-                      src="{{ url_for('static', filename='icons/' ~ icon ~ '.svg') }}"
-                      alt=""
-                      width="20"
-                      height="20"
-                    >
-                    <span>{{ label }}</span>
-                  </a>
+                  {% set queue_active = request.endpoint == 'assessments.queue' or queue_return_url %}
+                  <details class="navigation-group" {% if request.blueprint == 'assessments' %}open{% endif %}>
+                    <summary class="navigation-item">
+                      <img src="{{ url_for('static', filename='icons/' ~ icon ~ '.svg') }}" alt="" width="20" height="20">
+                      <span>{{ label }}</span>
+                      <span class="navigation-chevron" aria-hidden="true">›</span>
+                    </summary>
+                    <ul class="navigation-children">
+                      <li><a class="navigation-item{% if not queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if not queue_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
+                      <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>Review Queue</a></li>
+                    </ul>
+                  </details>
                 {% else %}
                   <span class="navigation-item navigation-item-planned" aria-disabled="true">
                     <img

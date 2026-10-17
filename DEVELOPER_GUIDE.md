@@ -1912,16 +1912,46 @@ updated by review actions. Tests use only synthetic disposable test schemas.
 
 `GET /assessments/queue` uses the existing staff guard. `services/review_queue.py`
 validates `status` (`in-review`, `follow-up`, `no-action`), `q`, `barangay`, repeated
-`program`, and `page`, then uses the shared repeatable-read, read-only active-batch
+`program`, `page`, `scope` (`all` or `mine`), and `sort` (default, `asc`, `desc`),
+then uses the shared repeatable-read, read-only active-batch
 and designated-run context. Repository count/page queries select the latest review
 per batch/household/program before status filtering; a latest cancellation excludes
 older recommendations. Rank comes from the currently designated run, while each
 review retains its original run association. Page identities are loaded together;
-queue rows do not load notes or MPI/subsidy evidence. No migration is added.
+queue rows do not load notes or MPI/subsidy evidence. The responsible staff username
+is joined once; `mine` uses the authenticated staff ID supplied by the route.
+When `scope` is omitted, the route defaults to `mine` for LGU Staff and `all` for
+System Administrators. Explicit scope always takes precedence. The visible scope
+links reset page while retaining filters; Clear Filters retains scope and status.
 
 Review links carry `from_queue=1` and validated `queue_status`, `queue_q`,
-`queue_barangay`, repeated `queue_program`, and `queue_page`. The app builds internal
+`queue_barangay`, repeated `queue_program`, `queue_scope`, `queue_sort`, and `queue_page`. The app builds internal
 return URLs; it accepts no redirect URL. These parameters remain separate from
 Prioritization filters and survive existing note/finish/cancel forms and assessment
 tabs. If a queue page disappears after a transition, return to page 1 with filters
 intact. Focused coverage: `python -B -m unittest discover -s tests -p test_review_queue.py`.
+
+### Review responsibility (Task 5.1)
+
+Apply migration 0007 once after 0006, explicitly against the intended development
+database. Startup never applies it:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_final -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0007_review_responsibility.sql"
+```
+
+It backfills every existing review's `responsible_staff_id` from `started_by`,
+including inactive original accounts and closed/cancelled records. New reviews
+set both IDs on insert. No synthetic reassignment events are created by backfill.
+Only active reviews allow reassignment. Both approved roles retain shared access.
+The existing transaction locks the selected context, actor account, and review;
+the target account is also locked/rechecked for activity and authorized role.
+`responsibility_version` rejects stale forms, including an A→B→A change. The
+responsibility update/version increment and append-only assignment event commit
+together. Original starter, notes, assessment associations, source and findings
+remain unchanged. Closed/cancelled reviews retain their last Responsible Staff.
+
+Focused coverage: `python -B -m unittest discover -s tests -p test_review_responsibility.py`.
+Database checks and browser fixtures use disposable schemas only in the guarded
+local `tanglaw_buhay_test` database. The existing development database requires
+the explicit command above before using the updated review screens.

@@ -406,7 +406,8 @@
   font-weight: 600;
 }
 
-.review-workspace textarea {
+.review-workspace textarea,
+.review-workspace select {
   display: block;
   width: 100%;
   max-width: 82ch;
@@ -420,7 +421,8 @@
   resize: vertical;
 }
 
-.review-workspace textarea:focus-visible {
+.review-workspace textarea:focus-visible,
+.review-workspace select:focus-visible {
   outline: 3px solid #167eb5;
   outline-offset: 3px;
 }

@@ -34,17 +34,29 @@ def get_staff_review_detail(household_uuid):
 RECOMMENDATIONS = ('For LGU Follow-Up', 'No Further Action')
 
 
+def get_assignable_staff(*, connection_factory=get_connection):
+    try:
+        with connection_factory() as connection:
+            return staff_reviews.list_assignable_staff(connection)
+    except (psycopg.Error, RuntimeError):
+        raise StaffReviewError('unavailable') from None
+
+
 def act_on_review(household_uuid, program, review_id, action, staff_id,
                   batch_id, run_id, *, text='', recommendation='',
+                  responsible_staff_id=None, responsibility_version=None,
                   connection_factory=get_connection):
     """Serialize all actions on a review; never alter source or assessment results."""
-    if (program not in PROGRAM_NAMES or action not in ('note', 'finish', 'cancel')
+    if (program not in PROGRAM_NAMES or action not in ('note', 'finish', 'cancel', 'reassign')
             or not isinstance(household_uuid, str) or not household_uuid.strip()
             or len(household_uuid) > 128 or '\x00' in household_uuid
             or any(type(value) is not int or value < 1
                    for value in (review_id, staff_id, batch_id, run_id))):
         raise StaffReviewError('invalid_request')
-    limit = 1000 if action == 'cancel' else 2000
+    if action == 'reassign' and any(type(value) is not int or value < 1 for value in (
+            responsible_staff_id, responsibility_version)):
+        raise StaffReviewError('invalid_assignee')
+    limit = 1000 if action in ('cancel', 'reassign') else 2000
     if not isinstance(text, str) or '\x00' in text or len(text) > limit:
         raise StaffReviewError('invalid_text')
     text = text.strip()
@@ -66,7 +78,15 @@ def act_on_review(household_uuid, program, review_id, action, staff_id,
                     raise StaffReviewError('review_missing')
                 if review['status'] != 'In Review':
                     raise StaffReviewError('not_active')
-                if action == 'note':
+                if action == 'reassign':
+                    if review['responsibility_version'] != responsibility_version:
+                        raise StaffReviewError('assignment_changed')
+                    if review['responsible_staff_id'] == responsible_staff_id:
+                        raise StaffReviewError('same_assignee')
+                    if not staff_reviews.authorized_staff_exists(connection, responsible_staff_id):
+                        raise StaffReviewError('invalid_assignee')
+                    staff_reviews.reassign(connection, review, staff_id, responsible_staff_id, text)
+                elif action == 'note':
                     staff_reviews.add_note(connection, review_id, staff_id, text)
                 elif action == 'finish':
                     staff_reviews.finish(connection, review_id, staff_id, recommendation, text)

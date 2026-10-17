@@ -139,6 +139,49 @@
   font-size: 0.8125rem;
 }
 
+.navigation-group > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--surface);
+}
+
+.navigation-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.navigation-chevron {
+  margin-left: auto;
+  font-size: 1.25rem;
+}
+
+.navigation-group[open] .navigation-chevron {
+  transform: rotate(90deg);
+}
+
+.navigation-children {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 8px 14px;
+  padding: 0 0 0 12px;
+  border-left: 1px solid var(--navy-border);
+  list-style: none;
+}
+
+.navigation-children .navigation-item {
+  min-height: 44px;
+  font-size: 0.875rem;
+}
+
+.navigation-children a:hover,
+.navigation-group > summary:hover {
+  background: var(--navy-active);
+}
+
+.navigation-group > summary:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .navigation-toggle {
   min-height: 44px;
   padding: 8px 12px;

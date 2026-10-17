@@ -9,7 +9,7 @@ from services.prioritization import get_prioritization_page
 from services.assessment_details import detail_navigation, get_assessment_detail
 from services.staff_reviews import (
     StaffReviewError, get_staff_review_detail, start_staff_review,
-    act_on_review,
+    act_on_review, get_assignable_staff,
 )
 from services.subsidy_screening_content import PROGRAM_NAMES
 from services.review_queue import (
@@ -41,8 +41,10 @@ def _assessment_navigation(arguments):
 def queue():
     """Read explicit staff work through the existing staff authorization guard."""
     try:
-        page, filters = parse_queue_arguments(request.args)
-        results = get_review_queue_page(page, filters)
+        page, filters = parse_queue_arguments(
+            request.args, default_scope='all' if g.user['role'] == ADMIN_ROLE else 'mine',
+        )
+        results = get_review_queue_page(page, filters, staff_id=g.user['id'])
     except InvalidAssessmentFilters:
         abort(400, description='Choose valid review status and filter values.')
     except AssessmentQueryError:
@@ -217,14 +219,17 @@ def review_record(household_uuid, review_program, review_id):
     except InvalidAssessmentFilters:
         abort(400, description='Choose valid return filters.')
     mode = request.args.get('action', '')
-    if len(request.args.getlist('action')) > 1 or mode not in ('', 'finish', 'cancel'):
+    if len(request.args.getlist('action')) > 1 or mode not in ('', 'finish', 'cancel', 'reassign'):
         abort(400, description='Choose a valid review action.')
     error = None
     text = ''
     recommendation = ''
+    selected_staff = ''
+    error_status = 400
     if request.method == 'POST':
         try:
-            for key in ('batch_id', 'run_id', 'action', 'text', 'recommendation'):
+            for key in ('batch_id', 'run_id', 'action', 'text', 'recommendation',
+                        'responsible_staff_id', 'responsibility_version'):
                 if len(request.form.getlist(key)) > 1:
                     raise StaffReviewError('invalid_request')
             context = []
@@ -238,18 +243,39 @@ def review_record(household_uuid, review_program, review_id):
                 raise StaffReviewError('invalid_request')
             text = request.form.get('text', '')
             recommendation = request.form.get('recommendation', '')
+            assignment = {}
+            if action == 'reassign':
+                selected_staff = request.form.get('responsible_staff_id', '')
+                for key in ('responsible_staff_id', 'responsibility_version'):
+                    value = request.form.get(key, '')
+                    if (not value.isascii() or not value.isdecimal() or len(value) > 18
+                            or int(value) < 1):
+                        raise StaffReviewError('invalid_assignee')
+                    assignment[key] = int(value)
             act_on_review(
                 str(household_uuid), program, review_id, action, g.user['id'],
-                *context, text=text, recommendation=recommendation,
+                *context, text=text, recommendation=recommendation, **assignment,
             )
         except StaffReviewError as failure:
             code = str(failure)
-            if code in ('text_required', 'invalid_text', 'invalid_recommendation'):
+            if code in ('text_required', 'invalid_text', 'invalid_recommendation',
+                        'invalid_assignee', 'same_assignee'):
                 error = {
-                    'text_required': 'Enter a brief note or explanation before saving.',
-                    'invalid_text': 'Use up to 2,000 characters, or 1,000 for a cancellation reason.',
+                    'text_required': 'Enter a brief reason before confirming reassignment.'
+                    if mode == 'reassign' else 'Enter a brief note or explanation before saving.',
+                    'invalid_text': 'Use up to 1,000 characters for a reassignment or cancellation reason.'
+                    if mode in ('reassign', 'cancel') else 'Use up to 2,000 characters.',
                     'invalid_recommendation': 'Choose one of the two closing recommendations.',
+                    'invalid_assignee': 'Choose an active, authorized staff account.',
+                    'same_assignee': 'Choose a different staff member to reassign this review.',
                 }[code]
+            elif code == 'assignment_changed':
+                error_status = 409
+                selected_staff = ''
+                error = (
+                    'Responsible Staff changed while this form was open. '
+                    'Check the current staff member shown here before choosing again.'
+                )
             elif code == 'not_active':
                 abort(409, description=(
                     'This review has already ended. Return to Staff Reviews '
@@ -276,6 +302,7 @@ def review_record(household_uuid, review_program, review_id):
                     'in the Review Queue.'
                 ),
                 'cancel': 'Review cancelled. No recommendation was made.',
+                'reassign': 'Responsible Staff updated. The change is saved in assignment history.',
             }[action])
             return redirect(url_for(
                 'assessments.review_record', household_uuid=household_uuid,
@@ -296,10 +323,17 @@ def review_record(household_uuid, review_program, review_id):
             'This review has already ended. Return to Staff Reviews '
             'to see its saved outcome.'
         ))
+    assignable_staff = []
+    if mode == 'reassign':
+        try:
+            assignable_staff = get_assignable_staff()
+        except StaffReviewError:
+            abort(503, description='Staff accounts are unavailable. Please try again later.')
     return render_template(
         'assessments/detail.html', results=results, tab='reviews', review_record=record,
         review_mode=mode, review_error=error, review_text=text[:2000],
-        recommendation=recommendation, **navigation,
+        recommendation=recommendation, assignable_staff=assignable_staff,
+        selected_staff=selected_staff, **navigation,
         role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
         staff_username=g.user['username'], csrf_token=csrf_token(),
-    ), (400 if error else 200)
+    ), (error_status if error else 200)

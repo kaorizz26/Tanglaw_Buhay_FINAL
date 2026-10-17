@@ -33,11 +33,6 @@
       </p>
     </div>
 
-    <nav class="assessment-tabs" aria-label="Assessment views">
-      <a href="{{ url_for('assessments.prioritization') }}" aria-current="page">Prioritization</a>
-      <a href="{{ url_for('assessments.queue') }}">Review Queue</a>
-    </nav>
-
     <p class="assessment-summary">
       <strong>{{ '{:,}'.format(results.context.household_count) }}</strong> assessed households
     </p>

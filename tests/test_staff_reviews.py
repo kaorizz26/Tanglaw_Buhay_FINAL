@@ -524,9 +524,10 @@ class StaffReviewDatabaseTests(unittest.TestCase):
             with self.assertRaises(psycopg.errors.UniqueViolation), connection.transaction():
                 connection.execute(
                     """INSERT INTO staff_reviews
-                       (batch_id, household_uuid, assessment_run_id, program, started_by)
-                       VALUES (%s, %s, %s, '4Ps', %s)""",
-                    (self.batch_id, HOUSEHOLD_UUID, self.run_id, self.staff_ids[0]),
+                       (batch_id, household_uuid, assessment_run_id, program, started_by,
+                        responsible_staff_id)
+                       VALUES (%s, %s, %s, '4Ps', %s, %s)""",
+                    (self.batch_id, HOUSEHOLD_UUID, self.run_id, *([self.staff_ids[0]] * 2)),
                 )
 
     def act(self, review_id, action, *, staff_id=None, **values):
@@ -695,17 +696,19 @@ class StaffReviewDatabaseTests(unittest.TestCase):
                 connection.execute(sql.SQL('SET LOCAL search_path TO {}').format(sql.Identifier(schema)))
                 paths = sorted((ROOT / 'migrations').glob('*.sql'))
                 for path in paths:
-                    if not path.name.startswith('0006'):
+                    if path.name < '0006':
                         connection.execute(path.read_text(encoding='utf-8'))
                 staff_id = connection.execute(
                     "INSERT INTO staff_users (username, password_hash, role) VALUES ('synthetic', %s, 'lgu_staff') RETURNING id",
                     (generate_password_hash(token_urlsafe(24)),),
                 ).fetchone()[0]
                 batch, run = self.make_batch(connection, active=True)
-                review_id = repository.insert_active(
-                    connection, batch_id=batch, household_uuid=HOUSEHOLD_UUID,
-                    run_id=run, program='TUPAD', starting_reason=None, staff_id=staff_id,
-                )
+                review_id = connection.execute(
+                    """INSERT INTO staff_reviews
+                       (batch_id, household_uuid, assessment_run_id, program, started_by)
+                       VALUES (%s, %s, %s, 'TUPAD', %s) RETURNING id""",
+                    (batch, HOUSEHOLD_UUID, run, staff_id),
+                ).fetchone()[0]
                 before = connection.execute('SELECT * FROM staff_reviews').fetchone()
                 connection.execute((ROOT / 'migrations/0006_staff_review_completion.sql').read_text(encoding='utf-8'))
                 after = connection.execute('SELECT * FROM staff_reviews').fetchone()
