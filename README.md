@@ -10,34 +10,70 @@ This guide helps a teammate run the completed system on a Windows laptop.
 **You need both the Git repository and the privately supplied database backup.**
 Cloning Git alone does not provide household records or assessment results.
 
-## What is ready?
+## Current Development Status
 
-| Completed | Available behavior |
+Tanglaw-Buhay is an ongoing capstone decision-support system for LGU personnel
+in Pozorrubio, Pangasinan. The core assessment and subsidy screening
+functionality is implemented, while several staff and citizen modules are still
+planned. **A navigation item or placeholder does not mean a feature is complete.**
+
+### Implemented Features
+
+| Feature | Available functionality |
 | --- | --- |
-| Authentication | PostgreSQL accounts, login/logout, protected staff sessions, and administrator guard. |
-| Data foundation | Controlled CBMS import backend, preserved source/reference records, dataset batches, and stored assessment runs. |
-| MPI vulnerability assessment | Sixteen indicators, unknown findings, coverage, and stored municipal rankings. |
-| Household Prioritization | Search, filters, pagination, and household assessment navigation. |
-| Household Assessment | Overview, all sixteen MPI indicators, and supporting evidence. |
-| Subsidy Screening | Separate 4Ps, SLP, SPISC, and TUPAD findings and evidence. |
-| Staff Reviews | Initiation, notes, responsibility/reassignment, completion, cancellation, correction, withdrawal, and attributed history. |
-| Review Queue | Current work by status, personal/shared scope, filters, date sorting, and contextual return links. |
+| Staff Authentication | Database-backed login, logout, staff sessions, and role-based access protection. |
+| PostgreSQL Data Foundation | CBMS households, members, reference mappings, dataset batches, assessment runs, and review tables. |
+| CBMS Data Import Foundation | Validated, transactional backend import of the authorized 2022 dataset; no general-purpose admin upload interface yet. |
+| MPI Vulnerability Assessment | Sixteen indicators across four dimensions, weighted vulnerability scores, uncertainty handling, and stored results. |
+| Household Prioritization | Municipality-wide rankings, search, barangay and other filters, pagination, and assessment links in stored municipal rank order. |
+| Household Assessment Details | Overview, all sixteen MPI indicators, supporting evidence, and plain-language findings. |
+| Subsidy Screening | Four separate historical screening outputs for 4Ps, SLP, SPISC, and TUPAD, with supporting evidence. |
+| Staff Reviews | Start, notes, staff responsibility/reassignment, finish, cancel, and attributed review history. |
+| Review Queue | Three clickable status cards, assigned/shared scopes, search and filters, date sorting, and review navigation. |
+| Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
+| Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
 
-**Remaining development:** municipal Dashboard analytics; Household Records;
-General Welfare Review (its suggestion rule/threshold still needs validation);
-Administration and staff account management; administrator-facing future CBMS
-import management; assessment management for future batches; Submissions; Citizen
-Portal with a document dropbox and staff-issued access codes; optional login-page
-UI refinement; household progression across survey periods; end-to-end testing
-and deployment preparation. Authentication already works. Menu placeholders do
-not mean these remaining modules are complete.
+### Features Still to Be Developed or Completed
 
-Tanglaw-Buhay is **not a one-time-use system**: its batch/run model preserves
-multiple datasets and assessment versions. The current source schema specifically
-accepts 2022 Pozorrubio records. Supporting later survey years requires an approved
-schema/validation change, a complete future-import interface, and assessment
-management. Cross-period progression also needs reliable household identity
-matching; it is not implemented.
+These describe the intended direction; detailed workflows and acceptance criteria
+still require approval.
+
+| Module | Planned work |
+| --- | --- |
+| Dashboard | Municipal summary statistics, charts, and interactive analytics using stored household assessments. |
+| Household Records | Searchable household directory and demographic/socioeconomic CBMS record details. |
+| General Welfare Review | Staff-initiated and system-suggested welfare consideration; the suggestion rule and threshold require validation and approval. |
+| Administration | Administrator screens for managing staff accounts, roles, and other authorized operations. |
+| CBMS Import Management | Administrator-only upload, validation, import history, and controlled activation of additional CBMS batches. |
+| Assessment Run Management | Authorized assessment execution, storage, verification, and selection for new validated batches. |
+| Submissions | Staff review and management of citizen-submitted documents. |
+| Citizen Portal | Public subsidy information, application guidance, and secure document dropbox using staff-issued access codes. |
+| Staff Login UI Refinement | Optional visual/usability improvements to the **already functional** login page. |
+| Household Progression Tracking | Comparisons across survey periods once reliable household identity matching is established. |
+| End-to-End Testing and Deployment | Verify workflows, roles, privacy, security, usability, and LGU pilot readiness. |
+
+### Future CBMS Data Support
+
+Tanglaw-Buhay is **not a one-time-use system**. Its database structure supports
+multiple CBMS dataset batches and multiple assessment runs, including preservation
+of historical results. The current database schema restricts source records to
+**survey year 2022 and Pozorrubio**. Supporting later survey years requires an approved schema change,
+even when the questionnaire structure stays the same. Changes to questionnaires
+may also require approved mapping and validation updates. The full
+administrator-facing future-import and assessment-run management workflows are
+**not yet implemented**. Tracking household
+changes across periods additionally requires reliable identity matching.
+
+### Development Guidelines
+
+Create a separate feature branch for each assigned module. Use `AGENTS.md`, the
+relevant project skill, and the relevant parts of `docs/UI_SPEC.md` and
+`docs/PROJECT_CONTEXT.md` when planning with ChatGPT or Codex. Design for
+first-time, nontechnical LGU staff; preserve finalized MPI and subsidy rules,
+original CBMS records, and existing review behavior. Use synthetic data for tests,
+protect authorized household information, and coordinate migrations and pull
+requests. See [Safe team development](#11-safe-team-development) and
+[ChatGPT Chat + Codex workflow](#12-chatgpt-chat--codex-workflow).
 
 **Stack:** Python 3.13, Flask/Jinja2, HTML/CSS/JavaScript, PostgreSQL 18,
 psycopg, pandas/NumPy, and pinned dependencies in [requirements.txt](requirements.txt).
@@ -70,7 +106,7 @@ If PostgreSQL was installed elsewhere, adjust its `bin` path in subsequent comma
 
 ## 2. Clone and open the project
 
-After the approved handoff merge into `main`:
+Clone the current stable `main` branch:
 
 ```powershell
 git clone https://github.com/kaorizz26/Tanglaw_Buhay_FINAL.git
@@ -81,8 +117,8 @@ code .
 ```
 
 GitHub may ask you to sign in and must grant you access to the repository.
-Before the handoff merge, the completed code is on `dev/staff-reviews`; use that
-branch only when the team lead directs you. Do not develop directly on `main`.
+The completed handoff has been merged into `main`. Create a separate feature
+branch for development; do not commit new feature work directly on `main`.
 
 ## 3. Create your Python environment
 
@@ -154,8 +190,8 @@ scripts; their results are already included. Application startup never migrates.
 
 ### PowerShell method
 
-Replace the example filename with the exact supplied filename. This command
-prompts privately for the PostgreSQL `tanglaw_local` password:
+Enter the full path to the supplied backup when prompted. The restore command
+then prompts privately for the PostgreSQL `tanglaw_local` password:
 
 ```powershell
 $pgBin = "C:\Program Files\PostgreSQL\18\bin"
@@ -331,8 +367,7 @@ Share sanitized error descriptions, never credentials or household records.
 
 ## 11. Safe team development
 
-After the lead merges the handoff, begin each assigned module from updated `main`
-with a clean working tree:
+Begin each assigned module from updated `main` with a clean working tree:
 
 ```powershell
 git status
