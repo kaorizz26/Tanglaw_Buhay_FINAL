@@ -47,7 +47,7 @@ still require approval.
 | CBMS Import Management | Administrator-only upload, validation, import history, and controlled activation of additional CBMS batches. |
 | Assessment Run Management | Authorized assessment execution, storage, verification, and selection for new validated batches. |
 | Submissions | Staff review and management of citizen-submitted documents. |
-| Citizen Portal | Public subsidy information, application guidance, and secure document dropbox using staff-issued access codes. |
+| Citizen Portal | Informational pages for 4Ps, SLP, SPISC, and TUPAD are available at `/public`. Citizen identity, access codes, and secure submissions are not implemented. |
 | Staff Login UI Refinement | Optional visual/usability improvements to the **already functional** login page. |
 | Household Progression Tracking | Comparisons across survey periods once reliable household identity matching is established. |
 | End-to-End Testing and Deployment | Verify workflows, roles, privacy, security, usability, and LGU pilot readiness. |

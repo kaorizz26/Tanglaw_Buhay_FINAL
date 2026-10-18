@@ -34,6 +34,6 @@ The current local development source is validated 2022 batch `1`, with **Run 2**
 
 1. Complete only the next explicitly approved staff-facing or security task. For any staff UI work, validate clarity and navigation against [UI_SPEC.md](UI_SPEC.md) as well as functional behavior.
 2. Resolve import retention, account lifecycle, and review-permission decisions before building or exposing their workflows. A future batch also requires validated activation and a designated completed assessment run before its findings can be shown.
-3. Finish the remaining protected modules and staff-review isolation before Phase 6B.5 final verification. Cross-period household progression and a citizen portal require separate identity, access, and workflow decisions; neither is implemented.
+3. Finish the remaining protected modules and staff-review isolation before Phase 6B.5 final verification. Cross-period household progression is not implemented. The `/public` program information pages require no account or CBMS access; citizen identity, access, and submission workflows need separate decisions before implementation.
 
 Keep milestone status current after each scoped task. Mark a task or phase Completed only when its own acceptance criteria have passed; do not infer completion of a whole phase from a completed foundation task.

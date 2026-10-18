@@ -7,6 +7,7 @@ from commands import register_commands
 from routes.assessments import assessments
 from routes.auth import auth
 from routes.main import main
+from routes.public import public
 from services.auth import protect_staff_routes
 from services.assessment_request_logging import protect_assessment_access_logs
 
@@ -21,6 +22,7 @@ def create_app(test_config=None):
     # No configuration switch enables actual CBMS access.
     app.extensions["development_workspace"] = {"source_kind": "development_fixture"}
     app.register_blueprint(main)
+    app.register_blueprint(public)
     app.register_blueprint(auth)
     app.register_blueprint(assessments)
     app.before_request(protect_staff_routes)

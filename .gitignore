@@ -8,6 +8,7 @@ notes/
 # Local environment variants (keep the safe example tracked)
 .env.*
 !.env.example
+.history/
 
 # Keep dataset directories, but never commit their contents
 /data/raw/*

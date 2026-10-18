@@ -1,0 +1,66 @@
+{% extends "public_base.html" %}
+
+{% block page_kind %}program{% endblock %}
+{% block title %}{{ program.code }} | Tanglaw-Buhay{% endblock %}
+
+{% block content %}
+<article class="program-detail" data-program-slug="{{ program_slug }}">
+    <header class="program-detail__hero">
+        <div class="public-container">
+            <nav class="public-breadcrumb" aria-label="Breadcrumb">
+                <a href="{{ url_for('public.index') }}" data-i18n="nav.home">Home</a>
+                <span aria-hidden="true">/</span>
+                <a href="{{ url_for('public.index') }}#programs" data-i18n="nav.programs">Mga Programa</a>
+                <span aria-hidden="true">/</span>
+                <span aria-current="page">{{ program.code }}</span>
+            </nav>
+
+            <div class="program-detail__intro">
+                <div class="program-detail__icon">
+                    <img src="{{ url_for('static', filename=program.icon) }}" alt="{{ program.code }} program logo">
+                </div>
+                <div>
+                    <p class="public-eyebrow" data-i18n="programDetail.eyebrow">Impormasyon tungkol sa programa</p>
+                    <h1>{{ program.code }}</h1>
+                    <p class="program-detail__official-name">{{ program.name }}</p>
+                    <p class="program-detail__summary" data-i18n="program.{{ program_slug }}.summary">{{ program.summary }}</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="public-container program-detail__body">
+        <section class="program-detail__main" aria-labelledby="purpose-title">
+            <p class="public-eyebrow" data-i18n="programDetail.overview">Pangkalahatang gabay</p>
+            <h2 id="purpose-title" data-i18n="programDetail.purposeTitle">Ano ang layunin ng programa?</h2>
+            <p data-i18n="program.{{ program_slug }}.purpose">{{ program.purpose }}</p>
+
+            <hr>
+
+            <h2 data-i18n="programDetail.beforeTitle">Bago makipag-ugnayan sa tanggapan</h2>
+            <ul class="program-detail__checklist">
+                <li data-i18n="programDetail.before1">Basahin muna ang pangunahing impormasyon tungkol sa programa.</li>
+                <li data-i18n="programDetail.before2">Ihanda ang anumang valid ID at mga dokumentong ibinigay o binanggit ng awtorisadong kawani.</li>
+                <li data-i18n="programDetail.before3">Hintayin ang opisyal na assessment at instructions ng MSWDO o kaugnay na tanggapan.</li>
+            </ul>
+        </section>
+
+        <aside class="program-detail__aside" aria-labelledby="documents-title">
+            <span class="program-detail__aside-icon" aria-hidden="true">&#128196;</span>
+            <h2 id="documents-title" data-i18n="programDetail.documentsTitle">Mga kinakailangang dokumento</h2>
+            <p data-i18n="programDetail.documentsBody">Maaaring mag-iba ang eksaktong listahan ayon sa inyong sitwasyon at sa kasalukuyang patakaran. Kukumpirmahin ng awtorisadong tanggapan ang mga dokumentong kailangan ninyo.</p>
+            <div class="program-detail__aside-note">
+                <strong data-i18n="programDetail.reminderTitle">Mahalagang paalala</strong>
+                <p data-i18n="programDetail.reminderBody">Ang pagtingin sa pahinang ito ay hindi garantiya ng eligibility o pag-apruba.</p>
+            </div>
+        </aside>
+    </div>
+
+    <div class="public-container program-detail__back">
+        <a class="public-button public-button--secondary" href="{{ url_for('public.index') }}#programs">
+            <span aria-hidden="true">&#8592;</span>
+            <span data-i18n="programDetail.back">Bumalik sa mga Programa</span>
+        </a>
+    </div>
+</article>
+{% endblock %}
