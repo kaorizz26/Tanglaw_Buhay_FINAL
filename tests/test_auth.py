@@ -140,7 +140,7 @@ class StaffAuthenticationTests(unittest.TestCase):
             "csrf_token": token,
         })
 
-    def test_both_roles_login_and_access_minimal_landing(self):
+    def test_both_roles_login_and_access_dashboard(self):
         for username in ("synthetic_staff", "synthetic_admin"):
             client = self.app.test_client()
             response = self._login(username, client)
@@ -154,7 +154,7 @@ class StaffAuthenticationTests(unittest.TestCase):
             for path in ("/households", "/households/DEV-0001",
                          "/assessments/DEV-0001?tab=mpi", "/assessments?view=queue"):
                 self.assertEqual(client.get(path).status_code, 410)
-            # The new page fails safely because this isolated auth schema has no assessments.
+            # Assessment pages fail safely because this isolated auth schema has no assessments.
             self.assertEqual(client.get("/assessments").status_code, 503)
 
     def test_anonymous_routes_are_protected_and_health_is_independent(self):

@@ -59,7 +59,13 @@
               ('Administration', 'administration')
             ] %}
               <li>
-                {% if icon == 'assessments' %}
+                {% if icon == 'dashboard' %}
+                  <a class="navigation-item{% if request.endpoint == 'main.index' %} navigation-item-active{% endif %}"
+                     href="{{ url_for('main.index') }}" {% if request.endpoint == 'main.index' %}aria-current="page"{% endif %}>
+                    <img src="{{ url_for('static', filename='icons/dashboard.svg') }}" alt="" width="20" height="20">
+                    <span>{{ label }}</span>
+                  </a>
+                {% elif icon == 'assessments' %}
                   {% set queue_active = request.endpoint == 'assessments.queue' or queue_return_url %}
                   <details class="navigation-group" {% if request.blueprint == 'assessments' %}open{% endif %}>
                     <summary class="navigation-item">

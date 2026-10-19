@@ -354,6 +354,33 @@ def count_priority_groups(connection, run_id, *, filters):
     }
 
 
+def count_dashboard_findings(connection, run_id):
+    """Count aggregate uncertainty and screening findings in a completed run."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT count(*) AS assessed_households,
+                      count(*) FILTER (WHERE
+                          (h.findings #>> '{mpi,unknown_indicator_count}')::integer > 0
+                      ) AS needs_attention,
+                      count(*) FILTER (WHERE
+                          h.findings #>> '{programs,4Ps,screening_status}' = 'For Review'
+                      ) AS four_ps,
+                      count(*) FILTER (WHERE
+                          h.findings #>> '{programs,SLP,screening_status}' = 'For Review'
+                      ) AS slp,
+                      count(*) FILTER (WHERE
+                          h.findings #>> '{programs,SPISC,screening_status}' = 'For Review'
+                      ) AS spisc,
+                      count(*) FILTER (WHERE
+                          h.findings #>> '{programs,TUPAD,screening_status}' = 'For Review'
+                      ) AS tupad
+               FROM household_assessments h
+               JOIN assessment_runs r ON r.id = h.run_id AND r.batch_id = h.batch_id
+               WHERE h.run_id = %s AND r.status = 'completed'""",
+            (run_id,),
+        ).fetchone()
+
+
 def list_assessment_summaries(connection, run_id, *, limit, offset, filters=None):
     """Filter in PostgreSQL before paging, projecting only unchanged summary fields."""
     selection, parameters = _summary_selection(run_id, filters)

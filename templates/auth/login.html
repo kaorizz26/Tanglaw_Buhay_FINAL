@@ -1,17 +1,66 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Staff sign in · Tanglaw-Buhay</title></head>
-<body>
-<main>
-  <h1>Tanglaw-Buhay staff sign in</h1>
-  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
-  <form method="post" action="{{ url_for('auth.login') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <p><label for="username">Username</label><br><input id="username" name="username" autocomplete="username" maxlength="64" required></p>
-    <p><label for="password">Password</label><br><input id="password" type="password" name="password" autocomplete="current-password" maxlength="1024" required></p>
-    <button type="submit">Sign in</button>
-  </form>
-  <p>Authorized staff access. Household records are not displayed in this interface.</p>
-</main>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LGU Staff Login · Tanglaw-Buhay</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body class="auth-page">
+  <a class="skip-link" href="#login-title">Skip to sign in</a>
+  <main class="login-layout">
+    <section class="identity-panel" aria-labelledby="portal-name">
+      <div class="identity-content">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true"><span class="brand-initials">TB</span></span>
+          <div class="brand-copy">
+            <strong id="portal-name">Tanglaw-Buhay</strong>
+            <span>LGU Staff Portal</span>
+          </div>
+        </div>
+        <div class="identity-message">
+          <span class="identity-accent" aria-hidden="true"></span>
+          <p class="platform-name">Decision Support Analytics Platform</p>
+          <p class="location-name">Pozorrubio, Pangasinan</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="login-area" aria-labelledby="login-title">
+      <div class="login-content">
+        <header class="login-header">
+          <p class="login-eyebrow">LGU Staff Portal</p>
+          <h1 id="login-title">Sign in to your account</h1>
+          <p class="supporting-text">Use your authorized LGU staff credentials to continue.</p>
+        </header>
+
+        {% if error %}
+          <div class="form-alert" id="login-error"><p role="alert">{{ error }}</p></div>
+        {% endif %}
+
+        <form class="login-form" method="post" action="{{ url_for('auth.login') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="form-field">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text"
+                   value="{{ request.form.get('username', '') }}"
+                   autocomplete="username" maxlength="64"
+                   {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}
+                   required autofocus>
+          </div>
+          <div class="form-field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" maxlength="1024"
+                   {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}
+                   required>
+          </div>
+          <button class="primary-button" type="submit">Sign In</button>
+        </form>
+        <p class="authorized-note">For authorized LGU personnel only.</p>
+      </div>
+    </section>
+  </main>
 </body>
 </html>

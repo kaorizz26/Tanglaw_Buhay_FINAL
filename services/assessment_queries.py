@@ -8,7 +8,7 @@ from psycopg.pq import TransactionStatus
 from db import get_connection
 from repositories import assessment_runs, dataset_batches
 from repositories import assessment_evidence, staff_reviews
-from services.assessment_filters import normalize_filters
+from services.assessment_filters import AssessmentFilters, normalize_filters
 from services.subsidy_priority import derive_subsidy_priority
 
 
@@ -55,6 +55,22 @@ def get_active_assessment_context(*, connection_factory=get_connection):
     """Return source/run provenance and historical year without loading findings."""
     with _read_context(connection_factory) as (_, context):
         return context
+
+
+def get_active_dashboard_summary(*, connection_factory=get_connection):
+    """Read only municipal aggregates from the designated completed run."""
+    with _read_context(connection_factory) as (connection, context):
+        priority = assessment_runs.count_priority_groups(
+            connection, context["run_id"], filters=AssessmentFilters(),
+        )
+        findings = assessment_runs.count_dashboard_findings(
+            connection, context["run_id"],
+        )
+        if priority["all"] != context["household_count"] or (
+            findings["assessed_households"] != context["household_count"]
+        ):
+            raise AssessmentQueryError("assessment_count_mismatch")
+        return {"context": context, "priority": priority, "findings": findings}
 
 
 def list_active_assessment_summaries(

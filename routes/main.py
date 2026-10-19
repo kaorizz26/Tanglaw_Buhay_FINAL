@@ -1,8 +1,9 @@
-"""Minimal protected landing, retired staff URLs and an independent health check."""
+"""Protected staff dashboard, retired URLs and an independent health check."""
 
 from flask import Blueprint, abort, current_app, g, jsonify, render_template
 
 from services.auth import ADMIN_ROLE, csrf_token
+from services.assessment_queries import AssessmentQueryError, get_active_dashboard_summary
 
 main = Blueprint("main", __name__)
 
@@ -17,7 +18,14 @@ def require_fixture_source():
 def index():
     require_fixture_source()
     role_label = "System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff"
-    return render_template("landing.html", role_label=role_label, csrf_token=csrf_token())
+    try:
+        summary = get_active_dashboard_summary()
+    except AssessmentQueryError:
+        summary = None
+    return render_template(
+        "staff/dashboard.html", summary=summary, role_label=role_label,
+        staff_username=g.user["username"], csrf_token=csrf_token(),
+    )
 
 
 @main.get("/households")

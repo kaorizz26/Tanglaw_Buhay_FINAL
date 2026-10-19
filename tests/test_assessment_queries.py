@@ -70,6 +70,28 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         )
         self.factory.assert_called_once_with()
 
+    def test_dashboard_reads_aggregates_only_and_rejects_count_mismatch(self):
+        priority = {"all": 32, "primary": 5, "secondary": 7, "both": 12, "other": 20}
+        findings = {"assessed_households": 32, "needs_attention": 3,
+                    "four_ps": 8, "slp": 6, "spisc": 2, "tupad": 1}
+        with patch.object(repository, "count_priority_groups", return_value=priority) as groups, \
+                patch.object(repository, "count_dashboard_findings", return_value=findings) as counts, \
+                patch.object(repository, "list_assessment_summaries") as rows:
+            result = service.get_active_dashboard_summary(connection_factory=self.factory)
+        self.assertEqual(result["priority"], priority)
+        self.assertEqual(result["findings"], findings)
+        groups.assert_called_once_with(self.connection, 17, filters=AssessmentFilters())
+        counts.assert_called_once_with(self.connection, 17)
+        rows.assert_not_called()
+        self.connection.execute.assert_called_once_with(
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+        )
+        with patch.object(repository, "count_priority_groups", return_value=priority), \
+                patch.object(repository, "count_dashboard_findings",
+                             return_value={**findings, "assessed_households": 31}):
+            with self.assertRaisesRegex(service.AssessmentQueryError, "assessment_count_mismatch"):
+                service.get_active_dashboard_summary(connection_factory=self.factory)
+
     def test_detail_sources_and_references_share_one_designated_read_snapshot(self):
         source = detail_source()
         with patch.object(repository, "find_household_assessment", return_value=source["findings"]) as finding, \
@@ -683,6 +705,24 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 code: value["screening_status"] for code, value in original["programs"].items()
             })
         return actual
+
+    def test_dashboard_aggregates_use_designated_run_and_stored_statuses(self):
+        findings = self._filter_fixture()
+        result = service.get_active_dashboard_summary(connection_factory=self._factory)
+        self.assertEqual(result["context"]["household_count"], len(findings))
+        self.assertEqual(result["priority"]["all"], len(findings))
+        self.assertEqual(result["findings"]["assessed_households"], len(findings))
+        self.assertEqual(result["findings"]["needs_attention"], sum(
+            item["mpi"]["unknown_indicator_count"] > 0 for item in findings.values()
+        ))
+        for code, field in (("4Ps", "four_ps"), ("SLP", "slp"),
+                            ("SPISC", "spisc"), ("TUPAD", "tupad")):
+            self.assertEqual(result["findings"][field], sum(
+                item["programs"][code]["screening_status"] == "For Review"
+                for item in findings.values()
+            ))
+        self.assertNotIn("items", result)
+        self.assertNotIn("household_uuid", str(result))
 
     def test_priority_boundaries_combinations_pagination_and_unchanged_findings(self):
         # Number 1 has only Needs Data Review, even with its high stored score.

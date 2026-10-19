@@ -75,7 +75,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         self.assertEqual(app.test_client().get("/test").get_json(),
                          {"status": "ok", "application": "Tanglaw-Buhay"})
 
-    def test_anonymous_staff_routes_redirect_and_login_remains_minimal(self):
+    def test_anonymous_staff_routes_redirect_and_login_has_no_staff_navigation(self):
         for path in ("/", "/logout", "/households", "/households/PRIVATE_ID",
                      "/assessments", "/assessments/PRIVATE_ID?tab=mpi"):
             page = self.client.get(path)
@@ -85,9 +85,10 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         page = self.client.get("/login")
         self.assertEqual(page.status_code, 200)
         self.assertNotIn("sidebar", page.text)
-        self.assertNotIn("static/", page.text)
+        self.assertIn('name="csrf_token"', page.text)
+        self.assertIn('href="/static/css/login.css"', page.text)
 
-    def test_both_roles_land_on_home_with_sign_out_and_no_record_content(self):
+    def test_both_roles_land_on_dashboard_with_sign_out_and_no_record_content(self):
         for username, label in (("synthetic_admin", "System Administrator"),
                                 ("synthetic_staff", "LGU Staff")):
             client = self.app.test_client()
@@ -100,7 +101,9 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
             self.assertIn("Sign Out", page.text)
             self.assertIn('action="/logout"', page.text)
             self.assertIn('method="post"', page.text)
-            for retired in ("<table", "sidebar", "static/", "DEV-", "Review Queue"):
+            self.assertIn("Dashboard", page.text)
+            self.assertIn("Review Queue", page.text)
+            for retired in ("<table", "DEV-", "PRIVATE_RECORD_RESPONSE"):
                 self.assertNotIn(retired, page.text)
             self.assertEqual(page.headers["Cache-Control"], "no-store")
             self.assertEqual(client.get("/login").location, "/")

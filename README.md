@@ -22,6 +22,8 @@ planned. **A navigation item or placeholder does not mean a feature is complete.
 | Feature | Available functionality |
 | --- | --- |
 | Staff Authentication | Database-backed login, logout, staff sessions, and role-based access protection. |
+| Staff Login UI | V3 split-panel sign-in design adapted to the current CSRF-protected login. |
+| Dashboard | Protected municipal overview of the designated completed 2022 assessment: household totals, priority groups, unknown-indicator attention, and per-program “For Review” screening counts, with links to assessments and staff reviews. |
 | PostgreSQL Data Foundation | CBMS households, members, reference mappings, dataset batches, assessment runs, and review tables. |
 | CBMS Data Import Foundation | Validated, transactional backend import of the authorized 2022 dataset; no general-purpose admin upload interface yet. |
 | MPI Vulnerability Assessment | Sixteen indicators across four dimensions, weighted vulnerability scores, uncertainty handling, and stored results. |
@@ -40,7 +42,7 @@ still require approval.
 
 | Module | Planned work |
 | --- | --- |
-| Dashboard | Municipal summary statistics, charts, and interactive analytics using stored household assessments. |
+| Dashboard enhancements | Additional interactive analytics require defined questions, labels, and acceptance criteria. |
 | Household Records | Searchable household directory and demographic/socioeconomic CBMS record details. |
 | General Welfare Review | Staff-initiated and system-suggested welfare consideration; the suggestion rule and threshold require validation and approval. |
 | Administration | Administrator screens for managing staff accounts, roles, and other authorized operations. |
@@ -48,7 +50,6 @@ still require approval.
 | Assessment Run Management | Authorized assessment execution, storage, verification, and selection for new validated batches. |
 | Submissions | Staff review and management of citizen-submitted documents. |
 | Citizen Portal | Informational pages for 4Ps, SLP, SPISC, and TUPAD are available at `/public`. Citizen identity, access codes, and secure submissions are not implemented. |
-| Staff Login UI Refinement | Optional visual/usability improvements to the **already functional** login page. |
 | Household Progression Tracking | Comparisons across survey periods once reliable household identity matching is established. |
 | End-to-End Testing and Deployment | Verify workflows, roles, privacy, security, usability, and LGU pilot readiness. |
 
