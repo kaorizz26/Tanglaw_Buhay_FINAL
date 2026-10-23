@@ -3,6 +3,7 @@
 from services.assessment_reference_labels import code_key, evidence_cell
 from services.mpi_evidence import _member_heading, _relevant_age
 from services.screening.metadata import PROGRAMS
+from services.slp_screening_presentation import prepare_slp_guidance, slp_unresolved_members
 from services.subsidy_screening_content import (
     FIELD_LABELS, FOUR_PS_QUESTIONS, HEALTH_FIELDS, HOUSEHOLD_FIELDS, PROGRAM_FIELDS, PROGRAM_NAMES,
     REASON_TEXT, SLP_UNRESOLVED_NOTE, STATUS_CLASSES, STATUS_EXPLANATIONS,
@@ -119,6 +120,13 @@ def _record_evidence(code, finding, source, index, members):
                 evidence_fields.setdefault(line, set()).add("a07_age")
 
     member_rows = []
+    # Reuse the same applicability-aware descriptions as the main SLP panel.
+    unresolved_members = {}
+    if code == "SLP" and finding["screening_status"] == "Needs Data Review":
+        unresolved_members = {
+            item["line_number"]: item["unresolved_fields"]
+            for item in slp_unresolved_members(source)
+        }
     for member in source["members"]:
         line = code_key(member["line_number"])
         directly_related = line in selected_lines
@@ -155,6 +163,12 @@ def _record_evidence(code, finding, source, index, members):
                 for field in fields
             ],
         })
+        unresolved_fields = unresolved_members.get(line)
+        if unresolved_fields:
+            member_rows[-1]["slp_uncertainty"] = " ".join(unresolved_fields.values())
+            for field, cell in zip(fields, member_rows[-1]["cells"]):
+                if field in unresolved_fields:
+                    cell["slp_unavailable"] = True
 
     differences = []
     for item in finding["supporting_evidence"]:
@@ -330,4 +344,6 @@ def prepare_subsidy_screening(source, index):
             programs[-1]["guidance"] = _four_ps_guidance(
                 finding, source, members, reasons, issues,
             )
+        elif code == "SLP":
+            programs[-1]["guidance"] = prepare_slp_guidance(finding, source, index, issues)
     return programs

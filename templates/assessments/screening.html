@@ -14,11 +14,11 @@
 
   {% for program in results.screening_programs %}
     <article class="detail-section screening-program screening-program--{{ program.status_class }}" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
-      {% if program.code == '4Ps' %}
-      <details class="four-ps-disclosure"{% if program.status != 'No Historical CBMS Trigger' %} open{% endif %}>
-      <summary class="screening-program-heading four-ps-toggle">
+      {% if program.code in ('4Ps', 'SLP') %}
+      <details class="{{ 'slp' if program.code == 'SLP' else 'four-ps' }}-disclosure"{% if program.status != 'No Historical CBMS Trigger' %} open{% endif %}>
+      <summary class="screening-program-heading {{ 'slp' if program.code == 'SLP' else 'four-ps' }}-toggle">
         <span>
-          <strong class="four-ps-program-title" id="screening-title-4ps">{{ program.code }}</strong>
+          <strong class="{{ 'slp' if program.code == 'SLP' else 'four-ps' }}-program-title" id="screening-title-{{ program.code | lower }}">{{ program.code }}</strong>
           <span class="screening-program-name">{{ program.name }}</span>
         </span>
         <span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span>
@@ -34,6 +34,8 @@
       {% endif %}
       {% if program.code == '4Ps' %}
         {% include 'assessments/four_ps_screening.html' %}
+      {% elif program.code == 'SLP' %}
+        {% include 'assessments/slp_screening.html' %}
       {% else %}
       <p class="screening-explanation">{{ program.explanation }}</p>
 
@@ -100,8 +102,9 @@
             </section>
           {% endif %}
           {% for member in program.members %}
-            <section class="member-evidence">
-              <h4>{{ member.name }}</h4>
+            <section class="member-evidence{% if member.slp_uncertainty %} slp-evidence-unresolved{% endif %}">
+              <h4>{{ member.name }}</h4>{% if member.slp_uncertainty %}
+                <p class="slp-evidence-context">{{ member.slp_uncertainty }}</p>{% endif %}
               {% set cells = member.cells %}
               {% set layout = 'grid' %}
               {% include 'assessments/evidence_cells.html' %}
@@ -111,7 +114,7 @@
           {% endfor %}
         </div>
       </details>
-      {% if program.code == '4Ps' %}</details>{% endif %}
+      {% if program.code in ('4Ps', 'SLP') %}</details>{% endif %}
     </article>
   {% endfor %}
 </section>
