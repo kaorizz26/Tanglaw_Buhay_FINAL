@@ -27,6 +27,28 @@ class ScreeningPresentationTests(unittest.TestCase):
     def present(self):
         return prepare_subsidy_screening(self.source, build_evidence_index(self.source))
 
+    def test_legacy_tupad_evidence_is_presented_without_rescreening(self):
+        finding = self.source["findings"]["programs"]["TUPAD"]
+        finding["supporting_evidence"] += ({
+            "member_line_number": 1, "trigger_code": "assumed_overseas_work",
+            "evidence_role": "supporting_context", "evidence_type": "pilot_assumption",
+            "observed_values": {"a07_age": "45"},
+        },)
+        finding["data_quality_warnings"] = tuple(
+            {"code": code, "member_line_number": 1}
+            for code in ("employment_skip_conflict", "nonwork_imputation_conflict")
+        )
+        before = deepcopy(self.source)
+        with patch("services.subsidy_screening.screen_tupad",
+                   side_effect=AssertionError("Stored results must not be rerun")):
+            program = self.present()[3]
+        self.assertEqual(program["status"], "For Review")
+        self.assertIn("not a recorded No answer", program["reasons"][0]["text"])
+        self.assertEqual(program["supporting_context"][0]["text"],
+                         REASON_TEXT["assumed_overseas_work"])
+        self.assertEqual(len(program["issues"]), 2)
+        self.assertEqual(self.source, before)
+
     def test_stored_findings_and_sources_are_unchanged_and_all_statuses_retained(self):
         for status in STATUSES:
             with self.subTest(status=status):

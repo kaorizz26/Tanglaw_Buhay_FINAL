@@ -186,7 +186,8 @@ does not replace Section E's own instructions. The corrected MPI treatment is:
 
 The under-15 treatment reconciles Section E's age scope with B06's age skip; it
 does not assign an overseas/resident classification. This correction affects MPI
-only. SLP/TUPAD routing and their separate approved assumptions are unchanged.
+only. That correction left the then-current SLP/TUPAD rules unchanged. The
+later approved TUPAD refinement is described in section 5.
 
 `_contribution_bounds()` and `_majority_outcome()` preserve uncertainty in the
 denominator. A positive response contributes +1 to the majority balance and a
@@ -255,7 +256,7 @@ never advanced to a later year.
 | `screening/four_ps.py`: `screen_4ps()` | A07 age; household L01/L06; joined L07, sex A05 and member line. | Any age 0-18, or household L06=1 without an L01=2 routing conflict. Provisional L07 attribution requires household corroboration and a joined female age 10+. | Missing roster/age or unresolved relevant pregnancy evidence, including skip and member conflicts. |
 | `screening/slp.py`: `screen_slp()` | A07, B06, E01, E18; optional E11 and C07/C08 TVET evidence. | EF: age 18+, applicable observed E01=2. MD: age 16+, applicable observed E01=1 and E18=3/4/5/6. Both pathways can coexist. | Either relevant pathway remains unknown because age, routing or observed work evidence cannot establish it. |
 | `screening/spisc.py`: `screen_spisc()` | A07; household L15 and joined member L16/line for optional PWD context. | Any age 60+. Disability support requires the senior's own joined L16=1 and household L15=1. | No roster or an unknown age. Disability gaps/warnings do not change the age-based status. |
-| `screening/tupad.py`: `screen_tupad()` | A07, B06, E01, E11; E18 checks for contradictory work details. | Age 18+ with applicable observed E01=2, approved assumed nonwork from missing E01, or valid observed irregular E11=2/3 work. | Unresolved applicable age/work/routing, invalid codes, or missing E01 with populated job details. B06=6 remains excluded. |
+| `screening/tupad.py`: `screen_tupad()` | A07, B06, E01, E11; E18 is supporting context. | Age 18+, B06=7, and either recorded E01=2 or recorded E01=1 with E11=2/3. | Essential age/B06/E01 missing or invalid, or E11 missing/invalid for a working applicable adult. Known age under 18 or B06=1-6 excludes; expected skips are not gaps. |
 
 The paths above are relative to `services/`. Each file starts with its main
 screening function. Metadata is in `screening/metadata.py`; shared code/value
@@ -268,10 +269,24 @@ family-operated farm/business; 5 and 6 mean paid and unpaid family-enterprise
 work. E11=2 means short-term/seasonal/casual work; 3 means irregular work for
 different employers/customers.
 
-SLP uses observed responses. TUPAD derives its separately approved assumptions
-from raw fields; it does not import MPI classifications, scores or ranks. The
-MPI adult range is 18-65, while the TUPAD pilot uses age 18+ without an upper limit.
+SLP and the refined TUPAD engine use observed work responses. TUPAD considers
+only B06=7 members aged 18+ and does not import MPI classifications, scores or
+ranks. The MPI adult range is 18-65; TUPAD has no invented upper age limit.
 Synthetic E15 never supplies a subsidy trigger.
+
+The approved TUPAD refinement removes assumed nonwork, assumed overseas work,
+and skip-conflict branches for members outside its B06=7 scope. E01=2 means
+nonwork during the reference week, not long-term unemployment; E11/E18 are not
+required. E01=1 requires valid E11 to distinguish permanent from irregular work.
+Valid E18, including government/GOCC class 2, accompanies trigger evidence but
+never excludes an entire household. A valid independent member trigger wins
+over unresolved information elsewhere.
+
+Runs 1 and 2 retain the earlier TUPAD rules and evidence. Presentation mappings
+for `assumed_nonwork`, `assumed_overseas_work`, and legacy warnings remain for
+compatibility. This code change does not recalculate or designate a run; protected
+views continue reading Run 2. Applying the refined rules requires a separately
+approved new calculation version/run, preserving historical results and reviews.
 
 Program-local helpers build the associated evidence: `_member_pregnancy()` in
 `four_ps.py`, `_member_disability()` in `spisc.py`, and `_nonwork_evidence()` in
@@ -297,8 +312,8 @@ triggering members; a household-only pregnancy signal can have no attributed
 member line.
 
 An evidence item with `evidence_role="supporting_context"` does not itself create
-a review flag. For example, household disability or assumed overseas work can
-be supporting context while the program status is No Historical CBMS Trigger.
+a review flag. Household disability or historical assumed overseas work can be
+supporting context while the program status is No Historical CBMS Trigger.
 
 `data_quality_warnings` preserves contradictions and attribution gaps. A valid
 independent trigger can coexist with a warning. SPISC disability warnings do not

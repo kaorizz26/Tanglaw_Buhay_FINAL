@@ -129,7 +129,7 @@ class SubsidyScreeningTests(unittest.TestCase):
         self.assertEqual([item["pathway"] for item in result["supporting_evidence"]], ["EF", "MD"])
         self.assertEqual(result["triggering_member_line_numbers"], (1, 2))
 
-    def test_slp_does_not_use_imputation_and_tupad_derives_its_own_pilot_assumption(self):
+    def test_screening_does_not_borrow_mpi_or_synthetic_work_assumptions(self):
         for b06 in (1, 7):
             data = self.datasets([self.member(b06_ofi=b06, e01_employed="NA", e18_class_of_worker="NA", e11_nature_of_employment="NA")])
             data["section_a_e_indiv"]["e15_want_more_hours"] = 1
@@ -140,8 +140,8 @@ class SubsidyScreeningTests(unittest.TestCase):
             self.assertNotEqual(slp["screening_status"], "For Review")
             self.assertEqual(slp["supporting_evidence"], ())
             tupad = result.loc[result["program_code"].eq("TUPAD")].iloc[0]
-            self.assertEqual(tupad["screening_status"], "For Review" if b06 == 7 else "No Historical CBMS Trigger")
-            self.assertEqual(tupad["supporting_evidence"][0]["evidence_type"], "pilot_assumption")
+            self.assertEqual(tupad["screening_status"], "Needs Data Review" if b06 == 7 else "No Historical CBMS Trigger")
+            self.assertEqual(tupad["supporting_evidence"], ())
             data["section_a_e_indiv"]["e15_want_more_hours"] = 2
             data["household"]["vulnerability_score"] = 0
             data["household"]["Employment Proxy"] = 0
@@ -169,58 +169,96 @@ class SubsidyScreeningTests(unittest.TestCase):
         self.assertEqual(result["triggering_member_line_numbers"], (1,))
         self.assertEqual(result["supporting_evidence"][0]["trigger_code"], "observed_nonwork")
 
-    def test_tupad_observed_and_assumed_nonwork_have_distinct_evidence(self):
-        for b06 in (4, 5, 7):
-            for work, kind, code in ((2, "observed", "observed_nonwork"), ("NA", "pilot_assumption", "assumed_nonwork")):
-                result = self.result("TUPAD", [self.member(b06_ofi=b06, e01_employed=work,
+    def test_tupad_only_resident_adults_can_trigger_review(self):
+        for b06 in range(1, 8):
+            for work, nature in ((2, "NA"), (1, 2), (1, 3)):
+                with self.subTest(b06=b06, work=work, nature=nature):
+                    result = self.result("TUPAD", [self.member(
+                        b06_ofi=b06, e01_employed=work,
+                        e11_nature_of_employment=nature)])
+                    expected = "For Review" if b06 == 7 else "No Historical CBMS Trigger"
+                    self.assertEqual(result["screening_status"], expected)
+                    if b06 != 7:
+                        self.assertEqual(result["supporting_evidence"], ())
+
+    def test_tupad_missing_or_invalid_work_never_produces_assumed_nonwork(self):
+        for work in (None, "", pd.NA, " na ", True, 0, 999, 1.5):
+            for nature, worker_class in (("NA", "NA"), (2, 2)):
+                with self.subTest(work=work, nature=nature):
+                    result = self.result("TUPAD", [self.member(
+                        e01_employed=work, e11_nature_of_employment=nature,
+                        e18_class_of_worker=worker_class)])
+                    self.assertEqual(result["screening_status"], "Needs Data Review")
+                    self.assertEqual(result["supporting_evidence"], ())
+                    self.assertEqual(result["trigger_reasons"], ())
+                    self.assertEqual(result["triggering_member_line_numbers"], ())
+
+    def test_tupad_expected_skips_and_known_exclusions_are_not_unresolved(self):
+        for b06 in range(1, 7):
+            for age in (30, None):
+                result = self.result("TUPAD", [self.member(
+                    a07_age=age, b06_ofi=b06, e01_employed="NA",
                     e11_nature_of_employment="NA", e18_class_of_worker="NA")])
-                self.assertEqual(result["screening_status"], "For Review")
-                item = result["supporting_evidence"][0]
-                self.assertEqual(item["evidence_type"], kind)
-                self.assertEqual(item["trigger_code"], code)
-                self.assertEqual(item["observed_values"]["e01_employed"], work)
-                if kind == "pilot_assumption":
-                    self.assertIn("ASSUMED", item["explanation"])
-
-    def test_tupad_missing_tokens_are_imputed_but_invalid_codes_are_unresolved(self):
-        for work in (None, "", pd.NA, " na "):
-            result = self.result("TUPAD", [self.member(e01_employed=work,
-                e11_nature_of_employment="NA", e18_class_of_worker="NA")])
-            self.assertEqual(result["screening_status"], "For Review")
-        for work in (True, 0, 999):
-            self.assertEqual(self.result("TUPAD", [self.member(e01_employed=work)])["screening_status"], "Needs Data Review")
-
-    def test_tupad_ofw_assumption_and_other_skips_do_not_trigger_nonwork(self):
-        for b06 in (1, 2, 3, 6):
-            result = self.result("TUPAD", [self.member(b06_ofi=b06, e01_employed="NA",
-                e11_nature_of_employment="NA", e18_class_of_worker="NA")])
-            self.assertEqual(result["screening_status"], "No Historical CBMS Trigger")
-            self.assertEqual(result["triggering_member_line_numbers"], ())
-            self.assertEqual(result["trigger_reasons"], ())
-            if b06 != 6:
-                self.assertEqual(result["supporting_evidence"][0]["trigger_code"], "assumed_overseas_work")
-                self.assertEqual(result["supporting_evidence"][0]["evidence_role"], "supporting_context")
-
-    def test_tupad_contradictory_work_routing_is_flagged_without_forced_imputation(self):
-        for b06 in (1, 2, 3):
-            result = self.result("TUPAD", [self.member(b06_ofi=b06, e01_employed=2)])
-            self.assertEqual(result["screening_status"], "Needs Data Review")
-            self.assertEqual(result["data_quality_warnings"][0]["code"], "employment_skip_conflict")
-        result = self.result("TUPAD", [self.member(e01_employed="NA", e11_nature_of_employment=2)])
-        self.assertEqual(result["screening_status"], "Needs Data Review")
-        self.assertEqual(result["data_quality_warnings"][0]["code"], "nonwork_imputation_conflict")
-        result = self.result("TUPAD", [self.member(b06_ofi=6, e01_employed=2)])
+                self.assertEqual(result["screening_status"], "No Historical CBMS Trigger")
+                self.assertEqual(result["supporting_evidence"], ())
+                self.assertEqual(result["data_quality_warnings"], ())
+        result = self.result("TUPAD", [self.member(
+            a07_age=17, b06_ofi="NA", e01_employed="NA")])
         self.assertEqual(result["screening_status"], "No Historical CBMS Trigger")
-        self.assertTrue(result["data_quality_warnings"])
 
-    def test_tupad_age_boundaries_unknown_routing_and_independent_trigger_precedence(self):
-        for age, expected in ((17, "No Historical CBMS Trigger"), (18, "For Review"), (80, "For Review"), (None, "Needs Data Review")):
-            result = self.result("TUPAD", [self.member(a07_age=age, e01_employed="NA",
-                e11_nature_of_employment="NA", e18_class_of_worker="NA")])
-            self.assertEqual(result["screening_status"], expected)
-        self.assertEqual(self.result("TUPAD", [self.member(b06_ofi="NA", e01_employed=2)])["screening_status"], "Needs Data Review")
-        members = [self.member(e01_employed=2, e11_nature_of_employment="NA"), self.member(line=2, a07_age=None)]
-        self.assertEqual(self.result("TUPAD", members)["screening_status"], "For Review")
+    def test_tupad_unknown_applicability_stays_unresolved(self):
+        for field in ("a07_age", "b06_ofi"):
+            for value in (None, "NA", True, -1, 1.5, "invalid"):
+                with self.subTest(field=field, value=value):
+                    result = self.result("TUPAD", [self.member(**{field: value})])
+                    self.assertEqual(result["screening_status"], "Needs Data Review")
+                    self.assertEqual(result["supporting_evidence"], ())
+
+    def test_tupad_working_adult_needs_valid_work_nature_but_not_worker_class(self):
+        for nature in (None, "", "NA", pd.NA, True, 0, 999, 2.5):
+            result = self.result("TUPAD", [self.member(
+                e11_nature_of_employment=nature, e18_class_of_worker=2)])
+            self.assertEqual(result["screening_status"], "Needs Data Review")
+        for worker_class in ("NA", None, 999, True):
+            for nature, expected in ((1, "No Historical CBMS Trigger"), (2, "For Review")):
+                result = self.result("TUPAD", [self.member(
+                    e11_nature_of_employment=nature, e18_class_of_worker=worker_class)])
+                self.assertEqual(result["screening_status"], expected)
+
+    def test_tupad_nonwork_does_not_require_downstream_job_details(self):
+        result = self.result("TUPAD", [self.member(
+            e01_employed=2, e11_nature_of_employment="NA", e18_class_of_worker="NA")])
+        self.assertEqual(result["screening_status"], "For Review")
+        item = result["supporting_evidence"][0]
+        self.assertEqual(item["trigger_code"], "observed_nonwork")
+        self.assertEqual(item["evidence_type"], "observed")
+        self.assertEqual(item["observed_values"]["e01_employed"], 2)
+        self.assertIn("does not establish long-term unemployment", item["explanation"])
+
+    def test_tupad_government_worker_class_is_context_not_household_exclusion(self):
+        for work, nature in ((2, "NA"), (1, 2), (1, 3)):
+            result = self.result("TUPAD", [self.member(
+                e01_employed=work, e11_nature_of_employment=nature,
+                e18_class_of_worker=2)])
+            self.assertEqual(result["screening_status"], "For Review")
+            item = result["supporting_evidence"][0]
+            self.assertEqual(item["observed_values"]["e18_class_of_worker"], 2)
+            self.assertNotIn("government", item.get("trigger_code", ""))
+        members = [self.member(e18_class_of_worker=2),
+                   self.member(line=2, e01_employed=2)]
+        self.assertEqual(self.result("TUPAD", members)["triggering_member_line_numbers"], (2,))
+
+    def test_tupad_overlapping_triggers_win_over_unresolved_members(self):
+        members = [self.member(e01_employed="NA"),
+                   self.member(line=2, e01_employed=2),
+                   self.member(line=3, e11_nature_of_employment=3),
+                   self.member(line=4, e11_nature_of_employment="NA")]
+        for ordered in (members, list(reversed(members))):
+            result = self.result("TUPAD", ordered)
+            self.assertEqual(result["screening_status"], "For Review")
+            self.assertEqual(set(result["triggering_member_line_numbers"]), {2, 3})
+            self.assertEqual({e["trigger_code"] for e in result["supporting_evidence"]},
+                             {"observed_nonwork", "irregular_work"})
 
     def test_4ps_household_pregnancy_triggers_without_member_attribution(self):
         hh = [dict(uuid="A", l01_with_member_who_has_been_pregnant=1, l06_with_member_currently_pregnant=1)]

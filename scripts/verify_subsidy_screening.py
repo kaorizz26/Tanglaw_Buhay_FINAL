@@ -88,11 +88,12 @@ def main() -> int:
         tupad = results.loc[results["program_code"].eq("TUPAD")]
         irregular, irregular_members = evidence_counts(tupad, "irregular_work")
         observed, observed_members = evidence_counts(tupad, "observed_nonwork")
-        assumed, assumed_members = evidence_counts(tupad, "assumed_nonwork")
+        assumed, _ = evidence_counts(tupad, "assumed_nonwork")
+        overseas_assumed, _ = evidence_counts(tupad, "assumed_overseas_work")
+        if assumed or overseas_assumed:
+            raise ValueError("Refined TUPAD must not generate employment assumptions.")
         tupad_flagged = set(tupad.loc[tupad["screening_status"].eq("For Review"), "household_uuid"])
-        new_tupad = tupad_flagged - irregular
-        if len(irregular) != PREVIOUS_COUNTS["TUPAD"][0]:
-            raise ValueError("Original irregular-work flags must remain unchanged.")
+        nonwork_only = tupad_flagged - irregular
         four_ps = results.loc[results["program_code"].eq("4Ps")]
         pregnancy, _ = evidence_counts(four_ps, "household_pregnancy")
         attributed_pregnancy, pregnant_members = evidence_counts(four_ps, "member_pregnancy")
@@ -109,7 +110,7 @@ def main() -> int:
     print(f"{'Program':<8} {'For Review':>12} {'No Historical CBMS Trigger':>28} {'Needs Data Review':>20}")
     for program, review, negative, unknown in totals:
         print(f"{program:<8} {review:>12,} {negative:>28,} {unknown:>20,}")
-    print("Phase 5 -> Phase 5B (For Review / No Historical CBMS Trigger / Needs Data Review)")
+    print("Historical Phase 5 -> current engines (For Review / No Historical CBMS Trigger / Needs Data Review)")
     for program, *counts in totals:
         previous = " / ".join(f"{value:,}" for value in PREVIOUS_COUNTS[program])
         current = " / ".join(f"{value:,}" for value in counts)
@@ -118,12 +119,10 @@ def main() -> int:
     print(f"Unique households with at least one supported flag: {flagged_households:,} ({100 * flagged_households / len(households):.2f}%).")
     print(f"Households with no supported program flags: {no_flags:,} ({100 * no_flags / len(households):.2f}%).")
     print(f"SLP supported pathways: EF={pathways['EF']:,}, MD={pathways['MD']:,}, both={both:,} households.")
-    print(f"TUPAD existing irregular-work flags: {len(irregular):,} households / {irregular_members:,} members.")
-    print(f"TUPAD observed E01=2 signals: {len(observed):,} households / {observed_members:,} members; assumed missing-E01 nonwork: {len(assumed):,} households / {assumed_members:,} members.")
-    print(f"New TUPAD reviews beyond the existing irregular-work flags: {len(new_tupad):,}; "
-          f"observed-only={len(new_tupad & (observed - assumed)):,}, "
-          f"assumed-only={len(new_tupad & (assumed - observed)):,}, "
-          f"both={len(new_tupad & observed & assumed):,}.")
+    print(f"TUPAD recorded B06=7 irregular-work signals: {len(irregular):,} households / {irregular_members:,} members.")
+    print(f"TUPAD recorded B06=7 E01=2 signals: {len(observed):,} households / {observed_members:,} members.")
+    print(f"TUPAD nonwork reviews beyond irregular-work signals: {len(nonwork_only):,}; "
+          f"both recorded triggers={len(observed & irregular):,} households.")
     print(f"4Ps household pregnancy signals: {len(pregnancy):,}; provisional member attribution: {pregnant_members:,} members in {len(attributed_pregnancy):,} households.")
     print(f"SPISC household disability context: {len(pwd_context):,} households; provisional senior-specific support: {senior_pwd_members:,} seniors in {len(senior_pwd):,} households.")
     print(f"SPISC unresolved/contradictory disability support: {spisc_warning_households:,} households; age-based statuses are unchanged.")
@@ -131,10 +130,10 @@ def main() -> int:
         print(f"{program} informational warning counts: {counts}")
     print("L07/L16 Yes/No coding is an approved provisional dataset interpretation, not PSA-confirmed recoding; household corroboration and valid member joins are required.")
     print("Pregnancy and disability remain historical; household disability is never automatically attributed to a senior.")
-    print("TUPAD derives its own approved pilot E01 assumption; SLP still uses observed responses only. MPI results and synthetic E15 never become screening evidence.")
-    print("Known nonwork triggers override missing E11; actual routing conflicts remain visible. Unexported E03 still limits SLP work-history interpretation.")
+    print("TUPAD uses recorded responses for B06=7 adults only; no employment assumptions. SLP is unchanged. MPI results and synthetic E15 never become screening evidence.")
+    print("Recorded nonwork needs no E11/E18; missing essential answers remain unresolved unless another member triggers review. Unexported E03 still limits SLP work-history interpretation.")
     print("Broad flag coverage can reflect age-only triggers and the union of four programs; it does not indicate official eligibility.")
-    print("SLP retains its original EF/MD rules. TUPAD coverage increases because observed and assumed nonwork are now approved additional review signals.")
+    print("SLP retains its original EF/MD rules. Refined TUPAD results are not the historical stored Run 2 findings.")
     print("SLP MC 003 s.2025 pp.8-9 and TUPAD DO 239-23 section 8 establish the implemented age floors.")
     print("SPISC MC 022 s.2026 and TUPAD DO 239-E s.2026 are listed but full texts remain unverified; newer exclusions are not invented.")
     print("No household names, UUIDs or individual records printed; no household-level results exported.")
