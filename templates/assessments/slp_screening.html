@@ -37,7 +37,7 @@
   <section class="slp-action" aria-labelledby="slp-action-heading">
     <h4 id="slp-action-heading">Suggested staff action</h4>
     {% if active_review %}
-      <p>A SLP Staff Review is already in progress. Open it to verify current circumstances and document findings.</p>
+      <p>An SLP Staff Review is already in progress. Open it to verify current circumstances and document findings.</p>
       <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program='SLP', review_id=active_review.id, **detail_parameters) }}">Open SLP Review</a>
     {% elif completed_review %}
       <p>A completed SLP recommendation is on record. View the review and its recorded findings.</p>

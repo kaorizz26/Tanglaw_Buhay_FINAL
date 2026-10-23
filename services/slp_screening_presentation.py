@@ -103,6 +103,7 @@ def prepare_slp_guidance(finding, source, index, issues):
     year = source["context"]["survey_year"]
     members = {code_key(m["line_number"]): m for m in source["members"]}
     cards, pathways = [], []
+    pathway_members = {}
     seen = set()
     if status == "For Review":
         for item in finding["supporting_evidence"]:
@@ -110,6 +111,8 @@ def prepare_slp_guidance(finding, source, index, issues):
             if item.get("evidence_role", "trigger") != "trigger" or pathway not in PATHWAYS:
                 continue
             line = code_key(item.get("member_line_number"))
+            if line is not None:
+                pathway_members.setdefault(pathway, set()).add(line)
             observed = item.get("observed_values", {})
             # Repeated supporting fields need not duplicate an identical card;
             # the full saved evidence remains available in the disclosure.
@@ -133,11 +136,23 @@ def prepare_slp_guidance(finding, source, index, issues):
                           "details": [condition], "pathway": PATHWAYS[pathway]})
             if pathway not in pathways:
                 pathways.append(pathway)
-        why = [PATHWAYS[p]["why"] for p in pathways]
+        # Each explanation describes only the members in that saved pathway.
+        why = [
+            PATHWAYS[p]["why"].replace(
+                "The member's recorded work situation supports",
+                "The members' recorded work situations support",
+            ) if len(pathway_members.get(p, ())) > 1 else PATHWAYS[p]["why"]
+            for p in pathways
+        ]
         questions = [q for p in pathways for q in PATHWAYS[p]["questions"]]
         questions.append(PREVIOUS_ASSISTANCE)
         situation = "employment and livelihood" if len(pathways) == 2 else "livelihood" if pathways == ["MD"] else "employment"
-        action = f"Start an SLP Staff Review to verify the member's current {situation} situation and assistance needs, and document the findings."
+        member_count = len(set().union(*pathway_members.values()))
+        circumstances = (
+            f"the members' current {situation} situations"
+            if member_count > 1 else f"the member's current {situation} situation"
+        )
+        action = f"Start an SLP Staff Review to verify {circumstances} and assistance needs, and document the findings."
         heading = "Why this was flagged"
         if not cards:
             cards = [{"subject": "Saved finding", "details": ["The saved result calls for review, but its specific supporting condition needs confirmation."]}]
@@ -164,7 +179,8 @@ def prepare_slp_guidance(finding, source, index, issues):
         if not cards:
             cards = [{"subject": "Information to clarify", "details": ["The saved finding does not identify one reliable cause. Some questions may have been skipped as expected; a missing answer does not mean No."]}]
         heading, questions = "Why more information is needed", list(UNRESOLVED_QUESTIONS)
-        action = "Staff may start an SLP Review to verify the member's current circumstances and document findings."
+        circumstances = "the members'" if affected_count > 1 else "the member's"
+        action = f"Staff may start an SLP Review to verify {circumstances} current circumstances and document findings."
     else:
         cards = [{"subject": f"CBMS {year}", "details": ["No recorded employment or livelihood condition matched the system's preliminary SLP screening rules."]}]
         heading = "Why there is no review signal"

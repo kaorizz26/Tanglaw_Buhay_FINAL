@@ -3,12 +3,10 @@
 from copy import deepcopy
 from html import unescape
 import re
-import subprocess
 import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
-from jinja2 import ChoiceLoader, DictLoader
 from services.assessment_reference_labels import evidence_cell
 from services.mpi_evidence import build_evidence_index
 from services.subsidy_screening_details import prepare_subsidy_screening
@@ -98,6 +96,55 @@ class SlpPresentationTests(unittest.TestCase):
         self.assertEqual(program['guidance']['why'], [
             'The available 2022 CBMS records did not identify a household member meeting the conditions for an SLP review. This does not mean the household is ineligible or does not need assistance today.',
         ])
+
+    def test_review_wording_counts_distinct_members_per_pathway_and_overall(self):
+        for pathway in ('EF', 'MD'):
+            first = self.evidence(pathway)
+            second = self.evidence(pathway, line=3)
+            for evidence, plural in (((first, first), False),
+                                     ((first, second, second), True)):
+                with self.subTest(pathway=pathway, plural=plural):
+                    self.set_finding('For Review', evidence)
+                    guidance = prepare_subsidy_screening(
+                        self.source, build_evidence_index(self.source),
+                    )[1]['guidance']
+                    expected = ("The members' recorded work situations support"
+                                if plural else "The member's recorded work situation supports")
+                    self.assertIn(expected, guidance['why'][0])
+                    self.assertIn("the members' current" if plural else "the member's current",
+                                  guidance['action'])
+        # Two pathways for one identity still describe one person's needs.
+        for second_line, plural in ((1, False), (3, True)):
+            self.set_finding('For Review', (
+                self.evidence('EF'), self.evidence('MD', line=second_line),
+            ))
+            guidance = prepare_subsidy_screening(
+                self.source, build_evidence_index(self.source),
+            )[1]['guidance']
+            self.assertEqual(len(guidance['why']), 2)
+            self.assertTrue(all("The member's recorded" in text for text in guidance['why']))
+            self.assertIn("the members' current" if plural else "the member's current",
+                          guidance['action'])
+
+    def test_unresolved_action_counts_members_for_work_and_other_gaps(self):
+        original = deepcopy(self.source['members'][0])
+        self.set_finding('Needs Data Review')
+        for field in ('e01_employed', 'b06_ofi'):
+            for lines, plural in (((1, 1), False), ((1, 3, 3), True)):
+                with self.subTest(field=field, lines=lines):
+                    self.source['members'] = []
+                    for line in lines:
+                        member = deepcopy(original)
+                        member['line_number'] = line
+                        member['responses'].update(a07_age='45', b06_ofi='7',
+                                                   e01_employed='1', e18_class_of_worker='3')
+                        member['responses'][field] = 'NA'
+                        self.source['members'].append(member)
+                    guidance = prepare_subsidy_screening(
+                        self.source, build_evidence_index(self.source),
+                    )[1]['guidance']
+                    self.assertIn("the members' current circumstances" if plural else
+                                  "the member's current circumstances", guidance['action'])
 
     def test_relevant_missing_fields_are_emphasized_with_specific_context(self):
         self.set_finding('Needs Data Review')
@@ -284,6 +331,9 @@ class SlpPresentationTests(unittest.TestCase):
             self.source['staff_reviews'] = [{'id': 7, 'current_review_id': 7, 'program': 'SLP',
                                             'status': state, 'withdrawn': withdrawn}]
             article = self.render()
+            if state == 'In Review':
+                self.assertIn('An SLP Staff Review is already in progress.', article)
+                self.assertNotIn('A SLP Staff Review', article)
             link = re.search(r'href="([^"]+)"[^>]*>' + label + r' SLP Review</a>', article)[1]
             parsed = urlsplit(unescape(link))
             self.assertEqual(parse_qs(parsed.query)['priority'], ['secondary'])
@@ -293,15 +343,53 @@ class SlpPresentationTests(unittest.TestCase):
                                             'program': 'SLP', 'status': 'In Review'})
         self.assertIn('Open SLP Review', self.render())
 
-    def test_committed_other_programs_and_summary_render_identically(self):
+    def test_other_program_content_and_evidence_are_isolated_from_slp(self):
         self.session()
-        current = self.client.get(self.path + '?tab=screening').text
-        old = subprocess.check_output(['git', 'show', 'HEAD:templates/assessments/screening.html']).decode('utf-8')
-        self.app.jinja_env.loader = ChoiceLoader([DictLoader({'assessments/screening.html': old}), self.app.jinja_env.loader])
-        self.app.jinja_env.cache.clear()
-        baseline = self.client.get(self.path + '?tab=screening').text
-        for code in ('4ps', 'spisc', 'tupad'):
-            pattern = rf'<article[^>]+id="screening-{code}".*?</article>'
-            self.assertEqual(re.search(pattern, current, re.S)[0], re.search(pattern, baseline, re.S)[0])
-        pattern = r'<dl class="assessment-metrics".*?</dl>'
-        self.assertEqual(re.search(pattern, current, re.S)[0], re.search(pattern, baseline, re.S)[0])
+        self.set_finding('Needs Data Review')
+        before = deepcopy(self.source)
+        page = self.client.get(self.path + '?tab=screening').text
+        for code, member, field in (
+            ('4ps', 'Synthetic Member 2', 'Household reported a pregnant member at survey'),
+            ('spisc', 'Synthetic Member 3', 'Household reported a member with disability'),
+            ('tupad', 'Synthetic Member 1', 'Nature of work'),
+        ):
+            with self.subTest(program=code):
+                article = re.search(rf'<article[^>]+id="screening-{code}".*?</article>', page, re.S)[0]
+                self.assertIn('For Review', article)
+                self.assertIn(member, article)
+                self.assertIn(field, article)
+                self.assertIn('<details class="screening-evidence">', article)
+                self.assertNotIn('slp-evidence-unresolved', article)
+                self.assertNotIn('slp-answer-unavailable', article)
+                self.assertNotIn('Type of worker', article)
+                if code == '4ps':
+                    self.assertIn('<details class="four-ps-disclosure" open>', article)
+                    self.assertIn('Age 12 at the 2022 CBMS survey.', article)
+                    self.assertIn('Why this was flagged', article)
+                    self.assertIn('Start 4Ps Review</a>', article)
+                else:
+                    self.assertIn('Why this household received For Review', article)
+                    self.assertNotIn('four-ps-disclosure', article)
+                    self.assertNotIn('slp-disclosure', article)
+                if code == 'spisc':
+                    self.assertIn('80 years', article)
+                    self.assertNotIn('Worked at least one hour', article)
+                if code == 'tupad':
+                    self.assertIn('not a recorded No answer', article)
+        self.assertIn('slp-evidence-unresolved', page)
+        self.assertEqual(self.source, before)
+
+    def test_summary_has_independent_expected_metrics_and_priority(self):
+        self.session()
+        for status in ('For Review', 'Needs Data Review', 'No Historical CBMS Trigger'):
+            self.set_finding(status)
+            page = self.client.get(self.path + '?tab=screening').text
+            summary = re.search(r'<dl class="assessment-metrics".*?</dl>', page, re.S)[0]
+            self.assertEqual(re.findall(r'<dt>(.*?)</dt>', summary), [
+                'Vulnerability Score', 'Municipal Vulnerability Rank', 'MPI Indicator Results',
+            ])
+            for value in ('36.11 <small>/ 100</small>', '7 <small>of 51</small>',
+                          '15 <small>of 16 determined</small>', '1 unknown result.'):
+                self.assertIn(value, summary)
+            self.assertIn('assessment-priority priority-summary', page)
+            self.assertIn('Primary Priority', page)
