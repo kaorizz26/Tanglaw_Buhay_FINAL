@@ -254,7 +254,7 @@ never advanced to a later year.
 | Implementation | CBMS variables | For Review | Needs Data Review without a supported trigger |
 |---|---|---|---|
 | `screening/four_ps.py`: `screen_4ps()` | A07 age; household L01/L06; joined L07, sex A05 and member line. | Any age 0-18, or household L06=1 without an L01=2 routing conflict. Provisional L07 attribution requires household corroboration and a joined female age 10+. | Missing roster/age or unresolved relevant pregnancy evidence, including skip and member conflicts. |
-| `screening/slp.py`: `screen_slp()` | A07, B06, E01, E18; optional E11 and C07/C08 TVET evidence. | EF: age 18+, applicable observed E01=2. MD: age 16+, applicable observed E01=1 and E18=3/4/5/6. Both pathways can coexist. | Either relevant pathway remains unknown because age, routing or observed work evidence cannot establish it. |
+| `screening/slp.py`: `screen_slp()` | A07, B06, E01, E18; optional E11 and C07/C08 TVET evidence. | EF: age 18+, B06=7, observed E01=2. MD: age 16+, B06=7, observed E01=1 and E18=3/4/5/6. Both pathways can coexist. | Either relevant pathway remains unknown because age, routing or observed work evidence cannot establish it. |
 | `screening/spisc.py`: `screen_spisc()` | A07; household L15 and joined member L16/line for optional PWD context. | Any age 60+. Disability support requires the senior's own joined L16=1 and household L15=1. | No roster or an unknown age. Disability gaps/warnings do not change the age-based status. |
 | `screening/tupad.py`: `screen_tupad()` | A07, B06, E01, E11; E18 is supporting context. | Age 18+, B06=7, and either recorded E01=2 or recorded E01=1 with E11=2/3. | Essential age/B06/E01 missing or invalid, or E11 missing/invalid for a working applicable adult. Known age under 18 or B06=1-6 excludes; expected skips are not gaps. |
 
@@ -288,10 +288,17 @@ compatibility. This code change does not recalculate or designate a run; protect
 views continue reading Run 2. Applying the refined rules requires a separately
 approved new calculation version/run, preserving historical results and reviews.
 
+The approved SLP refinement also limits both pathways to B06=7. Missing or
+invalid essential age/B06/E01, or E18 for applicable working members, remains
+unresolved unless a known exclusion applies. Supported EF/MD evidence wins.
+The parental/guardian consent reminder for MD at 16-17 and optional supporting
+information remain. Runs 1/2 retain their original SLP evidence and statuses;
+adoption requires a separately approved new calculation version/run.
+
 Program-local helpers build the associated evidence: `_member_pregnancy()` in
 `four_ps.py`, `_member_disability()` in `spisc.py`, and `_nonwork_evidence()` in
-`tupad.py`. SLP keeps its two pathways explicit and uses `_md_trigger()` only for
-observed enterprise-work validation. `all_conditions()` in `common.py` combines
+`tupad.py`. SLP combines explicit EF/MD conditions in its main function; known exclusions
+resolve expected downstream skips without inferring missing work answers. `all_conditions()` in `common.py` combines
 True/False/None: a known False excludes, all True confirms, otherwise it stays
 unknown. It must not be replaced with ordinary `all()`, which treats None as False.
 
@@ -370,8 +377,9 @@ provisional L07/L16/L34 coding. The original questionnaire describes those
 Section L person fields as line numbers; their apparent Yes/No recoding is not
 independently confirmed by PSA export documentation.
 
-E03 job-attachment routing is absent from the working export. SLP cannot declare
-missing downstream work fields a verified negative solely from E01=2. Policy
+E03 job-attachment routing is absent from the working export. Under the approved
+SLP refinement, E01=2 excludes MD and needs no E11/E18 for EF; this does not
+establish current unemployment or job attachment. Policy
 notes in `screening/metadata.py` also retain the unverified full-text limitations
 for the newer SPISC and TUPAD issuances.
 
@@ -826,7 +834,11 @@ trigger. B06=6 remains non-applicable. Missing E01 with populated job details
 remains conflicting evidence and is not assumed nonwork. None of these signals
 establishes official unemployment or present-day TUPAD eligibility.
 
-### SLP uncertainty behind the 4,149 Needs Data Review results
+### Historical SLP uncertainty behind the 4,149 Needs Data Review results
+
+This section describes stored results before the approved SLP refinement in
+section 5. The old E01=2/MD uncertainty is retained here as historical context;
+it does not describe the current engine.
 
 | Exclusive household uncertainty group | Households |
 |---|---:|

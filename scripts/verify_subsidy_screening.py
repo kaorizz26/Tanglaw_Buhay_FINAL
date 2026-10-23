@@ -34,8 +34,8 @@ def _program_status_totals(results, household_count):
         counts = tuple(int(rows["screening_status"].eq(status).sum()) for status in STATUSES)
         if sum(counts) != household_count or rows["household_uuid"].duplicated().any():
             raise ValueError("Each household must have one result per program.")
-        if program in ("SLP", "SPISC") and counts != PREVIOUS_COUNTS[program]:
-            raise ValueError("Phase 5B must preserve SLP and SPISC screening statuses.")
+        if program == "SPISC" and counts != PREVIOUS_COUNTS[program]:
+            raise ValueError("SPISC screening statuses must retain the historical baseline.")
         totals.append((program, *counts))
     return totals
 
@@ -130,10 +130,10 @@ def main() -> int:
         print(f"{program} informational warning counts: {counts}")
     print("L07/L16 Yes/No coding is an approved provisional dataset interpretation, not PSA-confirmed recoding; household corroboration and valid member joins are required.")
     print("Pregnancy and disability remain historical; household disability is never automatically attributed to a senior.")
-    print("TUPAD uses recorded responses for B06=7 adults only; no employment assumptions. SLP is unchanged. MPI results and synthetic E15 never become screening evidence.")
-    print("Recorded nonwork needs no E11/E18; missing essential answers remain unresolved unless another member triggers review. Unexported E03 still limits SLP work-history interpretation.")
+    print("TUPAD uses recorded responses for B06=7 adults only; no employment assumptions. SLP uses recorded responses for B06=7 members only. MPI results and synthetic E15 never become screening evidence.")
+    print("Recorded nonwork needs no E11/E18; missing essential answers remain unresolved unless another member triggers review. SLP E01=2 excludes MD and needs no E18; working-member E18 is essential for MD.")
     print("Broad flag coverage can reflect age-only triggers and the union of four programs; it does not indicate official eligibility.")
-    print("SLP retains its original EF/MD rules. Refined TUPAD results are not the historical stored Run 2 findings.")
+    print("Refined SLP/TUPAD results are not the historical stored Run 2 findings.")
     print("SLP MC 003 s.2025 pp.8-9 and TUPAD DO 239-23 section 8 establish the implemented age floors.")
     print("SPISC MC 022 s.2026 and TUPAD DO 239-E s.2026 are listed but full texts remain unverified; newer exclusions are not invented.")
     print("No household names, UUIDs or individual records printed; no household-level results exported.")

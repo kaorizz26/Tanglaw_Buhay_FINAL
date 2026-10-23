@@ -2,7 +2,7 @@
 
 from .common import (
     age_at_least, all_conditions, as_integer, member_evidence,
-    screening_result, section_e_applies, valid_code,
+    screening_result, valid_code,
 )
 from .metadata import MD_CLASSES
 
@@ -13,12 +13,20 @@ def screen_slp(household: dict, members: list[dict], survey_year: int) -> dict:
     unresolved = not members
     minor_md_participant = False
     for member in members:
+        residency = valid_code(member.get("b06_ofi"), range(1, 8))
+        resident_philippines = None if residency is None else residency == 7
         work_status = valid_code(member.get("e01_employed"), (1, 2))
         ef_trigger = all_conditions(
-            age_at_least(member, 18), section_e_applies(member),
+            age_at_least(member, 18), resident_philippines,
             None if work_status is None else work_status == 2,
         )
-        md_trigger = _md_trigger(member)
+        worker_class = valid_code(member.get("e18_class_of_worker"), range(7))
+        # Recorded nonwork excludes MD; downstream E18 skips are not gaps.
+        md_trigger = all_conditions(
+            age_at_least(member, 16), resident_philippines,
+            None if work_status is None else work_status == 1,
+            None if worker_class is None else worker_class in MD_CLASSES,
+        )
 
         if ef_trigger is True:
             evidence.append(_ef_evidence(member, survey_year))
@@ -35,18 +43,6 @@ def screen_slp(household: dict, members: list[dict], survey_year: int) -> dict:
     if evidence and unresolved:
         notes = ("One or more CBMS pathways remain unresolved; supported EF/MD evidence still warrants review.",)
     return screening_result(household, "SLP", survey_year, evidence, unresolved, notes, requirements)
-
-
-def _md_trigger(member: dict) -> bool | None:
-    """Require observed enterprise work; absent E03 cannot establish a skip."""
-    applicable = all_conditions(age_at_least(member, 16), section_e_applies(member))
-    if applicable is False:
-        return False
-    worker_class = valid_code(member.get("e18_class_of_worker"), range(7))
-    work_status = valid_code(member.get("e01_employed"), (1, 2))
-    if applicable is True and work_status == 1 and worker_class is not None:
-        return worker_class in MD_CLASSES
-    return None
 
 
 def _ef_evidence(member, year):

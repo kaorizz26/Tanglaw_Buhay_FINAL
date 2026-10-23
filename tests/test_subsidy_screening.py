@@ -98,18 +98,57 @@ class SubsidyScreeningTests(unittest.TestCase):
         self.assertEqual(self.result("SPISC", [self.member(a07_age=60), self.member(line=2, a07_age=None)])["screening_status"], "For Review")
 
     def test_slp_ef_requires_age_eighteen_and_observed_nonwork(self):
-        for age, expected in ((17, "Needs Data Review"), (18, "For Review")):
+        for age, expected in ((17, "No Historical CBMS Trigger"), (18, "For Review")):
             result = self.result("SLP", [self.member(a07_age=age, e01_employed=2, e18_class_of_worker="NA")])
             self.assertEqual(result["screening_status"], expected)
             self.assertEqual([item["pathway"] for item in result["supporting_evidence"]], ["EF"] if age == 18 else [])
 
-    def test_slp_ef_section_e_routing_and_optional_tvet_support(self):
-        for b06 in (4, 5, 7):
-            result = self.result("SLP", [self.member(b06_ofi=b06, e01_employed=2, c07_tvet_graduate=1)])
+    def test_slp_residency_and_optional_tvet_support(self):
+        for residency in range(1, 8):
+            for work, worker_class in ((2, "NA"), (1, 3)):
+                with self.subTest(residency=residency, work=work):
+                    result = self.result("SLP", [self.member(
+                        b06_ofi=residency, e01_employed=work,
+                        e18_class_of_worker=worker_class, c07_tvet_graduate=1)])
+                    expected = "For Review" if residency == 7 else "No Historical CBMS Trigger"
+                    self.assertEqual(result["screening_status"], expected)
+                    if residency == 7 and work == 2:
+                        self.assertIn("TVET graduate", result["trigger_reasons"][0])
+
+    def test_slp_essential_answers_remain_unresolved(self):
+        for field in ("a07_age", "b06_ofi", "e01_employed", "e18_class_of_worker"):
+            for value in (None, "", "NA", pd.NA, True, -1, 999 if field != "a07_age" else 1.5):
+                with self.subTest(field=field, value=value):
+                    result = self.result("SLP", [self.member(**(dict(e18_class_of_worker=3) | {field: value}))])
+                    self.assertEqual(result["screening_status"], "Needs Data Review")
+                    self.assertEqual(result["supporting_evidence"], ())
+
+    def test_slp_known_exclusions_and_nonwork_skips(self):
+        cases = [dict(a07_age=15, b06_ofi="NA", e01_employed="NA"),
+                 dict(a07_age=None, b06_ofi=4, e01_employed="NA"),
+                 dict(a07_age=17, e01_employed=2),
+                 dict(a07_age=None, e01_employed=1, e18_class_of_worker=1)]
+        for changes in cases:
+            with self.subTest(changes=changes):
+                result = self.result("SLP", [self.member(**changes)])
+                self.assertEqual(result["screening_status"], "No Historical CBMS Trigger")
+        for worker_class in (None, "NA", 999):
+            result = self.result("SLP", [self.member(
+                e01_employed=2, e18_class_of_worker=worker_class,
+                e11_nature_of_employment="NA")])
             self.assertEqual(result["screening_status"], "For Review")
-            self.assertIn("TVET graduate", result["trigger_reasons"][0])
-        self.assertEqual(self.result("SLP", [self.member(e01_employed=2, b06_ofi=1)])["screening_status"], "No Historical CBMS Trigger")
-        self.assertEqual(self.result("SLP", [self.member(e01_employed=2, b06_ofi="NA")])["screening_status"], "Needs Data Review")
+            self.assertFalse(any("One or more CBMS pathways" in note for note in result["methodology_notes"]))
+
+    def test_slp_positive_pathways_win_over_unresolved_members(self):
+        for positive in (dict(e01_employed=2), dict(a07_age=16, e18_class_of_worker=3)):
+            for reverse in (False, True):
+                members = [self.member(**positive), self.member(line=2, e01_employed=None)]
+                if reverse:
+                    members.reverse()
+                result = self.result("SLP", members)
+                self.assertEqual(result["screening_status"], "For Review")
+                self.assertEqual(result["triggering_member_line_numbers"], (1,))
+                self.assertTrue(any("remain unresolved" in note for note in result["methodology_notes"]))
 
     def test_slp_md_all_verified_enterprise_codes_and_age_boundaries(self):
         for code in (3, 4, 5, 6):
