@@ -193,13 +193,13 @@ def iter_household_assessments(connection, run_id):
 
 
 def find_completed_runs(connection, batch_id):
-    """Read at most two completed runs; callers must reject ambiguous selection."""
+    """List all completed versions; designation remains an explicit choice."""
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             """SELECT id AS run_id, batch_id, calculation_version, calculation_provenance,
                       expected_household_count AS household_count, completed_at
                FROM assessment_runs WHERE batch_id = %s AND status = 'completed'
-               ORDER BY id LIMIT 2""", (batch_id,),
+               ORDER BY id""", (batch_id,),
         ).fetchall()
 
 
