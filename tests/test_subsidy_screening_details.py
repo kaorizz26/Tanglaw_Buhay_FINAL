@@ -319,6 +319,10 @@ class ScreeningRouteTests(unittest.TestCase):
             tag = re.search(r'<details class="four-ps-disclosure"[^>]*>', article)[0]
             self.assertEqual(' open' in tag, expanded)
             self.assertIn('<summary class="screening-program-heading four-ps-toggle">', article)
+            summary = re.search(r'<summary class="screening-program-heading four-ps-toggle">(.*?)</summary>', article, re.S)[1]
+            # Only phrasing content belongs inside this native disclosure header.
+            self.assertEqual(set(re.findall(r'<([a-z][a-z0-9]*)\b', summary)), {'span', 'strong'})
+            self.assertIn('id="screening-title-4ps"', summary)
             self.assertIn('<details class="screening-evidence">', article)
 
     def test_shared_summary_preserves_three_metrics_and_priority_on_each_tab(self):

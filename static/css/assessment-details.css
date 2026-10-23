@@ -872,10 +872,16 @@
   border-bottom: 1px solid var(--border);
 }
 
-.screening-program-heading h3 {
+.screening-program-heading h3,
+.four-ps-program-title {
   margin: 0;
   font-size: 1.375rem;
   line-height: 1.25;
+}
+
+.four-ps-program-title,
+.four-ps-toggle .screening-program-name {
+  display: block;
 }
 
 .screening-program-name {

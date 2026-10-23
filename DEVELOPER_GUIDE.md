@@ -12,6 +12,18 @@ priority, and a program flag suggests further consideration. Neither is an
 official poverty classification, subsidy eligibility decision, approval, or
 assigned case.
 
+Current development checkpoint (2026-10-23, owner-confirmed): active validated
+2022 Pozorrubio batch `1` designates completed **Run 3**, version
+`tanglaw-buhay-refined-subsidy-screening-v3`. It contains 19,304 household
+assessments and 77,216 finalized four-program findings. Priority counts are
+760 Primary, 879 Secondary and 17,665 No Subsidy Priority. Complete MPI
+indicators, scores, ranks and supporting evidence were preserved from Run 2;
+complete 4Ps/SPISC findings are unchanged. Runs 1/2 remain historical.
+`scripts/persist_refined_screening_2022.py` and its focused verification tests
+are committed (`dd68cb7`); the approved 4Ps presentation is implemented (`e741712`).
+Later numbered task histories describe their own checkpoints, not the current
+designation. Never rerun their persistence commands to recreate this state.
+
 ## 1. Data flow and module responsibilities
 
 The two engines use the same loaded data but calculate independently:
@@ -284,16 +296,15 @@ over unresolved information elsewhere.
 
 Runs 1 and 2 retain the earlier TUPAD rules and evidence. Presentation mappings
 for `assumed_nonwork`, `assumed_overseas_work`, and legacy warnings remain for
-compatibility. This code change does not recalculate or designate a run; protected
-views continue reading Run 2. Applying the refined rules requires a separately
-approved new calculation version/run, preserving historical results and reviews.
+compatibility. The separately approved Run 3 persistence adopted the refined
+rules; protected views now read Run 3, preserving historical results and reviews.
 
 The approved SLP refinement also limits both pathways to B06=7. Missing or
 invalid essential age/B06/E01, or E18 for applicable working members, remains
 unresolved unless a known exclusion applies. Supported EF/MD evidence wins.
 The parental/guardian consent reminder for MD at 16-17 and optional supporting
 information remain. Runs 1/2 retain their original SLP evidence and statuses;
-adoption requires a separately approved new calculation version/run.
+Run 3 contains the separately approved refined SLP findings.
 
 Program-local helpers build the associated evidence: `_member_pregnancy()` in
 `four_ps.py`, `_member_disability()` in `spisc.py`, and `_nonwork_evidence()` in
@@ -1216,7 +1227,7 @@ were made, and no private findings were exported.
 
 At the correction checkpoint, persistence awaited separate approval. The owner
 subsequently authorized the controlled operation recorded in section 21; corrected
-Run 2 is now designated. Historical Run 1 remains unchanged. Do not overwrite
+Run 2 was designated at that checkpoint (Run 3 is current). Historical Run 1 remains unchanged. Do not overwrite
 existing results or reuse the historical Task 3B runner. Phase 6B.4 remains In Progress.
 
 ## 21. Corrected MPI version and explicit selection: completed
@@ -1243,10 +1254,10 @@ the updated queries fail closed (`assessment_query_unavailable`
 for a missing table, `approved_assessment_run_missing` for a missing/invalid
 selection). No route invokes these functions and the minimal UI is unaffected.
 Migration 0004 and the designation now exist in the local development database;
-the query service resolves corrected Run 2. The historical impact comparison
+the query service resolved corrected Run 2 at this checkpoint. The historical impact comparison
 continues to read Run 1 explicitly, independently of current selection.
 
-Current designated version: **`tanglaw-buhay-mpi-e01-unknown-v2`**. It means corrected MPI
+Version designated at this historical checkpoint: **`tanglaw-buhay-mpi-e01-unknown-v2`**. It means corrected MPI
 missing-E01/under-15 handling, unchanged weights/ranking formulas and all four
 original subsidy outputs copied from Run 1. The original version remains
 `tanglaw-buhay-approved-mpi-screening-v1`. Version provenance records source/run
@@ -1350,7 +1361,7 @@ detail routes, including the old queue query URL, remain unavailable (HTTP 410).
 `services.prioritization.get_prioritization_page()` requests 25 summaries from
 `list_active_assessment_summaries(include_household_identity=True)`. The existing
 query resolves the validated active batch and explicitly designated completed
-run; local batch 1 currently designates corrected Run 2. There is no fallback
+run; local batch 1 currently designates completed Run 3. There is no fallback
 to Run 1, latest-run selection, source loading or engine calculation.
 SQL LIMIT/OFFSET and stored rank/UUID ordering remain unchanged. Page identities
 are retrieved through `repositories.dataset_batches.find_household_identities()`
@@ -1536,7 +1547,7 @@ JavaScript, dependency or stylesheet is needed.
 
 `list_active_assessment_summaries(filters=..., include_barangays=True)` resolves
 the validated active batch and its explicitly designated completed run, retaining
-corrected Run 2 in the pilot. Context, distinct source-batch barangays, filtered
+Run 3 in the pilot. Context, distinct source-batch barangays, filtered
 count, SQL page and page-bounded identities share one read-only repeatable-read
 snapshot. `list_barangays()` omits blank/literal-NA values and retains all available
 batch options regardless of current filters. An unavailable requested barangay

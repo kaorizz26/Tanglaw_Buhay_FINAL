@@ -17,17 +17,19 @@
       {% if program.code == '4Ps' %}
       <details class="four-ps-disclosure"{% if program.status != 'No Historical CBMS Trigger' %} open{% endif %}>
       <summary class="screening-program-heading four-ps-toggle">
+        <span>
+          <strong class="four-ps-program-title" id="screening-title-4ps">{{ program.code }}</strong>
+          <span class="screening-program-name">{{ program.name }}</span>
+        </span>
+        <span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span>
+      </summary>
       {% else %}
       <header class="screening-program-heading">
-      {% endif %}
         <div>
           <h3 id="screening-title-{{ program.code | lower }}">{{ program.code }}</h3>
           <p class="screening-program-name">{{ program.name }}</p>
         </div>
         <span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span>
-      {% if program.code == '4Ps' %}
-      </summary>
-      {% else %}
       </header>
       {% endif %}
       {% if program.code == '4Ps' %}
