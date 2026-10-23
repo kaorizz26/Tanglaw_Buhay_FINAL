@@ -7,6 +7,30 @@ PROGRAM_NAMES = {
     "TUPAD": "Tulong Panghanapbuhay sa Ating Disadvantaged / Displaced Workers",
 }
 
+FOUR_PS_COMPOSITION_QUESTION = (
+    "Does the family currently have children aged 0–18 or a pregnant member?"
+)
+FOUR_PS_TARGETING_QUESTION = (
+    "Is the family identified as poor or near-poor in the official targeting records used for 4Ps?"
+)
+FOUR_PS_ENROLLMENT_QUESTION = "Is the family currently or previously enrolled in 4Ps?"
+FOUR_PS_QUESTIONS = {
+    "For Review": (
+        FOUR_PS_COMPOSITION_QUESTION, FOUR_PS_TARGETING_QUESTION,
+        FOUR_PS_ENROLLMENT_QUESTION,
+        "Is the family willing to comply with the applicable program conditions?",
+    ),
+    "Needs Data Review": (
+        FOUR_PS_COMPOSITION_QUESTION, FOUR_PS_TARGETING_QUESTION,
+        FOUR_PS_ENROLLMENT_QUESTION,
+    ),
+    "No Historical CBMS Trigger": (
+        "Has the family's composition changed since the survey?",
+        "Are there currently children aged 0–18 or a pregnant member?",
+        "Is there newer information that warrants further 4Ps consideration?",
+    ),
+}
+
 STATUS_LABELS = {
     "For Review": "For Review",
     "Needs Data Review": "Not Enough Information",

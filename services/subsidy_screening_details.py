@@ -4,7 +4,7 @@ from services.assessment_reference_labels import code_key, evidence_cell
 from services.mpi_evidence import _member_heading, _relevant_age
 from services.screening.metadata import PROGRAMS
 from services.subsidy_screening_content import (
-    FIELD_LABELS, HEALTH_FIELDS, HOUSEHOLD_FIELDS, PROGRAM_FIELDS, PROGRAM_NAMES,
+    FIELD_LABELS, FOUR_PS_QUESTIONS, HEALTH_FIELDS, HOUSEHOLD_FIELDS, PROGRAM_FIELDS, PROGRAM_NAMES,
     REASON_TEXT, SLP_UNRESOLVED_NOTE, STATUS_CLASSES, STATUS_EXPLANATIONS,
     STATUS_LABELS, WARNING_FIELDS, WARNING_TEXT,
 )
@@ -215,6 +215,78 @@ def _information_issues(code, finding, source, members):
     return list(dict.fromkeys(issues))
 
 
+def _four_ps_guidance(finding, source, members, reasons, issues):
+    """Explain saved evidence only; these questions never determine a new status."""
+    status = finding["screening_status"]
+    year = source["context"]["survey_year"]
+    found = []
+    if status == "For Review":
+        for item in finding["supporting_evidence"]:
+            if item.get("evidence_role", "trigger") != "trigger":
+                continue
+            observed = item.get("observed_values", {})
+            kind = item.get("trigger_code")
+            is_child = kind == "child_age" or (
+                not kind and "a07_age" in observed
+                and set(observed) <= {"a07_age", "a02_relation_to_hh_head"}
+            )
+            age = code_key(observed.get("a07_age"))
+            if is_child and age and age.isdecimal() and 0 <= int(age) <= 18:
+                found.append({
+                    "subject": _member_name(item.get("member_line_number"), members),
+                    "text": f"Age {int(age)} at the {year} CBMS survey.",
+                })
+            else:
+                # Household-only pregnancy evidence must not acquire a member identity.
+                line = item.get("member_line_number")
+                found.append({
+                    "subject": "Household" if line is None else _member_name(line, members),
+                    "text": _stored_reason("4Ps", item),
+                })
+        if not found:
+            found = [{"subject": "Saved finding", "text": issues[0]}]
+        heading = "Why this was flagged"
+        explanation = (
+            "4Ps considers families with children aged 0–18 or a pregnant member. "
+            "The recorded condition supports further review but does not establish eligibility."
+            if reasons else
+            "The saved result calls for review, but its specific supporting condition needs confirmation."
+        )
+        action = "Start a 4Ps Staff Review to verify current family circumstances and document findings."
+    elif status == "Needs Data Review":
+        found = [{"subject": "Information to clarify", "text": issue} for issue in issues]
+        codes = {warning.get("code", "") for warning in finding["data_quality_warnings"]}
+        pregnancy_issue = any(code.startswith("pregnancy_") for code in codes)
+        heading = "Why more information is needed"
+        explanation = (
+            "The recorded pregnancy answers are unclear or conflicting. "
+            "No other supported 4Ps screening condition was found."
+            if pregnancy_issue else
+            "The saved finding needs clarification before a supported 4Ps screening condition can be established."
+        )
+        action = "Staff may start a 4Ps Review to clarify the information and document current findings."
+    else:
+        found = [{
+            "subject": f"CBMS {year}",
+            "text": f"No child aged 0–18 or supported pregnancy condition was identified in the {year} CBMS records.",
+        }]
+        heading = "Why there is no review signal"
+        explanation = "The available historical information did not match the preliminary 4Ps screening conditions."
+        action = (
+            "No review is suggested based on the historical findings. "
+            "Staff may still start a review if they have a documented reason."
+        )
+    questions = list(FOUR_PS_QUESTIONS[status])
+    if status == "Needs Data Review":
+        has_age_issue = any("age is missing or unclear" in issue for issue in issues)
+        topic = "pregnancy and age" if pregnancy_issue and has_age_issue else (
+            "pregnancy" if pregnancy_issue else "age" if has_age_issue else "recorded"
+        )
+        questions.insert(0, f"Can the unclear {topic} information be confirmed?")
+    return {"found": found, "why_heading": heading, "why": explanation,
+            "questions": questions, "action": action}
+
+
 def prepare_subsidy_screening(source, index):
     """Keep all stored statuses and separate trigger evidence from supporting context."""
     members = {code_key(member["line_number"]): member for member in source["members"]}
@@ -254,4 +326,8 @@ def prepare_subsidy_screening(source, index):
             "supporting_context": context, "issues": issues,
             "household_cells": household, "members": rows, "differences": differences,
         })
+        if code == "4Ps":
+            programs[-1]["guidance"] = _four_ps_guidance(
+                finding, source, members, reasons, issues,
+            )
     return programs

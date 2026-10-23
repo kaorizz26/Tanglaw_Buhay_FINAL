@@ -106,14 +106,14 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  margin: 18px 0 20px;
+  margin: 16px 0 12px;
 }
 
 .assessment-metrics > div {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 22px 24px;
+  padding: 16px 18px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -140,32 +140,32 @@
 }
 
 .assessment-metrics .metric-explanation {
-  margin-top: auto;
-  padding-top: 14px;
+  margin-top: 8px;
+  padding-top: 0;
   color: var(--text-muted);
   font-size: 0.9375rem;
   font-weight: 400;
   line-height: 1.45;
 }
 
-/* Subsidy review priority within the score card */
-.assessment-metrics .priority-summary {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+/* Priority stays beside the shared metrics without making one card taller. */
+.assessment-priority {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 20px;
   font-size: 0.875rem;
   font-weight: 400;
   line-height: 1.45;
 }
 
 .summary-priority-title {
-  display: block;
-  margin-bottom: 4px;
   font-weight: 600;
 }
 
 .priority-summary p {
-  margin-top: 6px;
+  margin: 0;
   color: var(--text-muted);
 }
 
@@ -957,6 +957,179 @@
 
 .screening-evidence .member-evidence > h4 {
   font-size: 1rem;
+}
+
+/* 4Ps guidance: recorded finding first, verification and next action together. */
+.four-ps-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 12px;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.four-ps-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.four-ps-toggle::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--navy);
+  border-bottom: 2px solid var(--navy);
+  transform: rotate(45deg);
+}
+
+.four-ps-disclosure[open] > .four-ps-toggle::after {
+  transform: rotate(225deg);
+}
+
+.four-ps-disclosure:not([open]) > .four-ps-toggle {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.four-ps-toggle:focus-visible {
+  outline: 3px solid #167eb5;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.four-ps-guidance {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.four-ps-guidance h4 {
+  margin: 0 0 12px;
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+.four-ps-guidance p {
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.four-ps-found,
+.four-ps-why {
+  grid-column: 1 / -1;
+}
+
+.four-ps-found {
+  padding: 0;
+}
+
+.screening-program .four-ps-findings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.four-ps-findings li {
+  display: grid;
+  gap: 4px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+}
+
+.four-ps-why > p {
+  max-width: 90ch;
+}
+
+.four-ps-guidance .screening-information h5 {
+  margin: 0 0 8px;
+  font-size: 0.9375rem;
+}
+
+.four-ps-checks,
+.four-ps-action {
+  min-width: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.four-ps-checks ol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 12px;
+  margin: 0 0 14px;
+  padding-left: 22px;
+  line-height: 1.5;
+}
+
+.four-ps-action {
+  align-self: start;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+}
+
+.four-ps-action h4 {
+  margin-bottom: 12px;
+}
+
+.four-ps-action > p:not(.four-ps-helper) {
+  margin: 0 0 14px;
+}
+
+.four-ps-action .four-ps-helper {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.four-ps-checks li::marker {
+  color: var(--gold-text);
+  font-weight: 700;
+}
+
+.four-ps-guidance .four-ps-helper {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 800px) {
+  .screening-program .four-ps-findings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .four-ps-checks ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .four-ps-guidance {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (max-width: 500px) {
+  .screening-program .four-ps-findings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .four-ps-toggle {
+    grid-template-columns: minmax(0, 1fr) 12px;
+  }
+  .four-ps-toggle > .screening-status {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .four-ps-toggle::after {
+    grid-column: 2;
+    grid-row: 1;
+  }
 }
 
 /* Responsive layouts */

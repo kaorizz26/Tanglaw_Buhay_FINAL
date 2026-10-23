@@ -267,6 +267,134 @@ class ScreeningRouteTests(unittest.TestCase):
                 self.assertIn(text, normalized)
             self.assertNotIn("Still to verify", response.text)
 
+    def four_ps_article(self):
+        self.session()
+        page = self.client.get(self.path + '?tab=screening&page=2&priority=secondary').text
+        return re.search(r'<article[^>]+id="screening-4ps".*?</article>', page, re.S)[0]
+
+    def test_four_ps_child_findings_hierarchy_multiple_members_and_escaping(self):
+        finding = self.source['findings']['programs']['4Ps']
+        finding['supporting_evidence'] += ({
+            'member_line_number': 1, 'observed_values': {'a07_age': '18'},
+        },)
+        self.source['members'][0]['responses']['a01_first_name'] = '<b>Example</b>'
+        before = deepcopy(self.source)
+        article = self.four_ps_article()
+        headings = ('What the system found', 'Why this was flagged',
+                    'Information to check', 'Suggested staff action', 'View Recorded Information')
+        self.assertEqual(sorted(headings, key=article.index), list(headings))
+        for text in ('Age 12 at the 2022 CBMS survey.', 'Age 18 at the 2022 CBMS survey.',
+                     'Start 4Ps Review', 'official targeting records', 'program conditions',
+                     '&lt;b&gt;Example&lt;/b&gt;'):
+            self.assertIn(text, article)
+        self.assertNotIn('<b>Example</b>', article)
+        self.assertIn('aria-labelledby="four-ps-checks-heading"', article)
+        self.assertIn('4Ps considers families with children aged 0–18', article)
+        self.assertNotIn('not an official DSWD poor', article)
+        self.assertEqual(self.source, before)
+
+    def test_four_ps_pregnancy_attribution_and_child_evidence_are_preserved(self):
+        finding = self.source['findings']['programs']['4Ps']
+        finding['supporting_evidence'] += (
+            {'trigger_code': 'household_pregnancy', 'member_line_number': None,
+             'observed_values': {'l06_with_member_currently_pregnant': '1'}},
+        )
+        article = self.four_ps_article()
+        self.assertIn('Age 12 at the 2022 CBMS survey.', article)
+        self.assertIn('The household reported a pregnant member', article)
+        self.assertIn('supports further review but does not establish eligibility', article)
+        self.assertNotIn('Synthetic Member 1</strong><span>The household', article)
+        finding['supporting_evidence'] = ({
+            'trigger_code': 'member_pregnancy', 'member_line_number': 1,
+            'observed_values': {'l07_currently_pregnant': '1'},
+        },)
+        self.assertIn('links this member', self.four_ps_article())
+        self.assertIn('4Ps considers families with children aged 0–18', self.four_ps_article())
+
+    def test_four_ps_native_disclosure_defaults_and_independent_evidence(self):
+        for status, expanded in (('For Review', True), ('Needs Data Review', True),
+                                 ('No Historical CBMS Trigger', False)):
+            self.source['findings']['programs']['4Ps']['screening_status'] = status
+            article = self.four_ps_article()
+            tag = re.search(r'<details class="four-ps-disclosure"[^>]*>', article)[0]
+            self.assertEqual(' open' in tag, expanded)
+            self.assertIn('<summary class="screening-program-heading four-ps-toggle">', article)
+            self.assertIn('<details class="screening-evidence">', article)
+
+    def test_shared_summary_preserves_three_metrics_and_priority_on_each_tab(self):
+        self.session()
+        for tab in ('overview', 'mpi', 'screening'):
+            with self.subTest(tab=tab):
+                page = self.client.get(self.path + '?tab=' + tab).text
+                summary = re.search(r'<dl class="assessment-metrics".*?</dl>', page, re.S)[0]
+                for label in ('Vulnerability Score', 'Municipal Vulnerability Rank',
+                              'MPI Indicator Results', '36.11', 'of 51', 'of 16 determined'):
+                    self.assertIn(label, summary)
+                self.assertIn('assessment-priority priority-summary', page)
+                self.assertIn('Primary Priority', page)
+
+    def test_four_ps_unresolved_cases_and_expected_skips(self):
+        finding = self.source['findings']['programs']['4Ps']
+        finding.update(screening_status='Needs Data Review', supporting_evidence=(),
+                       data_quality_warnings=({'code': 'pregnancy_routing_conflict'},))
+        article = self.four_ps_article()
+        self.assertIn('Not Enough Information', article)
+        self.assertIn('pregnancy answers are unclear or conflicting', article)
+        self.assertIn('Can the unclear pregnancy information be confirmed?', article)
+        self.assertIn('A brief reason is required', article)
+        finding['data_quality_warnings'] = ()
+        self.source['members'][0]['responses']['a07_age'] = 'NA'
+        article = self.four_ps_article()
+        self.assertIn('age is missing or unclear', article)
+        self.assertIn('Can the unclear age information be confirmed?', article)
+        self.assertNotIn('pregnancy answers are unclear or conflicting', article)
+        self.source['members'][0]['responses']['a07_age'] = '45'
+        finding['screening_status'] = 'No Historical CBMS Trigger'
+        for member in self.source['members']:
+            member['health_responses']['l07_currently_pregnant'] = 'NA'
+        article = self.four_ps_article()
+        self.assertIn('Why there is no review signal', article)
+        self.assertIn('No Review Signal', article)
+        self.assertIn('newer information', article)
+        self.assertNotIn('age is missing or unclear', article)
+        self.assertNotIn('pregnancy answers are unclear or conflicting', article)
+
+    def test_four_ps_review_navigation_reuses_current_review_state(self):
+        for status, withdrawn, label, path in (
+            ('In Review', False, 'Open 4Ps Review', '/reviews/4Ps/7'),
+            ('Closed', False, 'View 4Ps Review', '/reviews/4Ps/7'),
+            ('Closed', True, 'Start 4Ps Review', '/reviews/4Ps'),
+            ('Cancelled', False, 'Start 4Ps Review', '/reviews/4Ps'),
+        ):
+            with self.subTest(status=status, withdrawn=withdrawn):
+                self.source['staff_reviews'] = [{
+                    'id': 7, 'current_review_id': 7, 'program': '4Ps',
+                    'status': status, 'withdrawn': withdrawn,
+                }]
+                article = self.four_ps_article()
+                link = next(unescape(href) for href, text in re.findall(
+                    r'<a[^>]+href="([^"]+)"[^>]*>([^<]+)</a>', article,
+                ) if text == label)
+                self.assertEqual(urlsplit(link).path, self.path + path)
+                self.assertEqual(parse_qs(urlsplit(link).query)['page'], ['2'])
+                self.assertEqual(parse_qs(urlsplit(link).query)['priority'], ['secondary'])
+        self.source['staff_reviews'].append({
+            'id': 8, 'current_review_id': 8, 'program': '4Ps', 'status': 'In Review',
+        })
+        self.assertIn('Open 4Ps Review', self.four_ps_article())
+
+    def test_four_ps_changes_do_not_affect_other_program_panels(self):
+        self.session()
+        before = self.client.get(self.path + '?tab=screening').text
+        self.source['findings']['programs']['4Ps'].update(
+            screening_status='Needs Data Review', supporting_evidence=(),
+            data_quality_warnings=({'code': 'pregnancy_member_unresolved'},),
+        )
+        after = self.client.get(self.path + '?tab=screening').text
+        for code in ('slp', 'spisc', 'tupad'):
+            pattern = rf'<article[^>]+id="screening-{code}".*?</article>'
+            self.assertEqual(re.search(pattern, before, re.S)[0], re.search(pattern, after, re.S)[0])
+
     def test_all_statuses_render_with_no_ineligibility_claim_or_status_promotion(self):
         self.session()
         for code, status in zip(PROGRAMS, (*STATUSES, "For Review")):

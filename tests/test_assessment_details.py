@@ -523,8 +523,9 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 summary = re.search(r'<dl class="assessment-metrics".*?</dl>', response.text, re.S)[0]
                 summaries.append(summary)
                 self.assertEqual(summary.count("<dt>"), 3)
-                self.assertIn("Subsidy Review Priority", summary)
-                self.assertIn(status, summary)
+                priority = re.search(r'<div class="assessment-priority priority-summary".*?</div>', response.text, re.S)[0]
+                self.assertIn("Subsidy Review Priority", priority)
+                self.assertIn(status, priority)
                 self.assertIn("priority=secondary", response.text)
                 self.assertNotIn("No Subsidy Priority", response.text)
                 if tab == "mpi":

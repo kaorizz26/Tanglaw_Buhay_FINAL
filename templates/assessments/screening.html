@@ -14,13 +14,25 @@
 
   {% for program in results.screening_programs %}
     <article class="detail-section screening-program screening-program--{{ program.status_class }}" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
+      {% if program.code == '4Ps' %}
+      <details class="four-ps-disclosure"{% if program.status != 'No Historical CBMS Trigger' %} open{% endif %}>
+      <summary class="screening-program-heading four-ps-toggle">
+      {% else %}
       <header class="screening-program-heading">
+      {% endif %}
         <div>
           <h3 id="screening-title-{{ program.code | lower }}">{{ program.code }}</h3>
           <p class="screening-program-name">{{ program.name }}</p>
         </div>
         <span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span>
+      {% if program.code == '4Ps' %}
+      </summary>
+      {% else %}
       </header>
+      {% endif %}
+      {% if program.code == '4Ps' %}
+        {% include 'assessments/four_ps_screening.html' %}
+      {% else %}
       <p class="screening-explanation">{{ program.explanation }}</p>
 
       {% if program.reasons %}
@@ -43,6 +55,8 @@
             {% endfor %}
           </ul>
         </section>
+      {% endif %}
+
       {% endif %}
 
       <details class="screening-evidence">
@@ -95,6 +109,7 @@
           {% endfor %}
         </div>
       </details>
+      {% if program.code == '4Ps' %}</details>{% endif %}
     </article>
   {% endfor %}
 </section>
