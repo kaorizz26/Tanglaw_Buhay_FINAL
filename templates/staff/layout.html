@@ -51,18 +51,31 @@
 
         <nav class="staff-navigation" id="staff-navigation" aria-label="Main navigation">
           <ul class="navigation-list">
-            {% for label, icon in [
+            {% set is_admin = g.user['role'] == 'system_administrator' %}
+            {% set navigation_items = [
+              ('Dashboard', 'dashboard'),
+              ('Household Records', 'household'),
+              ('Data Import', 'database'),
+              ('Staff Accounts', 'administration')
+            ] if is_admin else [
               ('Dashboard', 'dashboard'),
               ('Household Records', 'household'),
               ('Assessments', 'assessments'),
-              ('Submissions', 'submissions'),
-              ('Administration', 'administration')
+              ('Submissions', 'submissions')
             ] %}
+            {% for label, icon in navigation_items %}
               <li>
                 {% if icon == 'dashboard' %}
-                  <a class="navigation-item{% if request.endpoint == 'main.index' %} navigation-item-active{% endif %}"
-                     href="{{ url_for('main.index') }}" {% if request.endpoint == 'main.index' %}aria-current="page"{% endif %}>
+                  {% set dashboard_endpoint = 'main.administration' if is_admin else 'main.index' %}
+                  <a class="navigation-item{% if request.endpoint == dashboard_endpoint %} navigation-item-active{% endif %}"
+                     href="{{ url_for(dashboard_endpoint) }}" {% if request.endpoint == dashboard_endpoint %}aria-current="page"{% endif %}>
                     <img src="{{ url_for('static', filename='icons/dashboard.svg') }}" alt="" width="20" height="20">
+                    <span>{{ label }}</span>
+                  </a>
+                {% elif icon == 'household' %}
+                  <a class="navigation-item{% if request.blueprint == 'households' %} navigation-item-active{% endif %}"
+                     href="{{ url_for('households.index') }}" {% if request.blueprint == 'households' %}aria-current="page"{% endif %}>
+                    <img src="{{ url_for('static', filename='icons/household.svg') }}" alt="" width="20" height="20">
                     <span>{{ label }}</span>
                   </a>
                 {% elif icon == 'assessments' %}
@@ -78,6 +91,18 @@
                       <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>Review Queue</a></li>
                     </ul>
                   </details>
+                {% elif icon == 'database' %}
+                  <a class="navigation-item{% if request.endpoint == 'main.data_import' %} navigation-item-active{% endif %}"
+                     href="{{ url_for('main.data_import') }}" {% if request.endpoint == 'main.data_import' %}aria-current="page"{% endif %}>
+                    <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="20" height="20">
+                    <span>{{ label }}</span>
+                  </a>
+                {% elif icon == 'administration' %}
+                  <a class="navigation-item{% if request.endpoint == 'main.staff_accounts' %} navigation-item-active{% endif %}"
+                     href="{{ url_for('main.staff_accounts') }}" {% if request.endpoint == 'main.staff_accounts' %}aria-current="page"{% endif %}>
+                    <img src="{{ url_for('static', filename='icons/administration.svg') }}" alt="" width="20" height="20">
+                    <span>{{ label }}</span>
+                  </a>
                 {% else %}
                   <span class="navigation-item navigation-item-planned" aria-disabled="true">
                     <img

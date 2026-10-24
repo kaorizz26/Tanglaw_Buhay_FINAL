@@ -6,6 +6,7 @@ from config import Config
 from commands import register_commands
 from routes.assessments import assessments
 from routes.auth import auth
+from routes.households import households
 from routes.main import main
 from routes.public import public
 from services.auth import protect_staff_routes
@@ -24,6 +25,7 @@ def create_app(test_config=None):
     app.register_blueprint(main)
     app.register_blueprint(public)
     app.register_blueprint(auth)
+    app.register_blueprint(households)
     app.register_blueprint(assessments)
     app.before_request(protect_staff_routes)
     register_commands(app)

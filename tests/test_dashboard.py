@@ -82,6 +82,30 @@ class DashboardRouteTests(unittest.TestCase):
                         source_kind="actual_cbms"):
             self.assertEqual(self.client.get("/").status_code, 403)
 
+    def test_admin_dashboard_shares_summary_without_assessment_links(self):
+        self.user["role"] = "system_administrator"
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary) as query:
+            response = self.client.get("/administration")
+        self.assertEqual(response.status_code, 200)
+        query.assert_called_once_with()
+        for text in ("Dashboard", "CBMS 2022", "Primary Priority",
+                     "Secondary Priority", "Household snapshot", "Main water source"):
+            self.assertIn(text, response.text)
+        self.assertIn('href="/administration" aria-current="page"', response.text)
+        self.assertIn('href="/households"', response.text)
+        self.assertNotIn('href="/assessments', response.text)
+        self.assertNotIn("Staff assessment pages", response.text)
+        self.assertEqual(self.client.get("/").location, "/administration")
+
+        with patch("routes.main.get_active_dashboard_summary",
+                   side_effect=AssessmentQueryError("private_database_details")):
+            unavailable = self.client.get("/administration")
+        self.assertEqual(unavailable.status_code, 200)
+        self.assertIn("Assessment summary unavailable", unavailable.text)
+        self.assertNotIn('href="/assessments', unavailable.text)
+        self.assertNotIn("private_database_details", unavailable.text)
+
 
 if __name__ == "__main__":
     unittest.main()

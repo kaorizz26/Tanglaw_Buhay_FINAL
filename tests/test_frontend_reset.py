@@ -76,7 +76,8 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                          {"status": "ok", "application": "Tanglaw-Buhay"})
 
     def test_anonymous_staff_routes_redirect_and_login_has_no_staff_navigation(self):
-        for path in ("/", "/logout", "/households", "/households/PRIVATE_ID",
+        for path in ("/", "/administration", "/administration/import",
+                     "/administration/accounts", "/logout", "/households", "/households/PRIVATE_ID",
                      "/assessments", "/assessments/PRIVATE_ID?tab=mpi"):
             page = self.client.get(path)
             self.assertEqual(page.status_code, 302)
@@ -88,33 +89,52 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         self.assertIn('name="csrf_token"', page.text)
         self.assertIn('href="/static/css/login.css"', page.text)
 
-    def test_both_roles_land_on_dashboard_with_sign_out_and_no_record_content(self):
+    def test_role_landing_pages_have_sign_out_and_no_record_content(self):
         for username, label in (("synthetic_admin", "System Administrator"),
                                 ("synthetic_staff", "LGU Staff")):
             client = self.app.test_client()
             response = self._login(username, client)
             self.assertEqual(response.status_code, 302)
-            self.assertEqual(response.location, "/")
-            page = client.get("/")
+            destination = "/administration" if username == "synthetic_admin" else "/"
+            self.assertEqual(response.location, destination)
+            with patch("routes.main.get_active_dashboard_summary", return_value=None):
+                page = client.get(destination)
             self.assertEqual(page.status_code, 200)
+            self.assertIn("<h1>Dashboard</h1>", page.text)
             self.assertIn(label, page.text)
             self.assertIn("Sign Out", page.text)
             self.assertIn('action="/logout"', page.text)
             self.assertIn('method="post"', page.text)
             self.assertIn("Dashboard", page.text)
-            self.assertIn("Review Queue", page.text)
+            if username == "synthetic_admin":
+                self.assertIn('href="/administration"', page.text)
+                self.assertIn('href="/administration/import"', page.text)
+                self.assertIn('href="/administration/accounts"', page.text)
+                self.assertIn("Data Import", page.text)
+                self.assertIn("Staff Accounts", page.text)
+                self.assertNotIn("Review Queue", page.text)
+                self.assertNotIn("Submissions", page.text)
+                self.assertEqual(client.get("/").location, "/administration")
+            else:
+                self.assertNotIn('href="/administration"', page.text)
+                self.assertIn("Review Queue", page.text)
+                self.assertIn("Submissions", page.text)
+                self.assertNotIn("Data Import", page.text)
+                self.assertNotIn("Staff Accounts", page.text)
             for retired in ("<table", "DEV-", "PRIVATE_RECORD_RESPONSE"):
                 self.assertNotIn(retired, page.text)
             self.assertEqual(page.headers["Cache-Control"], "no-store")
-            self.assertEqual(client.get("/login").location, "/")
-            self.assertIn('href="/"', client.get("/logout").text)
+            self.assertEqual(client.get("/login").location, destination)
+            self.assertIn(f'href="{destination}"', client.get("/logout").text)
 
     def test_retired_routes_return_gone_for_both_roles_without_echoing_record_ids(self):
         for username in self.users:
             client = self.app.test_client()
             self._login(username, client)
-            for path in ("/households", "/households/PRIVATE_ID", "/households/nested/PRIVATE_ID",
-                         "/assessments?view=queue", "/assessments/PRIVATE_ID?tab=subsidy"):
+            paths = ["/households/PRIVATE_ID", "/households/nested/PRIVATE_ID"]
+            if username == "synthetic_staff":
+                paths += ["/assessments?view=queue", "/assessments/PRIVATE_ID?tab=subsidy"]
+            for path in paths:
                 page = client.get(path)
                 self.assertEqual(page.status_code, 410)
                 self.assertTrue("has been retired" in page.text or "not available" in page.text)
@@ -132,7 +152,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
             self.assertEqual(page.status_code, 403)
             self.assertNotIn("PRIVATE_RECORD_RESPONSE", page.text)
             self.assertEqual(self.client.get("/test").status_code, 200)
-            self.assertEqual(self.client.get("/households").status_code, 410)
+            self.assertEqual(self.client.get("/households").status_code, 503)
 
     def test_login_csrf_and_invalid_credentials_remain_protected(self):
         self.assertEqual(self.client.post("/login", data={
@@ -165,11 +185,28 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
 
         self._login()
         self.assertEqual(self.client.get("/synthetic-admin-check").status_code, 403)
+        self.assertEqual(self.client.get("/administration").status_code, 403)
         admin_client = self.app.test_client()
         self._login("synthetic_admin", admin_client)
         self.assertEqual(admin_client.get("/synthetic-admin-check").status_code, 200)
+        self.assertEqual(admin_client.get("/administration").status_code, 200)
+        self.assertEqual(admin_client.get("/administration/import").status_code, 200)
+        self.assertEqual(admin_client.get("/administration/accounts").status_code, 200)
         self.users["synthetic_admin"]["role"] = "lgu_staff"
         self.assertEqual(admin_client.get("/synthetic-admin-check").status_code, 403)
+        self.assertEqual(admin_client.get("/administration").status_code, 403)
+        self.assertEqual(admin_client.get("/administration/import").status_code, 403)
+        self.assertEqual(admin_client.get("/administration/accounts").status_code, 403)
+
+    def test_admin_cannot_open_assessments_or_submit_review_actions(self):
+        self._login("synthetic_admin")
+        for path in ("/assessments", "/assessments/queue", "/assessments/PRIVATE_ID",
+                     "/assessments/00000000-0000-0000-0000-000000000001/reviews/4Ps"):
+            self.assertEqual(self.client.get(path).status_code, 403)
+        self.assertEqual(self.client.post(
+            "/assessments/00000000-0000-0000-0000-000000000001/reviews/4Ps",
+            data={"csrf_token": "unused"},
+        ).status_code, 403)
 
 
 if __name__ == "__main__":

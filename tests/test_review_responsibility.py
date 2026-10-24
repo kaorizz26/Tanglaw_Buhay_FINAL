@@ -249,11 +249,11 @@ class ResponsibilityDatabaseTests(unittest.TestCase):
         self.assertNotIn('<script>Coverage</script>', saved.text)
         self.assertIn('synthetic_staff (you)', saved.text)
         self.assertEqual(client.post(path + '&action=reassign', data=form).status_code, 409)
-        # Administrator also has shared reassignment access.
+        # Administrators cannot reassign staff reviews.
         admin_client = self.client(self.admin)
         self.assertEqual(admin_client.post(path + '&action=reassign', data={
             **form, 'responsibility_version': 2, 'responsible_staff_id': self.admin,
-        }).status_code, 303)
+        }).status_code, 403)
         for status, _ in queue.STATUS_OPTIONS:
             page = client.get(f'/assessments/queue?scope=mine&sort=asc&status={status}')
             self.assertEqual(page.status_code, 200)

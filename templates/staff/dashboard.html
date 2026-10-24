@@ -7,6 +7,7 @@
 {% endblock %}
 
 {% block content %}
+  {% set is_admin = g.user['role'] == 'system_administrator' %}
   <header class="page-header dashboard-header">
     <div class="context-bar">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -31,16 +32,18 @@
           {% endif %}
         </p>
       </div>
-      <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization') }}">
-        Explore households <span aria-hidden="true">→</span>
-      </a>
+      {% if not is_admin %}
+        <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization') }}">
+          Explore households <span aria-hidden="true">→</span>
+        </a>
+      {% endif %}
     </div>
   </header>
 
   {% if summary %}
     <div class="dashboard-historical-note" role="note">
       <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-      <p>These {{ summary.context.survey_year }} findings support staff review. They do not establish official poverty classification, subsidy eligibility or approval.</p>
+      <p>These {{ summary.context.survey_year }} findings provide a historical municipal overview. They do not establish official poverty classification, subsidy eligibility or approval.</p>
     </div>
 
     <section class="dashboard-metrics" aria-label="Municipal assessment summary">
@@ -49,21 +52,33 @@
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority['all']) }}</p>
         <p class="dashboard-metric-caption">In the selected municipal assessment</p>
       </div>
-      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary') }}">
+      {% if is_admin %}
+        <div class="dashboard-metric">
+      {% else %}
+        <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary') }}">
+      {% endif %}
         <p class="dashboard-metric-label">Primary Priority</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.primary) }}</p>
-        <p class="dashboard-metric-caption">Recommended for consideration first <span aria-hidden="true">↗</span></p>
-      </a>
-      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary') }}">
+        <p class="dashboard-metric-caption">Recommended for consideration first{% if not is_admin %} <span aria-hidden="true">↗</span>{% endif %}</p>
+      {% if is_admin %}</div>{% else %}</a>{% endif %}
+      {% if is_admin %}
+        <div class="dashboard-metric">
+      {% else %}
+        <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary') }}">
+      {% endif %}
         <p class="dashboard-metric-label">Secondary Priority</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.secondary) }}</p>
-        <p class="dashboard-metric-caption">Recommended for subsequent consideration <span aria-hidden="true">↗</span></p>
-      </a>
-      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown') }}">
+        <p class="dashboard-metric-caption">Recommended for subsequent consideration{% if not is_admin %} <span aria-hidden="true">↗</span>{% endif %}</p>
+      {% if is_admin %}</div>{% else %}</a>{% endif %}
+      {% if is_admin %}
+        <div class="dashboard-metric">
+      {% else %}
+        <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown') }}">
+      {% endif %}
         <p class="dashboard-metric-label">Needs Assessment Attention</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.findings.needs_attention) }}</p>
-        <p class="dashboard-metric-caption">At least one unknown indicator <span aria-hidden="true">↗</span></p>
-      </a>
+        <p class="dashboard-metric-caption">At least one unknown indicator{% if not is_admin %} <span aria-hidden="true">↗</span>{% endif %}</p>
+      {% if is_admin %}</div>{% else %}</a>{% endif %}
     </section>
 
     <div class="dashboard-panels">
@@ -79,14 +94,20 @@
         <div class="dashboard-bars">
           {% for key, label in [('primary', 'Primary Priority'), ('secondary', 'Secondary Priority'), ('other', 'Outside Priority Groups')] %}
             {% set count = summary.priority[key] %}
-            <a class="dashboard-bar-row" href="{{ url_for('assessments.prioritization', priority=key) }}">
+            {% if is_admin %}
+              <div class="dashboard-bar-row">
+            {% else %}
+              <a class="dashboard-bar-row" href="{{ url_for('assessments.prioritization', priority=key) }}">
+            {% endif %}
               <span class="dashboard-bar-label">{{ label }}</span>
               <span class="dashboard-bar-value">{{ '{:,}'.format(count) }}</span>
               <span class="dashboard-track"><span class="dashboard-fill dashboard-fill-{{ key }}" style="width: {{ (count / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 }}%"></span></span>
-            </a>
+            {% if is_admin %}</div>{% else %}</a>{% endif %}
           {% endfor %}
         </div>
-        <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization') }}">View Household Prioritization <span aria-hidden="true">→</span></a>
+        {% if not is_admin %}
+          <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization') }}">View Household Prioritization <span aria-hidden="true">→</span></a>
+        {% endif %}
       </section>
 
       <section class="dashboard-panel" aria-labelledby="screening-heading">
@@ -100,14 +121,20 @@
         <div class="dashboard-bars">
           {% for code, field in [('4Ps', 'four_ps'), ('SLP', 'slp'), ('SPISC', 'spisc'), ('TUPAD', 'tupad')] %}
             {% set count = summary.findings[field] %}
-            <a class="dashboard-bar-row" href="{{ url_for('assessments.prioritization', program=code) }}">
+            {% if is_admin %}
+              <div class="dashboard-bar-row">
+            {% else %}
+              <a class="dashboard-bar-row" href="{{ url_for('assessments.prioritization', program=code) }}">
+            {% endif %}
               <span class="dashboard-bar-label">{{ code }}</span>
               <span class="dashboard-bar-value">{{ '{:,}'.format(count) }}</span>
               <span class="dashboard-track"><span class="dashboard-fill dashboard-fill-program" style="width: {{ (count / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 }}%"></span></span>
-            </a>
+            {% if is_admin %}</div>{% else %}</a>{% endif %}
           {% endfor %}
         </div>
-        <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization') }}">Explore screening findings <span aria-hidden="true">→</span></a>
+        {% if not is_admin %}
+          <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization') }}">Explore screening findings <span aria-hidden="true">→</span></a>
+        {% endif %}
       </section>
     </div>
 
@@ -177,10 +204,13 @@
     <section class="dashboard-unavailable" role="status" aria-labelledby="unavailable-heading">
       <h2 id="unavailable-heading">Assessment summary unavailable</h2>
       <p>The municipal summary could not be loaded right now. Please try again later.</p>
-      <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization') }}">Open Household Prioritization <span aria-hidden="true">→</span></a>
+      {% if not is_admin %}
+        <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization') }}">Open Household Prioritization <span aria-hidden="true">→</span></a>
+      {% endif %}
     </section>
   {% endif %}
 
+  {% if not is_admin %}
   <section class="dashboard-work" aria-labelledby="work-heading">
     <div>
       <p class="dashboard-panel-kicker">Continue your work</p>
@@ -192,4 +222,5 @@
       <a href="{{ url_for('assessments.queue') }}">Review Queue <span aria-hidden="true">→</span></a>
     </div>
   </section>
+  {% endif %}
 {% endblock %}

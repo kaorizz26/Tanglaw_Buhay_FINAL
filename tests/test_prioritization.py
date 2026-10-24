@@ -113,13 +113,16 @@ class PrioritizationTests(unittest.TestCase):
                 )
         self.query.assert_not_called()
 
-    def test_both_roles_render_seven_columns_and_only_for_review_badges(self):
+    def test_staff_renders_seven_columns_and_only_for_review_badges(self):
         for role, label in (
             ("lgu_staff", "LGU Staff"),
             ("system_administrator", "System Administrator"),
         ):
             with self.subTest(role=role), patch.dict(self.user, role=role):
                 self._session()
+                if role == "system_administrator":
+                    self.assertEqual(self.client.get("/assessments").status_code, 403)
+                    continue
                 self.assertEqual(
                     self.client.get("/assessments?q=Synthetic&program=4Ps&completeness=unknown").status_code,
                     200,
@@ -145,7 +148,8 @@ class PrioritizationTests(unittest.TestCase):
                 self.assertIn('class="subsidy-badge">TUPAD', response.text)
                 self.assertNotIn('class="subsidy-badge">SLP', response.text)
                 self.assertNotIn('class="subsidy-badge">SPISC', response.text)
-                self.assertNotIn('href="/households', response.text)
+                ranking_rows = response.text.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
+                self.assertNotIn('href="/households', ranking_rows)
                 self.assertIn('href="/assessments/SYNTHETIC', response.text)
                 self.assertIn('aria-label="View Assessment for HH-', response.text)
                 self.assertIn('type="search"', response.text)

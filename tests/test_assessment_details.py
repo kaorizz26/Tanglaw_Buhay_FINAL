@@ -325,10 +325,14 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.assertEqual(self.client.get(self.path).location, "/login")
         self.query.assert_not_called()
 
-    def test_both_roles_read_stored_overview_and_sixteen_collapsible_indicators(self):
+    def test_staff_reads_stored_overview_and_sixteen_collapsible_indicators(self):
         for role in ("lgu_staff", "system_administrator"):
             with self.subTest(role=role), patch.dict(self.user, role=role):
                 self._session()
+                if role == "system_administrator":
+                    self.assertEqual(self.client.get(self.path).status_code, 403)
+                    self.assertEqual(self.client.get(self.path + "?tab=mpi").status_code, 403)
+                    continue
                 overview = self.client.get(self.path)
                 self.assertEqual(overview.status_code, 200)
                 self.assertEqual(overview.headers["Cache-Control"], "no-store")

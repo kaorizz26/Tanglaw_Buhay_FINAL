@@ -104,9 +104,9 @@ class StaffAuthenticationTests(unittest.TestCase):
                 connection.execute(
                     sql.SQL("SET LOCAL search_path TO {}").format(sql.Identifier(self.schema)),
                 )
-                connection.execute(
-                    (ROOT / "migrations/0002_staff_authentication.sql").read_text(),
-                )
+                for migration in ("0002_staff_authentication.sql",
+                                  "0010_staff_password_change_required.sql"):
+                    connection.execute((ROOT / "migrations" / migration).read_text())
         self.app.config.update(
             DATABASE_URL=self.url, PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
         )
@@ -127,6 +127,25 @@ class StaffAuthenticationTests(unittest.TestCase):
                 sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(self.schema)),
             )
 
+    def test_password_change_migration_preserves_existing_accounts(self):
+        with psycopg.connect(self.url) as connection:
+            existing = connection.execute(
+                "SELECT username, must_change_password FROM staff_users ORDER BY username",
+            ).fetchall()
+            self.assertEqual(existing, [
+                ("synthetic_admin", False), ("synthetic_staff", False),
+            ])
+            connection.execute(
+                """INSERT INTO staff_users
+                   (username, password_hash, role, must_change_password)
+                   VALUES (%s, %s, 'lgu_staff', true)""",
+                ("new_staff", generate_password_hash(token_urlsafe(32))),
+            )
+            self.assertTrue(connection.execute(
+                "SELECT must_change_password FROM staff_users WHERE username = %s",
+                ("new_staff",),
+            ).fetchone()[0])
+
     def _token(self, client=None, path="/login"):
         response = (client or self.client).get(path)
         self.assertEqual(response.status_code, 200)
@@ -140,25 +159,37 @@ class StaffAuthenticationTests(unittest.TestCase):
             "csrf_token": token,
         })
 
-    def test_both_roles_login_and_access_dashboard(self):
+    def test_both_roles_login_and_reach_their_landing_pages(self):
         for username in ("synthetic_staff", "synthetic_admin"):
             client = self.app.test_client()
             response = self._login(username, client)
             self.assertEqual(response.status_code, 302)
-            self.assertEqual(response.location, "/")
-            page = client.get("/")
+            destination = "/administration" if username == "synthetic_admin" else "/"
+            self.assertEqual(response.location, destination)
+            page = client.get(destination)
             self.assertEqual(page.status_code, 200)
+            self.assertEqual(client.get("/login").location, destination)
             role_label = "System Administrator" if username == "synthetic_admin" else "LGU Staff"
             self.assertIn(role_label, page.text)
             self.assertNotIn(self.password, page.text)
-            for path in ("/households", "/households/DEV-0001",
+            for path in ("/households/DEV-0001",
                          "/assessments/DEV-0001?tab=mpi", "/assessments?view=queue"):
-                self.assertEqual(client.get(path).status_code, 410)
-            # Assessment pages fail safely because this isolated auth schema has no assessments.
-            self.assertEqual(client.get("/assessments").status_code, 503)
+                expected = 403 if username == "synthetic_admin" and path.startswith("/assessments") else 410
+                self.assertEqual(client.get(path).status_code, expected)
+            if username == "synthetic_admin":
+                self.assertEqual(client.get("/assessments").status_code, 403)
+                self.assertEqual(client.get("/").location, "/administration")
+                self.assertEqual(client.get("/administration/import").status_code, 200)
+                self.assertEqual(client.get("/administration/accounts").status_code, 200)
+            else:
+                # This isolated auth schema has no assessments.
+                self.assertEqual(client.get("/assessments").status_code, 503)
+            self.assertEqual(client.get("/households").status_code, 503)
 
     def test_anonymous_routes_are_protected_and_health_is_independent(self):
-        for path in ("/", "/households", "/households/DEV-0001", "/assessments",
+        for path in ("/", "/administration", "/administration/import",
+                     "/administration/accounts", "/change-password",
+                     "/households", "/households/DEV-0001", "/assessments",
                      "/assessments/DEV-0001", "/logout", "/synthetic-admin-check"):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 302)
@@ -213,12 +244,17 @@ class StaffAuthenticationTests(unittest.TestCase):
         with self.client.session_transaction() as session:
             session["role"] = "system_administrator"
         self.assertEqual(self.client.get("/synthetic-admin-check").status_code, 403)
+        self.assertEqual(self.client.get("/administration").status_code, 403)
+        self.assertEqual(self.client.get("/administration/import").status_code, 403)
+        self.assertEqual(self.client.get("/administration/accounts").status_code, 403)
         admin_client = self.app.test_client()
         self._login("synthetic_admin", admin_client)
         self.assertEqual(admin_client.get("/synthetic-admin-check").status_code, 200)
+        self.assertEqual(admin_client.get("/administration").status_code, 200)
         with psycopg.connect(self.url) as connection:
             connection.execute("UPDATE staff_users SET role = 'lgu_staff'")
         self.assertEqual(admin_client.get("/synthetic-admin-check").status_code, 403)
+        self.assertEqual(admin_client.get("/administration").status_code, 403)
 
     def test_session_is_replaced_and_cookie_has_security_flags(self):
         token = self._token()
@@ -272,6 +308,16 @@ class StaffAuthenticationTests(unittest.TestCase):
         self._login()
         with patch.dict(self.app.extensions["development_workspace"], source_kind="actual_cbms"):
             self.assertEqual(self.client.get("/").status_code, 403)
+
+    def test_password_change_flag_is_rechecked_for_existing_sessions(self):
+        self._login()
+        self.assertEqual(self.client.get("/").status_code, 200)
+        with psycopg.connect(self.url) as connection:
+            connection.execute(
+                """UPDATE staff_users SET must_change_password = true
+                   WHERE username = 'synthetic_staff'""",
+            )
+        self.assertEqual(self.client.get("/").location, "/change-password")
 
     def test_bootstrap_hashes_password_and_cannot_replace_accounts(self):
         with psycopg.connect(self.url) as connection:

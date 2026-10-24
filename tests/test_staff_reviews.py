@@ -70,13 +70,18 @@ class StaffReviewRouteTests(unittest.TestCase):
         data = {'csrf_token': 'test-token', 'batch_id': '1', 'run_id': '2', **overrides}
         return self.client.post(self.path + '/reviews/' + program, data=data)
 
-    def test_both_roles_start_only_by_post_and_return_to_reviews(self):
+    def test_staff_starts_only_by_post_and_returns_to_reviews(self):
         before = deepcopy(self.source)
         for role in ('system_administrator', 'lgu_staff'):
             with self.subTest(role=role):
                 self.user['role'] = role
                 self.session()
                 page = self.client.get(self.start_path + '?page=2&priority=both')
+                if role == 'system_administrator':
+                    self.assertEqual(page.status_code, 403)
+                    self.assertEqual(self.post().status_code, 403)
+                    self.creator.assert_not_called()
+                    continue
                 self.assertEqual(page.status_code, 200)
                 self.assertIn('Start 4Ps Review', page.text)
                 self.assertIn('HH-00008', page.text)

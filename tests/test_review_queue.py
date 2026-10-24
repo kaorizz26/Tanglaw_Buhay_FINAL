@@ -109,10 +109,13 @@ class QueueRouteTests(unittest.TestCase):
     def test_authorization_status_tabs_and_exact_table_columns(self):
         self.assertEqual(self.client.get('/assessments/queue').location, '/login')
         self.query.assert_not_called()
-        for role in ('system_administrator', 'lgu_staff'):
+        for role in ('lgu_staff', 'system_administrator'):
             self.fixture.user['role'] = role
             self.fixture.session()
             page = self.client.get('/assessments/queue')
+            if role == 'system_administrator':
+                self.assertEqual(page.status_code, 403)
+                continue
             self.assertEqual(page.status_code, 200)
             self.assertEqual(page.headers['Cache-Control'], 'no-store')
             self.assertIn('Open Review', page.text)
@@ -178,6 +181,9 @@ class QueueRouteTests(unittest.TestCase):
                     response = self.client.get('/assessments/queue' + (
                         '' if choice is None else '?scope=' + choice
                     ))
+                    if role == 'system_administrator':
+                        self.assertEqual(response.status_code, 403)
+                        continue
                     self.assertEqual(response.status_code, 200)
                     scope = choice or default
                     self.assertEqual(self.query.call_args.args[1].scope, scope)
@@ -202,6 +208,7 @@ class QueueRouteTests(unittest.TestCase):
                                   'or denial of eligibility.', response.text)
                     self.assertLess(response.text.index('queue-scope-switch'),
                                     response.text.index('Filter staff reviews'))
+        self.fixture.user['role'] = 'lgu_staff'
         for bad in ('scope=', 'scope=unknown', 'scope=mine&scope=all',
                     'scope=https://example.com'):
             self.query.reset_mock()
@@ -398,7 +405,8 @@ class QueueDatabaseTests(unittest.TestCase):
             with client.session_transaction() as session:
                 session.update(user_id=staff_id, session_version=1, issued_at=int(reviews.time()),
                                csrf_token='test-token')
-            self.assertEqual(client.get('/assessments/queue').status_code, 200)
+            expected = 403 if staff_id == fx.staff_ids[0] else 200
+            self.assertEqual(client.get('/assessments/queue').status_code, expected)
         response = client.post(path + '?' + state + '&action=finish', data={
             'csrf_token': 'test-token', 'action': 'finish', 'batch_id': fx.batch_id,
             'run_id': fx.run_id, 'recommendation': 'For LGU Follow-Up', 'text': 'Further consideration.',

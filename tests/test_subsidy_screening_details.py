@@ -216,10 +216,13 @@ class ScreeningRouteTests(unittest.TestCase):
         with self.client.session_transaction() as session:
             session.update(user_id=1, session_version=1, issued_at=int(time()), csrf_token="synthetic")
 
-    def test_authorized_roles_can_open_tab_and_preserve_return_filters(self):
+    def test_staff_can_open_tab_and_preserve_return_filters(self):
         for role in ("lgu_staff", "system_administrator"):
             self.user["role"] = role
             self.session()
+            if role == "system_administrator":
+                self.assertEqual(self.client.get(self.path + "?tab=screening").status_code, 403)
+                continue
             response = self.client.get(self.path + "?tab=screening&page=2&priority=secondary&program=4Ps&completeness=unknown")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.headers["Cache-Control"], "no-store")

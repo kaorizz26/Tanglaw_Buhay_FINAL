@@ -4,7 +4,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 
 from services.assessment_queries import AssessmentQueryError
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
-from services.auth import ADMIN_ROLE, check_csrf, csrf_token
+from services.auth import check_csrf, csrf_token
 from services.prioritization import get_prioritization_page
 from services.assessment_details import detail_navigation, get_assessment_detail
 from services.staff_reviews import (
@@ -43,7 +43,7 @@ def queue():
     """Read explicit staff work through the existing staff authorization guard."""
     try:
         page, filters = parse_queue_arguments(
-            request.args, default_scope='all' if g.user['role'] == ADMIN_ROLE else 'mine',
+            request.args, default_scope='mine',
         )
         results = get_review_queue_page(page, filters, staff_id=g.user['id'])
     except InvalidAssessmentFilters:
@@ -55,7 +55,7 @@ def queue():
         return redirect(url_for('assessments.queue', page=1, **filters.parameters), code=303)
     return render_template(
         'assessments/queue.html', results=results,
-        role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
+        role_label='LGU Staff',
         staff_username=g.user['username'], csrf_token=csrf_token(),
     )
 
@@ -83,11 +83,10 @@ def prioritization():
         abort(503, description="Household assessments are unavailable. Please try again later.")
     if results is None:
         abort(404, description="This assessment page does not exist.")
-    role_label = "System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff"
     return render_template(
         "assessments/prioritization.html",
         results=results,
-        role_label=role_label,
+        role_label="LGU Staff",
         staff_username=g.user["username"],
         csrf_token=csrf_token(),
     )
@@ -108,10 +107,9 @@ def detail(household_uuid):
         if str(error) == "household_assessment_missing":
             abort(404, description="This household assessment is unavailable in the selected batch.")
         abort(503, description="Household assessments are unavailable. Please try again later.")
-    role_label = "System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff"
     return render_template(
         "assessments/detail.html", results=results, tab=tab,
-        **navigation, role_label=role_label,
+        **navigation, role_label="LGU Staff",
         staff_username=g.user["username"], csrf_token=csrf_token(),
     )
 
@@ -206,7 +204,7 @@ def start_review(household_uuid, review_program):
     return render_template(
         "assessments/detail.html", results=results, tab="reviews", start_program=selected,
         review_error=error, starting_reason=reason[:1000], **navigation,
-        role_label="System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff",
+        role_label="LGU Staff",
         staff_username=g.user["username"], csrf_token=csrf_token(),
     ), (400 if error else 200)
 
@@ -345,6 +343,6 @@ def review_record(household_uuid, review_program, review_id):
         review_mode=mode, review_error=error, review_text=text[:2000],
         recommendation=recommendation, assignable_staff=assignable_staff,
         selected_staff=selected_staff, **navigation,
-        role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
+        role_label='LGU Staff',
         staff_username=g.user['username'], csrf_token=csrf_token(),
     ), (error_status if error else 200)

@@ -177,7 +177,7 @@
   text-decoration: none;
 }
 
-.dashboard-bar-row:hover .dashboard-bar-label {
+a.dashboard-bar-row:hover .dashboard-bar-label {
   text-decoration: underline;
 }
 

@@ -1,0 +1,102 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}{{ record.reference_id }} · Household Record{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/household-records.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header records-header">
+    <div class="context-bar">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="{{ list_url }}">Household Records</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{{ record.reference_id }}</span>
+      </nav>
+      <p class="dataset-reference">
+        <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="15" height="15">
+        CBMS {{ record.context.survey_year }} · Historical snapshot
+      </p>
+    </div>
+    <div class="record-detail-heading">
+      <div>
+        <p class="records-kicker">Household record · {{ record.reference_id }}</p>
+        <h1>{{ record.head_name }}</h1>
+        <p>{{ record.barangay }} · Municipality of {{ record.context.municipality }}</p>
+      </div>
+      <div class="record-detail-actions">
+        <a class="record-back" href="{{ list_url }}">← Back to Records</a>
+        {% if g.user['role'] == 'lgu_staff' %}
+          <a class="record-assessment" href="{{ url_for('assessments.detail', household_uuid=record.household_uuid) }}">View Assessment →</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <div class="record-notice" role="note">
+    <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
+    <p>These answers describe the {{ record.context.survey_year }} survey. A blank or skipped question is not a recorded “No.” Assessment findings and staff reviews are available through View Assessment.</p>
+  </div>
+
+  <div class="record-overview" aria-label="Household overview">
+    <div><span>Household ID</span><strong>{{ record.reference_id }}</strong></div>
+    <div><span>Barangay</span><strong>{{ record.barangay }}</strong></div>
+    <div><span>Members in recorded roster</span><strong>{{ record.member_count }}</strong></div>
+  </div>
+
+  <nav class="record-jump-links" aria-label="Record sections">
+    <span>On this page</span>
+    <a href="#household-answers">Household Answers ↓</a>
+    <a href="#member-roster">Member Roster ↓</a>
+  </nav>
+
+  <div class="record-detail-grid" id="household-answers" role="region" aria-label="Household answers" tabindex="-1">
+    {% for group in record.groups %}
+      <section class="record-section" aria-labelledby="record-group-{{ loop.index }}">
+        <p class="records-kicker">Household answers</p>
+        <h2 id="record-group-{{ loop.index }}">{{ group.title }}</h2>
+        <dl class="record-answer-list">
+          {% for cell in group.cells %}
+            <div>
+              <dt>{{ cell.label }}</dt>
+              <dd>{{ cell.value }}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      </section>
+    {% endfor %}
+  </div>
+
+  <section class="record-section record-members" id="member-roster" aria-labelledby="record-members-heading" tabindex="-1">
+    <div class="record-section-heading">
+      <div>
+        <p class="records-kicker">Recorded household members</p>
+        <h2 id="record-members-heading">Member roster</h2>
+      </div>
+      <span>{{ record.member_count }} {% if record.member_count == 1 %}member{% else %}members{% endif %}</span>
+    </div>
+    {% if record.members %}
+      <div class="record-member-grid">
+        {% for member in record.members %}
+          <article class="record-member">
+            <div class="record-member-heading">
+              <span>Member {{ member.line_number }}</span>
+              <h3>{{ member.name }}</h3>
+            </div>
+            <dl class="record-answer-list">
+              {% for cell in member.cells %}
+                <div>
+                  <dt>{{ cell.label }}</dt>
+                  <dd>{{ cell.value }}</dd>
+                </div>
+              {% endfor %}
+            </dl>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="record-no-members">No household members were recorded in this roster.</p>
+    {% endif %}
+  </section>
+{% endblock %}

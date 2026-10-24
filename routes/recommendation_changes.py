@@ -3,7 +3,7 @@
 from flask import abort, current_app, flash, g, redirect, render_template, request, url_for
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
-from services.auth import ADMIN_ROLE, csrf_token
+from services.auth import csrf_token
 from services.assessment_queries import AssessmentQueryError
 from services.staff_reviews import StaffReviewError, get_staff_review_detail
 from services.recommendation_changes import change_recommendation
@@ -96,6 +96,6 @@ def recommendation_form(household_uuid, program, review_id, mode, navigation):
         'assessments/detail.html', results=results, tab='reviews', review_record=record,
         review_mode=mode, review_error=error, change_values=values,
         change_confirmation=confirmation, confirmation_token=confirmation_token,
-        **navigation, role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
+        **navigation, role_label='LGU Staff',
         staff_username=g.user['username'], csrf_token=csrf_token(),
     ), (400 if error else 200)

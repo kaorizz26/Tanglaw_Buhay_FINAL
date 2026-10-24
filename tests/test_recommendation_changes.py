@@ -322,9 +322,9 @@ class RecommendationChangeTests(unittest.TestCase):
         self.assertNotIn('Confirm and Save', edited.text)
         self.assertEqual(self.history()[0]['recommendation_changes'], [])
         self.assertEqual(client.post(path, data=self.form(step='confirm', confirmation_token=token + 'x')).status_code, 400)
-        # Confirmation is bound to the staff member and action, not mutable POST fields.
+        # Administrators cannot submit review changes, even with a staff token.
         self.assertEqual(self.helper.client(self.admin).post(path, data=self.form(
-            step='confirm', confirmation_token=token)).status_code, 400)
+            step='confirm', confirmation_token=token)).status_code, 403)
         saved = client.post(path, data=self.form(step='confirm', confirmation_token=token,
                                                 recommendation='For LGU Follow-Up', explanation='Tampered'))
         self.assertEqual(saved.status_code, 303)
@@ -338,16 +338,17 @@ class RecommendationChangeTests(unittest.TestCase):
             self.assertIn('No Further Action', response.text)
         self.assertEqual(client.post(path, data=self.form(step='confirm', confirmation_token=token)).status_code, 409)
         self.assertEqual(client.get(base + '&action=correct&queue_url=https://example.com').status_code, 400)
-        # Administrator can withdraw a recommendation completed/corrected by another staff member.
+        # Withdrawal remains a staff action; administrators cannot use this route.
         admin = self.helper.client(self.admin)
         withdrawal = base + '&action=withdraw'
-        preview = admin.post(withdrawal, data=self.form(version=1))
+        self.assertEqual(admin.post(withdrawal, data=self.form(version=1)).status_code, 403)
+        preview = client.post(withdrawal, data=self.form(version=1))
         self.assertIn('Review Withdrawal', preview.text)
         self.assertIn('HH-00008', preview.text)
         self.assertIn('Keep Current Recommendation', preview.text)
-        withdrawn = admin.post(withdrawal, data=self.form(step='confirm', confirmation_token=self.token(preview)))
+        withdrawn = client.post(withdrawal, data=self.form(step='confirm', confirmation_token=self.token(preview)))
         self.assertEqual(withdrawn.status_code, 303)
-        self.assertEqual(self.history()[0]['recommendation_changes'][-1]['changed_by'], self.admin)
+        self.assertEqual(self.history()[0]['recommendation_changes'][-1]['changed_by'], self.staff)
 
     def test_http_authentication_and_stale_confirmation_after_newer_start(self):
         path = f'/assessments/{HOUSEHOLD_UUID}/reviews/4Ps/{self.review_id}?action=correct'

@@ -1,0 +1,68 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Staff Accounts{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-accounts.css') }}">
+  <script src="{{ url_for('static', filename='js/staff-accounts.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header accounts-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <span aria-current="page">Staff Accounts</span>
+    </nav>
+    <h1>Staff Accounts</h1>
+    <p>Create a login for an LGU staff member.</p>
+  </header>
+
+  {% if created_account %}
+    <section class="accounts-card accounts-created" aria-labelledby="created-heading">
+      <p class="accounts-kicker">Account created</p>
+      <h2 id="created-heading">{{ created_account.display_name }}</h2>
+      <p>The staff member can sign in with the username and initial password below. They must set their own password before using staff pages.</p>
+      <dl class="accounts-credentials">
+        <div>
+          <dt>Username</dt>
+          <dd>{{ created_account.username }}</dd>
+        </div>
+        <div>
+          <dt>Initial password</dt>
+          <dd><code>{{ created_account.temporary_password }}</code></dd>
+        </div>
+      </dl>
+      <p class="accounts-password-note">Copy the password now. It is shown only on this page and remains valid until changed. Share it privately with the staff member.</p>
+      <a class="accounts-button" href="{{ url_for('main.staff_accounts') }}">Create another staff account</a>
+    </section>
+  {% else %}
+    <section class="accounts-card" aria-labelledby="create-heading">
+      <p class="accounts-kicker">New staff login</p>
+      <h2 id="create-heading">Create staff account</h2>
+      <p>Enter the staff member's name and choose a unique username. The account will have LGU Staff access.</p>
+
+      {% if error %}
+        <p class="accounts-error" id="account-error" role="alert">{{ error }}</p>
+      {% endif %}
+
+      <form class="accounts-form" method="post" action="{{ url_for('main.staff_accounts') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="accounts-field">
+          <label for="display-name">Staff member's name</label>
+          <input id="display-name" name="display_name" type="text" value="{{ display_name }}"
+                 autocomplete="name" maxlength="120" required autofocus>
+        </div>
+        <div class="accounts-field">
+          <label for="staff-username">Username</label>
+          <input id="staff-username" name="username" type="text" value="{{ username }}"
+                 autocomplete="off" maxlength="64" minlength="3"
+                 pattern="[a-z0-9][a-z0-9_.-]{2,63}" aria-describedby="username-hint" required>
+          <p id="username-hint">Suggested from the name. You can change it; use 3–64 lowercase letters, numbers, dots, dashes or underscores.</p>
+        </div>
+        <div class="accounts-form-footer">
+          <p>An initial password will be generated and shown once after creation.</p>
+          <button class="accounts-button" type="submit">Create Staff Account</button>
+        </div>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -19,6 +19,7 @@ from repositories import assessment_runs as repository
 from repositories import assessment_evidence
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source, screening_source
 from services import assessment_queries as service
+from services import household_records as record_service
 from services.assessment_filters import (
     AssessmentFilters, InvalidAssessmentFilters, PROGRAM_ORDER, normalize_filters,
 )
@@ -728,6 +729,74 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             )
         self._run(findings=findings)
         return findings
+
+    def test_household_directory_search_barangay_and_source_order(self):
+        findings = self._filter_fixture()
+        first_uuid = next(iter(findings))
+        all_records = record_service.get_record_page(
+            1, record_service.RecordFilters(), connection_factory=self._factory,
+        )
+        self.assertEqual(all_records["total"], 32)
+        self.assertEqual(all_records["page_count"], 2)
+        self.assertEqual((all_records["range_start"], all_records["range_end"]), (1, 25))
+        self.assertEqual(all_records["items"][0]["household_uuid"], first_uuid)
+        self.assertEqual(all_records["items"][0]["reference_id"], "HH-00001")
+        self.assertEqual(all_records["items"][0]["head_name"], "Synthetic Common")
+        self.assertEqual(all_records["items"][0]["member_count"], 1)
+        self.assertEqual(all_records["barangays"], ["Synthetic East", "Synthetic West"])
+        second = record_service.get_record_page(
+            2, record_service.RecordFilters(), connection_factory=self._factory,
+        )
+        self.assertEqual(second["items"][0]["reference_id"], "HH-00026")
+        self.assertEqual((second["range_start"], second["range_end"]), (26, 32))
+        east = record_service.get_record_page(
+            1, record_service.RecordFilters(barangay="Synthetic East"),
+            connection_factory=self._factory,
+        )
+        self.assertEqual(east["total"], 15)
+        self.assertTrue(all(row["barangay"] == "Synthetic East" for row in east["items"]))
+        by_id = record_service.get_record_page(
+            1, record_service.RecordFilters(search="HH-00001"),
+            connection_factory=self._factory,
+        )
+        self.assertEqual([row["household_uuid"] for row in by_id["items"]], [first_uuid])
+        by_head = record_service.get_record_page(
+            1, record_service.RecordFilters(search="Synthetic Common", barangay="Synthetic West"),
+            connection_factory=self._factory,
+        )
+        self.assertEqual(by_head["total"], 15)
+        self.assertEqual(by_head["items"][0]["reference_id"], "HH-00002")
+        with self.assertRaises(record_service.InvalidRecordFilters):
+            record_service.get_record_page(
+                1, record_service.RecordFilters(barangay="Unknown"),
+                connection_factory=self._factory,
+            )
+
+    def test_household_detail_reads_focused_selected_batch_answers_only(self):
+        source, selected = self._detail_fixture()
+        other_batch = self._batch(uuids=[HOUSEHOLD_UUID])
+        self.connection.execute(
+            "UPDATE households SET responses=%s WHERE batch_id=%s",
+            (Jsonb({"q01_main_water": "OTHER_BATCH_VALUE"}), other_batch),
+        )
+        self.connection.execute(
+            "INSERT INTO household_members (batch_id, uuid, line_number, source_row_number, responses) "
+            "VALUES (%s, %s, 1, 1, %s)",
+            (other_batch, HOUSEHOLD_UUID, Jsonb({"a01_first_name": "OTHER_BATCH_MEMBER"})),
+        )
+        record = record_service.get_record_detail(HOUSEHOLD_UUID, connection_factory=self._factory)
+        self.assertEqual(record["context"]["run_id"], selected)
+        self.assertEqual(record["reference_id"], "HH-00001")
+        self.assertEqual(record["head_name"], "Synthetic Member 1")
+        self.assertEqual(record["barangay"], "Synthetic Barangay")
+        self.assertEqual(record["member_count"], 3)
+        self.assertEqual([member["line_number"] for member in record["members"]], [1, 2, 3])
+        self.assertEqual(record["groups"][0]["cells"][0]["label"], "Main water source")
+        self.assertEqual(record["groups"][1]["cells"][4]["value"], "50 m²")
+        self.assertNotIn("OTHER_BATCH_VALUE", str(record))
+        self.assertNotIn("OTHER_BATCH_MEMBER", str(record))
+        self.assertNotIn("EXCLUDED_SOURCE_VALUE", str(record))
+        self.assertEqual(source["household"]["q01_main_water"], "3")
 
     def _assert_filtered_rows(self, filters, expected_numbers, findings, *, page_size=25):
         """Check full matching sets/counts across pages and original stored values."""
