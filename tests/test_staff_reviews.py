@@ -112,6 +112,9 @@ class StaffReviewRouteTests(unittest.TestCase):
     def test_reason_form_only_when_required_and_validation_is_accessible(self):
         self.session()
         for program, label in (('SLP', 'Not Enough Information'), ('SPISC', 'No Review Signal')):
+            if program == 'SPISC':
+                for member in self.source['members']:
+                    member['responses']['a07_age'] = '30'
             page = self.client.get(self.path + '/reviews/' + program)
             self.assertEqual(page.status_code, 200)
             self.assertIn(label, page.text)
@@ -136,7 +139,7 @@ class StaffReviewRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.text.count('class="staff-review-card"'), 4)
         for text in ('Not Started', 'In Review', 'synthetic_admin', '17 Oct 2026',
-                     'Not Enough Information', 'No Review Signal', '&lt;script&gt;reason&lt;/script&gt;'):
+                     'Not Enough Information', 'Current SPISC recommendation', '&lt;script&gt;reason&lt;/script&gt;'):
             self.assertIn(text, response.text)
         self.assertNotIn('program=SLP', response.text)
         self.assertIn('/reviews/SLP/42', response.text)

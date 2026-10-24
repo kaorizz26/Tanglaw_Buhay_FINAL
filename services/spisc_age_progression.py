@@ -3,10 +3,11 @@
 Callers supply the selected batch's survey year and an explicit assessment date.
 The survey observation must already exist at assessment time. Bounds describe
 completed years of age, not verified current ages or subsidy eligibility.
-No database, screening status, disability evidence or priority count is changed.
+No source data, stored screening status or disability evidence is changed.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from services.screening.common import as_integer
 
@@ -14,6 +15,46 @@ from services.screening.common import as_integer
 SENIOR_CATEGORIES = (
     "recorded_senior", "reached_senior_age", "possible_senior_age",
 )
+
+
+def philippine_assessment_date():
+    """Capture one Philippine calendar date for an entire operation."""
+    return datetime.now(ZoneInfo("Asia/Manila")).date()
+
+
+def batch_age_reference_date(context):
+    """Use the documented 2022 reference or a verified future declaration."""
+    year = context["survey_year"]
+    declared = context.get("source_provenance", {}).get("declared", {})
+    if declared.get("age_reference_date_verified") is True:
+        try:
+            supplied = date.fromisoformat(declared.get("age_reference_date", ""))
+            return age_reference_date(year, supplied)
+        except (TypeError, ValueError):
+            pass
+    return age_reference_date(year)
+
+
+def senior_review_status(classifications):
+    """Apply the approved household policy, including an unresolved empty roster."""
+    categories = [item["category"] for item in classifications]
+    if any(category in SENIOR_CATEGORIES for category in categories):
+        return "For Review"
+    if not categories or "unknown_age" in categories:
+        return "Needs Data Review"
+    return "No Historical CBMS Trigger"
+
+
+def current_spisc_status(ages, context, assessment_date):
+    """Classify only age inputs; disability cannot create a review signal."""
+    reference = batch_age_reference_date(context)
+    if assessment_date < (reference or date(context["survey_year"], 1, 1)):
+        return "Needs Data Review"
+    return senior_review_status([
+        classify_senior_age(age, context["survey_year"], assessment_date,
+                            reference_date=reference)
+        for age in ages
+    ])
 
 
 def age_reference_date(survey_year: int, supplied: date | None = None) -> date | None:
@@ -77,7 +118,7 @@ def classify_senior_age(
         try:
             oldest_birth = _years_before(reference, age + 1) + timedelta(days=1)
             youngest_birth = _years_before(reference, age)
-        except ValueError:
+        except (ValueError, OverflowError):
             return {"category": "unknown_age", "minimum_age": None, "maximum_age": None}
         minimum = _completed_age(youngest_birth, assessment_date)
         maximum = _completed_age(oldest_birth, assessment_date)

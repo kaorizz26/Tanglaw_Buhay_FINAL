@@ -10,6 +10,7 @@ from repositories import assessment_runs, dataset_batches
 from repositories import assessment_evidence, staff_reviews
 from services.assessment_filters import normalize_filters
 from services.subsidy_priority import derive_subsidy_priority
+from services.spisc_age_progression import current_spisc_status, philippine_assessment_date
 
 
 class AssessmentQueryError(RuntimeError):
@@ -60,7 +61,7 @@ def get_active_assessment_context(*, connection_factory=get_connection):
 def list_active_assessment_summaries(
     *, page=1, page_size=25, include_household_identity=False,
     filters=None, include_barangays=False, include_priority_counts=False,
-    connection_factory=get_connection,
+    connection_factory=get_connection, assessment_date=None,
 ):
     """Return a bounded rank/UUID page and optional identities in one snapshot.
 
@@ -74,16 +75,23 @@ def list_active_assessment_summaries(
     ):
         raise AssessmentQueryError("invalid_assessment_pagination")
     filters = normalize_filters(filters)
+    assessed = assessment_date if assessment_date is not None else philippine_assessment_date()
     with _read_context(connection_factory) as (connection, context):
+        age_statuses = {
+            age: current_spisc_status([age], context, assessed)
+            for age in assessment_evidence.list_recorded_ages(connection, context["batch_id"])
+            if age is not None
+        }
+        current_age = {"spisc_age_statuses": age_statuses, "batch_id": context["batch_id"]}
         selection = {"filters": filters} if filters.active else {}
         total = context["household_count"]
         if filters.active:
             total = assessment_runs.count_assessment_summaries(
-                connection, context["run_id"], filters=filters,
+                connection, context["run_id"], filters=filters, **current_age,
             )
         items = assessment_runs.list_assessment_summaries(
             connection, context["run_id"], limit=page_size, offset=(page - 1) * page_size,
-            **selection,
+            **selection, **current_age,
         )
         items = [
             {**item, "subsidy_priority": derive_subsidy_priority(
@@ -109,12 +117,13 @@ def list_active_assessment_summaries(
             "page": page,
             "page_size": page_size,
             "total": total,
+            "assessment_date": assessed,
         }
         if include_barangays:
             result["barangays"] = dataset_batches.list_barangays(connection, context["batch_id"])
         if include_priority_counts:
             result["priority_counts"] = assessment_runs.count_priority_groups(
-                connection, context["run_id"], filters=filters,
+                connection, context["run_id"], filters=filters, **current_age,
             )
         return result
 

@@ -90,7 +90,7 @@ class SpiscAgeProgressionTests(unittest.TestCase):
 
     def test_missing_and_invalid_ages(self):
         for age in (None, "", "NA", "bad", True, False, -1, 59.5,
-                    float("nan"), float("inf"), [], {}):
+                     float("nan"), float("inf"), 1e100, [], {}):
             with self.subTest(age=age):
                 self.assertEqual(classify_senior_age(age, 2022, date(2026, 10, 24)), {
                     "category": "unknown_age", "minimum_age": None, "maximum_age": None,

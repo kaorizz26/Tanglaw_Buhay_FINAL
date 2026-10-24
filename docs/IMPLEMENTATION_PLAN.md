@@ -19,6 +19,7 @@ The current local development source is validated 2022 batch `1`, with completed
 
 | Milestone | Status | Next scoped work and acceptance criteria |
 | --- | --- | --- |
+| SPISC-3 — current-age integration | Completed | Shared current SPISC recommendations across Overview, prioritization filters/counts and locked review initiation; historical findings, MPI and ranks remain unchanged. All 478 regression tests passed, including isolated database checks. Browser connection timed out, so viewport checks remain unverified. |
 | Phase 6B.2 — import workflow | In Progress | Approve and build System Admin-only web import controls, source-file retention policy, and future-import workflow. Each batch must pass validation before activation; failures leave the active batch intact; historical batches and original answers remain preserved. The one-time 2022 runner is not a general import UI. |
 | Phase 6B.3 — roles and permissions | In Progress | Define and verify admin account workflows, account lifecycle, and finer staff-review permissions before exposing them. Non-admin staff must not invoke import/account actions; unauthenticated users must not access protected CBMS records. |
 | Phase 6B.4 — protected staff views | In Progress | Subsidy Screening detail/evidence is implemented. Implement separately approved Household Records and remaining staff modules. Source views stay read-only and batch-scoped; displayed scores, ranks, flags, and findings match the designated completed run. Public routes retain the fixture-only guard. |

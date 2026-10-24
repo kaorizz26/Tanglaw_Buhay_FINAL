@@ -6,7 +6,11 @@
     <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}">View Staff Reviews</a>
   {% endif %}
   <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **detail_parameters) }}">View Household Assessment <span aria-hidden="true">→</span></a>
-  <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **detail_parameters) }}">View Subsidy Screening</a>
+  {% if review.program == 'SPISC' %}
+    <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-spisc', **detail_parameters) }}">View SPISC finding and current-age evidence</a>
+  {% else %}
+    <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', **detail_parameters) }}">View Subsidy Screening</a>
+  {% endif %}
 </nav>
 
 <div class="review-workspace">
@@ -26,9 +30,12 @@
         </div>
         {% for program in results.programs if program.name == review.program %}
           <div>
-            <dt>Historical subsidy screening finding</dt>
+            <dt>{{ 'Current SPISC recommendation' if program.name == 'SPISC' else 'Historical subsidy screening finding' }}</dt>
             <dd><span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span></dd>
           </div>
+          {% if program.name == 'SPISC' %}
+            <div><dt>Historical CBMS {{ results.context.survey_year }} screening</dt><dd>{{ program.historical_status_label }}</dd></div>
+          {% endif %}
         {% endfor %}
         <div>
           <dt>Responsible Staff</dt>

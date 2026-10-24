@@ -275,9 +275,11 @@ The household SPISC presentation uses it through
 `services/spisc_screening_presentation.py`, adapting nested batch-scoped member
 responses to copied flat roster rows. The presentation captures one explicit
 assessment date in `Asia/Manila` per response; tests can supply a date directly.
-Current-age guidance is separate from the saved status and never feeds stored
-findings, municipality-wide prioritization or priority counts. Existing review
-routes still require a reason unless the saved status is For Review. Supporting
+Current-age guidance is separate from the saved status and never changes stored
+findings. Overview, priority filters/counts and SPISC review initiation use the
+current recommendation; other programs retain their stored statuses. Review
+creation revalidates SPISC age inputs inside its existing locked transaction.
+A starting reason is required unless the current recommendation is For Review. Supporting
 member disability context requires a joined L16=1 and household L15=1; household
 disability alone never identifies a member or triggers age review.
 `classify_senior_age(a07_age, survey_year, assessment_date)` accepts the selected
@@ -306,9 +308,17 @@ relevant member lines, and retains unknown/empty-roster information. Callers
 must supply rows from one selected batch; cross-household UUIDs are rejected.
 Focused synthetic checks: `python -B -m unittest discover -s tests -p test_spisc_age_progression.py`.
 
-The SPISC panel has one current-age display status, independent of its unchanged
-saved status in View Recorded Information. Its header and member cards do not
-feed Overview, prioritization counts or Staff Review initiation requirements.
+The SPISC panel retains its saved status in View Recorded Information. All staff
+surfaces use the same current-age policy from `spisc_age_progression.py`. For
+municipal queries, the read-only snapshot retrieves distinct A07 text tokens,
+classifies them once in Python using the selected batch context and one Philippine
+assessment date, then passes a JSON status lookup to PostgreSQL. SQL aggregates
+those member statuses by batch/household before filtering, counting and paging.
+This avoids a second SQL age parser/calculation and never loads complete municipal
+rosters into Python. Empty rosters remain unresolved; a supported age signal wins
+over other members' unknown ages. Historical repository calls without the explicit
+lookup retain their stored-result behavior for operational verification scripts.
+Staff Review confirmations and workspaces link to the existing SPISC evidence.
 `services/spisc_disability_presentation.py` decodes the selected batch's codebook;
 the existing batch/UUID/line Section L join is unchanged. The narrow source
 projection includes L15–L18 and L29–L32. Member disability requires household

@@ -114,7 +114,8 @@
     <h2 id="screening-heading">Subsidy Screening Summary</h2>
     <p class="section-helper">
       Based on the household's recorded CBMS information, the system identifies subsidy programs
-      that may warrant further staff review. These findings do not confirm eligibility or approval.
+      that may warrant further staff review. SPISC includes current-age guidance.
+      These findings do not confirm eligibility or approval.
     </p>
     <dl class="screening-summary-list">
       {% for program in results.programs %}
@@ -131,7 +132,7 @@
       {% if 'For Review' in screening_statuses %}
         <div>
           <dt>For Review</dt>
-          <dd>The household's historical information suggests the program may warrant staff consideration.</dd>
+          <dd>Recorded circumstances or current SPISC age guidance suggest the program may warrant staff consideration.</dd>
         </div>
       {% endif %}
       {% if 'No Historical CBMS Trigger' in screening_statuses %}

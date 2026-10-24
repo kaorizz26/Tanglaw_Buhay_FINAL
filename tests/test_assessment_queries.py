@@ -40,6 +40,9 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         self.connection.__enter__.return_value = self.connection
         self.connection.info.transaction_status = TransactionStatus.IDLE
         self.factory = MagicMock(return_value=self.connection)
+        ages = patch.object(assessment_evidence, 'list_recorded_ages', return_value=[])
+        ages.start()
+        self.addCleanup(ages.stop)
         self.batch = {"id": 9, "survey_year": 2022, "municipality": "Pozorrubio",
                       "validation_status": "validated", "is_active": True,
                       "source_provenance": {"kind": "synthetic"}}
@@ -64,7 +67,8 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         self.assertEqual(result["context"]["batch_id"], 9)
         self.assertEqual(result["context"]["survey_year"], 2022)
         self.assertEqual(result["total"], 32)
-        query.assert_called_once_with(self.connection, 17, limit=7, offset=14)
+        query.assert_called_once_with(self.connection, 17, limit=7, offset=14,
+                                      spisc_age_statuses={}, batch_id=9)
         self.connection.execute.assert_called_once_with(
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         )
@@ -129,9 +133,12 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         self.assertEqual(result["total"], 3)
         self.assertEqual(result["barangays"], ["Synthetic East"])
         self.assertEqual(result["priority_counts"], {"all": 8})
-        groups.assert_called_once_with(self.connection, 17, filters=filters)
-        count.assert_called_once_with(self.connection, 17, filters=filters)
-        page.assert_called_once_with(self.connection, 17, limit=25, offset=25, filters=filters)
+        groups.assert_called_once_with(self.connection, 17, filters=filters,
+                                       spisc_age_statuses={}, batch_id=9)
+        count.assert_called_once_with(self.connection, 17, filters=filters,
+                                      spisc_age_statuses={}, batch_id=9)
+        page.assert_called_once_with(self.connection, 17, limit=25, offset=25, filters=filters,
+                                     spisc_age_statuses={}, batch_id=9)
         options.assert_called_once_with(self.connection, 9)
         self.factory.assert_called_once()
 
@@ -519,9 +526,12 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             for field in ("vulnerability_rank", "vulnerability_score", "coverage_pct",
                           "data_quality_status", "unknown_indicator_count"):
                 self.assertEqual(row[field], original["mpi"][field])
-            self.assertEqual(row["program_statuses"], {
+            expected_statuses = {
                 code: finding["screening_status"] for code, finding in original["programs"].items()
-            })
+            }
+            # This fixture intentionally has no source roster.
+            expected_statuses['SPISC'] = 'Needs Data Review'
+            self.assertEqual(row["program_statuses"], expected_statuses)
             self.assertNotIn("findings", row)
         self.assertLess(len({row["vulnerability_rank"] for row in actual}), len(actual))
         empty = service.list_active_assessment_summaries(page=6, page_size=7, connection_factory=self._factory)
@@ -654,6 +664,7 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                    VALUES (%s, %s, 1, %s, %s)""",
                 (self.batch_id, uuid, number, Jsonb({
                     "a02_relation_to_hh_head": "1",
+                    "a07_age": "60" if number % 5 == 0 else "30",
                     "a01_first_name": "Synthetic", "a01_middle_name": "NA",
                     "a01_last_name": "Common" if number <= 30 else "Other",
                 })),
@@ -798,6 +809,10 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
 
     def test_exact_filtered_pagination_counts_and_unchanged_findings(self):
         findings = self._filter_fixture()
+        self.connection.execute(
+            "UPDATE household_members SET responses = responses || %s WHERE batch_id=%s",
+            (Jsonb({'a07_age': '60'}), self.batch_id),
+        )
         for number, finding in enumerate(findings.values(), 1):
             for code, program in finding["programs"].items():
                 program["screening_status"] = "No Historical CBMS Trigger"
@@ -873,7 +888,8 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
         self.connection.execute(
             """UPDATE household_members SET responses=%s
                WHERE batch_id=%s AND uuid=%s AND line_number=1""",
-            (Jsonb({"a02_relation_to_hh_head": "1", "a01_first_name": "Literal %_! Name"}), self.batch_id, uuid),
+            (Jsonb({"a02_relation_to_hh_head": "1", "a01_first_name": "Literal %_! Name",
+                    "a07_age": "30"}), self.batch_id, uuid),
         )
         self._assert_filtered_rows(AssessmentFilters(search="%_!"), [1], findings)
         self._assert_filtered_rows(AssessmentFilters(search="Wrong Batch Name"), [], findings)
@@ -883,14 +899,15 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                (batch_id, uuid, line_number, source_row_number, responses)
                VALUES (%s, %s, 2, 33, %s)""",
             (self.batch_id, uuid, Jsonb({
-                "a02_relation_to_hh_head": "2", "a01_first_name": "Non Head Name",
+                "a02_relation_to_hh_head": "2", "a01_first_name": "Non Head Name", "a07_age": "30",
             })),
         )
         self._assert_filtered_rows(AssessmentFilters(search="Non Head Name"), [], findings)
         self.connection.execute(
             """UPDATE household_members SET responses=%s
                WHERE batch_id=%s AND uuid=%s AND line_number=2""",
-            (Jsonb({"a02_relation_to_hh_head": "1", "a01_first_name": "Ambiguous Head"}), self.batch_id, uuid),
+            (Jsonb({"a02_relation_to_hh_head": "1", "a01_first_name": "Ambiguous Head",
+                    "a07_age": "30"}), self.batch_id, uuid),
         )
         self._assert_filtered_rows(AssessmentFilters(search="%_!"), [], findings)
         # Source-row IDs still work when no unique head name can be shown.

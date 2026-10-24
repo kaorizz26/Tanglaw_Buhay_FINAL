@@ -103,8 +103,8 @@ def _page_numbers(page, page_count):
 def get_prioritization_page(page, filters=None):
     """Return bounded stored rows and display metadata; never invoke an engine.
 
-    Each source identity is read within the query service's existing read-only
-    snapshot. Scores, ranks and findings pass through unchanged.
+    Each source identity is read within the query service's read-only snapshot.
+    Scores and ranks retain stored values; signals include current SPISC guidance.
     """
     filters = normalize_filters(filters)
     result = list_active_assessment_summaries(

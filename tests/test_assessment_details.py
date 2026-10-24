@@ -334,7 +334,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertEqual(overview.headers["Cache-Control"], "no-store")
                 for text in ("HH-00008", "Synthetic Member 1", "36.11", HOUSEHOLD_UUID,
                              "Municipal Vulnerability Rank", "Not Enough Information",
-                             "No Review Signal", "15", "Select the indicator to view its supporting evidence."):
+                             "For Review", "15", "Select the indicator to view its supporting evidence."):
                     self.assertIn(text, overview.text)
                 for removed in ("Assessment Run 2", "How it works", "data coverage",
                                 "Assessment information", "No Historical CBMS Trigger"):
@@ -379,7 +379,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.assertIn("1 of 9 indicator results could not be determined.", " ".join(response.text.split()))
         self.assertIn("#mpi-internet", response.text)
         for text in ("Areas Contributing to Vulnerability", "Each can contribute up to 25 points.",
-                     "Overall Vulnerability Score", "This does not mean the household is ineligible.",
+                     "Overall Vulnerability Score", "These findings do not confirm eligibility or approval.",
                      "The available historical records did not contain enough clear information"):
             self.assertIn(text, response.text)
         bars = re.findall(r'<meter.*?value="([^"]+)".*?</meter>', response.text, re.S)
@@ -391,11 +391,11 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                               screening, re.S)
         self.assertEqual(findings, [
             ("4Ps", "For Review"), ("SLP", "Not Enough Information"),
-            ("SPISC", "No Review Signal"), ("TUPAD", "For Review"),
+            ("SPISC", "For Review"), ("TUPAD", "For Review"),
         ])
-        self.assertEqual(screening.count('class="screening-status screening-status--review"'), 2)
+        self.assertEqual(screening.count('class="screening-status screening-status--review"'), 3)
         self.assertIn('class="screening-status screening-status--data"', screening)
-        self.assertIn('class="screening-status screening-status--none"', screening)
+        self.assertNotIn('class="screening-status screening-status--none"', screening)
         self.assertEqual(self.source, before)
         for program in self.source["findings"]["programs"].values():
             program["screening_status"] = "For Review"
@@ -513,6 +513,8 @@ class AssessmentDetailRouteTests(unittest.TestCase):
             elif status == "Not in Priority Groups":
                 for program in self.source["findings"]["programs"].values():
                     program["screening_status"] = "Needs Data Review"
+                for member in self.source["members"]:
+                    member["responses"]["a07_age"] = '30'
             before = deepcopy(self.source)
             summaries = []
             for tab in ("overview", "mpi"):

@@ -197,7 +197,7 @@ class SpiscGuidanceTests(unittest.TestCase):
         self.assertFalse(guidance['review_suggested'])
 
     def test_date_is_captured_once_in_philippine_time(self):
-        with patch('services.spisc_screening_presentation.datetime') as clock:
+        with patch('services.spisc_age_progression.datetime') as clock:
             clock.now.return_value = datetime(2026, 10, 24, 0, 5, tzinfo=ZoneInfo('Asia/Manila'))
             self.assertEqual(philippine_assessment_date(), ASSESSMENT_DATE)
             clock.now.assert_called_once_with(ZoneInfo('Asia/Manila'))
@@ -230,17 +230,17 @@ class SpiscGuidanceTests(unittest.TestCase):
                     patch('psycopg.connect', side_effect=AssertionError('No database')):
                 detail = prepare_assessment_detail(self.source)
             self.assertEqual(detail['screening_programs'][2]['status'], status)
-            self.assertEqual(detail['programs'][2]['status'], status)
+            self.assertEqual(detail['programs'][2]['status'], 'For Review')
             self.assertEqual(self.source, before)
             self.assertEqual(detail['mpi'], before['findings']['mpi'])
             other_programs = [p for p in detail['screening_programs'] if p['code'] != 'SPISC']
             changed = deepcopy(self.source)
             changed['members'][0]['responses']['a07_age'] = '30'
-            # Priority derives from stored statuses, never dynamic age guidance.
+            # Current SPISC is independent of the unchanged other program findings.
             with patch('services.subsidy_screening_details.philippine_assessment_date',
                        return_value=ASSESSMENT_DATE):
                 negative = prepare_assessment_detail(changed)
-            self.assertEqual(detail['priority_display'], negative['priority_display'])
+            self.assertEqual(negative['programs'][2]['status'], 'No Historical CBMS Trigger')
             self.assertEqual([p['status'] for p in other_programs], [
                 p['status'] for p in negative['screening_programs'] if p['code'] != 'SPISC'
             ])
@@ -399,14 +399,14 @@ class SpiscPresentationTests(unittest.TestCase):
         article = self.render()
         for text in ('Has reached senior age',
                      'Screening based on CBMS 2022: No Review Signal.', '61–62',
-                     'Oct 24, 2026',
-                     'A brief reason is required on the review initiation screen.'):
+                     'Oct 24, 2026'):
             self.assertIn(text, article)
         self.assertIn('>For Review</span>', article)
         main = article.split('<details class="screening-evidence">')[0]
         self.assertNotIn('Screening based on CBMS', main)
         self.assertNotIn('Current-age guidance', article)
         self.assertNotIn('Estimated ages require confirmation.', article)
+        self.assertNotIn('A brief reason is required', article)
         self.assertEqual(main.count('screening-status--review'), 1)
         self.assertIn('<details class="spisc-disclosure" open>', article)
         self.assertIn('<details class="screening-evidence">', article)
@@ -465,11 +465,11 @@ class SpiscPresentationTests(unittest.TestCase):
         })
         self.assertIn('Open SPISC Review', self.render())
 
-    def test_saved_needs_data_review_still_requires_reason(self):
+    def test_saved_needs_data_review_uses_current_signal_for_reason_requirement(self):
         self.set_age('57', 'Needs Data Review')
         article = self.render()
         self.assertIn('Screening based on CBMS 2022: Not Enough Information.', article)
-        self.assertIn('A brief reason is required', article)
+        self.assertNotIn('A brief reason is required', article)
 
     def test_multiple_members_disability_grid_and_decoded_labels_are_escaped(self):
         self.source['members'] = self.source['members'][:2]

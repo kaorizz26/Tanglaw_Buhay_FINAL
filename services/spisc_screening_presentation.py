@@ -1,14 +1,14 @@
 """Present current-age SPISC guidance separately from saved historical findings."""
 
 from collections import Counter
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
+from datetime import date
 
 from services.assessment_reference_labels import code_key
 from services.mpi_evidence import _member_heading, build_evidence_index
 from services.screening.common import as_integer
 from services.spisc_age_progression import (
-    SENIOR_CATEGORIES, age_reference_date, summarize_household_senior_age,
+    SENIOR_CATEGORIES, batch_age_reference_date, philippine_assessment_date,
+    senior_review_status, summarize_household_senior_age,
 )
 from services.spisc_disability_presentation import prepare_disability_information
 from services.subsidy_screening_content import STATUS_CLASSES, STATUS_LABELS
@@ -27,28 +27,6 @@ QUESTIONS = (
     "Does the senior have regular income or sufficient family financial support?",
     "Are there current health, mobility, or disability concerns?",
 )
-
-
-def philippine_assessment_date():
-    """Capture one Philippine calendar date for this presentation response."""
-    return datetime.now(ZoneInfo("Asia/Manila")).date()
-
-
-def _batch_reference_date(context):
-    """Use a verified future reference declared in existing provenance JSON.
-
-    age_reference_date is ISO text; age_reference_date_verified must be true.
-    Absent, unverified or invalid future metadata retains year-only uncertainty.
-    """
-    year = context["survey_year"]
-    declared = context.get("source_provenance", {}).get("declared", {})
-    if declared.get("age_reference_date_verified") is True:
-        try:
-            supplied = date.fromisoformat(declared.get("age_reference_date", ""))
-            return age_reference_date(year, supplied)
-        except (TypeError, ValueError):
-            pass
-    return age_reference_date(year)
 
 
 def _age_review_reason(members, year):
@@ -78,11 +56,11 @@ def prepare_spisc_guidance(source, assessment_date, index=None):
 
     Query rows already belong to the selected household and batch. Their UUID
     is supplied by the enclosing finding; Section L joins remain in the query.
-    Display status belongs only to this panel. Review requirements and priority
-    services continue to receive the original saved finding.
+    The current status is shared with summaries, priority and review initiation;
+    the saved historical finding remains separate and unchanged.
     """
     year = source["context"]["survey_year"]
-    reference = _batch_reference_date(source["context"])
+    reference = batch_age_reference_date(source["context"])
     unavailable = assessment_date < (reference or date(year, 1, 1))
     household_uuid = source["findings"]["household_uuid"]
     roster = [
@@ -126,18 +104,16 @@ def prepare_spisc_guidance(source, assessment_date, index=None):
     suggested = any(m["category"] in SENIOR_CATEGORIES for m in found)
     unknown = unavailable or not roster or summary["has_unknown_age"]
     potential = any(m["category"] == "possible_senior_age" for m in found)
+    display_status = senior_review_status(classifications)
     if suggested:
-        display_status = "For Review"
         heading = "Why this was flagged"
         why = _age_review_reason(found, year)
         action = "Verify current circumstances and document findings."
     elif unknown:
-        display_status = "Needs Data Review"
         heading = "Why more information is needed"
         why = "Age information needs confirmation before a senior-age review signal can be established."
         action = "Confirm the age information and document findings."
     else:
-        display_status = "No Historical CBMS Trigger"
         heading = "Why there is no review signal"
         why = "The available age information places household members below senior age."
         action = "Staff may start a review if newer information warrants consideration."
@@ -162,6 +138,7 @@ def prepare_spisc_guidance(source, assessment_date, index=None):
         "has_unknown_age": unknown, "assessment_date": assessment_date,
         "date_label": f"{assessment_date:%b} {assessment_date.day}, {assessment_date.year}",
         "display_status_label": STATUS_LABELS[display_status],
+        "current_status": display_status,
         "display_status_class": STATUS_CLASSES[display_status],
         "why_heading": heading, "why": why, "action": action, "questions": questions,
         "household_notes": disability["notes"],

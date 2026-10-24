@@ -18,7 +18,11 @@
     <section class="review-confirmation" aria-labelledby="start-review-heading">
       <h3 id="start-review-heading">Start {{ start_program.name }} Review</h3>
       <p>{{ results.head_name }} · {{ results.household_reference_id }} · {{ results.barangay }}</p>
-      <p>Historical screening finding: <strong>{{ start_program.status_label }}</strong></p>
+      <p>{{ 'Current SPISC recommendation' if start_program.name == 'SPISC' else 'Historical screening finding' }}: <strong>{{ start_program.status_label }}</strong></p>
+      {% if start_program.name == 'SPISC' %}
+        <p class="section-helper">Screening based on CBMS {{ results.context.survey_year }}: {{ start_program.historical_status_label }}.</p>
+        <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-spisc', **detail_parameters) }}">View SPISC finding and current-age evidence</a>
+      {% endif %}
       <p>Starting a review means LGU staff have selected this household for further examination. You can record observations and later recommend whether the household needs further LGU consideration.</p>
       {% if review_error %}
         <p id="review-error" class="review-error" role="alert">{{ review_error }}</p>
@@ -49,7 +53,7 @@
           </div>
           <dl class="review-findings">
             <div>
-              <dt>Automated historical screening finding</dt>
+              <dt>{{ 'Current SPISC recommendation' if program.name == 'SPISC' else 'Automated historical screening finding' }}</dt>
               <dd><span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span></dd>
             </div>
             <div>

@@ -78,7 +78,7 @@ def _indicator(name, mpi, source, reference):
     }
 
 
-def prepare_assessment_detail(source):
+def prepare_assessment_detail(source, *, assessment_date=None):
     """Preserve stored metrics and flags; sum their approved weights for display.
 
     Reconciliation validates presentation only. It neither derives source flags
@@ -86,6 +86,11 @@ def prepare_assessment_detail(source):
     """
     mpi = source["findings"]["mpi"]
     reference = build_evidence_index(source)
+    screening_programs = prepare_subsidy_screening(source, reference, assessment_date=assessment_date)
+    statuses = {code: program["screening_status"]
+                for code, program in source["findings"]["programs"].items()}
+    statuses["SPISC"] = next(program["guidance"]["current_status"]
+                             for program in screening_programs if program["code"] == "SPISC")
     dimensions = []
     total = Fraction(0)
     for dimension, (_, names) in DIMENSIONS.items():
@@ -123,8 +128,7 @@ def prepare_assessment_detail(source):
         "mpi": mpi, "determined_count": 16 - mpi["unknown_indicator_count"],
         "priority_display": priority_display(derive_subsidy_priority(
             mpi["vulnerability_score"],
-            {code: program["screening_status"]
-             for code, program in source["findings"]["programs"].items()},
+            statuses,
         )),
         "dimensions": dimensions,
         "unknown_indicators": [
@@ -136,17 +140,15 @@ def prepare_assessment_detail(source):
         "programs": [
             {
                 "name": code,
-                "status": source["findings"]["programs"][code]["screening_status"],
-                "status_label": STATUS_LABELS[
-                    source["findings"]["programs"][code]["screening_status"]
-                ],
-                "status_class": STATUS_CLASSES[
-                    source["findings"]["programs"][code]["screening_status"]
-                ],
+                "status": statuses[code],
+                "status_label": STATUS_LABELS[statuses[code]],
+                "status_class": STATUS_CLASSES[statuses[code]],
+                "historical_status_label": STATUS_LABELS[
+                    source["findings"]["programs"][code]["screening_status"]],
             }
             for code in PROGRAM_ORDER
         ],
-        "screening_programs": prepare_subsidy_screening(source, reference),
+        "screening_programs": screening_programs,
     }
 
 

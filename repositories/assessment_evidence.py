@@ -15,6 +15,21 @@ HEALTH_FIELDS = tuple(dict.fromkeys((*HEALTH_FIELDS, *screening.HEALTH_FIELDS)))
 REFERENCE_FIELDS = tuple(dict.fromkeys((*REFERENCE_FIELDS, *screening.REFERENCE_FIELDS)))
 
 
+def list_recorded_ages(connection, batch_id, household_uuid=None):
+    """Read one roster's ages, or only distinct age tokens for a batch lookup.
+
+    Text extraction preserves every age format accepted by the Python service.
+    No names, complete rosters or Section L answers are fetched for batch counts.
+    """
+    selection = " AND uuid = %s" if household_uuid is not None else ""
+    distinct = "" if household_uuid is not None else "DISTINCT "
+    parameters = (batch_id, household_uuid) if household_uuid is not None else (batch_id,)
+    return [row[0] for row in connection.execute(
+        f"SELECT {distinct}responses ->> 'a07_age' FROM household_members "
+        "WHERE batch_id = %s" + selection, parameters,
+    ).fetchall()]
+
+
 def find_household_sources(connection, batch_id, household_uuid):
     """Project assessment evidence, retaining missing values and exact source text."""
     row = connection.execute(

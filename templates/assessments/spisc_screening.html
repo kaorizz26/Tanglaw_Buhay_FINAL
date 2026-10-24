@@ -61,7 +61,7 @@
     {% else %}
       <p>{{ program.guidance.action }}</p>
       <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program='SPISC', **detail_parameters) }}">Start SPISC Review</a>
-      {% if program.status != 'For Review' %}
+      {% if program.guidance.current_status != 'For Review' %}
         <p class="spisc-helper">A brief reason is required on the review initiation screen.</p>
       {% endif %}
     {% endif %}

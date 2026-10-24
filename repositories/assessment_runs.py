@@ -259,11 +259,17 @@ def _head_search(search):
     return condition, f"%{pattern}%"
 
 
-def _priority_condition(priority):
+def _program_status(program, current_spisc=False):
+    if program == "SPISC" and current_spisc:
+        return "COALESCE(current_spisc.status, 'Needs Data Review')"
+    return f"h.findings #>> '{{programs,{program},screening_status}}'"
+
+
+def _priority_condition(priority, current_spisc=False):
     """Share the approved stored-result predicates between rows and selector counts."""
     score = "(h.findings #>> '{mpi,vulnerability_score}')::numeric"
     has_review = " OR ".join(
-        f"h.findings #>> '{{programs,{code},screening_status}}' = 'For Review'"
+        f"{_program_status(code, current_spisc)} = 'For Review'"
         for code in PROGRAMS
     )
     if priority == "primary":
@@ -277,7 +283,7 @@ def _priority_condition(priority):
     return (f"NOT {rule}" if priority == "other" else rule), parameters
 
 
-def _summary_selection(run_id, filters):
+def _summary_selection(run_id, filters, *, spisc_age_statuses=None, batch_id=None):
     """Build shared count/page predicates from trusted SQL and bound values.
 
     Source filters use batch/UUID joins. No source or engine finding is changed,
@@ -291,6 +297,25 @@ def _summary_selection(run_id, filters):
     """
     conditions = ["h.run_id = %s", "r.status = 'completed'"]
     parameters = [run_id]
+    current_spisc = spisc_age_statuses is not None
+    if current_spisc:
+        # Python classifies distinct tokens once per operation. SQL only applies
+        # the same household precedence, with a LEFT JOIN retaining empty rosters.
+        joins += """
+            LEFT JOIN (
+                SELECT ages.batch_id, ages.uuid,
+                       CASE WHEN bool_or(ages.status = 'For Review') THEN 'For Review'
+                            WHEN bool_or(ages.status = 'Needs Data Review') THEN 'Needs Data Review'
+                            ELSE 'No Historical CBMS Trigger' END AS status
+                FROM (
+                    SELECT m.batch_id, m.uuid, COALESCE(%s::jsonb ->> (m.responses ->> 'a07_age'),
+                                           'Needs Data Review') AS status
+                    FROM household_members m WHERE m.batch_id = %s
+                ) ages GROUP BY ages.batch_id, ages.uuid
+            ) current_spisc ON current_spisc.batch_id = h.batch_id
+                          AND current_spisc.uuid = h.household_uuid
+        """
+        parameters = [Jsonb(spisc_age_statuses), batch_id, *parameters]
     if position is not None or filters.barangay:
         joins += """
             JOIN households source
@@ -312,37 +337,52 @@ def _summary_selection(run_id, filters):
             # Other statuses, including unknown findings, are not For Review.
             for program in PROGRAM_ORDER:
                 operator = "=" if program in filters.programs else "IS DISTINCT FROM"
-                conditions.append(f"h.findings #>> %s {operator} 'For Review'")
-                parameters.append(["programs", program, "screening_status"])
+                if current_spisc and program == "SPISC":
+                    conditions.append(f"{_program_status(program, True)} {operator} 'For Review'")
+                else:
+                    conditions.append(f"h.findings #>> %s {operator} 'For Review'")
+                    parameters.append(["programs", program, "screening_status"])
         else:
-            conditions.append("(" + " OR ".join(
-                "h.findings #>> %s = 'For Review'" for _ in filters.programs
-            ) + ")")
-            parameters.extend(
-                ["programs", program, "screening_status"] for program in filters.programs
-            )
+            program_rules = []
+            for program in filters.programs:
+                if current_spisc and program == "SPISC":
+                    program_rules.append(f"{_program_status(program, True)} = 'For Review'")
+                else:
+                    program_rules.append("h.findings #>> %s = 'For Review'")
+                    parameters.append(["programs", program, "screening_status"])
+            conditions.append("(" + " OR ".join(program_rules) + ")")
     if filters.completeness == "determined":
         conditions.append("(h.findings #>> '{mpi,unknown_indicator_count}')::integer = 0")
     elif filters.completeness == "unknown":
         conditions.append("(h.findings #>> '{mpi,unknown_indicator_count}')::integer > 0")
     if filters.priority != "all":
-        rule, values = _priority_condition(filters.priority)
+        rule, values = _priority_condition(filters.priority, current_spisc)
         conditions.append(rule)
         parameters.extend(values)
     return joins + " WHERE " + " AND ".join(conditions), tuple(parameters)
 
 
-def count_assessment_summaries(connection, run_id, *, filters):
+def count_assessment_summaries(
+    connection, run_id, *, filters, spisc_age_statuses=None, batch_id=None,
+):
     """Count all matching stored findings using the same predicates as the page."""
-    selection, parameters = _summary_selection(run_id, filters)
+    selection, parameters = _summary_selection(
+        run_id, filters, spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
+    )
     return connection.execute("SELECT count(*) " + selection, parameters).fetchone()[0]
 
 
-def count_priority_groups(connection, run_id, *, filters):
+def count_priority_groups(
+    connection, run_id, *, filters, spisc_age_statuses=None, batch_id=None,
+):
     """Count groups in one SELECT, respecting every applied non-priority filter."""
-    selection, parameters = _summary_selection(run_id, replace(filters, priority="all"))
-    primary, primary_values = _priority_condition("primary")
-    secondary, secondary_values = _priority_condition("secondary")
+    selection, parameters = _summary_selection(
+        run_id, replace(filters, priority="all"),
+        spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
+    )
+    dynamic = spisc_age_statuses is not None
+    primary, primary_values = _priority_condition("primary", dynamic)
+    secondary, secondary_values = _priority_condition("secondary", dynamic)
     total, first, next_group = connection.execute(
         f"SELECT count(*), count(*) FILTER (WHERE {primary}), "
         f"count(*) FILTER (WHERE {secondary}) " + selection,
@@ -354,9 +394,14 @@ def count_priority_groups(connection, run_id, *, filters):
     }
 
 
-def list_assessment_summaries(connection, run_id, *, limit, offset, filters=None):
+def list_assessment_summaries(
+    connection, run_id, *, limit, offset, filters=None, spisc_age_statuses=None, batch_id=None,
+):
     """Filter in PostgreSQL before paging, projecting only unchanged summary fields."""
-    selection, parameters = _summary_selection(run_id, filters)
+    selection, parameters = _summary_selection(
+        run_id, filters, spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
+    )
+    spisc_status = _program_status("SPISC", spisc_age_statuses is not None)
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             """SELECT h.household_uuid, h.vulnerability_rank,
@@ -369,7 +414,7 @@ def list_assessment_summaries(connection, run_id, *, limit, offset, filters=None
                       jsonb_build_object(
                           '4Ps', h.findings #>> '{programs,4Ps,screening_status}',
                           'SLP', h.findings #>> '{programs,SLP,screening_status}',
-                          'SPISC', h.findings #>> '{programs,SPISC,screening_status}',
+                          'SPISC', """ + spisc_status + """,
                           'TUPAD', h.findings #>> '{programs,TUPAD,screening_status}'
                       ) AS program_statuses
                """ + selection + """

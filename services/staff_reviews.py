@@ -3,9 +3,10 @@
 import psycopg
 
 from db import get_connection
-from repositories import assessment_runs, staff_reviews
+from repositories import assessment_runs, assessment_evidence, staff_reviews
 from services.assessment_details import prepare_assessment_detail
-from services.assessment_queries import get_active_assessment_detail
+from services.assessment_queries import get_active_assessment_detail, _resolve_context
+from services.spisc_age_progression import current_spisc_status, philippine_assessment_date
 from services.subsidy_screening_content import PROGRAM_NAMES, STATUS_LABELS
 
 
@@ -102,8 +103,9 @@ def act_on_review(household_uuid, program, review_id, action, staff_id,
 
 
 def start_staff_review(household_uuid, program, starting_reason, staff_id,
-                       batch_id, run_id, *, connection_factory=get_connection):
-    """Validate the current stored finding and append one independent review.
+                       batch_id, run_id, *, connection_factory=get_connection,
+                       assessment_date=None):
+    """Validate the effective finding and append one independent review.
 
     Confirmation context must still be active/designated. Shared row locks keep
     activation, designation and account changes from racing the committed insert.
@@ -120,6 +122,7 @@ def start_staff_review(household_uuid, program, starting_reason, staff_id,
                    for value in (staff_id, batch_id, run_id))):
         raise StaffReviewError('invalid_request')
     reason = starting_reason.strip() or None
+    assessed = assessment_date if assessment_date is not None else philippine_assessment_date()
     try:
         with connection_factory() as connection:
             with connection.transaction():
@@ -141,6 +144,12 @@ def start_staff_review(household_uuid, program, starting_reason, staff_id,
                 if finding is None:
                     raise StaffReviewError('household_missing')
                 status = finding['programs'][program]['screening_status']
+                if program == 'SPISC':
+                    context = _resolve_context(connection)
+                    status = current_spisc_status(
+                        assessment_evidence.list_recorded_ages(connection, batch_id, household_uuid),
+                        context, assessed,
+                    )
                 if status not in STATUS_LABELS:
                     raise StaffReviewError('unavailable')
                 if status != 'For Review' and reason is None:
