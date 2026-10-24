@@ -35,7 +35,6 @@ def create_app(test_config=None):
     @app.errorhandler(400)
     @app.errorhandler(403)
     @app.errorhandler(404)
-    @app.errorhandler(404)
     @app.errorhandler(410)
     @app.errorhandler(503)
     def request_error(error):

@@ -11,12 +11,12 @@ from services.assessment_reference_labels import evidence_cell
 from services.mpi_evidence import build_evidence_index
 from services.subsidy_screening_details import prepare_subsidy_screening
 
-from test_subsidy_screening_details import ScreeningRouteTests
+import test_subsidy_screening_details as screening_tests
 
 
 class SlpPresentationTests(unittest.TestCase):
-    setUp = ScreeningRouteTests.setUp
-    session = ScreeningRouteTests.session
+    setUp = screening_tests.ScreeningRouteTests.setUp
+    session = screening_tests.ScreeningRouteTests.session
 
     def evidence_rows(self):
         return prepare_subsidy_screening(

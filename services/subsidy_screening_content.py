@@ -212,37 +212,3 @@ WARNING_TEXT = {
         "Whether the member worked remains unclear."
     ),
 }
-
-REQUIREMENT_TEXT = {
-    "Official poverty-targeting classification.": (
-        "Official program poverty assessment or targeting classification."
-    ),
-    "Current qualifying family composition.": (
-        "Current family composition and qualifying children or pregnancy."
-    ),
-    "Existing beneficiary status and applicable program conditions.": (
-        "Existing beneficiary status and other applicable program requirements."
-    ),
-    "Actual livelihood or employment assistance needs.": (
-        "Current livelihood or employment assistance needs."
-    ),
-    "Participant suitability, preferences and official SLP assessment.": (
-        "Participant preferences, suitability, and the official SLP assessment."
-    ),
-    "Written parental/legal guardian consent for a 16-17-year-old MD participant.": (
-        "Written parent or legal guardian consent for a participant aged 16–17."
-    ),
-    "Current indigency and financial support.": (
-        "Current financial circumstances and support received."
-    ),
-    "Existing pension receipt.": "Whether the senior currently receives a pension.",
-    "Present-day circumstances and applicable SPISC conditions.": (
-        "Current circumstances and applicable social pension requirements."
-    ),
-    "Current disadvantaged/displaced worker circumstances.": (
-        "Current circumstances as a disadvantaged or displaced worker."
-    ),
-    "Current livelihood/employment situation, prior assistance and applicable DOLE conditions.": (
-        "Current work or livelihood, previous assistance, and applicable DOLE requirements."
-    ),
-}

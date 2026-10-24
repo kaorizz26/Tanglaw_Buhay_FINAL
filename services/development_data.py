@@ -9,7 +9,6 @@ from services.vulnerability.health import FIES_FIELDS
 from services.vulnerability.housing import ASSET_FIELDS
 
 
-SURVEY_YEAR = 2022
 FIXTURE_METADATA = Path(__file__).resolve().parents[1] / "fixtures" / "development_metadata.json"
 
 
