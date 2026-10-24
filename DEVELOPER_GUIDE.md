@@ -270,6 +270,25 @@ never advanced to a later year.
 | `screening/spisc.py`: `screen_spisc()` | A07; household L15 and joined member L16/line for optional PWD context. | Any age 60+. Disability support requires the senior's own joined L16=1 and household L15=1. | No roster or an unknown age. Disability gaps/warnings do not change the age-based status. |
 | `screening/tupad.py`: `screen_tupad()` | A07, B06, E01, E11; E18 is supporting context. | Age 18+, B06=7, and either recorded E01=2 or recorded E01=1 with E11=2/3. | Essential age/B06/E01 missing or invalid, or E11 missing/invalid for a working applicable adult. Known age under 18 or B06=1-6 excludes; expected skips are not gaps. |
 
+`services/spisc_age_progression.py` is a separate, read-only calculation foundation;
+it is not connected to queries, UI, stored screening statuses or priority counts.
+`classify_senior_age(a07_age, survey_year, assessment_date)` accepts the selected
+batch's integer calendar year and an explicit `datetime.date` (not a datetime or
+string). Invalid context, including assessment before the survey year, raises
+`ValueError`; missing/invalid ages return `unknown_age`. No current date is read.
+For a later assessment year, with year difference D, completed-age bounds are
+A07 + D - 1 through A07 + D + 1. January 1 reduces the maximum by one;
+December 31 raises the minimum by one. In the survey year, the minimum is A07:
+the supplied observation is assumed to precede assessment. Recorded A07 >= 60
+is `recorded_senior`; otherwise minimum >= 60 is `reached_senior_age`, maximum
+>= 60 is `possible_senior_age`, and maximum < 60 is `below_senior_age`.
+These are estimates, not verified current ages or eligibility. Disability is
+not an input. `summarize_household_senior_age()` takes flat source roster rows
+(`uuid`, `line_number`, `a07_age`), preserves each classification, lists unique
+relevant member lines, and retains unknown/empty-roster information. Callers
+must supply rows from one selected batch; cross-household UUIDs are rejected.
+Focused synthetic checks: `python -B -m unittest discover -s tests -p test_spisc_age_progression.py`.
+
 The paths above are relative to `services/`. Each file starts with its main
 screening function. Metadata is in `screening/metadata.py`; shared code/value
 interpretation and result formatting are in `screening/common.py`. Callers can
