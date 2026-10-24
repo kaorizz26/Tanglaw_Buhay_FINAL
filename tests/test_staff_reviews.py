@@ -21,7 +21,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.security import generate_password_hash
 
 from app import create_app, pht_date, pht_datetime
-from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
+from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source, screening_source
 from repositories import assessment_runs, staff_reviews as repository
 from services import staff_reviews as service
 from services.assessment_details import prepare_assessment_detail
@@ -320,6 +320,11 @@ class StaffReviewRouteTests(unittest.TestCase):
                 self.assertIn(f'View full {program} screening', page)
                 self.assertNotIn('Suggested staff action', page)
                 self.assertNotIn('System screening finding', page)
+                if program == 'SPISC':
+                    self.assertIn('Estimated now (', page)
+                else:
+                    self.assertIn('Historical screening finding</span>', page)
+                    self.assertNotIn('Historical screening finding:', page)
                 self.assertIn(f'reviews/{program}?origin=screening&amp;page=2', page)
                 self.assertIn(f'tab=screening&amp;page=2#screening-{program.lower()}"'
                               '>Cancel</a>', page)
@@ -342,7 +347,31 @@ class StaffReviewRouteTests(unittest.TestCase):
         page = self.client.get(self.path + '/reviews/SPISC').text
         self.assertIn('Current SPISC recommendation (as of ', page)
         year = self.source['context']['survey_year']
-        self.assertIn(f'CBMS {year} screening: ', page)
+        self.assertIn(f'CBMS {year} screening<', page)
+        # Status appears once, as badges in the panel, with a single link to the full screening.
+        self.assertEqual(page.count('class="status-badge-item"'), 2)
+        self.assertNotIn('View SPISC finding and current-age evidence', page)
+        self.assertNotIn('Screening based on CBMS', page)
+        self.assertEqual(page.count('View full SPISC screening'), 1)
+        self.assertNotIn('<input type="checkbox"', page)
+
+    def test_findings_use_age_chips_household_composition_title_and_callout_tone(self):
+        self.session()
+        self.source.clear()
+        self.source.update(screening_source())
+        self.source['staff_reviews'] = []
+        flagged = self.client.get(self.path + '/reviews/4Ps').text
+        self.assertIn('<span class="age-chip">Age in CBMS 2022: 12</span>', flagged)
+        self.assertNotIn('at the 2022 CBMS survey', flagged)
+        self.assertIn('Child aged 0–18 recorded in CBMS 2022', flagged)
+        slp = self.client.get(self.path + '/reviews/SLP').text
+        self.assertIn('Recorded work: Self-employed without any paid employee', slp)
+        program = self.source['findings']['programs']['4Ps']
+        program.update(screening_status='No Historical CBMS Trigger', supporting_evidence=())
+        quiet = self.client.get(self.path + '/reviews/4Ps').text
+        self.assertIn('Household composition', quiet)
+        self.assertIn('class="finding-callout"', quiet)
+        self.assertNotIn('finding-callout--attention', quiet)
 
     def test_workspace_guidance_order_actions_and_queue_return(self):
         self.session()

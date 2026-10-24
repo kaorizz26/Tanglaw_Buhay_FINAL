@@ -18,11 +18,6 @@
     <section class="review-confirmation" aria-labelledby="start-review-heading">
       <h3 id="start-review-heading">Start {{ start_program.name }} Review</h3>
       <p>{{ results.head_name }} · {{ results.household_reference_id }} · {{ results.barangay }}</p>
-      <p>{{ 'Current SPISC recommendation' if start_program.name == 'SPISC' else 'Historical screening finding' }}: <strong>{{ start_program.status_label }}</strong></p>
-      {% if start_program.name == 'SPISC' %}
-        <p class="section-helper">Screening based on CBMS {{ results.context.survey_year }}: {{ start_program.historical_status_label }}.</p>
-        <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-spisc', **detail_parameters) }}">View SPISC finding and current-age evidence</a>
-      {% endif %}
       {% with guidance_code=start_program.name, guidance_nested=true %}
         {% include 'assessments/review_screening_guidance.html' %}
       {% endwith %}
