@@ -1,6 +1,7 @@
-{# Review state comes from the same existing read-only detail response. #}
-{% set active_review = results.review_history | selectattr('program', 'equalto', 'SLP') | selectattr('status', 'equalto', 'In Review') | first %}
-{% set latest_review = results.review_summary | selectattr('program', 'equalto', 'SLP') | first %}
+{# Shared by SLP and TUPAD. Review state comes from the same existing read-only detail response. #}
+{% set code = program.code %}
+{% set active_review = results.review_history | selectattr('program', 'equalto', code) | selectattr('status', 'equalto', 'In Review') | first %}
+{% set latest_review = results.review_summary | selectattr('program', 'equalto', code) | first %}
 {% set completed_review = latest_review and latest_review.status == 'Closed' and not latest_review.withdrawn %}
 <div class="slp-guidance">
   <section class="slp-found" aria-labelledby="slp-found-heading">
@@ -37,14 +38,14 @@
   <section class="slp-action" aria-labelledby="slp-action-heading">
     <h4 id="slp-action-heading">Suggested staff action</h4>
     {% if active_review %}
-      <p>An SLP Staff Review is already in progress. Open it to verify current circumstances and document findings.</p>
-      <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program='SLP', review_id=active_review.id, **detail_parameters) }}">Open SLP Review</a>
+      <p>{{ 'An' if code == 'SLP' else 'A' }} {{ code }} Staff Review is already in progress. Open it to verify current circumstances and document findings.</p>
+      <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=code, review_id=active_review.id, **detail_parameters) }}">Open {{ code }} Review</a>
     {% elif completed_review %}
-      <p>A completed SLP recommendation is on record. View the review and its recorded findings.</p>
-      <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program='SLP', review_id=latest_review.id, **detail_parameters) }}">View SLP Review</a>
+      <p>A completed {{ code }} recommendation is on record. View the review and its recorded findings.</p>
+      <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=code, review_id=latest_review.id, **detail_parameters) }}">View {{ code }} Review</a>
     {% else %}
       <p>{{ program.guidance.action }}</p>
-      <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program='SLP', **detail_parameters) }}">Start SLP Review</a>
+      <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=code, **detail_parameters) }}">Start {{ code }} Review</a>
       {% if program.status != 'For Review' %}
         <p class="slp-helper">A brief reason is required when starting this review.</p>
       {% endif %}

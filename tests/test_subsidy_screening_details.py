@@ -261,7 +261,7 @@ class ScreeningRouteTests(unittest.TestCase):
                     self.assertEqual(params["completeness"], ["unknown"])
             normalized = " ".join(response.text.split())
             for text in ("Synthetic Member 2", "80 years", "Self-employed",
-                         "Why this household received For Review",
+                         "Why this was flagged",
                          "View Recorded Information", "not a recorded No answer",
                          "do not determine official subsidy eligibility"):
                 self.assertIn(text, normalized)

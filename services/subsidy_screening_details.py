@@ -7,6 +7,7 @@ from services.slp_screening_presentation import prepare_slp_guidance, slp_unreso
 from services.spisc_screening_presentation import (
     philippine_assessment_date, prepare_spisc_guidance,
 )
+from services.tupad_screening_presentation import prepare_tupad_guidance
 from services.subsidy_screening_content import (
     FIELD_LABELS, FOUR_PS_QUESTIONS, HEALTH_FIELDS, HOUSEHOLD_FIELDS, PROGRAM_FIELDS, PROGRAM_NAMES,
     REASON_TEXT, SLP_UNRESOLVED_NOTE, STATUS_CLASSES, STATUS_EXPLANATIONS,
@@ -362,4 +363,6 @@ def prepare_subsidy_screening(source, index, *, assessment_date=None):
             programs[-1]["guidance"] = prepare_slp_guidance(finding, source, index, issues)
         elif code == "SPISC":
             programs[-1]["guidance"] = spisc_guidance
+        elif code == "TUPAD":
+            programs[-1]["guidance"] = prepare_tupad_guidance(finding, source, issues)
     return programs

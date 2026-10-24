@@ -372,9 +372,9 @@ class SlpPresentationTests(unittest.TestCase):
                     self.assertIn('<details class="spisc-disclosure" open>', article)
                     self.assertIn('Screening based on CBMS 2022: For Review.', article)
                 else:
-                    self.assertIn('Why this household received For Review', article)
+                    self.assertIn('Why this was flagged', article)
+                    self.assertIn('Start TUPAD Review</a>', article)
                     self.assertNotIn('four-ps-disclosure', article)
-                    self.assertNotIn('slp-disclosure', article)
                 if code == 'spisc':
                     self.assertIn('80 years', article)
                     self.assertNotIn('Worked at least one hour', article)

@@ -16,8 +16,8 @@
     {% set display_class = program.guidance.display_status_class if program.code == 'SPISC' else program.status_class %}
     {% set display_label = program.guidance.display_status_label if program.code == 'SPISC' else program.status_label %}
     <article class="detail-section screening-program screening-program--{{ display_class }}" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
-      {% if program.code in ('4Ps', 'SLP', 'SPISC') %}
-      {% set panel_class = {'4Ps': 'four-ps', 'SLP': 'slp', 'SPISC': 'spisc'}[program.code] %}
+      {% if program.code in ('4Ps', 'SLP', 'SPISC', 'TUPAD') %}
+      {% set panel_class = {'4Ps': 'four-ps', 'SLP': 'slp', 'SPISC': 'spisc', 'TUPAD': 'slp'}[program.code] %}
       {% set expanded = display_class != 'none' if program.code == 'SPISC' else program.status != 'No Historical CBMS Trigger' %}
       <details class="{{ panel_class }}-disclosure"{% if expanded %} open{% endif %}>
       <summary class="screening-program-heading {{ panel_class }}-toggle">
@@ -38,7 +38,7 @@
       {% endif %}
       {% if program.code == '4Ps' %}
         {% include 'assessments/four_ps_screening.html' %}
-      {% elif program.code == 'SLP' %}
+      {% elif program.code in ('SLP', 'TUPAD') %}
         {% include 'assessments/slp_screening.html' %}
       {% elif program.code == 'SPISC' %}
         {% include 'assessments/spisc_screening.html' %}
@@ -124,7 +124,7 @@
         </div>
       </details>
       {% endif %}
-      {% if program.code in ('4Ps', 'SLP', 'SPISC') %}</details>{% endif %}
+      {% if program.code in ('4Ps', 'SLP', 'SPISC', 'TUPAD') %}</details>{% endif %}
     </article>
   {% endfor %}
 </section>
