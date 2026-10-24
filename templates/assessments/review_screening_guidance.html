@@ -1,0 +1,61 @@
+{# Stored screening guidance for one program. Inputs: guidance_code; optional guidance_reference (closed/cancelled review) and guidance_nested (heading level). #}
+{% set screening = results.screening_programs | selectattr('code', 'equalto', guidance_code) | first %}
+{% if screening %}
+  {% set guidance = screening.guidance %}
+  {% set summary = results.programs | selectattr('name', 'equalto', guidance_code) | first %}
+  {% set heading_tag = 'h4' if guidance_nested else 'h3' %}
+  {% set slug = guidance_code | lower %}
+  {% set clarifications = guidance.clarifications if guidance.clarifications is defined else (screening.issues if guidance_code == '4Ps' else []) %}
+  <details class="review-guidance{% if guidance_reference %} review-guidance--reference{% endif %}"{% if not guidance_reference %} open{% endif %}>
+    <summary><{{ heading_tag }} id="guidance-heading-{{ slug }}">Screening Findings &amp; Information to Check</{{ heading_tag }}></summary>
+    {% if guidance_reference %}
+      <p class="review-guidance-note">Current system screening — shown for reference; not saved with this review.</p>
+    {% endif %}
+    {% if guidance_code == 'SPISC' %}
+      <p class="review-guidance-status">Current SPISC recommendation (as of {{ guidance.date_label }}): <strong>{{ summary.status_label }}</strong></p>
+      <p class="review-guidance-status">CBMS {{ results.context.survey_year }} screening: <strong>{{ summary.historical_status_label }}</strong></p>
+    {% endif %}
+
+    <h5>What the system found</h5>
+    <ul class="review-guidance-list">
+      {% for item in guidance.found %}
+        <li>
+          <strong>{{ item.subject }}</strong>
+          {% if guidance_code == 'SPISC' %}
+            <span>Age in CBMS {{ results.context.survey_year }}: {{ item.recorded_age if item.recorded_age is not none else 'Not recorded or unclear' }}</span>
+            <span>Estimated age ({{ guidance.date_label }}): {% if item.minimum_age is not none %}{{ item.minimum_age }}{% if item.minimum_age != item.maximum_age %}–{{ item.maximum_age }}{% endif %}{% else %}Unavailable{% endif %}</span>
+            <span>{{ item.text }}</span>
+          {% elif item.text %}
+            <span>{{ item.text }}</span>
+          {% else %}
+            {% if item.age %}<span>{{ item.age }}</span>{% endif %}
+            {% for detail in item.details %}<span>{{ detail }}</span>{% endfor %}
+          {% endif %}
+        </li>
+      {% else %}
+        <li>
+          {% if guidance_code == 'SPISC' %}
+            <strong>{{ 'Age information unavailable' if guidance.has_unknown_age else 'No senior-age review signal' }}</strong>
+            <span>{{ 'Confirm household members and their ages.' if guidance.has_unknown_age else 'No member was identified as having reached or possibly reached age 60.' }}</span>
+          {% else %}
+            <span>No specific findings are listed.</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+
+    {% if clarifications and screening.status != 'Needs Data Review' %}
+      <h5>Information to clarify</h5>
+      <ul class="review-guidance-list">
+        {% for issue in clarifications %}<li>{{ issue }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+
+    <h5>Information to check</h5>
+    <ol class="review-guidance-list">
+      {% for question in guidance.questions %}<li>{{ question }}</li>{% endfor %}
+    </ol>
+
+    <a class="review-guidance-link" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-' ~ slug, **detail_parameters) }}">View full {{ guidance_code }} screening <span aria-hidden="true">→</span></a>
+  </details>
+{% endif %}

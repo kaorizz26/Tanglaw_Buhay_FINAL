@@ -45,7 +45,7 @@
       <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=code, review_id=latest_review.id, **detail_parameters) }}">View {{ code }} Review</a>
     {% else %}
       <p>{{ program.guidance.action }}</p>
-      <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=code, **detail_parameters) }}">Start {{ code }} Review</a>
+      <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=code, origin='screening', **detail_parameters) }}">Start {{ code }} Review</a>
       {% if program.status != 'For Review' %}
         <p class="slp-helper">A brief reason is required when starting this review.</p>
       {% endif %}

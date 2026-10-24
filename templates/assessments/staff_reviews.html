@@ -23,11 +23,14 @@
         <p class="section-helper">Screening based on CBMS {{ results.context.survey_year }}: {{ start_program.historical_status_label }}.</p>
         <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-spisc', **detail_parameters) }}">View SPISC finding and current-age evidence</a>
       {% endif %}
+      {% with guidance_code=start_program.name, guidance_nested=true %}
+        {% include 'assessments/review_screening_guidance.html' %}
+      {% endwith %}
       <p>Starting a review means LGU staff have selected this household for further examination. You can record observations and later recommend whether the household needs further LGU consideration.</p>
       {% if review_error %}
         <p id="review-error" class="review-error" role="alert">{{ review_error }}</p>
       {% endif %}
-      <form method="post" action="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=start_program.name, **detail_parameters) }}">
+      <form method="post" action="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=start_program.name, origin=origin, **detail_parameters) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="batch_id" value="{{ results.context.batch_id }}">
         <input type="hidden" name="run_id" value="{{ results.context.run_id }}">
@@ -39,7 +42,11 @@
         <p class="review-confirmation-note">This review will be recorded under your staff account, {{ staff_username }}.</p>
         <div class="review-form-actions">
           <button class="review-button" type="submit">Start Review</button>
-          <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **detail_parameters) }}">Cancel</a>
+          {% if origin == 'screening' %}
+            <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-' ~ (start_program.name | lower), **detail_parameters) }}">Cancel</a>
+          {% else %}
+            <a href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', **detail_parameters) }}">Cancel</a>
+          {% endif %}
         </div>
       </form>
     </section>
@@ -76,7 +83,7 @@
             </div>
           </dl>
           {% if program.review %}
-            <p class="review-attribution">Started by <strong>{{ program.review.username }}</strong> on <time datetime="{{ program.review.created_at.isoformat() }}">{{ program.review.created_at.strftime('%d %b %Y') }}</time>.</p>
+            <p class="review-attribution">Started by <strong>{{ program.review.username }}</strong> on <time datetime="{{ program.review.created_at.isoformat() }}">{{ program.review.created_at | pht_date }}</time>.</p>
             {% if program.review.starting_reason %}
               <p class="review-starting-reason"><strong>Starting reason</strong><br>{{ program.review.starting_reason }}</p>
             {% endif %}
@@ -103,7 +110,7 @@
               <summary>View Review History ({{ previous | length }})</summary>
               <ol>
                 {% for saved in previous %}
-                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **detail_parameters) }}">{{ saved.created_at.strftime('%d %b %Y') }} — {{ 'Recommendation Withdrawn' if saved.withdrawn else saved.effective_recommendation or 'Cancelled' }}</a></li>
+                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **detail_parameters) }}">{{ saved.created_at | pht_date }} — {{ 'Recommendation Withdrawn' if saved.withdrawn else saved.effective_recommendation or 'Cancelled' }}</a></li>
                 {% endfor %}
               </ol>
             </details>

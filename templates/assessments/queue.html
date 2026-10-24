@@ -165,7 +165,7 @@
               </td>
               {% set timestamp = review.created_at if results.filters.status == 'in-review' else review.finished_at %}
               <td>
-                <time datetime="{{ timestamp.isoformat() }}">{{ timestamp.strftime('%d %b %Y') }}</time>
+                <time datetime="{{ timestamp.isoformat() }}">{{ timestamp | pht_date }}</time>
               </td>
               <td class="action-cell">
                 <a

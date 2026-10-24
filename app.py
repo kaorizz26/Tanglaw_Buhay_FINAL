@@ -1,5 +1,7 @@
 """Flask entry point for Tanglaw-Buhay."""
 
+from zoneinfo import ZoneInfo
+
 from flask import Flask, render_template
 
 from config import Config
@@ -9,6 +11,26 @@ from routes.auth import auth
 from routes.main import main
 from services.auth import protect_staff_routes
 from services.assessment_request_logging import protect_assessment_access_logs
+
+
+PHILIPPINE_TIME = ZoneInfo("Asia/Manila")
+
+
+def _philippine_time(value, pattern):
+    """Format a stored timezone-aware value in Philippine Time without changing it."""
+    if value is None:
+        return ""
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("naive datetime; timezone required")
+    return value.astimezone(PHILIPPINE_TIME).strftime(pattern)
+
+
+def pht_datetime(value):
+    return _philippine_time(value, "%d %b %Y, %I:%M %p PHT")
+
+
+def pht_date(value):
+    return _philippine_time(value, "%d %b %Y")
 
 
 def create_app(test_config=None):
@@ -25,6 +47,8 @@ def create_app(test_config=None):
     app.register_blueprint(assessments)
     app.before_request(protect_staff_routes)
     register_commands(app)
+    app.add_template_filter(pht_datetime)
+    app.add_template_filter(pht_date)
 
     @app.after_request
     def prevent_record_caching(response):

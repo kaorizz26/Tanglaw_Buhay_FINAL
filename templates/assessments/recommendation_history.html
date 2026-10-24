@@ -3,13 +3,13 @@
   <ol class="review-notes-list">
     <li class="review-saved-note">
       <p><strong>Original recommendation · {{ review.closing_recommendation }}</strong></p>
-      <p class="review-note-meta">Finished by {{ review.finished_username }} · {{ review.finished_at.strftime('%d %b %Y, %I:%M %p %Z') }}</p>
+      <p class="review-note-meta">Finished by {{ review.finished_username }} · {{ review.finished_at | pht_datetime }}</p>
       <p class="review-preserved-text">{{ review.closing_explanation }}</p>
     </li>
     {% for change in review.recommendation_changes %}
       <li class="review-saved-note">
         <p><strong>{{ 'Recommendation corrected' if change.action == 'correct' else 'Recommendation withdrawn' }}</strong></p>
-        <p class="review-note-meta">{{ change.changed_username }} · {{ change.created_at.strftime('%d %b %Y, %I:%M %p %Z') }}</p>
+        <p class="review-note-meta">{{ change.changed_username }} · {{ change.created_at | pht_datetime }}</p>
         <p>Previously: <strong>{{ change.previous_recommendation }}</strong></p>
         <p class="review-preserved-text">{{ change.previous_explanation }}</p>
         {% if change.action == 'correct' %}

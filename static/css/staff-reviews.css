@@ -223,7 +223,11 @@
 }
 
 .review-confirmation > p {
-  margin-top: 10px;
+  margin-top: 12px;
+}
+
+.review-confirmation > .review-guidance + p {
+  margin-top: 0;
 }
 
 .review-confirmation form {
@@ -592,6 +596,89 @@
 
 .review-button--secondary:hover {
   color: var(--surface);
+}
+
+/* Screening guidance panel (Start Review form and review workspace) */
+.review-guidance {
+  margin: 20px 0 24px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.review-record-section .review-guidance {
+  margin: 0;
+}
+
+.review-guidance summary {
+  cursor: pointer;
+}
+
+.review-guidance summary > :is(h3, h4) {
+  display: inline;
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.review-guidance h5 {
+  margin: 22px 0 10px;
+  font-size: 0.9375rem;
+}
+
+.review-guidance-status,
+.review-guidance-note {
+  margin: 14px 0 0;
+}
+
+.review-guidance {
+  line-height: 1.55;
+}
+
+.review-guidance-note {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.review-guidance-list {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.review-guidance-list > li + li {
+  margin-top: 14px;
+}
+
+.review-guidance-list li > strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.review-guidance-list li > span {
+  display: block;
+}
+
+.review-guidance-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.review-guidance-link:focus-visible {
+  outline: 3px solid #167eb5;
+  outline-offset: 3px;
+}
+
+.review-responsible {
+  margin: 0 0 4px;
+}
+
+.review-action-divider {
+  margin-top: 20px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 1100px) {

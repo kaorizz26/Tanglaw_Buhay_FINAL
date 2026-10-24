@@ -130,8 +130,14 @@ def start_review(household_uuid, review_program):
         _, navigation = _assessment_navigation(request.args)
     except InvalidAssessmentFilters:
         abort(400, description="Choose valid return filters.")
+    origins = request.args.getlist("origin")
+    if len(origins) > 1:
+        abort(400, description="Choose a valid starting point for this review.")
+    # An unrecognized single value is ignored so the form returns to Staff Reviews.
+    origin = "screening" if origins == ["screening"] else None
     error = None
     reason = ""
+    review_id = None
     if request.method == "POST":
         try:
             for key in ("batch_id", "run_id", "starting_reason"):
@@ -144,7 +150,7 @@ def start_review(household_uuid, review_program):
                     raise StaffReviewError("invalid_request")
                 context_ids.append(int(value))
             reason = request.form.get("starting_reason", "")
-            start_staff_review(
+            review_id = start_staff_review(
                 str(household_uuid), program, reason, g.user["id"], *context_ids,
             )
         except StaffReviewError as failure:
@@ -178,6 +184,12 @@ def start_review(household_uuid, review_program):
                 ))
         else:
             flash(f"The {program} staff review has started.")
+        if error is None and review_id is not None:
+            return redirect(url_for(
+                "assessments.review_record", household_uuid=household_uuid,
+                review_program=program, review_id=review_id,
+                **navigation['detail_parameters'],
+            ), code=303)
         if error is None:
             return redirect(url_for(
                 "assessments.detail", household_uuid=household_uuid, tab="reviews",
@@ -205,7 +217,7 @@ def start_review(household_uuid, review_program):
         ), code=303)
     return render_template(
         "assessments/detail.html", results=results, tab="reviews", start_program=selected,
-        review_error=error, starting_reason=reason[:1000], **navigation,
+        review_error=error, starting_reason=reason[:1000], origin=origin, **navigation,
         role_label="System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff",
         staff_username=g.user["username"], csrf_token=csrf_token(),
     ), (400 if error else 200)

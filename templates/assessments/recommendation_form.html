@@ -6,7 +6,7 @@
     <h4>{{ 'Previously saved recommendation' if correcting else 'Current effective recommendation' }}</h4>
     <p><strong>{{ review.effective_recommendation }}</strong></p>
     <p class="review-preserved-text">{{ review.effective_explanation }}</p>
-    <p class="review-note-meta">{{ 'Corrected' if review.recommendation_version else 'Finished' }} by {{ review.effective_username }} · {{ review.effective_at.strftime('%d %b %Y, %I:%M %p %Z') }}</p>
+    <p class="review-note-meta">{{ 'Corrected' if review.recommendation_version else 'Finished' }} by {{ review.effective_username }} · {{ review.effective_at | pht_datetime }}</p>
   </div>
   {% if not correcting %}
     <p class="section-helper">Withdrawing removes this recommendation from the current review results. The completed review will remain in history.</p>

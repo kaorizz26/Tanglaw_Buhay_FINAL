@@ -2,7 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
 from secrets import token_urlsafe
@@ -20,7 +20,7 @@ from psycopg.types.json import Jsonb
 from werkzeug.datastructures import MultiDict
 from werkzeug.security import generate_password_hash
 
-from app import create_app
+from app import create_app, pht_date, pht_datetime
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
 from repositories import assessment_runs, staff_reviews as repository
 from services import staff_reviews as service
@@ -88,7 +88,8 @@ class StaffReviewRouteTests(unittest.TestCase):
                           'staff_id': '999'},
                 )
                 self.assertEqual(result.status_code, 303)
-                self.assertIn('tab=reviews', result.location)
+                self.assertIn('/reviews/4Ps/42?', result.location)
+                self.assertNotIn('tab=reviews', result.location)
                 self.assertIn('page=2', result.location)
                 self.assertIn('priority=both', result.location)
                 self.creator.assert_called_once_with(HOUSEHOLD_UUID, '4Ps', '', 7, 1, 2)
@@ -287,6 +288,129 @@ class StaffReviewRouteTests(unittest.TestCase):
         self.assertNotIn('Staff recommendation', slp_current)
         self.assertIn('This review ended without a recommendation.', slp_current)
         self.assertIn('Start Review', slp_current)
+
+    def review_row(self, program, status='In Review', **overrides):
+        row = {
+            'id': 42, 'current_review_id': 42, 'program': program, 'status': status,
+            'username': 'synthetic_staff', 'starting_reason': 'Staff examination requested.',
+            'created_at': datetime(2026, 10, 1, 16, 30, tzinfo=timezone.utc),
+            'responsible_staff_id': 7, 'responsible_username': 'synthetic_staff',
+            'responsibility_version': 1, 'notes': [], 'reassignments': [],
+            'closing_recommendation': None,
+        }
+        if status == 'Closed':
+            row.update(closing_recommendation='No Further Action',
+                       closing_explanation='Reviewed.', finished_username='synthetic_staff',
+                       finished_at=row['created_at'])
+        if status == 'Cancelled':
+            row.update(cancelled_username='synthetic_staff', cancelled_at=row['created_at'],
+                       cancellation_reason='Started in error.')
+        row.update(overrides)
+        return row
+
+    def test_start_form_shows_guidance_for_every_program_and_origin_controls_cancel(self):
+        self.session()
+        for program in ('4Ps', 'SLP', 'SPISC', 'TUPAD'):
+            with self.subTest(program=program):
+                path = f'{self.path}/reviews/{program}?page=2'
+                page = self.client.get(path + '&origin=screening').text
+                self.assertIn('Screening Findings &amp; Information to Check', page)
+                self.assertIn('What the system found', page)
+                self.assertIn('Information to check', page)
+                self.assertIn(f'View full {program} screening', page)
+                self.assertNotIn('Suggested staff action', page)
+                self.assertNotIn('System screening finding', page)
+                self.assertIn(f'reviews/{program}?origin=screening&amp;page=2', page)
+                self.assertIn(f'tab=screening&amp;page=2#screening-{program.lower()}"'
+                              '>Cancel</a>', page)
+                plain = self.client.get(path).text
+                self.assertNotIn('origin=', plain.split('<form method="post"', 1)[1].split('>', 1)[0])
+                self.assertIn('tab=reviews&amp;page=2">Cancel</a>', plain)
+        # Unknown single values fall back to Staff Reviews; duplicates are rejected.
+        unknown = self.client.get(self.start_path + '?origin=elsewhere').text
+        self.assertIn('tab=reviews&amp;page=1">Cancel</a>', unknown)
+        self.assertNotIn('origin=elsewhere', unknown)
+        self.assertEqual(self.client.get(
+            self.start_path + '?origin=screening&origin=screening').status_code, 400)
+        self.assertEqual(self.client.post(
+            self.start_path + '?origin=screening&origin=x',
+            data={'csrf_token': 'test-token', 'batch_id': '1', 'run_id': '2'}).status_code, 400)
+        self.creator.assert_not_called()
+
+    def test_spisc_guidance_separates_current_and_historical_results(self):
+        self.session()
+        page = self.client.get(self.path + '/reviews/SPISC').text
+        self.assertIn('Current SPISC recommendation (as of ', page)
+        year = self.source['context']['survey_year']
+        self.assertIn(f'CBMS {year} screening: ', page)
+
+    def test_workspace_guidance_order_actions_and_queue_return(self):
+        self.session()
+        for program in ('4Ps', 'SLP', 'SPISC', 'TUPAD'):
+            self.source['staff_reviews'] = [self.review_row(program)]
+            page = self.client.get(
+                f'{self.path}/reviews/{program}/42?page=2&from_queue=1&queue_page=3'
+                '&queue_status=in-review&queue_scope=mine&queue_sort=desc').text
+            with self.subTest(program=program):
+                self.assertIn('<details class="review-guidance" open>', page)
+                self.assertIn('Information to check', page)
+                self.assertNotIn('Current system screening', page)
+                positions = [page.index(marker) for marker in (
+                    'id="review-details-heading"', 'id="guidance-heading-',
+                    'id="add-note-heading"', 'id="review-notes-heading"')]
+                self.assertEqual(positions, sorted(positions))
+                self.assertIn('Back to Review Queue', page)
+                self.assertIn('queue_page=3', page.split('View full', 1)[1])
+                self.assertNotIn('View Subsidy Screening', page)
+                actions = page.split('class="review-action-buttons"', 1)[1]
+                self.assertLess(actions.index('Finish Review'), actions.index('Cancel Review'))
+                self.assertLess(actions.index('Cancel Review'), actions.index('Reassign Staff'))
+                self.assertEqual(actions.count('class="review-button"'), 1)
+
+    def test_closed_and_cancelled_reviews_collapse_guidance_with_reference_note(self):
+        self.session()
+        for status in ('Closed', 'Cancelled'):
+            self.source['staff_reviews'] = [self.review_row('SLP', status)]
+            page = self.client.get(f'{self.path}/reviews/SLP/42').text
+            with self.subTest(status=status):
+                self.assertIn('<details class="review-guidance review-guidance--reference">', page)
+                self.assertIn('Current system screening — shown for reference; '
+                              'not saved with this review.', page)
+                self.assertNotIn('id="add-note-heading"', page)
+                nav = page.split('Review and household links', 1)[1].split('</nav>', 1)[0]
+                self.assertIn('View SLP Screening', nav)
+                self.assertIn('#screening-slp', nav)
+        self.source['staff_reviews'] = [self.review_row('SLP')]
+        nav = self.client.get(f'{self.path}/reviews/SLP/42').text.split(
+            'Review and household links', 1)[1].split('</nav>', 1)[0]
+        self.assertNotIn('View SLP Screening', nav)
+
+    def test_saved_notes_stay_oldest_first_and_times_use_philippine_time(self):
+        self.session()
+        notes = [
+            {'username': 'first_author', 'body': 'Oldest note',
+             'created_at': datetime(2026, 10, 1, 16, 30, tzinfo=timezone.utc)},
+            {'username': 'second_author', 'body': 'Newest note',
+             'created_at': datetime(2026, 10, 2, 1, 0, tzinfo=timezone.utc)},
+        ]
+        self.source['staff_reviews'] = [self.review_row('4Ps', notes=notes)]
+        page = self.client.get(f'{self.path}/reviews/4Ps/42').text
+        self.assertLess(page.index('Oldest note'), page.index('Newest note'))
+        self.assertIn('<time datetime="2026-10-01T16:30:00+00:00">02 Oct 2026, 12:30 AM PHT</time>', page)
+        self.assertNotIn('UTC', page)
+        self.assertNotIn('CST', page)
+
+    def test_philippine_time_filters_convert_without_assuming_a_timezone(self):
+        utc = datetime(2026, 10, 1, 16, 30, tzinfo=timezone.utc)
+        self.assertEqual(pht_datetime(utc), '02 Oct 2026, 12:30 AM PHT')
+        self.assertEqual(pht_date(utc), '02 Oct 2026')
+        local = utc.astimezone(timezone(timedelta(hours=8)))
+        self.assertEqual(pht_datetime(local), '02 Oct 2026, 12:30 AM PHT')
+        self.assertEqual(pht_date(None), '')
+        self.assertEqual(pht_datetime(None), '')
+        for filter_ in (pht_datetime, pht_date):
+            with self.assertRaises(ValueError):
+                filter_(datetime(2026, 10, 1, 16, 30))
 
     def test_invalid_program_context_duplicate_and_database_errors_are_safe(self):
         self.session()
@@ -496,7 +620,8 @@ class StaffReviewDatabaseTests(unittest.TestCase):
         for text in ('In Review', 'synthetic_staff', 'Staff received a request for consideration.',
                      'The SLP staff review has started.'):
             self.assertIn(text, response.text)
-        self.assertIn('Open Review', response.text)
+        self.assertIn('Screening Findings &amp; Information to Check', response.text)
+        self.assertIn('Add Note', response.text)
         with self.connect() as connection:
             self.assertEqual(self.snapshot(connection), self.originals)
 
