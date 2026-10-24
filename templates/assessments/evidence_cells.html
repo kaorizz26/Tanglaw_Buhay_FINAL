@@ -2,7 +2,7 @@
   {% for cell in cells %}
     <div>
       <dt>{{ cell.label }}</dt>
-      <dd{% if cell.slp_unavailable %} class="slp-answer-unavailable"{% endif %}>{{ cell.value }}</dd>
+      <dd{% if cell.slp_unavailable %} class="slp-answer-unavailable"{% elif cell.needs_verification %} class="spisc-answer-unavailable"{% endif %}>{{ cell.value }}</dd>
     </div>
   {% endfor %}
 </dl>

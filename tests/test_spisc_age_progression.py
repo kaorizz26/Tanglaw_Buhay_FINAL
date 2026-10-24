@@ -15,12 +15,13 @@ class SpiscAgeProgressionTests(unittest.TestCase):
     def test_2022_ages_on_october_24_2026(self):
         for age, category in (
             (54, "below_senior_age"), (55, "possible_senior_age"),
-            (56, "possible_senior_age"), (57, "reached_senior_age"),
+            (56, "reached_senior_age"), (57, "reached_senior_age"),
             (59, "reached_senior_age"), (60, "recorded_senior"),
+            (62, "recorded_senior"),
         ):
             with self.subTest(age=age):
                 self.assertEqual(classify_senior_age(age, 2022, date(2026, 10, 24)), {
-                    "category": category, "minimum_age": age + 3,
+                    "category": category, "minimum_age": age + 4,
                     "maximum_age": age + 5,
                 })
 
@@ -40,7 +41,9 @@ class SpiscAgeProgressionTests(unittest.TestCase):
     def test_calendar_boundaries(self):
         for assessed, bounds, category in (
             (date(2026, 1, 1), (58, 59), "below_senior_age"),
-            (date(2026, 1, 2), (58, 60), "possible_senior_age"),
+            (date(2026, 1, 2), (58, 59), "below_senior_age"),
+            (date(2026, 6, 30), (59, 59), "below_senior_age"),
+            (date(2026, 7, 1), (59, 60), "possible_senior_age"),
             (date(2026, 12, 31), (59, 60), "possible_senior_age"),
             (date(2027, 12, 31), (60, 61), "reached_senior_age"),
         ):
@@ -65,6 +68,25 @@ class SpiscAgeProgressionTests(unittest.TestCase):
             classify_senior_age(57, 2030, date(2034, 10, 24))["category"],
             "reached_senior_age",
         )
+
+    def test_verified_future_reference_and_leap_day(self):
+        self.assertEqual(classify_senior_age(
+            56, 2024, date(2027, 10, 24), reference_date=date(2024, 12, 31),
+        ), {'category': 'below_senior_age', 'minimum_age': 58, 'maximum_age': 59})
+        for assessed, bounds in ((date(2028, 2, 28), (17, 17)),
+                                 (date(2028, 2, 29), (17, 17)),
+                                 (date(2028, 3, 1), (17, 18))):
+            result = classify_senior_age(
+                13, 2024, assessed, reference_date=date(2024, 2, 29),
+            )
+            self.assertEqual((result['minimum_age'], result['maximum_age']), bounds)
+        for reference in ('2024-06-30', date(2023, 6, 30), datetime(2024, 6, 30)):
+            with self.assertRaises(ValueError):
+                classify_senior_age(55, 2024, date(2027, 10, 24), reference_date=reference)
+        with self.assertRaises(ValueError):
+            classify_senior_age(55, 2022, date(2022, 6, 29))
+        with self.assertRaises(ValueError):
+            classify_senior_age(55, 2022, date(2026, 10, 24), reference_date=date(2022, 1, 1))
 
     def test_missing_and_invalid_ages(self):
         for age in (None, "", "NA", "bad", True, False, -1, 59.5,

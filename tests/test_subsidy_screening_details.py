@@ -103,7 +103,7 @@ class ScreeningPresentationTests(unittest.TestCase):
         self.assertEqual(values["Age in 2022"], "45 years")
         senior = programs["SPISC"]["members"][-1]
         self.assertEqual(senior["cells"][0]["value"], "80 years")
-        self.assertEqual(senior["cells"][1]["value"], "Yes — meaning needs confirmation")
+        self.assertEqual(senior["cells"][1]["value"], "Yes")
         slp_values = str(programs["SLP"]["members"][-1]["cells"])
         self.assertIn("Self-employed without any paid employee", slp_values)
 
@@ -411,7 +411,8 @@ class ScreeningRouteTests(unittest.TestCase):
         self.assertIn("Not Enough Information", article)
         self.assertNotIn("Needs Data Review", article)
         self.assertNotIn("Why this household received For Review", article)
-        self.assertNotIn("screening-status--review", article)
+        self.assertIn("screening-status--review", article)
+        self.assertIn("Screening based on CBMS 2022: Not Enough Information.", article)
 
     def test_source_names_are_escaped_and_technical_private_and_unimplemented_content_is_absent(self):
         self.session()

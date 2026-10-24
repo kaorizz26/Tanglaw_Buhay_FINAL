@@ -1,0 +1,30 @@
+<details class="screening-evidence">
+  <summary>View Recorded Information<span class="visually-hidden"> for SPISC</span></summary>
+  <div class="evidence-body">
+    <p class="evidence-context">Screening based on CBMS {{ results.context.survey_year }}: {{ program.status_label }}.</p>
+    {% if program.issues or program.differences %}
+      <section class="screening-differences">
+        <h4>Information to clarify</h4>
+        {% for issue in program.issues %}<p>{{ issue }}</p>{% endfor %}
+        {% for difference in program.differences %}
+          <p><strong>{{ difference.subject }} — {{ difference.label }}</strong><br>
+            Saved screening evidence: {{ difference.stored }}<br>CBMS record: {{ difference.recorded }}</p>
+        {% endfor %}
+      </section>
+    {% endif %}
+    <div class="spisc-recorded-grid">
+      <section class="member-evidence">
+        <h4>Household answers</h4>
+        {% set cells = program.household_cells %}{% set layout = 'rows' %}
+        {% include 'assessments/evidence_cells.html' %}
+      </section>
+      {% for member in program.members %}
+        <section class="member-evidence">
+          <h4>{{ member.name }}</h4>
+          {% set cells = member.cells %}{% set layout = 'rows' %}
+          {% include 'assessments/evidence_cells.html' %}
+        </section>
+      {% endfor %}
+    </div>
+  </div>
+</details>

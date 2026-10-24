@@ -367,6 +367,10 @@ class SlpPresentationTests(unittest.TestCase):
                     self.assertIn('Age 12 at the 2022 CBMS survey.', article)
                     self.assertIn('Why this was flagged', article)
                     self.assertIn('Start 4Ps Review</a>', article)
+                elif code == 'spisc':
+                    self.assertNotIn('Current-age guidance', article)
+                    self.assertIn('<details class="spisc-disclosure" open>', article)
+                    self.assertIn('Screening based on CBMS 2022: For Review.', article)
                 else:
                     self.assertIn('Why this household received For Review', article)
                     self.assertNotIn('four-ps-disclosure', article)

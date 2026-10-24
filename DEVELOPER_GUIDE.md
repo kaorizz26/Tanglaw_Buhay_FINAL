@@ -270,16 +270,33 @@ never advanced to a later year.
 | `screening/spisc.py`: `screen_spisc()` | A07; household L15 and joined member L16/line for optional PWD context. | Any age 60+. Disability support requires the senior's own joined L16=1 and household L15=1. | No roster or an unknown age. Disability gaps/warnings do not change the age-based status. |
 | `screening/tupad.py`: `screen_tupad()` | A07, B06, E01, E11; E18 is supporting context. | Age 18+, B06=7, and either recorded E01=2 or recorded E01=1 with E11=2/3. | Essential age/B06/E01 missing or invalid, or E11 missing/invalid for a working applicable adult. Known age under 18 or B06=1-6 excludes; expected skips are not gaps. |
 
-`services/spisc_age_progression.py` is a separate, read-only calculation foundation;
-it is not connected to queries, UI, stored screening statuses or priority counts.
+`services/spisc_age_progression.py` is a separate, read-only calculation foundation.
+The household SPISC presentation uses it through
+`services/spisc_screening_presentation.py`, adapting nested batch-scoped member
+responses to copied flat roster rows. The presentation captures one explicit
+assessment date in `Asia/Manila` per response; tests can supply a date directly.
+Current-age guidance is separate from the saved status and never feeds stored
+findings, municipality-wide prioritization or priority counts. Existing review
+routes still require a reason unless the saved status is For Review. Supporting
+member disability context requires a joined L16=1 and household L15=1; household
+disability alone never identifies a member or triggers age review.
 `classify_senior_age(a07_age, survey_year, assessment_date)` accepts the selected
 batch's integer calendar year and an explicit `datetime.date` (not a datetime or
 string). Invalid context, including assessment before the survey year, raises
 `ValueError`; missing/invalid ages return `unknown_age`. No current date is read.
-For a later assessment year, with year difference D, completed-age bounds are
-A07 + D - 1 through A07 + D + 1. January 1 reduces the maximum by one;
-December 31 raises the minimum by one. In the survey year, the minimum is A07:
-the supplied observation is assumed to precede assessment. Recorded A07 >= 60
+The [PSA 2022 HPQ, page 2](https://psa.gov.ph/system/files/cbms/2022_Household_Profile_Questionnaire.pdf)
+defines A07 as age on **June 30, 2022**. SPISC progression now derives the possible
+birth-date interval from that reference, then evaluates its endpoints on the
+assessment date. On October 24, 2026, recorded ages 55/56/57/62 yield 59–60,
+60–61, 61–62 and 66–67 respectively. This correction does not change any stored
+age, historical engine or Run 3 finding. Optional `reference_date` accepts a
+verified date within another batch's survey year. The presentation recognizes
+an ISO `age_reference_date` in the existing `source_provenance.declared` JSON
+only with `age_reference_date_verified: true`; no date is assumed for future years.
+Absent, invalid or unverified future declarations retain the conservative bounds:
+A07 + year difference - 1 through + 1, tightened at January 1 / December 31.
+Assessment before a known reference is rejected by the utility; the presentation
+shows unavailable guidance. Recorded A07 >= 60
 is `recorded_senior`; otherwise minimum >= 60 is `reached_senior_age`, maximum
 >= 60 is `possible_senior_age`, and maximum < 60 is `below_senior_age`.
 These are estimates, not verified current ages or eligibility. Disability is
@@ -288,6 +305,22 @@ not an input. `summarize_household_senior_age()` takes flat source roster rows
 relevant member lines, and retains unknown/empty-roster information. Callers
 must supply rows from one selected batch; cross-household UUIDs are rejected.
 Focused synthetic checks: `python -B -m unittest discover -s tests -p test_spisc_age_progression.py`.
+
+The SPISC panel has one current-age display status, independent of its unchanged
+saved status in View Recorded Information. Its header and member cards do not
+feed Overview, prioritization counts or Staff Review initiation requirements.
+`services/spisc_disability_presentation.py` decodes the selected batch's codebook;
+the existing batch/UUID/line Section L join is unchanged. The narrow source
+projection includes L15–L18 and L29–L32. Member disability requires household
+L15 and joined L16 corroboration; L18 remains paired with its positive L17 type.
+PWD ID attribution requires household L29 and joined L30; L32 is shown as ID
+support only when L31 reports the ID shown. These are reported circumstances,
+not independent medical or identity verification. L16/L30 export recoding remains
+an internal project interpretation, not independently confirmed PSA recoding.
+Valid No answers and expected skips stay neutral; applicable missing answers,
+conflicting references and downstream contradictions receive targeted highlighting.
+Positive disability types are listed without treating unselected blank type slots
+as No. All original rows remain in the source repository.
 
 The paths above are relative to `services/`. Each file starts with its main
 screening function. Metadata is in `screening/metadata.py`; shared code/value

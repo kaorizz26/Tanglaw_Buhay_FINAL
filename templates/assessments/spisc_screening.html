@@ -1,0 +1,69 @@
+{# Reuse existing review state and routes; guidance never changes saved status. #}
+{% set active_review = results.review_history | selectattr('program', 'equalto', 'SPISC') | selectattr('status', 'equalto', 'In Review') | first %}
+{% set latest_review = results.review_summary | selectattr('program', 'equalto', 'SPISC') | first %}
+{% set completed_review = latest_review and latest_review.status == 'Closed' and not latest_review.withdrawn %}
+<div class="spisc-guidance">
+  <section class="spisc-found" aria-labelledby="spisc-found-heading">
+    <h4 id="spisc-found-heading">What the system found</h4>
+    <ul class="spisc-findings">
+      {% for finding in program.guidance.found %}
+        <li>
+          <h5>{{ finding.subject }}</h5>
+          <dl class="spisc-ages">
+            <div>
+              <dt>Age in CBMS {{ results.context.survey_year }}</dt>
+              <dd>{{ finding.recorded_age if finding.recorded_age is not none else 'Not recorded or unclear' }}</dd>
+            </div>
+            <div>
+              <dt>Estimated age · <time datetime="{{ program.guidance.assessment_date.isoformat() }}">{{ program.guidance.date_label }}</time></dt>
+              <dd>{% if finding.minimum_age is not none %}{{ finding.minimum_age }}{% if finding.minimum_age != finding.maximum_age %}–{{ finding.maximum_age }}{% endif %}{% else %}Unavailable{% endif %}</dd>
+            </div>
+          </dl>
+          <p>{{ finding.text }}</p>
+          {% if finding.disability.cells or finding.disability.notes %}
+            <section class="spisc-support" aria-label="Disability and PWD information for {{ finding.subject }}">
+              <h6>Disability and PWD information</h6>
+              {% if finding.disability.cells %}
+                <dl class="spisc-support-grid">
+                  {% for cell in finding.disability.cells %}
+                    <div><dt>{{ cell.label }}</dt><dd>{{ cell.value }}</dd></div>
+                  {% endfor %}
+                </dl>
+              {% endif %}
+              {% for note in finding.disability.notes %}<p class="spisc-helper">{{ note }}</p>{% endfor %}
+            </section>
+          {% endif %}
+        </li>
+      {% else %}
+        <li><h5>{{ 'Age information unavailable' if program.guidance.has_unknown_age else 'No senior-age review signal' }}</h5>
+          <p>{{ 'Confirm household members and their ages.' if program.guidance.has_unknown_age else 'No member was identified as having reached or possibly reached age 60.' }}</p></li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section class="spisc-why" aria-labelledby="spisc-why-heading">
+    <h4 id="spisc-why-heading">{{ program.guidance.why_heading }}</h4>
+    <p>{{ program.guidance.why }}</p>
+    {% for note in program.guidance.household_notes %}<p class="spisc-helper">{{ note }}</p>{% endfor %}
+  </section>
+  <section class="spisc-checks" aria-labelledby="spisc-checks-heading">
+    <h4 id="spisc-checks-heading">Information to check</h4>
+    {% if not program.guidance.review_suggested and not program.guidance.has_unknown_age %}<p class="spisc-helper">If staff have newer information:</p>{% endif %}
+    <ol>{% for question in program.guidance.questions %}<li>{{ question }}</li>{% endfor %}</ol>
+  </section>
+  <section class="spisc-action" aria-labelledby="spisc-action-heading">
+    <h4 id="spisc-action-heading">Suggested staff action</h4>
+    {% if active_review %}
+      <p>Continue the existing SPISC review and document current findings.</p>
+      <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program='SPISC', review_id=active_review.id, **detail_parameters) }}">Open SPISC Review</a>
+    {% elif completed_review %}
+      <p>View the completed recommendation and recorded findings.</p>
+      <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program='SPISC', review_id=latest_review.id, **detail_parameters) }}">View SPISC Review</a>
+    {% else %}
+      <p>{{ program.guidance.action }}</p>
+      <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program='SPISC', **detail_parameters) }}">Start SPISC Review</a>
+      {% if program.status != 'For Review' %}
+        <p class="spisc-helper">A brief reason is required on the review initiation screen.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>

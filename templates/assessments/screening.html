@@ -13,15 +13,19 @@
   </div>
 
   {% for program in results.screening_programs %}
-    <article class="detail-section screening-program screening-program--{{ program.status_class }}" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
-      {% if program.code in ('4Ps', 'SLP') %}
-      <details class="{{ 'slp' if program.code == 'SLP' else 'four-ps' }}-disclosure"{% if program.status != 'No Historical CBMS Trigger' %} open{% endif %}>
-      <summary class="screening-program-heading {{ 'slp' if program.code == 'SLP' else 'four-ps' }}-toggle">
+    {% set display_class = program.guidance.display_status_class if program.code == 'SPISC' else program.status_class %}
+    {% set display_label = program.guidance.display_status_label if program.code == 'SPISC' else program.status_label %}
+    <article class="detail-section screening-program screening-program--{{ display_class }}" id="screening-{{ program.code | lower }}" aria-labelledby="screening-title-{{ program.code | lower }}">
+      {% if program.code in ('4Ps', 'SLP', 'SPISC') %}
+      {% set panel_class = {'4Ps': 'four-ps', 'SLP': 'slp', 'SPISC': 'spisc'}[program.code] %}
+      {% set expanded = display_class != 'none' if program.code == 'SPISC' else program.status != 'No Historical CBMS Trigger' %}
+      <details class="{{ panel_class }}-disclosure"{% if expanded %} open{% endif %}>
+      <summary class="screening-program-heading {{ panel_class }}-toggle">
         <span>
-          <strong class="{{ 'slp' if program.code == 'SLP' else 'four-ps' }}-program-title" id="screening-title-{{ program.code | lower }}">{{ program.code }}</strong>
+          <strong class="{{ panel_class }}-program-title" id="screening-title-{{ program.code | lower }}">{{ program.code }}</strong>
           <span class="screening-program-name">{{ program.name }}</span>
         </span>
-        <span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span>
+        <span class="screening-status screening-status--{{ display_class }}">{{ display_label }}</span>
       </summary>
       {% else %}
       <header class="screening-program-heading">
@@ -36,6 +40,8 @@
         {% include 'assessments/four_ps_screening.html' %}
       {% elif program.code == 'SLP' %}
         {% include 'assessments/slp_screening.html' %}
+      {% elif program.code == 'SPISC' %}
+        {% include 'assessments/spisc_screening.html' %}
       {% else %}
       <p class="screening-explanation">{{ program.explanation }}</p>
 
@@ -63,6 +69,9 @@
 
       {% endif %}
 
+      {% if program.code == 'SPISC' %}
+        {% include 'assessments/spisc_recorded_information.html' %}
+      {% else %}
       <details class="screening-evidence">
         <summary>View Recorded Information<span class="visually-hidden"> for {{ program.code }}</span></summary>
         <div class="evidence-body">
@@ -114,7 +123,8 @@
           {% endfor %}
         </div>
       </details>
-      {% if program.code in ('4Ps', 'SLP') %}</details>{% endif %}
+      {% endif %}
+      {% if program.code in ('4Ps', 'SLP', 'SPISC') %}</details>{% endif %}
     </article>
   {% endfor %}
 </section>

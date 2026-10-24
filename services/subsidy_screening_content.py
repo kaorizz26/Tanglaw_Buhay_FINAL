@@ -1,5 +1,7 @@
 """Staff wording and bounded source fields for stored subsidy findings."""
 
+from services.spisc_disability_presentation import HOUSEHOLD_LABELS, MEMBER_LABELS
+
 PROGRAM_NAMES = {
     "4Ps": "Pantawid Pamilyang Pilipino Program",
     "SLP": "Sustainable Livelihood Program",
@@ -63,6 +65,7 @@ SLP_UNRESOLVED_NOTE = (
 )
 
 FIELD_LABELS = {
+    **HOUSEHOLD_LABELS, **MEMBER_LABELS,
     "a07_age": "Age at survey",
     "a02_relation_to_hh_head": "Relationship to household head",
     "a05_sex": "Recorded sex",
@@ -82,12 +85,13 @@ FIELD_LABELS = {
 HOUSEHOLD_FIELDS = (
     "l01_with_member_who_has_been_pregnant",
     "l06_with_member_currently_pregnant", "l15_with_pwd_member",
+    "l29_with_member_who_has_pwd_id",
 )
 MEMBER_FIELDS = (
     "a02_relation_to_hh_head", "a05_sex", "e11_nature_of_employment",
     "e18_class_of_worker", "c07_tvet_graduate", "c08_tvet_currently_attending",
 )
-HEALTH_FIELDS = ("l07_currently_pregnant", "l16_pwd")
+HEALTH_FIELDS = ("l07_currently_pregnant", *MEMBER_LABELS)
 REFERENCE_FIELDS = (*HOUSEHOLD_FIELDS, *MEMBER_FIELDS, *HEALTH_FIELDS)
 
 PROGRAM_FIELDS = {
@@ -104,8 +108,8 @@ PROGRAM_FIELDS = {
         "health": (), "minimum_age": 16,
     },
     "SPISC": {
-        "household": ("l15_with_pwd_member",),
-        "member": ("a07_age",), "health": ("l16_pwd",), "minimum_age": 0,
+        "household": tuple(HOUSEHOLD_LABELS),
+        "member": ("a07_age",), "health": tuple(MEMBER_LABELS), "minimum_age": 0,
     },
     "TUPAD": {
         "household": (),

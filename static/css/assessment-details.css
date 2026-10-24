@@ -874,7 +874,8 @@
 
 .screening-program-heading h3,
 .four-ps-program-title,
-.slp-program-title {
+.slp-program-title,
+.spisc-program-title {
   margin: 0;
   font-size: 1.375rem;
   line-height: 1.25;
@@ -882,8 +883,10 @@
 
 .four-ps-program-title,
 .slp-program-title,
+.spisc-program-title,
 .four-ps-toggle .screening-program-name,
-.slp-toggle .screening-program-name {
+.slp-toggle .screening-program-name,
+.spisc-toggle .screening-program-name {
   display: block;
 }
 
@@ -970,7 +973,8 @@
 
 /* Program guidance: recorded finding first, verification and next action together. */
 .four-ps-toggle,
-.slp-toggle {
+.slp-toggle,
+.spisc-toggle {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto 12px;
   align-items: center;
@@ -980,12 +984,14 @@
 }
 
 .four-ps-toggle::-webkit-details-marker,
-.slp-toggle::-webkit-details-marker {
+.slp-toggle::-webkit-details-marker,
+.spisc-toggle::-webkit-details-marker {
   display: none;
 }
 
 .four-ps-toggle::after,
-.slp-toggle::after {
+.slp-toggle::after,
+.spisc-toggle::after {
   content: "";
   width: 8px;
   height: 8px;
@@ -995,25 +1001,29 @@
 }
 
 .four-ps-disclosure[open] > .four-ps-toggle::after,
-.slp-disclosure[open] > .slp-toggle::after {
+.slp-disclosure[open] > .slp-toggle::after,
+.spisc-disclosure[open] > .spisc-toggle::after {
   transform: rotate(225deg);
 }
 
 .four-ps-disclosure:not([open]) > .four-ps-toggle,
-.slp-disclosure:not([open]) > .slp-toggle {
+.slp-disclosure:not([open]) > .slp-toggle,
+.spisc-disclosure:not([open]) > .spisc-toggle {
   padding-bottom: 0;
   border-bottom: 0;
 }
 
 .four-ps-toggle:focus-visible,
-.slp-toggle:focus-visible {
+.slp-toggle:focus-visible,
+.spisc-toggle:focus-visible {
   outline: 3px solid #167eb5;
   outline-offset: 6px;
   border-radius: 4px;
 }
 
 .four-ps-guidance,
-.slp-guidance {
+.slp-guidance,
+.spisc-guidance {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
   gap: 18px;
@@ -1021,32 +1031,38 @@
 }
 
 .four-ps-guidance h4,
-.slp-guidance h4 {
+.slp-guidance h4,
+.spisc-guidance h4 {
   margin: 0 0 12px;
   color: var(--navy);
   font-size: 1rem;
 }
 
 .four-ps-guidance p,
-.slp-guidance p {
+.slp-guidance p,
+.spisc-guidance p {
   margin: 0 0 12px;
   line-height: 1.6;
 }
 
 .four-ps-found,
 .slp-found,
+.spisc-found,
 .four-ps-why,
-.slp-why {
+.slp-why,
+.spisc-why {
   grid-column: 1 / -1;
 }
 
 .four-ps-found,
-.slp-found {
+.slp-found,
+.spisc-found {
   padding: 0;
 }
 
 .screening-program .four-ps-findings,
-.screening-program .slp-findings {
+.screening-program .slp-findings,
+.screening-program .spisc-findings {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px 24px;
@@ -1056,7 +1072,8 @@
 }
 
 .four-ps-findings li,
-.slp-findings li {
+.slp-findings li,
+.spisc-findings li {
   display: grid;
   gap: 4px;
   line-height: 1.5;
@@ -1068,27 +1085,32 @@
 }
 
 .four-ps-why > p,
-.slp-why > p {
+.slp-why > p,
+.spisc-why > p {
   max-width: 90ch;
 }
 
 .four-ps-guidance .screening-information h5,
-.slp-guidance .screening-information h5 {
+.slp-guidance .screening-information h5,
+.spisc-guidance .screening-information h5 {
   margin: 0 0 8px;
   font-size: 0.9375rem;
 }
 
 .four-ps-checks,
 .slp-checks,
+.spisc-checks,
 .four-ps-action,
-.slp-action {
+.slp-action,
+.spisc-action {
   min-width: 0;
   padding-top: 20px;
   border-top: 1px solid var(--border);
 }
 
 .four-ps-checks ol,
-.slp-checks ol {
+.slp-checks ol,
+.spisc-checks ol {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   row-gap: 12px;
@@ -1098,7 +1120,8 @@
 }
 
 .four-ps-action,
-.slp-action {
+.slp-action,
+.spisc-action {
   align-self: start;
   padding: 18px;
   border: 1px solid var(--border);
@@ -1107,29 +1130,34 @@
 }
 
 .four-ps-action h4,
-.slp-action h4 {
+.slp-action h4,
+.spisc-action h4 {
   margin-bottom: 12px;
 }
 
 .four-ps-action > p:not(.four-ps-helper),
-.slp-action > p:not(.slp-helper) {
+.slp-action > p:not(.slp-helper),
+.spisc-action > p:not(.spisc-helper) {
   margin: 0 0 14px;
 }
 
 .four-ps-action .four-ps-helper,
-.slp-action .slp-helper {
+.slp-action .slp-helper,
+.spisc-action .spisc-helper {
   flex-basis: 100%;
   margin: 0;
 }
 
 .four-ps-checks li::marker,
-.slp-checks li::marker {
+.slp-checks li::marker,
+.spisc-checks li::marker {
   color: var(--gold-text);
   font-weight: 700;
 }
 
 .four-ps-guidance .four-ps-helper,
-.slp-guidance .slp-helper {
+.slp-guidance .slp-helper,
+.spisc-guidance .spisc-helper {
   margin-top: 10px;
   color: var(--text-muted);
   font-size: 0.875rem;
@@ -1137,15 +1165,18 @@
 
 @media (max-width: 800px) {
   .screening-program .four-ps-findings,
-  .screening-program .slp-findings {
+  .screening-program .slp-findings,
+  .screening-program .spisc-findings {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .four-ps-checks ol,
-  .slp-checks ol {
+  .slp-checks ol,
+  .spisc-checks ol {
     grid-template-columns: minmax(0, 1fr);
   }
   .four-ps-guidance,
-  .slp-guidance {
+  .slp-guidance,
+  .spisc-guidance {
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;
   }
@@ -1153,21 +1184,25 @@
 
 @media (max-width: 500px) {
   .screening-program .four-ps-findings,
-  .screening-program .slp-findings {
+  .screening-program .slp-findings,
+  .screening-program .spisc-findings {
     grid-template-columns: minmax(0, 1fr);
   }
   .four-ps-toggle,
-  .slp-toggle {
+  .slp-toggle,
+  .spisc-toggle {
     grid-template-columns: minmax(0, 1fr) 12px;
   }
   .four-ps-toggle > .screening-status,
-  .slp-toggle > .screening-status {
+  .slp-toggle > .screening-status,
+  .spisc-toggle > .screening-status {
     grid-column: 1;
     grid-row: 2;
     justify-self: start;
   }
   .four-ps-toggle::after,
-  .slp-toggle::after {
+  .slp-toggle::after,
+  .spisc-toggle::after {
     grid-column: 2;
     grid-row: 1;
   }
@@ -1272,10 +1307,107 @@
   line-height: 1.5;
 }
 
-.slp-answer-unavailable {
+.slp-answer-unavailable,
+.spisc-answer-unavailable {
   width: fit-content;
   padding: 2px 6px;
   border-radius: 3px;
   background: var(--notice);
   font-weight: 600;
+}
+
+/* SPISC: broad member cards keep age and supporting circumstances together. */
+.screening-program .spisc-findings {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.spisc-findings > li {
+  align-content: start;
+  gap: 14px;
+  padding: 20px;
+  background: #fff;
+}
+
+.spisc-findings > li:only-child {
+  grid-column: 1 / -1;
+}
+
+.spisc-findings h5,
+.spisc-support h6 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+.spisc-guidance .spisc-findings p {
+  margin: 0;
+}
+
+.spisc-ages,
+.spisc-support-grid {
+  display: grid;
+  gap: 14px 20px;
+  margin: 0;
+}
+
+.spisc-ages {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.spisc-ages dt,
+.spisc-support-grid dt {
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.spisc-ages dd,
+.spisc-support-grid dd {
+  margin: 0;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.spisc-ages dd {
+  font-size: 1.375rem;
+}
+
+.spisc-support {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.spisc-support-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.spisc-recorded-grid {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.spisc-recorded-grid > .member-evidence {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 800px) {
+  .screening-program .spisc-findings,
+  .spisc-recorded-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .spisc-support-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

@@ -4,6 +4,9 @@ from services.assessment_reference_labels import code_key, evidence_cell
 from services.mpi_evidence import _member_heading, _relevant_age
 from services.screening.metadata import PROGRAMS
 from services.slp_screening_presentation import prepare_slp_guidance, slp_unresolved_members
+from services.spisc_screening_presentation import (
+    philippine_assessment_date, prepare_spisc_guidance,
+)
 from services.subsidy_screening_content import (
     FIELD_LABELS, FOUR_PS_QUESTIONS, HEALTH_FIELDS, HOUSEHOLD_FIELDS, PROGRAM_FIELDS, PROGRAM_NAMES,
     REASON_TEXT, SLP_UNRESOLVED_NOTE, STATUS_CLASSES, STATUS_EXPLANATIONS,
@@ -83,7 +86,12 @@ def _stored_items(code, finding, members):
     return items
 
 
-def _record_evidence(code, finding, source, index, members):
+def _record_evidence(code, finding, source, index, members, spisc_guidance=None):
+    if code == "SPISC":
+        return (
+            spisc_guidance["recorded_household"], spisc_guidance["recorded_members"],
+            _record_differences(finding, source, index, members),
+        )
     spec = PROGRAM_FIELDS[code]
     survey_year = source["context"]["survey_year"]
     household_cells = [
@@ -130,9 +138,8 @@ def _record_evidence(code, finding, source, index, members):
     for member in source["members"]:
         line = code_key(member["line_number"])
         directly_related = line in selected_lines
-        minimum_age = 60 if code == "SPISC" else spec["minimum_age"]
         broadly_relevant = _relevant_age(
-            member["responses"].get("a07_age"), (minimum_age, None),
+            member["responses"].get("a07_age"), (spec["minimum_age"], None),
         )
         if finding["screening_status"] == "For Review":
             include_member = directly_related
@@ -154,8 +161,6 @@ def _record_evidence(code, finding, source, index, members):
             age = member["responses"].get("a07_age")
             if code == "4Ps" and _relevant_age(age, (10, None)):
                 fields += list(spec["health"])
-            if code == "SPISC" and _relevant_age(age, (60, None)):
-                fields += list(spec["health"])
         member_rows.append({
             "name": _member_heading(member),
             "cells": [
@@ -170,6 +175,12 @@ def _record_evidence(code, finding, source, index, members):
                 if field in unresolved_fields:
                     cell["slp_unavailable"] = True
 
+    return household_cells, member_rows, _record_differences(finding, source, index, members)
+
+
+def _record_differences(finding, source, index, members):
+    """Compare saved evidence with projected source values without changing either."""
+    survey_year = source["context"]["survey_year"]
     differences = []
     for item in finding["supporting_evidence"]:
         line = item.get("member_line_number")
@@ -193,7 +204,7 @@ def _record_evidence(code, finding, source, index, members):
                 "stored": _answer(field, stored, index, survey_year)["value"],
                 "recorded": _answer(field, recorded, index, survey_year)["value"],
             })
-    return household_cells, member_rows, differences
+    return differences
 
 
 def _information_issues(code, finding, source, members):
@@ -301,16 +312,19 @@ def _four_ps_guidance(finding, source, members, reasons, issues):
             "questions": questions, "action": action}
 
 
-def prepare_subsidy_screening(source, index):
+def prepare_subsidy_screening(source, index, *, assessment_date=None):
     """Keep all stored statuses and separate trigger evidence from supporting context."""
+    if assessment_date is None:
+        assessment_date = philippine_assessment_date()
     members = {code_key(member["line_number"]): member for member in source["members"]}
     programs = []
     for code in PROGRAMS:
         finding = source["findings"]["programs"][code]
         status = finding["screening_status"]
+        spisc_guidance = prepare_spisc_guidance(source, assessment_date, index) if code == "SPISC" else None
         items = _stored_items(code, finding, members)
         household, rows, differences = _record_evidence(
-            code, finding, source, index, members,
+            code, finding, source, index, members, spisc_guidance,
         )
         reasons = (
             [item for item in items if item["is_trigger"]]
@@ -346,4 +360,6 @@ def prepare_subsidy_screening(source, index):
             )
         elif code == "SLP":
             programs[-1]["guidance"] = prepare_slp_guidance(finding, source, index, issues)
+        elif code == "SPISC":
+            programs[-1]["guidance"] = spisc_guidance
     return programs
