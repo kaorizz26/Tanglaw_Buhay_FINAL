@@ -41,7 +41,7 @@ class TupadPresentationTests(unittest.TestCase):
         for text in ('Age 45 at the 2022 CBMS survey.', 'Age 52 at the 2022 CBMS survey.',
                      'Recorded as not working during the week before the survey.',
                      'Short-term, seasonal, casual, or day-to-day work was recorded',
-                     'recorded work situations support',
+                     'saved findings about the members',
                      'not establish eligibility or current unemployment',
                      'Start a TUPAD Staff Review', 'Start TUPAD Review</a>',
                      '&lt;script&gt;x&lt;/script&gt;'):
@@ -81,11 +81,26 @@ class TupadPresentationTests(unittest.TestCase):
                 self.assertIn('A brief reason is required when starting this review.', article)
         answers.update(a07_age='45', b06_ofi='7', e01_employed='1', e11_nature_of_employment='NA')
         self.assertIn('nature of the work was not recorded', self.render())
+        # Regular work excludes a member only once age and residency are known.
+        for field, text in (('a07_age', 'Age at survey is not recorded'),
+                            ('b06_ofi', 'Residency information is not recorded')):
+            answers.update(a07_age='45', b06_ofi='7', e01_employed='1', e11_nature_of_employment='1')
+            answers[field] = 'NA'
+            self.assertIn(text, self.render())
         for age, residency, work, nature in (('17', '7', 'NA', 'NA'), ('45', '1', 'NA', 'NA'),
                                              ('45', '7', '1', '1')):
             answers.update(a07_age=age, b06_ofi=residency, e01_employed=work,
                            e11_nature_of_employment=nature)
             self.assertIn('does not identify one reliable cause', self.render())
+
+    def test_shared_panel_heading_ids_are_unique_per_program(self):
+        self.session()
+        page = self.client.get(self.path + '?tab=screening').text
+        ids = re.findall(r'\sid="([^"]+)"', page)
+        self.assertEqual(len(ids), len(set(ids)))
+        for code in ('slp', 'tupad'):
+            self.assertIn(f'aria-labelledby="{code}-found-heading"', page)
+            self.assertIn(f'id="{code}-found-heading"', page)
 
     def test_no_review_signal_and_review_state_navigation(self):
         self.set_finding('No Historical CBMS Trigger')

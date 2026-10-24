@@ -4,8 +4,8 @@
 {% set latest_review = results.review_summary | selectattr('program', 'equalto', code) | first %}
 {% set completed_review = latest_review and latest_review.status == 'Closed' and not latest_review.withdrawn %}
 <div class="slp-guidance">
-  <section class="slp-found" aria-labelledby="slp-found-heading">
-    <h4 id="slp-found-heading">What the system found</h4>
+  <section class="slp-found" aria-labelledby="{{ code | lower }}-found-heading">
+    <h4 id="{{ code | lower }}-found-heading">What the system found</h4>
     <ul class="slp-findings">
       {% for finding in program.guidance.found %}
         <li>
@@ -20,8 +20,8 @@
       {% endfor %}
     </ul>
   </section>
-  <section class="slp-why" aria-labelledby="slp-why-heading">
-    <h4 id="slp-why-heading">{{ program.guidance.why_heading }}</h4>
+  <section class="slp-why" aria-labelledby="{{ code | lower }}-why-heading">
+    <h4 id="{{ code | lower }}-why-heading">{{ program.guidance.why_heading }}</h4>
     {% for explanation in program.guidance.why %}<p>{{ explanation }}</p>{% endfor %}
     {% if program.guidance.clarifications and program.status != 'Needs Data Review' %}
       <div class="screening-information">
@@ -30,13 +30,13 @@
       </div>
     {% endif %}
   </section>
-  <section class="slp-checks" aria-labelledby="slp-checks-heading">
-    <h4 id="slp-checks-heading">Information to check</h4>
+  <section class="slp-checks" aria-labelledby="{{ code | lower }}-checks-heading">
+    <h4 id="{{ code | lower }}-checks-heading">Information to check</h4>
     <p class="slp-helper">{{ 'If staff have newer information:' if program.status == 'No Historical CBMS Trigger' else 'Questions for staff verification:' }}</p>
     <ol>{% for question in program.guidance.questions %}<li>{{ question }}</li>{% endfor %}</ol>
   </section>
-  <section class="slp-action" aria-labelledby="slp-action-heading">
-    <h4 id="slp-action-heading">Suggested staff action</h4>
+  <section class="slp-action" aria-labelledby="{{ code | lower }}-action-heading">
+    <h4 id="{{ code | lower }}-action-heading">Suggested staff action</h4>
     {% if active_review %}
       <p>{{ 'An' if code == 'SLP' else 'A' }} {{ code }} Staff Review is already in progress. Open it to verify current circumstances and document findings.</p>
       <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=code, review_id=active_review.id, **detail_parameters) }}">Open {{ code }} Review</a>

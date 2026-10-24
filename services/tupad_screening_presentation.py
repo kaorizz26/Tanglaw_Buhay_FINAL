@@ -10,8 +10,8 @@ UNKNOWN_MEMBER = "Member not identified in the available roster"
 UNSUPPORTED_REASON = "The saved finding's supporting condition needs confirmation."
 WHY_REVIEW = (
     "TUPAD provides short-term emergency employment for disadvantaged or displaced "
-    "workers. The {member} recorded work {situation} further review but "
-    "{does} not establish eligibility or current unemployment."
+    "workers. The saved {finding} about the {member} work {situation} further "
+    "review but {does} not establish eligibility or current unemployment."
 )
 QUESTIONS = {
     "For Review": (
@@ -48,8 +48,6 @@ def tupad_unresolved_members(source):
         work = valid_code(answers.get("e01_employed"), (1, 2))
         nature = valid_code(answers.get("e11_nature_of_employment"), (1, 2, 3))
         if (age is not None and age < 18) or (residency is not None and residency != 7):
-            continue
-        if work == 1 and nature == 1:
             continue
         details = []
         if age is None:
@@ -108,6 +106,7 @@ def prepare_tupad_guidance(finding, source, issues):
         cards = _review_cards(finding, source)
         plural = len({card["line_number"] for card in cards}) > 1
         why = [WHY_REVIEW.format(
+            finding="findings" if plural else "finding",
             member="members'" if plural else "member's",
             situation="situations support" if plural else "situation supports",
             does="do" if plural else "does",
