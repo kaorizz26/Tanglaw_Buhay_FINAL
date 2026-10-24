@@ -110,6 +110,69 @@
         <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization') }}">Explore screening findings <span aria-hidden="true">→</span></a>
       </section>
     </div>
+
+    <section class="dashboard-household" aria-labelledby="household-heading">
+      <div class="dashboard-household-heading">
+        <div>
+          <p class="dashboard-panel-kicker">Recorded household conditions</p>
+          <h2 id="household-heading">Household snapshot</h2>
+        </div>
+        <p>CBMS {{ summary.context.survey_year }} · {{ '{:,}'.format(summary.priority['all']) }} households</p>
+      </div>
+      <div class="dashboard-household-grid">
+        <div class="dashboard-panel dashboard-household-composition">
+          <h3>Household members</h3>
+          <p class="dashboard-panel-description">A municipality-wide view of recorded household size and ages at the time of the survey.</p>
+          <div class="dashboard-household-stats">
+            <div>
+              <strong>{{ '%.2f' | format(summary.household_profile.average_members) }}</strong>
+              <span>Average recorded members per household</span>
+            </div>
+            <div>
+              <strong>{{ '{:,}'.format(summary.household_profile.with_children) }}</strong>
+              <span>Households with someone under 18 · {{ (summary.household_profile.with_children / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 }}%</span>
+            </div>
+            <div>
+              <strong>{{ '{:,}'.format(summary.household_profile.with_older_adults) }}</strong>
+              <span>Households with someone aged 60 or older · {{ (summary.household_profile.with_older_adults / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 }}%</span>
+            </div>
+          </div>
+          {% if summary.household_profile.with_unclear_age %}
+            <p class="dashboard-household-uncertainty">Some households have a member whose age was not recorded clearly.</p>
+          {% endif %}
+        </div>
+
+        <div class="dashboard-panel dashboard-household-utilities">
+          <h3>Housing &amp; utilities</h3>
+          <p class="dashboard-panel-description">Recorded main water source, electricity, and toilet sharing.</p>
+          <h4>Main water source</h4>
+          <div class="dashboard-water-content">
+            <div class="dashboard-water-donut" style="background: {{ summary.household_profile.water_gradient }}" aria-hidden="true">
+              <div class="dashboard-water-donut-center">{{ '{:,}'.format(summary.priority['all']) }}<span>households</span></div>
+            </div>
+            <ul class="dashboard-water-legend">
+              {% for source in summary.household_profile.water_sources %}
+                <li>
+                  <span class="dashboard-water-swatch" style="background-color: {{ source.color }}" aria-hidden="true"></span>
+                  <span class="dashboard-water-label">{{ source.label }}</span>
+                  <strong>{{ source.percent }}% <span>({{ '{:,}'.format(source.count) }})</span></strong>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="dashboard-utility-facts">
+            <p><strong>{{ '{:,}'.format(summary.household_profile.without_electricity) }}</strong> recorded no electricity <span>({{ (summary.household_profile.without_electricity / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 }}%)</span></p>
+            <p><strong>{{ '{:,}'.format(summary.household_profile.shared_toilet) }}</strong> recorded a shared toilet <span>({{ (summary.household_profile.shared_toilet / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 }}%)</span></p>
+          </div>
+          {% if summary.household_profile.electricity_unclear %}
+            <p class="dashboard-household-uncertainty">{{ '{:,}'.format(summary.household_profile.electricity_unclear) }} households had no clear Yes or No electricity response.</p>
+          {% endif %}
+          {% if summary.household_profile.toilet_sharing_unclear %}
+            <p class="dashboard-household-uncertainty">{{ '{:,}'.format(summary.household_profile.toilet_sharing_unclear) }} households had no Yes or No toilet-sharing response.</p>
+          {% endif %}
+        </div>
+      </div>
+    </section>
   {% else %}
     <section class="dashboard-unavailable" role="status" aria-labelledby="unavailable-heading">
       <h2 id="unavailable-heading">Assessment summary unavailable</h2>

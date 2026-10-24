@@ -93,6 +93,61 @@ def list_barangays(connection, batch_id):
     return [row[0] for row in rows]
 
 
+def count_household_profile(connection, batch_id):
+    """Return batch-scoped source aggregates, never household or member rows."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        households = cursor.execute(
+            """SELECT count(*) AS household_count,
+                      count(*) FILTER (WHERE responses ->> 'r12_electricity' = '2')
+                          AS without_electricity,
+                      count(*) FILTER (WHERE responses ->> 'r12_electricity' IS NULL
+                          OR responses ->> 'r12_electricity' NOT IN ('1', '2'))
+                          AS electricity_unclear,
+                      count(*) FILTER (WHERE responses ->> 'q19_share_toilet' = '1')
+                          AS shared_toilet,
+                      count(*) FILTER (WHERE responses ->> 'q19_share_toilet' IS NULL
+                          OR responses ->> 'q19_share_toilet' NOT IN ('1', '2'))
+                          AS toilet_sharing_unclear
+               FROM households WHERE batch_id = %s""",
+            (batch_id,),
+        ).fetchone()
+        members = cursor.execute(
+            """WITH ages AS (
+                   SELECT uuid,
+                          CASE WHEN (responses ->> 'a07_age') ~ '^[0-9]{1,3}$'
+                               THEN (responses ->> 'a07_age')::integer
+                          END AS age
+                   FROM household_members WHERE batch_id = %s
+               )
+               SELECT count(*) AS member_count,
+                      count(DISTINCT uuid) FILTER (WHERE age < 18)
+                          AS households_with_children,
+                      count(DISTINCT uuid) FILTER (WHERE age >= 60)
+                          AS households_with_older_adults,
+                      count(DISTINCT uuid) FILTER (WHERE age IS NULL)
+                          AS households_with_unclear_age
+               FROM ages""",
+            (batch_id,),
+        ).fetchone()
+        water_sources = cursor.execute(
+            """SELECT coalesce(nullif(btrim(responses ->> 'q01_main_water'), ''), '')
+                          AS code, count(*) AS households
+               FROM households WHERE batch_id = %s
+               GROUP BY 1 ORDER BY households DESC, code""",
+            (batch_id,),
+        ).fetchall()
+        water_labels = cursor.execute(
+            """SELECT responses ->> 'code' AS code,
+                      responses ->> 'label' AS label
+               FROM codebook_values
+               WHERE batch_id = %s
+                 AND responses ->> 'variable_name' = 'q01_main_water'""",
+            (batch_id,),
+        ).fetchall()
+    return {**households, **members, "water_sources": water_sources,
+            "water_labels": water_labels}
+
+
 def lock_dataset_imports(connection):
     """Serialize imports/activation while allowing ordinary readers to continue."""
     connection.execute("LOCK TABLE dataset_batches IN SHARE ROW EXCLUSIVE MODE")

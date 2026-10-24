@@ -29,6 +29,19 @@ class DashboardRouteTests(unittest.TestCase):
                          "both": 11, "other": 21},
             "findings": {"assessed_households": 32, "needs_attention": 3,
                          "four_ps": 8, "slp": 6, "spisc": 2, "tupad": 1},
+            "household_profile": {
+                "average_members": 3.5, "with_children": 18,
+                "with_older_adults": 9, "with_unclear_age": 0,
+                "without_electricity": 2, "electricity_unclear": 0,
+                "shared_toilet": 4, "toilet_sharing_unclear": 0,
+                "water_sources": [
+                    {"label": "Piped into dwelling", "count": 24,
+                     "percent": 75.0, "color": "#244b65"},
+                    {"label": "Protected well", "count": 8,
+                     "percent": 25.0, "color": "#b78d42"},
+                ],
+                "water_gradient": "conic-gradient(#244b65 0% 75%, #b78d42 75% 100%)",
+            },
         }
 
     def _sign_in(self):
@@ -44,7 +57,9 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         query.assert_called_once_with()
         for text in ("Dashboard", "CBMS 2022", "32", "Primary Priority",
-                     "Secondary Priority", "Needs Assessment Attention", "Review Queue"):
+                     "Secondary Priority", "Needs Assessment Attention", "Review Queue",
+                     "Household snapshot", "3.50", "Households with someone under 18",
+                     "Main water source", "Piped into dwelling", "recorded no electricity"):
             self.assertIn(text, response.text)
         self.assertIn('href="/" aria-current="page"', response.text)
         self.assertIn('href="/assessments?priority=primary"', response.text)
@@ -53,6 +68,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments/queue"', response.text)
         self.assertNotIn("household_uuid", response.text)
         self.assertNotIn("Synthetic Household", response.text)
+        self.assertNotIn("Single parent", response.text)
 
     def test_missing_assessments_keep_staff_home_and_fixture_boundary(self):
         self._sign_in()

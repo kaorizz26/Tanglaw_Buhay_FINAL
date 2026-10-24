@@ -74,23 +74,69 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         priority = {"all": 32, "primary": 5, "secondary": 7, "both": 12, "other": 20}
         findings = {"assessed_households": 32, "needs_attention": 3,
                     "four_ps": 8, "slp": 6, "spisc": 2, "tupad": 1}
+        household_profile = {
+            "household_count": 32, "member_count": 112,
+            "households_with_children": 18, "households_with_older_adults": 9,
+            "households_with_unclear_age": 0, "without_electricity": 2,
+            "electricity_unclear": 0, "shared_toilet": 4,
+            "toilet_sharing_unclear": 0,
+            "water_sources": [{"code": "1", "households": 24},
+                              {"code": "4", "households": 8}],
+            "water_labels": [{"code": "1", "label": "Piped into dwelling"},
+                             {"code": "4", "label": "Protected well"}],
+        }
         with patch.object(repository, "count_priority_groups", return_value=priority) as groups, \
                 patch.object(repository, "count_dashboard_findings", return_value=findings) as counts, \
+                patch.object(service.dataset_batches, "count_household_profile",
+                             return_value=household_profile) as profile, \
                 patch.object(repository, "list_assessment_summaries") as rows:
             result = service.get_active_dashboard_summary(connection_factory=self.factory)
         self.assertEqual(result["priority"], priority)
         self.assertEqual(result["findings"], findings)
+        self.assertEqual(result["household_profile"]["average_members"], 3.5)
+        self.assertEqual(result["household_profile"]["water_sources"][0]["percent"], 75.0)
         groups.assert_called_once_with(self.connection, 17, filters=AssessmentFilters())
         counts.assert_called_once_with(self.connection, 17)
+        profile.assert_called_once_with(self.connection, 9)
         rows.assert_not_called()
         self.connection.execute.assert_called_once_with(
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         )
         with patch.object(repository, "count_priority_groups", return_value=priority), \
                 patch.object(repository, "count_dashboard_findings",
-                             return_value={**findings, "assessed_households": 31}):
+                             return_value={**findings, "assessed_households": 31}), \
+                patch.object(service.dataset_batches, "count_household_profile",
+                             return_value=household_profile):
             with self.assertRaisesRegex(service.AssessmentQueryError, "assessment_count_mismatch"):
                 service.get_active_dashboard_summary(connection_factory=self.factory)
+
+    def test_household_profile_keeps_unclear_water_responses_separate(self):
+        raw = {
+            "household_count": 10, "member_count": 34,
+            "households_with_children": 6, "households_with_older_adults": 3,
+            "households_with_unclear_age": 1, "without_electricity": 2,
+            "electricity_unclear": 1, "shared_toilet": 4,
+            "toilet_sharing_unclear": 1,
+            "water_sources": [
+                {"code": "1", "households": 4},
+                {"code": "1.0", "households": 1},
+                {"code": "4", "households": 2},
+                {"code": "2", "households": 1}, {"code": "10", "households": 1},
+                {"code": "NA", "households": 1},
+            ],
+            "water_labels": [
+                {"code": "1", "label": "Piped dwelling"},
+                {"code": "4", "label": "Protected well"},
+                {"code": "2", "label": "Piped yard"},
+                {"code": "10", "label": "Other source"},
+            ],
+        }
+        profile = service._present_household_profile(raw)
+        self.assertEqual(profile["average_members"], 3.4)
+        self.assertEqual([item["count"] for item in profile["water_sources"]],
+                         [5, 2, 1, 1, 1])
+        self.assertEqual(profile["water_sources"][-1]["label"],
+                         "Not recorded or unclear")
 
     def test_detail_sources_and_references_share_one_designated_read_snapshot(self):
         source = detail_source()

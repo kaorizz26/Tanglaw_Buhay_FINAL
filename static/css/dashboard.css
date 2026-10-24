@@ -219,6 +219,184 @@
   text-decoration: underline;
 }
 
+.dashboard-household {
+  margin-top: 28px;
+}
+
+.dashboard-household-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dashboard-household-heading h2 {
+  margin-top: 6px;
+  font-size: 1.4rem;
+}
+
+.dashboard-household-heading > p {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.dashboard-household-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.dashboard-household-grid h3 {
+  font-size: 1.15rem;
+}
+
+.dashboard-household-grid .dashboard-panel-description {
+  min-height: 0;
+  margin-bottom: 18px;
+}
+
+.dashboard-household-stats {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-household-stats > div {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.dashboard-household-stats strong {
+  flex: 0 0 88px;
+  color: var(--navy);
+  font-size: 1.65rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.dashboard-household-stats span {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.dashboard-household-utilities h4 {
+  margin-bottom: 14px;
+  font-size: 0.875rem;
+}
+
+.dashboard-water-content {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.dashboard-water-donut {
+  flex: 0 0 158px;
+  display: grid;
+  place-items: center;
+  width: 158px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.dashboard-water-donut-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 66%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-water-donut-center span {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.dashboard-water-legend {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 9px;
+  min-width: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-water-legend li {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.dashboard-water-swatch {
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border-radius: 3px;
+}
+
+.dashboard-water-label {
+  min-width: 0;
+}
+
+.dashboard-water-legend strong {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-water-legend strong span {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.dashboard-utility-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.dashboard-utility-facts p {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f7f9fa;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.dashboard-utility-facts strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--navy);
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-utility-facts span {
+  color: var(--text-muted);
+}
+
+.dashboard-household-uncertainty {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
 .dashboard-work {
   display: flex;
   align-items: center;
@@ -273,6 +451,7 @@
 
 @media (max-width: 1050px) {
   .dashboard-panels { grid-template-columns: 1fr; }
+  .dashboard-household-grid { grid-template-columns: 1fr; }
   .dashboard-panel-description { min-height: 0; }
   .dashboard-work { align-items: flex-start; flex-direction: column; }
 }
@@ -285,6 +464,9 @@
 @media (max-width: 440px) {
   .dashboard-metrics { grid-template-columns: 1fr; }
   .dashboard-metric { min-height: 0; }
+  .dashboard-household-heading { align-items: flex-start; flex-direction: column; }
+  .dashboard-water-content { align-items: flex-start; flex-direction: column; }
+  .dashboard-utility-facts { grid-template-columns: 1fr; }
   .dashboard-panel,
   .dashboard-unavailable,
   .dashboard-work { padding: 18px; }
