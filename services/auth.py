@@ -88,8 +88,9 @@ def load_session_user():
 
 
 def protect_staff_routes():
-    """Default-deny application routes; only login, static files and health are public."""
-    if request.endpoint in (None, "static", "main.test_route"):
+    """Default-deny staff routes; public information pages need no session."""
+    if request.endpoint in (None, "static", "main.test_route",
+                            "public.index", "public.program"):
         return None
     if not authentication_configured():
         abort(503, description="Staff authentication is unavailable.")
@@ -99,6 +100,9 @@ def protect_staff_routes():
         abort(503, description="Staff authentication is unavailable.")
     if request.endpoint != "auth.login" and g.user is None:
         return redirect(url_for("auth.login"))
+    if (g.user is not None and g.user.get("must_change_password")
+            and request.endpoint not in ("auth.change_password", "auth.logout")):
+        return redirect(url_for("auth.change_password"))
     return None
 
 

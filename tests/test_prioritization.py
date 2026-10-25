@@ -145,7 +145,8 @@ class PrioritizationTests(unittest.TestCase):
                 self.assertIn('class="subsidy-badge">TUPAD', response.text)
                 self.assertNotIn('class="subsidy-badge">SLP', response.text)
                 self.assertNotIn('class="subsidy-badge">SPISC', response.text)
-                self.assertNotIn('href="/households', response.text)
+                ranking_rows = response.text.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
+                self.assertNotIn('href="/households', ranking_rows)
                 self.assertIn('href="/assessments/SYNTHETIC', response.text)
                 self.assertIn('aria-label="View Assessment for HH-', response.text)
                 self.assertIn('type="search"', response.text)

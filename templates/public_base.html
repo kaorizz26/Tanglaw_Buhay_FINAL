@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fil" data-public-page data-page-kind="{% block page_kind %}landing{% endblock %}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b2e55">
+    <title>{% block title %}Tanglaw-Buhay{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
+    <script src="{{ url_for('static', filename='js/public.js') }}" defer></script>
+</head>
+<body class="public-page">
+    <a class="public-skip-link" href="#main-content" data-i18n="accessibility.skip">Lumaktaw sa pangunahing nilalaman</a>
+
+    <header class="public-header" data-public-header>
+        <div class="public-container public-header__inner">
+            <a class="public-brand" href="{{ url_for('public.index') }}" aria-label="Tanglaw-Buhay home page">
+                <span class="public-brand__mark" aria-hidden="true">
+                    {% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_A.png') }}" alt="">{% endblock %}
+                </span>
+                <span>
+                    <strong>Tanglaw-Buhay</strong>
+                    <small data-i18n="brand.subtitle">Gabay sa serbisyong panlipunan</small>
+                </span>
+            </a>
+
+            <nav class="public-nav" aria-label="Pangunahing nabigasyon" data-i18n-aria-label="accessibility.primaryNav">
+                <a href="{{ url_for('public.index') }}" data-i18n="nav.home">Home</a>
+                <a href="{{ url_for('public.index') }}#programs" data-i18n="nav.programs">Mga Programa</a>
+                <a href="{{ url_for('public.index') }}#how-it-works" data-i18n="nav.how">Paano Gamitin</a>
+            </nav>
+
+            <div class="language-switcher" role="group" aria-label="Piliin ang wika" data-i18n-aria-label="accessibility.language">
+                <button type="button" data-lang-option="fil" class="is-active" aria-pressed="true" aria-label="Gamitin ang Filipino">FIL</button>
+                <span aria-hidden="true">|</span>
+                <button type="button" data-lang-option="en" aria-pressed="false" aria-label="Use English">EN</button>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="public-footer">
+        <div class="public-container public-footer__main">
+            <div class="public-footer__brand">
+                <span class="public-footer__mark" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">
+                </span>
+                <div>
+                    <strong>Tanglaw-Buhay</strong>
+                    <p data-i18n="footer.description">Isang pampublikong gabay sa mga programang panlipunan para sa mga mamamayan ng Pozorrubio.</p>
+                </div>
+            </div>
+            <div class="public-footer__office">
+                <strong data-i18n="footer.office">Bayan ng Pozorrubio</strong>
+                <p>Municipal Social Welfare and Development Office</p>
+                <p data-i18n="footer.contact">Para sa opisyal na gabay, makipag-ugnayan sa inyong barangay o sa MSWDO.</p>
+            </div>
+        </div>
+        <div class="public-container public-footer__bottom">
+            <p>&copy; 2026 Tanglaw-Buhay</p>
+            <span data-i18n="footer.privacy">Paunawa sa Privacy</span>
+        </div>
+    </footer>
+</body>
+</html>

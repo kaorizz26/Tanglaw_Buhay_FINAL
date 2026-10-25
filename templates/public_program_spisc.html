@@ -1,0 +1,188 @@
+{% extends "public_base.html" %}
+
+{% block page_kind %}program-spisc{% endblock %}
+{% block title %}SPISC | Tanglaw-Buhay{% endblock %}
+{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">{% endblock %}
+
+{% block content %}
+<article class="fourps-page spisc-page" data-program-slug="spisc">
+    <div class="fourps-backbar">
+        <div class="public-container fourps-container">
+            <a class="fourps-back-link" href="{{ url_for('public.index') }}#programs">
+                <span aria-hidden="true">&#8592;</span>
+                <span data-i18n="spisc.back">Bumalik sa mga Programa</span>
+            </a>
+        </div>
+    </div>
+
+    <header class="fourps-header">
+        <div class="public-container fourps-container fourps-header__inner">
+            <h1 data-i18n="spisc.title">SPISC – Social Pension for Indigent Senior Citizens</h1>
+            <p data-i18n="spisc.subtitle">Buwanang tulong pinansyal para sa mga nakatatandang kapos sa buhay.</p>
+        </div>
+    </header>
+
+    <nav class="fourps-tabs" aria-label="Mga seksyon ng programa" data-i18n-aria-label="spisc.tabsLabel">
+        <div class="public-container fourps-container fourps-tabs__inner">
+            <a class="is-active" href="#about" aria-current="location" data-fourps-tab="about" data-i18n="spisc.tab.about">Tungkol dito</a>
+            <a href="#documents" data-fourps-tab="documents" data-i18n="spisc.tab.documents">Mga Kailangang Papeles</a>
+            <a href="#application-process" data-fourps-tab="application-process" data-i18n="spisc.tab.process">Paano mag-apply</a>
+            <a href="#local-data" data-fourps-tab="local-data" data-i18n="spisc.tab.data">Datos sa Pozorrubio</a>
+        </div>
+    </nav>
+
+    <div class="public-container fourps-container fourps-content">
+        <section class="fourps-card" id="about" aria-labelledby="about-title">
+            <p class="fourps-step-label" data-i18n="spisc.step1.label">Hakbang 1: Alamin ang Programa</p>
+            <h2 id="about-title" data-i18n="spisc.step1.description">Ang SPISC (RA 9994 at RA 11916) ay nagbibigay ng buwanang stipend sa mga indigent senior citizen upang makatulong sa pang-araw-araw na pagkain at gamot.</h2>
+
+            <div class="fourps-audience-panel">
+                <span class="fourps-audience-panel__icon" aria-hidden="true">i</span>
+                <div>
+                    <h3 data-i18n="spisc.audience.title">Para kanino ito?</h3>
+                    <p data-i18n="spisc.audience.body">Senior citizens aged 60+ na maysakit, may kapansanan, walang permanenteng kita o suporta mula sa pamilya, at walang ibang pension.</p>
+                </div>
+            </div>
+
+            <div class="fourps-benefits fourps-benefits--single" aria-label="Benepisyo" data-i18n-aria-label="spisc.benefitsLabel">
+                <article>
+                    <p data-i18n="spisc.benefit.stipend">Monthly Stipend</p>
+                    <strong data-i18n="spisc.benefit.stipendAmount">₱1,000 / buwan bawat senior citizen</strong>
+                </article>
+            </div>
+        </section>
+
+        <section class="fourps-card" id="documents" aria-labelledby="documents-title">
+            <p class="fourps-step-label" data-i18n="spisc.step2.label">Hakbang 2: Ihanda ang mga Dokumento</p>
+            <h2 id="documents-title" data-i18n="spisc.step2.heading">Bago pumunta sa opisina, siguraduhing kumpleto ang mga sumusunod na papeles:</h2>
+
+            <ol class="fourps-document-list">
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="spisc.document.1">OSCA Senior Citizen ID Card</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="spisc.document.2">Valid Government ID na nagpapakita ng petsa ng kapanganakan</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="spisc.document.3">Barangay Certificate of Indigency o Residency sa Pozorrubio</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="spisc.document.4">Katibayan ng kawalan ng ibang pension (SSS / GSIS Non-Pensioner Certificate)</span>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="application-process" aria-labelledby="process-title">
+            <p class="fourps-step-label" data-i18n="spisc.step3.label">Hakbang 3: Sundan ang Proseso ng Pag-apply</p>
+            <h2 id="process-title" class="visually-hidden" data-i18n="spisc.step3.heading">Proseso ng pag-apply sa SPISC</h2>
+
+            <ol class="fourps-timeline">
+                <li>
+                    <span class="fourps-timeline__number">1</span>
+                    <div>
+                        <h3 data-i18n="spisc.process.1.title">Pagbisita sa Opisina</h3>
+                        <p data-i18n="spisc.process.1.body">Pumunta sa OSCA o MSWDO desk sa Municipal Hall.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">2</span>
+                    <div>
+                        <h3 data-i18n="spisc.process.2.title">Pagpuno ng Form</h3>
+                        <p data-i18n="spisc.process.2.body">Sagutan ang Social Pension Application Form.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">3</span>
+                    <div>
+                        <h3 data-i18n="spisc.process.3.title">Paghahanda ng Dokumento</h3>
+                        <p data-i18n="spisc.process.3.body">Ihanda ang original at photocopy ng mga kinakailangang papeles.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">4</span>
+                    <div>
+                        <h3 data-i18n="spisc.process.4.title">Validation Interview</h3>
+                        <p data-i18n="spisc.process.4.body">Magpa-interview sa MSWDO Social Worker para sa assessment.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">5</span>
+                    <div>
+                        <h3 data-i18n="spisc.process.5.title">Pag-apruba</h3>
+                        <p data-i18n="spisc.process.5.body">Hintayin ang opisyal na abiso ng pagiging kabilang sa quarterly payout list.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="local-data" aria-labelledby="data-title">
+            <p class="fourps-step-label" data-i18n="spisc.step4.label">Hakbang 4: Mga Datos at Benepisyaryo</p>
+            <h2 id="data-title" data-i18n="spisc.step4.heading">Talaan ng mga benepisyaryo sa ating bayan</h2>
+
+            <div class="fourps-data-placeholder" aria-label="Nakalaang espasyo para sa datos" data-i18n-aria-label="spisc.data.placeholderLabel">
+                <p data-i18n="spisc.data.placeholder">Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.</p>
+            </div>
+        </section>
+
+        <section class="fourps-related" aria-labelledby="related-title">
+            <div class="fourps-section-heading">
+                <div>
+                    <p class="fourps-step-label" data-i18n="spisc.related.label">Mga Susunod na Maaaring Alamin</p>
+                    <h2 id="related-title" data-i18n="spisc.related.title">Iba pang Programa ng Gobyerno</h2>
+                </div>
+                <p data-i18n="spisc.related.body">Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.</p>
+            </div>
+
+            <div class="fourps-related__grid">
+                {% for slug, related_program in other_programs.items() %}
+                <article class="fourps-related-card">
+                    <div class="fourps-related-card__icon">
+                        <img src="{{ url_for('static', filename=related_program.icon) }}" alt="{{ related_program.code }} program logo" loading="lazy">
+                    </div>
+                    <p class="fourps-related-card__code">{{ related_program.code }}</p>
+                    <h3>{{ related_program.name }}</h3>
+                    <p data-i18n="program.{{ slug }}.cardDescription">{{ related_program.card_description }}</p>
+                    <a href="{{ url_for('public.program', program_slug=slug) }}">
+                        <span data-i18n="actions.learnMore">Alamin Pa</span>
+                        <span aria-hidden="true">&#8594;</span>
+                    </a>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="fourps-help" id="help" aria-labelledby="help-title">
+            <div class="fourps-help__content">
+                <h2 id="help-title" data-i18n="spisc.help.title">Kailangan ng Tulong?</h2>
+                <p data-i18n="spisc.help.body">Tumawag o bumisita sa Pozorrubio MSWDO desk para sa mga katanungan tungkol sa inyong aplikasyon sa Social Pension. Ang aming mga kawani ay handang tumulong tungkol sa bawat hakbang.</p>
+            </div>
+            <ul class="fourps-help__details">
+                <li>
+                    <span data-i18n="spisc.help.hotlineLabel">Hotline</span>
+                    <strong>(075) 556-7015</strong>
+                </li>
+                <li>
+                    <span data-i18n="spisc.help.scheduleLabel">Oras ng Opisina</span>
+                    <strong data-i18n="spisc.help.schedule">Lunes - Biyernes (8 AM - 5 PM)</strong>
+                </li>
+                <li>
+                    <span data-i18n="spisc.help.locationLabel">Lokasyon</span>
+                    <strong>Municipal Hall, Pozorrubio, Pangasinan</strong>
+                </li>
+            </ul>
+        </section>
+
+        <aside class="fourps-question" aria-labelledby="question-title">
+            <div>
+                <h2 id="question-title" data-i18n="spisc.question.title">May karagdagang katanungan?</h2>
+                <p data-i18n="spisc.question.body">Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.</p>
+            </div>
+            <a class="public-button public-button--primary" href="#help" data-i18n="spisc.question.action">Bumisita sa MSWDO</a>
+        </aside>
+    </div>
+</article>
+{% endblock %}

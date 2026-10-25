@@ -1,0 +1,115 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Household Records{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/household-records.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header records-header">
+    <div class="context-bar">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <span aria-current="page">Household Records</span>
+      </nav>
+      <p class="dataset-reference">
+        <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="15" height="15">
+        CBMS {{ results.context.survey_year }} · Historical snapshot
+      </p>
+    </div>
+    <div class="page-heading">
+      <h1>Household Records</h1>
+      <p>Find recorded household and member information for {{ results.context.municipality }}.</p>
+    </div>
+  </header>
+
+  <div class="record-notice" role="note">
+    <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
+    <p>These are historical {{ results.context.survey_year }} survey records. Household IDs are Tanglaw-Buhay references. Open a household to see its recorded answers; assessment findings are shown separately.</p>
+  </div>
+
+  <section class="records-panel" aria-labelledby="directory-heading">
+    <div class="records-panel-heading">
+      <div>
+        <p class="records-kicker">Source records</p>
+        <h2 id="directory-heading">Household directory</h2>
+      </div>
+      <p class="records-total"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}recorded{% endif %} households</p>
+    </div>
+
+    <form class="records-filters" method="get" action="{{ url_for('households.index') }}" role="search">
+      <div class="records-field records-search">
+        <label for="record-search">Household ID or household head</label>
+        <input id="record-search" name="q" type="search" value="{{ results.filters.search }}" maxlength="200" placeholder="e.g. HH-00001 or a name">
+      </div>
+      <div class="records-field records-barangay">
+        <label for="record-barangay">Barangay</label>
+        <select id="record-barangay" name="barangay">
+          <option value="">All barangays</option>
+          {% for barangay in results.barangays %}
+            <option value="{{ barangay }}" {% if results.filters.barangay == barangay %}selected{% endif %}>{{ barangay }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="records-filter-actions">
+        <button type="submit">Apply Filters</button>
+        {% if results.filters.parameters %}
+          <a href="{{ url_for('households.index') }}">Clear Filters</a>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if results['items'] %}
+      <div class="records-table-scroll" role="region" aria-label="Household records table" tabindex="0">
+        <table class="records-table">
+          <caption class="visually-hidden">Households ordered by their stable source record ID.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Household ID</th>
+              <th scope="col">Household Head</th>
+              <th scope="col">Barangay</th>
+              <th scope="col">Recorded Members</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in results['items'] %}
+              <tr>
+                <td class="records-id" data-label="Household ID">{{ item.reference_id }}</td>
+                <td data-label="Household head">{{ item.head_name }}</td>
+                <td data-label="Barangay">{{ item.barangay }}</td>
+                <td data-label="Recorded members">{{ item.member_count }}</td>
+                <td data-label="Record"><a class="records-row-link" href="{{ url_for('households.detail', household_uuid=item.household_uuid, page=results.page, **results.filters.parameters) }}">View Record <span aria-hidden="true">→</span></a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="records-empty" role="status">
+        <h3>No households found</h3>
+        <p>Try another household ID, name, or barangay.</p>
+        <a href="{{ url_for('households.index') }}">Show all households</a>
+      </div>
+    {% endif %}
+
+    {% if results.page_count > 1 %}
+      <nav class="records-pagination" aria-label="Household records pages">
+        <p class="records-range">Showing <strong>{{ '{:,}'.format(results.range_start) }}–{{ '{:,}'.format(results.range_end) }}</strong> of {{ '{:,}'.format(results.total) }} households</p>
+        <div class="records-page-controls">
+          {% if results.page > 1 %}
+            <a href="{{ url_for('households.index', page=results.page - 1, **results.filters.parameters) }}">← Previous</a>
+          {% else %}
+            <span aria-disabled="true">← Previous</span>
+          {% endif %}
+          <p>Page {{ results.page }} of {{ results.page_count }}</p>
+          {% if results.page < results.page_count %}
+            <a href="{{ url_for('households.index', page=results.page + 1, **results.filters.parameters) }}">Next →</a>
+          {% else %}
+            <span aria-disabled="true">Next →</span>
+          {% endif %}
+        </div>
+      </nav>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -8,7 +8,8 @@ from psycopg.pq import TransactionStatus
 from db import get_connection
 from repositories import assessment_runs, dataset_batches
 from repositories import assessment_evidence, staff_reviews
-from services.assessment_filters import normalize_filters
+from services.assessment_filters import AssessmentFilters, normalize_filters
+from services.assessment_reference_labels import code_key
 from services.subsidy_priority import derive_subsidy_priority
 from services.spisc_age_progression import current_spisc_status, philippine_assessment_date
 
@@ -58,6 +59,105 @@ def get_active_assessment_context(*, connection_factory=get_connection):
         return context
 
 
+def _present_household_profile(raw):
+    """Label the three most common water sources and keep unclear answers visible."""
+    total = raw["household_count"]
+    labels = {}
+    for row in raw["water_labels"]:
+        code = code_key(row["code"])
+        label = (row["label"] or "").strip()
+        if code and label:
+            labels.setdefault(code, set()).add(label)
+
+    recorded_by_code = {}
+    unclear = 0
+    for row in raw["water_sources"]:
+        code = code_key(row["code"])
+        meanings = labels.get(code, set())
+        if len(meanings) == 1:
+            item = recorded_by_code.setdefault(
+                code, {"label": next(iter(meanings)), "count": 0},
+            )
+            item["count"] += row["households"]
+        else:
+            unclear += row["households"]
+    recorded = list(recorded_by_code.values())
+    recorded.sort(key=lambda item: (-item["count"], item["label"]))
+    slices = recorded[:3]
+    other = sum(item["count"] for item in recorded[3:])
+    if other:
+        slices.append({"label": "Other recorded sources", "count": other})
+    if unclear:
+        slices.append({"label": "Not recorded or unclear", "count": unclear})
+
+    colors = ("#244b65", "#b78d42", "#438585", "#8299a8", "#646f78")
+    position = 0
+    gradient = []
+    for index, item in enumerate(slices):
+        next_position = position + item["count"]
+        item["color"] = colors[index]
+        item["percent"] = round(item["count"] / total * 100, 1) if total else 0
+        gradient.append(
+            f"{colors[index]} {position / total * 100:.4f}% "
+            f"{next_position / total * 100:.4f}%"
+        )
+        position = next_position
+
+    return {
+        "average_members": round(raw["member_count"] / total, 2) if total else 0,
+        "with_children": raw["households_with_children"],
+        "with_older_adults": raw["households_with_older_adults"],
+        "with_unclear_age": raw["households_with_unclear_age"],
+        "without_electricity": raw["without_electricity"],
+        "electricity_unclear": raw["electricity_unclear"],
+        "shared_toilet": raw["shared_toilet"],
+        "toilet_sharing_unclear": raw["toilet_sharing_unclear"],
+        "water_sources": slices,
+        "water_gradient": "conic-gradient(" + ", ".join(gradient) + ")"
+                          if gradient else "conic-gradient(#e8edf0 0% 100%)",
+    }
+
+
+def _current_age_statuses(connection, context, assessed):
+    """Classify each recorded age once for the current Philippine date."""
+    return {
+        "spisc_age_statuses": {
+            age: current_spisc_status([age], context, assessed)
+            for age in assessment_evidence.list_recorded_ages(connection, context["batch_id"])
+            if age is not None
+        },
+        "batch_id": context["batch_id"],
+    }
+
+
+def get_active_dashboard_summary(*, connection_factory=get_connection, assessment_date=None):
+    """Read only municipal aggregates from the designated completed run.
+
+    SPISC counts use the same current-age logic as Household Prioritization.
+    """
+    assessed = assessment_date if assessment_date is not None else philippine_assessment_date()
+    with _read_context(connection_factory) as (connection, context):
+        current_age = _current_age_statuses(connection, context, assessed)
+        priority = assessment_runs.count_priority_groups(
+            connection, context["run_id"], filters=AssessmentFilters(), **current_age,
+        )
+        findings = assessment_runs.count_dashboard_findings(
+            connection, context["run_id"], **current_age,
+        )
+        household_profile = dataset_batches.count_household_profile(
+            connection, context["batch_id"],
+        )
+        if priority["all"] != context["household_count"] or (
+            findings["assessed_households"] != context["household_count"]
+        ) or household_profile["household_count"] != context["household_count"] or (
+            sum(row["households"] for row in household_profile["water_sources"])
+            != context["household_count"]
+        ):
+            raise AssessmentQueryError("assessment_count_mismatch")
+        return {"context": context, "priority": priority, "findings": findings,
+                "household_profile": _present_household_profile(household_profile)}
+
+
 def list_active_assessment_summaries(
     *, page=1, page_size=25, include_household_identity=False,
     filters=None, include_barangays=False, include_priority_counts=False,
@@ -77,12 +177,7 @@ def list_active_assessment_summaries(
     filters = normalize_filters(filters)
     assessed = assessment_date if assessment_date is not None else philippine_assessment_date()
     with _read_context(connection_factory) as (connection, context):
-        age_statuses = {
-            age: current_spisc_status([age], context, assessed)
-            for age in assessment_evidence.list_recorded_ages(connection, context["batch_id"])
-            if age is not None
-        }
-        current_age = {"spisc_age_statuses": age_statuses, "batch_id": context["batch_id"]}
+        current_age = _current_age_statuses(connection, context, assessed)
         selection = {"filters": filters} if filters.active else {}
         total = context["household_count"]
         if filters.active:

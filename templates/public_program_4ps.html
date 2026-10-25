@@ -1,0 +1,200 @@
+{% extends "public_base.html" %}
+
+{% block page_kind %}program-4ps{% endblock %}
+{% block title %}4Ps | Tanglaw-Buhay{% endblock %}
+{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">{% endblock %}
+
+{% block content %}
+<article class="fourps-page" data-program-slug="4ps">
+    <div class="fourps-backbar">
+        <div class="public-container fourps-container">
+            <a class="fourps-back-link" href="{{ url_for('public.index') }}#programs">
+                <span aria-hidden="true">&#8592;</span>
+                <span data-i18n="fourps.back">Bumalik sa mga Programa</span>
+            </a>
+        </div>
+    </div>
+
+    <header class="fourps-header">
+        <div class="public-container fourps-container fourps-header__inner">
+            <h1 data-i18n="fourps.title">4Ps – Pantawid Pamilyang Pilipino Program</h1>
+            <p data-i18n="fourps.subtitle">Tulong-pinansyal para sa kalusugan at pag-aaral ng iyong mga anak.</p>
+        </div>
+    </header>
+
+    <nav class="fourps-tabs" aria-label="Mga seksyon ng programa" data-i18n-aria-label="fourps.tabsLabel" data-fourps-tabs>
+        <div class="public-container fourps-container fourps-tabs__inner">
+            <a class="is-active" href="#about" aria-current="location" data-fourps-tab="about" data-i18n="fourps.tab.about">Tungkol Dito</a>
+            <a href="#documents" data-fourps-tab="documents" data-i18n="fourps.tab.documents">Mga Kailangang Papeles</a>
+            <a href="#application-process" data-fourps-tab="application-process" data-i18n="fourps.tab.process">Paano mag-apply</a>
+            <a href="#local-data" data-fourps-tab="local-data" data-i18n="fourps.tab.data">Datos sa Pozorrubio</a>
+        </div>
+    </nav>
+
+    <div class="public-container fourps-container fourps-content">
+        <section class="fourps-card" id="about" aria-labelledby="about-title" data-fourps-section>
+            <p class="fourps-step-label" data-i18n="fourps.step1.label">Hakbang 1: Alamin ang Programa</p>
+            <h2 id="about-title" data-i18n="fourps.step1.description">Ang 4Ps ay pambansang tulong mula sa gobyerno (RA 11310) para sa kalusugan at edukasyon ng mga bata mula 0 hanggang 18 taong gulang.</h2>
+
+            <div class="fourps-audience-panel">
+                <span class="fourps-audience-panel__icon" aria-hidden="true">i</span>
+                <div>
+                    <h3 data-i18n="fourps.audience.title">Para kanino ito?</h3>
+                    <p data-i18n="fourps.audience.body">Mahihirap na pamilyang may buntis o anak na aged 0–18 na nakatala sa Listahanan/CBMS survey.</p>
+                </div>
+            </div>
+
+            <div class="fourps-benefits" aria-label="Mga benepisyo" data-i18n-aria-label="fourps.benefitsLabel">
+                <article>
+                    <p data-i18n="fourps.benefit.health">Kalusugan</p>
+                    <strong data-i18n="fourps.benefit.healthAmount">₱750 / buwan bawat pamilya</strong>
+                </article>
+                <article>
+                    <p data-i18n="fourps.benefit.education">Edukasyon</p>
+                    <strong data-i18n="fourps.benefit.educationAmount">₱300 – ₱700 / buwan bawat bata</strong>
+                </article>
+                <article>
+                    <p data-i18n="fourps.benefit.rice">Rice Subsidy</p>
+                    <strong data-i18n="fourps.benefit.riceAmount">₱600 / buwan</strong>
+                </article>
+            </div>
+        </section>
+
+        <section class="fourps-card" id="documents" aria-labelledby="documents-title" data-fourps-section>
+            <p class="fourps-step-label" data-i18n="fourps.step2.label">Hakbang 2: Ihanda ang mga Dokumento</p>
+            <h2 id="documents-title" data-i18n="fourps.step2.heading">Bago pumunta sa opisina, siguraduhing kumpleto ang mga sumusunod na papeles:</h2>
+
+            <ol class="fourps-document-list">
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="fourps.document.1">Valid ID ng Puno ng Pamilya at mga kasama sa bahay</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="fourps.document.2">PSA Birth Certificate ng lahat ng anak</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="fourps.document.3">Certificate of Enrollment o School Record mula sa paaralan</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="fourps.document.4">Barangay Certificate of Residency (Patunay na nakatira sa Pozorrubio)</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="fourps.document.5">Health Card o Immunization Record mula sa Health Center</span>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="application-process" aria-labelledby="process-title" data-fourps-section>
+            <p class="fourps-step-label" data-i18n="fourps.step3.label">Hakbang 3: Sundan ang Proseso ng Pag-apply</p>
+            <h2 id="process-title" class="visually-hidden" data-i18n="fourps.step3.heading">Proseso ng pag-apply sa 4Ps</h2>
+
+            <ol class="fourps-timeline">
+                <li>
+                    <span class="fourps-timeline__number">1</span>
+                    <div>
+                        <h3 data-i18n="fourps.process.1.title">Pagsusuri sa Survey</h3>
+                        <p data-i18n="fourps.process.1.body">Siguraduhing na-interview ang pamilya sa CBMS o DSWD Listahanan survey.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">2</span>
+                    <div>
+                        <h3 data-i18n="fourps.process.2.title">Paghahanda ng Dokumento</h3>
+                        <p data-i18n="fourps.process.2.body">Isama ang lahat ng orihinal at photocopy ng mga papel mula sa Hakbang 2.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">3</span>
+                    <div>
+                        <h3 data-i18n="fourps.process.3.title">Paggawa ng Assessment</h3>
+                        <p data-i18n="fourps.process.3.body">Pumunta sa pinakamalapit na MSWDO o DSWD Field Office sa Pozorrubio.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">4</span>
+                    <div>
+                        <h3 data-i18n="fourps.process.4.title">Validation Interview</h3>
+                        <p data-i18n="fourps.process.4.body">Magpa-interview sa MSWDO officer para sa pagpapatunay ng datos.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">5</span>
+                    <div>
+                        <h3 data-i18n="fourps.process.5.title">Pag-apruba</h3>
+                        <p data-i18n="fourps.process.5.body">Hintayin ang opisyal na abiso at orientation para sa payout card.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="local-data" aria-labelledby="data-title" data-fourps-section>
+            <p class="fourps-step-label" data-i18n="fourps.step4.label">Hakbang 4: Mga Datos at Benepisyaryo</p>
+            <h2 id="data-title" data-i18n="fourps.step4.heading">Talaan ng mga benepisyaryo sa ating bayan</h2>
+
+            <div class="fourps-data-placeholder" aria-label="Nakalaang espasyo para sa datos" data-i18n-aria-label="fourps.data.placeholderLabel">
+                <p data-i18n="fourps.data.placeholder">Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.</p>
+            </div>
+        </section>
+
+        <section class="fourps-related" aria-labelledby="related-title">
+            <div class="fourps-section-heading">
+                <div>
+                    <p class="fourps-step-label" data-i18n="fourps.related.label">Mga Susunod na Maaaring Alamin</p>
+                    <h2 id="related-title" data-i18n="fourps.related.title">Iba pang Programa ng Gobyerno</h2>
+                </div>
+                <p data-i18n="fourps.related.body">Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.</p>
+            </div>
+
+            <div class="fourps-related__grid">
+                {% for slug, related_program in other_programs.items() %}
+                <article class="fourps-related-card">
+                    <div class="fourps-related-card__icon">
+                        <img src="{{ url_for('static', filename=related_program.icon) }}" alt="{{ related_program.code }} program logo" loading="lazy">
+                    </div>
+                    <p class="fourps-related-card__code">{{ related_program.code }}</p>
+                    <h3>{{ related_program.name }}</h3>
+                    <p data-i18n="program.{{ slug }}.cardDescription">{{ related_program.card_description }}</p>
+                    <a href="{{ url_for('public.program', program_slug=slug) }}">
+                        <span data-i18n="actions.learnMore">Alamin Pa</span>
+                        <span aria-hidden="true">&#8594;</span>
+                    </a>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="fourps-help" id="help" aria-labelledby="help-title">
+            <div class="fourps-help__content">
+                <h2 id="help-title" data-i18n="fourps.help.title">Kailangan ng Tulong?</h2>
+                <p data-i18n="fourps.help.body">Tumawag o bumisita sa Pozorrubio MSWDO desk para sa mga katanungan tungkol sa inyong aplikasyon. Ang aming mga kawani ay handang tumulong tungkol sa lahat ng inyong mga katanungan.</p>
+            </div>
+            <ul class="fourps-help__details">
+                <li>
+                    <span data-i18n="fourps.help.hotlineLabel">Hotline</span>
+                    <strong>(075) 556-7015</strong>
+                </li>
+                <li>
+                    <span data-i18n="fourps.help.scheduleLabel">Oras ng Opisina</span>
+                    <strong data-i18n="fourps.help.schedule">Lunes - Biyernes (8 AM - 5 PM)</strong>
+                </li>
+                <li>
+                    <span data-i18n="fourps.help.locationLabel">Lokasyon</span>
+                    <strong>Municipal Hall, Pozorrubio, Pangasinan</strong>
+                </li>
+            </ul>
+        </section>
+
+        <aside class="fourps-question" aria-labelledby="question-title">
+            <div>
+                <h2 id="question-title" data-i18n="fourps.question.title">May karagdagang katanungan?</h2>
+                <p data-i18n="fourps.question.body">Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.</p>
+            </div>
+            <a class="public-button public-button--primary" href="#help" data-i18n="fourps.question.action">Bisitahin ang MSWDO</a>
+        </aside>
+    </div>
+</article>
+{% endblock %}

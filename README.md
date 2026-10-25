@@ -22,6 +22,9 @@ planned. **A navigation item or placeholder does not mean a feature is complete.
 | Feature | Available functionality |
 | --- | --- |
 | Staff Authentication | Database-backed login, logout, staff sessions, and role-based access protection. |
+| Staff Login UI | V3 split-panel sign-in design adapted to the current CSRF-protected login. |
+| Dashboard | Protected municipal overview of the designated completed 2022 assessment: household totals, priority groups, unknown-indicator attention, and per-program “For Review” screening counts, with links to assessments and staff reviews. |
+| Household Records | Protected, read-only directory with household ID/head search, barangay filter, pagination, and focused source-record pages with household conditions, member roster, and assessment links. |
 | PostgreSQL Data Foundation | CBMS households, members, reference mappings, dataset batches, assessment runs, and review tables. |
 | CBMS Data Import Foundation | Validated, transactional backend import of the authorized 2022 dataset; no general-purpose admin upload interface yet. |
 | MPI Vulnerability Assessment | Sixteen indicators across four dimensions, weighted vulnerability scores, uncertainty handling, and stored results. |
@@ -40,15 +43,13 @@ still require approval.
 
 | Module | Planned work |
 | --- | --- |
-| Dashboard | Municipal summary statistics, charts, and interactive analytics using stored household assessments. |
-| Household Records | Searchable household directory and demographic/socioeconomic CBMS record details. |
+| Dashboard enhancements | Additional interactive analytics require defined questions, labels, and acceptance criteria. |
 | General Welfare Review | Staff-initiated and system-suggested welfare consideration; the suggestion rule and threshold require validation and approval. |
 | Administration | Administrator screens for managing staff accounts, roles, and other authorized operations. |
 | CBMS Import Management | Administrator-only upload, validation, import history, and controlled activation of additional CBMS batches. |
 | Assessment Run Management | Authorized assessment execution, storage, verification, and selection for new validated batches. |
 | Submissions | Staff review and management of citizen-submitted documents. |
-| Citizen Portal | Public subsidy information, application guidance, and secure document dropbox using staff-issued access codes. |
-| Staff Login UI Refinement | Optional visual/usability improvements to the **already functional** login page. |
+| Citizen Portal | Informational pages for 4Ps, SLP, SPISC, and TUPAD are available at `/public`. Citizen identity, access codes, and secure submissions are not implemented. |
 | Household Progression Tracking | Comparisons across survey periods once reliable household identity matching is established. |
 | End-to-End Testing and Deployment | Verify workflows, roles, privacy, security, usability, and LGU pilot readiness. |
 
@@ -253,6 +254,33 @@ All retained rows and schema definitions matched the source, including stored MP
 and four-program findings. Administrator creation, sign-in, and protected pages
 also passed. The adjacent private manifest records the verification results.
 
+### Apply account schema updates after restoring the handoff backup
+
+The supplied backup includes migrations 0001–0008. This branch adds two account
+columns that must be applied **once** to each teammate's local development
+database, in order. Git does not update PostgreSQL, and application startup does
+not run migrations. From the project directory, use your own local database role:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0009_staff_display_name.sql"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0010_staff_password_change_required.sql"
+```
+
+If using an existing development database, check `staff_users` first and run only
+the missing migration(s). Do not reapply a migration whose column already exists:
+
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'staff_users'
+  AND column_name IN ('display_name', 'must_change_password')
+ORDER BY column_name;
+```
+
+Existing accounts keep their current passwords and have
+`must_change_password = false`. Accounts created through the administrator page
+have the flag set until their first password change. The empty test database does
+not need these migrations applied manually; the tests create disposable schemas.
+
 ## 6. Configure your private `.env`
 
 Copy the template once. If `.env` already exists, edit it without overwriting it:
@@ -302,10 +330,13 @@ python app.py
 ```
 
 Open [Staff sign in](http://127.0.0.1:5000/login) and use your new application
-account. Visit Household Prioritization, open a household assessment, and inspect
-Overview, MPI evidence, and Subsidy Screening. Review Queue starts empty because
-the handoff intentionally excludes staff reviews. `/test` is only a health check;
-it does not verify the database. Stop the server with **Ctrl+C**.
+account. The System Administrator opens `/administration` and can create LGU Staff
+accounts under Staff Accounts. Give a new staff member their generated initial
+password privately; they sign in at `/login` and must set a new password before
+opening staff pages. Only LGU Staff can open Household Prioritization, assessments,
+and Review Queue. The queue starts empty because the handoff intentionally
+excludes staff reviews. `/test` is only a health check; it does not verify the
+database. Stop the server with **Ctrl+C**.
 
 The built-in Flask server is for local development; production deployment is
 pending. Restart it after code changes because `python app.py` disables debug reload.
@@ -345,8 +376,7 @@ python -B -m unittest discover -s tests
 
 Confirm `TANGLAW_TEST_DATABASE_URL` points only to your empty, local
 `tanglaw_buhay_test`. Database tests must execute, not silently skip. Keep actual
-CBMS data out of tests. The last application regression before this documentation
-handoff passed **381 tests**; the separate reset safety check passed **7 tests**.
+CBMS data out of tests. The latest application regression passed **407 tests**.
 
 ## 10. Troubleshooting
 

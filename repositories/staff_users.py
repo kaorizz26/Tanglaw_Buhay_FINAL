@@ -15,8 +15,32 @@ def find_by_id(connection, user_id):
     """Return authorization state without retrieving the password hash."""
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
-            """SELECT id, username, role, is_active, session_version
+            """SELECT id, username, role, is_active, session_version,
+                      must_change_password
                FROM staff_users WHERE id = %s""", (user_id,),
+        ).fetchone()
+
+
+def find_for_password_change(connection, user_id):
+    """Lock one account while verifying and replacing its initial password."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, password_hash, role, is_active, session_version,
+                      must_change_password
+               FROM staff_users WHERE id = %s FOR UPDATE""", (user_id,),
+        ).fetchone()
+
+
+def complete_initial_password_change(connection, user_id, password_hash):
+    """Store the new hash and revoke older sessions atomically."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """UPDATE staff_users
+               SET password_hash = %s, must_change_password = false,
+                   session_version = session_version + 1
+               WHERE id = %s
+               RETURNING id, role, session_version""",
+            (password_hash, user_id),
         ).fetchone()
 
 
@@ -36,4 +60,15 @@ def insert_initial_admin(connection, username, password_hash):
     connection.execute(
         """INSERT INTO staff_users (username, password_hash, role)
            VALUES (%s, %s, 'system_administrator')""", (username, password_hash),
+    )
+
+
+def insert_staff(connection, display_name, username, password_hash):
+    """Create an active LGU Staff account with a required password change."""
+    connection.execute(
+        """INSERT INTO staff_users
+           (display_name, username, password_hash, role, is_active,
+            must_change_password)
+           VALUES (%s, %s, %s, 'lgu_staff', true, true)""",
+        (display_name, username, password_hash),
     )

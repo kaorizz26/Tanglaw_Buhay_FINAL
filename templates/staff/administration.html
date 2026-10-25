@@ -1,0 +1,8 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+  <h1>{{ page_title }}</h1>
+  {% if description %}<p>{{ description }}</p>{% endif %}
+{% endblock %}

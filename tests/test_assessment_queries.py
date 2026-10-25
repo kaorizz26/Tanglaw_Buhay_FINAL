@@ -19,6 +19,7 @@ from repositories import assessment_runs as repository
 from repositories import assessment_evidence
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source, screening_source
 from services import assessment_queries as service
+from services import household_records as record_service
 from services.assessment_filters import (
     AssessmentFilters, InvalidAssessmentFilters, PROGRAM_ORDER, normalize_filters,
 )
@@ -73,6 +74,77 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         )
         self.factory.assert_called_once_with()
+
+    def test_dashboard_reads_aggregates_only_and_rejects_count_mismatch(self):
+        priority = {"all": 32, "primary": 5, "secondary": 7, "both": 12, "other": 20}
+        findings = {"assessed_households": 32, "needs_attention": 3,
+                    "four_ps": 8, "slp": 6, "spisc": 2, "tupad": 1}
+        household_profile = {
+            "household_count": 32, "member_count": 112,
+            "households_with_children": 18, "households_with_older_adults": 9,
+            "households_with_unclear_age": 0, "without_electricity": 2,
+            "electricity_unclear": 0, "shared_toilet": 4,
+            "toilet_sharing_unclear": 0,
+            "water_sources": [{"code": "1", "households": 24},
+                              {"code": "4", "households": 8}],
+            "water_labels": [{"code": "1", "label": "Piped into dwelling"},
+                             {"code": "4", "label": "Protected well"}],
+        }
+        with patch.object(repository, "count_priority_groups", return_value=priority) as groups, \
+                patch.object(repository, "count_dashboard_findings", return_value=findings) as counts, \
+                patch.object(service.dataset_batches, "count_household_profile",
+                             return_value=household_profile) as profile, \
+                patch.object(repository, "list_assessment_summaries") as rows:
+            result = service.get_active_dashboard_summary(connection_factory=self.factory)
+        self.assertEqual(result["priority"], priority)
+        self.assertEqual(result["findings"], findings)
+        self.assertEqual(result["household_profile"]["average_members"], 3.5)
+        self.assertEqual(result["household_profile"]["water_sources"][0]["percent"], 75.0)
+        groups.assert_called_once_with(
+            self.connection, 17, filters=AssessmentFilters(),
+            spisc_age_statuses={}, batch_id=9)
+        counts.assert_called_once_with(
+            self.connection, 17, spisc_age_statuses={}, batch_id=9)
+        profile.assert_called_once_with(self.connection, 9)
+        rows.assert_not_called()
+        self.connection.execute.assert_called_once_with(
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+        )
+        with patch.object(repository, "count_priority_groups", return_value=priority), \
+                patch.object(repository, "count_dashboard_findings",
+                             return_value={**findings, "assessed_households": 31}), \
+                patch.object(service.dataset_batches, "count_household_profile",
+                             return_value=household_profile):
+            with self.assertRaisesRegex(service.AssessmentQueryError, "assessment_count_mismatch"):
+                service.get_active_dashboard_summary(connection_factory=self.factory)
+
+    def test_household_profile_keeps_unclear_water_responses_separate(self):
+        raw = {
+            "household_count": 10, "member_count": 34,
+            "households_with_children": 6, "households_with_older_adults": 3,
+            "households_with_unclear_age": 1, "without_electricity": 2,
+            "electricity_unclear": 1, "shared_toilet": 4,
+            "toilet_sharing_unclear": 1,
+            "water_sources": [
+                {"code": "1", "households": 4},
+                {"code": "1.0", "households": 1},
+                {"code": "4", "households": 2},
+                {"code": "2", "households": 1}, {"code": "10", "households": 1},
+                {"code": "NA", "households": 1},
+            ],
+            "water_labels": [
+                {"code": "1", "label": "Piped dwelling"},
+                {"code": "4", "label": "Protected well"},
+                {"code": "2", "label": "Piped yard"},
+                {"code": "10", "label": "Other source"},
+            ],
+        }
+        profile = service._present_household_profile(raw)
+        self.assertEqual(profile["average_members"], 3.4)
+        self.assertEqual([item["count"] for item in profile["water_sources"]],
+                         [5, 2, 1, 1, 1])
+        self.assertEqual(profile["water_sources"][-1]["label"],
+                         "Not recorded or unclear")
 
     def test_detail_sources_and_references_share_one_designated_read_snapshot(self):
         source = detail_source()
@@ -672,6 +744,74 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
         self._run(findings=findings)
         return findings
 
+    def test_household_directory_search_barangay_and_source_order(self):
+        findings = self._filter_fixture()
+        first_uuid = next(iter(findings))
+        all_records = record_service.get_record_page(
+            1, record_service.RecordFilters(), connection_factory=self._factory,
+        )
+        self.assertEqual(all_records["total"], 32)
+        self.assertEqual(all_records["page_count"], 2)
+        self.assertEqual((all_records["range_start"], all_records["range_end"]), (1, 25))
+        self.assertEqual(all_records["items"][0]["household_uuid"], first_uuid)
+        self.assertEqual(all_records["items"][0]["reference_id"], "HH-00001")
+        self.assertEqual(all_records["items"][0]["head_name"], "Synthetic Common")
+        self.assertEqual(all_records["items"][0]["member_count"], 1)
+        self.assertEqual(all_records["barangays"], ["Synthetic East", "Synthetic West"])
+        second = record_service.get_record_page(
+            2, record_service.RecordFilters(), connection_factory=self._factory,
+        )
+        self.assertEqual(second["items"][0]["reference_id"], "HH-00026")
+        self.assertEqual((second["range_start"], second["range_end"]), (26, 32))
+        east = record_service.get_record_page(
+            1, record_service.RecordFilters(barangay="Synthetic East"),
+            connection_factory=self._factory,
+        )
+        self.assertEqual(east["total"], 15)
+        self.assertTrue(all(row["barangay"] == "Synthetic East" for row in east["items"]))
+        by_id = record_service.get_record_page(
+            1, record_service.RecordFilters(search="HH-00001"),
+            connection_factory=self._factory,
+        )
+        self.assertEqual([row["household_uuid"] for row in by_id["items"]], [first_uuid])
+        by_head = record_service.get_record_page(
+            1, record_service.RecordFilters(search="Synthetic Common", barangay="Synthetic West"),
+            connection_factory=self._factory,
+        )
+        self.assertEqual(by_head["total"], 15)
+        self.assertEqual(by_head["items"][0]["reference_id"], "HH-00002")
+        with self.assertRaises(record_service.InvalidRecordFilters):
+            record_service.get_record_page(
+                1, record_service.RecordFilters(barangay="Unknown"),
+                connection_factory=self._factory,
+            )
+
+    def test_household_detail_reads_focused_selected_batch_answers_only(self):
+        source, selected = self._detail_fixture()
+        other_batch = self._batch(uuids=[HOUSEHOLD_UUID])
+        self.connection.execute(
+            "UPDATE households SET responses=%s WHERE batch_id=%s",
+            (Jsonb({"q01_main_water": "OTHER_BATCH_VALUE"}), other_batch),
+        )
+        self.connection.execute(
+            "INSERT INTO household_members (batch_id, uuid, line_number, source_row_number, responses) "
+            "VALUES (%s, %s, 1, 1, %s)",
+            (other_batch, HOUSEHOLD_UUID, Jsonb({"a01_first_name": "OTHER_BATCH_MEMBER"})),
+        )
+        record = record_service.get_record_detail(HOUSEHOLD_UUID, connection_factory=self._factory)
+        self.assertEqual(record["context"]["run_id"], selected)
+        self.assertEqual(record["reference_id"], "HH-00001")
+        self.assertEqual(record["head_name"], "Synthetic Member 1")
+        self.assertEqual(record["barangay"], "Synthetic Barangay")
+        self.assertEqual(record["member_count"], 3)
+        self.assertEqual([member["line_number"] for member in record["members"]], [1, 2, 3])
+        self.assertEqual(record["groups"][0]["cells"][0]["label"], "Main water source")
+        self.assertEqual(record["groups"][1]["cells"][4]["value"], "50 m²")
+        self.assertNotIn("OTHER_BATCH_VALUE", str(record))
+        self.assertNotIn("OTHER_BATCH_MEMBER", str(record))
+        self.assertNotIn("EXCLUDED_SOURCE_VALUE", str(record))
+        self.assertEqual(source["household"]["q01_main_water"], "3")
+
     def _assert_filtered_rows(self, filters, expected_numbers, findings, *, page_size=25):
         """Check full matching sets/counts across pages and original stored values."""
         expected = [value for number, value in enumerate(findings.values(), 1) if number in expected_numbers]
@@ -694,6 +834,39 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 code: value["screening_status"] for code, value in original["programs"].items()
             })
         return actual
+
+    def test_dashboard_aggregates_use_designated_run_and_stored_statuses(self):
+        findings = self._filter_fixture()
+        result = service.get_active_dashboard_summary(connection_factory=self._factory)
+        self.assertEqual(result["context"]["household_count"], len(findings))
+        self.assertEqual(result["priority"]["all"], len(findings))
+        self.assertEqual(result["findings"]["assessed_households"], len(findings))
+        self.assertEqual(result["findings"]["needs_attention"], sum(
+            item["mpi"]["unknown_indicator_count"] > 0 for item in findings.values()
+        ))
+        for code, field in (("4Ps", "four_ps"), ("SLP", "slp"),
+                            ("SPISC", "spisc"), ("TUPAD", "tupad")):
+            self.assertEqual(result["findings"][field], sum(
+                item["programs"][code]["screening_status"] == "For Review"
+                for item in findings.values()
+            ))
+        self.assertNotIn("items", result)
+        self.assertNotIn("household_uuid", str(result))
+
+    def test_dashboard_counts_match_current_age_program_filters(self):
+        self._filter_fixture()
+        dashboard = service.get_active_dashboard_summary(connection_factory=self._factory)
+        for program, field in (("4Ps", "four_ps"), ("SLP", "slp"),
+                               ("SPISC", "spisc"), ("TUPAD", "tupad")):
+            filtered = service.list_active_assessment_summaries(
+                filters=AssessmentFilters(programs=(program,)), connection_factory=self._factory,
+            )
+            self.assertEqual(dashboard["findings"][field], filtered["total"], program)
+        for priority in ("primary", "secondary"):
+            filtered = service.list_active_assessment_summaries(
+                filters=AssessmentFilters(priority=priority), connection_factory=self._factory,
+            )
+            self.assertEqual(dashboard["priority"][priority], filtered["total"], priority)
 
     def test_priority_boundaries_combinations_pagination_and_unchanged_findings(self):
         # Number 1 has only Needs Data Review, even with its high stored score.

@@ -394,6 +394,30 @@ def count_priority_groups(
     }
 
 
+def count_dashboard_findings(connection, run_id, *, spisc_age_statuses=None, batch_id=None):
+    """Count aggregate uncertainty and screening findings in a completed run.
+
+    With current-age statuses, SPISC uses the same household precedence as the
+    Prioritization filters; stored findings are never changed.
+    """
+    selection, parameters = _summary_selection(
+        run_id, AssessmentFilters(),
+        spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
+    )
+    current = spisc_age_statuses is not None
+    columns = ", ".join(
+        f"count(*) FILTER (WHERE {_program_status(code, current)} = 'For Review') AS {key}"
+        for code, key in (("4Ps", "four_ps"), ("SLP", "slp"), ("SPISC", "spisc"), ("TUPAD", "tupad"))
+    )
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            "SELECT count(*) AS assessed_households, "
+            "count(*) FILTER (WHERE (h.findings #>> '{mpi,unknown_indicator_count}')::integer > 0)"
+            f" AS needs_attention, {columns} " + selection,
+            parameters,
+        ).fetchone()
+
+
 def list_assessment_summaries(
     connection, run_id, *, limit, offset, filters=None, spisc_age_statuses=None, batch_id=None,
 ):

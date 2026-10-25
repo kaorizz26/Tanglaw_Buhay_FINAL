@@ -1,0 +1,196 @@
+{% extends "public_base.html" %}
+
+{% block page_kind %}program-tupad{% endblock %}
+{% block title %}TUPAD | Tanglaw-Buhay{% endblock %}
+{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">{% endblock %}
+
+{% block content %}
+<article class="fourps-page tupad-page" data-program-slug="tupad">
+    <div class="fourps-backbar">
+        <div class="public-container fourps-container">
+            <a class="fourps-back-link" href="{{ url_for('public.index') }}#programs">
+                <span aria-hidden="true">&#8592;</span>
+                <span data-i18n="tupad.back">Bumalik sa mga Programa</span>
+            </a>
+        </div>
+    </div>
+
+    <header class="fourps-header">
+        <div class="public-container fourps-container fourps-header__inner">
+            <h1 data-i18n="tupad.title">TUPAD – Tulong Panghanapbuhay sa Ating Disadvantaged/Displaced Workers</h1>
+            <p data-i18n="tupad.subtitle">Panandaliang trabaho at sahod para sa mga nawalan ng pangkabuhayan.</p>
+        </div>
+    </header>
+
+    <nav class="fourps-tabs" aria-label="Mga seksyon ng programa" data-i18n-aria-label="tupad.tabsLabel">
+        <div class="public-container fourps-container fourps-tabs__inner">
+            <a class="is-active" href="#about" aria-current="location" data-fourps-tab="about" data-i18n="tupad.tab.about">Tungkol dito</a>
+            <a href="#documents" data-fourps-tab="documents" data-i18n="tupad.tab.documents">Mga Kailangang Papeles</a>
+            <a href="#application-process" data-fourps-tab="application-process" data-i18n="tupad.tab.process">Paano mag-apply</a>
+            <a href="#local-data" data-fourps-tab="local-data" data-i18n="tupad.tab.data">Datos sa Pozorrubio</a>
+        </div>
+    </nav>
+
+    <div class="public-container fourps-container fourps-content">
+        <section class="fourps-card" id="about" aria-labelledby="about-title">
+            <p class="fourps-step-label" data-i18n="tupad.step1.label">Hakbang 1: Alamin ang Programa</p>
+            <h2 id="about-title" data-i18n="tupad.step1.description">Ang TUPAD ng DOLE ay nagbibigay ng panandaliang pampublikong trabaho (10–90 araw) para sa mga disadvantaged, displaced, o seasonal workers.</h2>
+
+            <div class="fourps-audience-panel">
+                <span class="fourps-audience-panel__icon" aria-hidden="true">i</span>
+                <div>
+                    <h3 data-i18n="tupad.audience.title">Para kanino ito?</h3>
+                    <p data-i18n="tupad.audience.body">Displaced workers, underemployed, at self-employed na nawalan ng kita (edad 18 pataas; 1 miyembro lamang bawat pamilya kada taon).</p>
+                </div>
+            </div>
+
+            <div class="fourps-benefits" aria-label="Mga benepisyo" data-i18n-aria-label="tupad.benefitsLabel">
+                <article>
+                    <p data-i18n="tupad.benefit.wage">Daily Wage</p>
+                    <strong data-i18n="tupad.benefit.wageDescription">Batay sa Regional Minimum Wage</strong>
+                </article>
+                <article>
+                    <p data-i18n="tupad.benefit.insurance">Micro-Insurance</p>
+                    <strong data-i18n="tupad.benefit.insuranceDescription">Libreng Insurance sa Buong Duration</strong>
+                </article>
+                <article>
+                    <p data-i18n="tupad.benefit.period">Employment Period</p>
+                    <strong data-i18n="tupad.benefit.periodDescription">10 hanggang 90 Araw na Serbisyo</strong>
+                </article>
+            </div>
+        </section>
+
+        <section class="fourps-card" id="documents" aria-labelledby="documents-title">
+            <p class="fourps-step-label" data-i18n="tupad.step2.label">Hakbang 2: Ihanda ang mga Dokumento</p>
+            <h2 id="documents-title" data-i18n="tupad.step2.heading">Bago pumunta sa opisina, siguraduhing kumpleto ang mga sumusunod na papeles:</h2>
+
+            <ol class="fourps-document-list">
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="tupad.document.1">Valid Government ID (Nagpapakita na 18 taong gulang pataas)</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="tupad.document.2">Barangay Certificate of Indigency / Displaced Worker Status</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="tupad.document.3">Katibayan na hindi kawani ng gobyerno</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="tupad.document.4">TUPAD Beneficiary Profile Form</span>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="application-process" aria-labelledby="process-title">
+            <p class="fourps-step-label" data-i18n="tupad.step3.label">Hakbang 3: Sundan ang Proseso ng Pag-apply</p>
+            <h2 id="process-title" class="visually-hidden" data-i18n="tupad.step3.heading">Proseso ng pag-apply sa TUPAD</h2>
+
+            <ol class="fourps-timeline">
+                <li>
+                    <span class="fourps-timeline__number">1</span>
+                    <div>
+                        <h3 data-i18n="tupad.process.1.title">Makipag-ugnayan sa Barangay</h3>
+                        <p data-i18n="tupad.process.1.body">Mag-inquire sa Barangay Hall para sa susunod na TUPAD batch.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">2</span>
+                    <div>
+                        <h3 data-i18n="tupad.process.2.title">Submission ng Papeles</h3>
+                        <p data-i18n="tupad.process.2.body">Isumite ang valid ID at barangay certificate sa TUPAD focal person.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">3</span>
+                    <div>
+                        <h3 data-i18n="tupad.process.3.title">Work &amp; Safety Briefing</h3>
+                        <p data-i18n="tupad.process.3.body">Dumalo sa orientation at kunin ang Personal Protective Equipment (PPE).</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">4</span>
+                    <div>
+                        <h3 data-i18n="tupad.process.4.title">Pagsasagawa ng Trabaho</h3>
+                        <p data-i18n="tupad.process.4.body">Kumpletuhin ang mga araw ng community service project.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">5</span>
+                    <div>
+                        <h3 data-i18n="tupad.process.5.title">Pagtanggap ng Sahod</h3>
+                        <p data-i18n="tupad.process.5.body">Tanggapin ang sahod sa pamamagitan ng opisyal na payout procedure.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="local-data" aria-labelledby="data-title">
+            <p class="fourps-step-label" data-i18n="tupad.step4.label">Hakbang 4: Mga Datos at Benepisyaryo</p>
+            <h2 id="data-title" data-i18n="tupad.step4.heading">Talaan ng mga benepisyaryo sa ating bayan</h2>
+
+            <div class="fourps-data-placeholder" aria-label="Nakalaang espasyo para sa datos" data-i18n-aria-label="tupad.data.placeholderLabel">
+                <p data-i18n="tupad.data.placeholder">Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.</p>
+            </div>
+        </section>
+
+        <section class="fourps-related" aria-labelledby="related-title">
+            <div class="fourps-section-heading">
+                <div>
+                    <p class="fourps-step-label" data-i18n="tupad.related.label">Mga Susunod na Maaaring Alamin</p>
+                    <h2 id="related-title" data-i18n="tupad.related.title">Iba pang Programa ng Gobyerno</h2>
+                </div>
+                <p data-i18n="tupad.related.body">Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.</p>
+            </div>
+
+            <div class="fourps-related__grid">
+                {% for slug, related_program in other_programs.items() %}
+                <article class="fourps-related-card">
+                    <div class="fourps-related-card__icon">
+                        <img src="{{ url_for('static', filename=related_program.icon) }}" alt="{{ related_program.code }} program logo" loading="lazy">
+                    </div>
+                    <p class="fourps-related-card__code">{{ related_program.code }}</p>
+                    <h3>{{ related_program.name }}</h3>
+                    <p data-i18n="program.{{ slug }}.cardDescription">{{ related_program.card_description }}</p>
+                    <a href="{{ url_for('public.program', program_slug=slug) }}">
+                        <span data-i18n="actions.learnMore">Alamin Pa</span>
+                        <span aria-hidden="true">&#8594;</span>
+                    </a>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="fourps-help" id="help" aria-labelledby="help-title">
+            <div class="fourps-help__content">
+                <h2 id="help-title" data-i18n="tupad.help.title">Kailangan ng Tulong?</h2>
+                <p data-i18n="tupad.help.body">Tumawag o bumisita sa Pozorrubio MSWDO desk para sa mga katanungan tungkol sa inyong aplikasyon. Ang aming mga kawani ay handang tumulong tungkol sa lahat ng inyong mga katanungan.</p>
+            </div>
+            <ul class="fourps-help__details">
+                <li>
+                    <span data-i18n="tupad.help.hotlineLabel">Hotline</span>
+                    <strong>(075) 556-7015</strong>
+                </li>
+                <li>
+                    <span data-i18n="tupad.help.scheduleLabel">Oras ng Opisina</span>
+                    <strong data-i18n="tupad.help.schedule">Lunes - Biyernes (8 AM - 5 PM)</strong>
+                </li>
+                <li>
+                    <span data-i18n="tupad.help.locationLabel">Lokasyon</span>
+                    <strong>Municipal Hall, Pozorrubio, Pangasinan</strong>
+                </li>
+            </ul>
+        </section>
+
+        <aside class="fourps-question" aria-labelledby="question-title">
+            <div>
+                <h2 id="question-title" data-i18n="tupad.question.title">May karagdagang katanungan?</h2>
+                <p data-i18n="tupad.question.body">Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.</p>
+            </div>
+            <a class="public-button public-button--primary" href="#help" data-i18n="tupad.question.action">Bisitahin ang MSWDO</a>
+        </aside>
+    </div>
+</article>
+{% endblock %}

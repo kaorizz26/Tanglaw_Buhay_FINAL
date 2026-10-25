@@ -1,0 +1,200 @@
+{% extends "public_base.html" %}
+
+{% block page_kind %}program-slp{% endblock %}
+{% block title %}SLP | Tanglaw-Buhay{% endblock %}
+{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">{% endblock %}
+
+{% block content %}
+<article class="fourps-page slp-page" data-program-slug="slp">
+    <div class="fourps-backbar">
+        <div class="public-container fourps-container">
+            <a class="fourps-back-link" href="{{ url_for('public.index') }}#programs">
+                <span aria-hidden="true">&#8592;</span>
+                <span data-i18n="slp.back">Bumalik sa mga Programa</span>
+            </a>
+        </div>
+    </div>
+
+    <header class="fourps-header">
+        <div class="public-container fourps-container fourps-header__inner">
+            <h1 data-i18n="slp.title">SLP – Sustainable Livelihood Program</h1>
+            <p data-i18n="slp.subtitle">Tulong sa puhunan sa negosyo at pag-aaral para sa bagong trabaho.</p>
+        </div>
+    </header>
+
+    <nav class="fourps-tabs" aria-label="Mga seksyon ng programa" data-i18n-aria-label="slp.tabsLabel">
+        <div class="public-container fourps-container fourps-tabs__inner">
+            <a class="is-active" href="#about" aria-current="location" data-fourps-tab="about" data-i18n="slp.tab.about">Tungkol dito</a>
+            <a href="#documents" data-fourps-tab="documents" data-i18n="slp.tab.documents">Mga Kailangang Papeles</a>
+            <a href="#application-process" data-fourps-tab="application-process" data-i18n="slp.tab.process">Paano mag-apply</a>
+            <a href="#local-data" data-fourps-tab="local-data" data-i18n="slp.tab.data">Datos sa Pozorrubio</a>
+        </div>
+    </nav>
+
+    <div class="public-container fourps-container fourps-content">
+        <section class="fourps-card" id="about" aria-labelledby="about-title">
+            <p class="fourps-step-label" data-i18n="slp.step1.label">Hakbang 1: Alamin ang Programa</p>
+            <h2 id="about-title" data-i18n="slp.step1.description">Ang SLP ay programa ng DSWD na nagbibigay ng pondo, kapabilidad, at oportunidad para sa microenterprise development o paghahanap ng trabaho.</h2>
+
+            <div class="fourps-audience-panel">
+                <span class="fourps-audience-panel__icon" aria-hidden="true">i</span>
+                <div>
+                    <h3 data-i18n="slp.audience.title">Para kanino ito?</h3>
+                    <p data-i18n="slp.audience.body">Priority sa 4Ps beneficiaries, pamilyang nasa Listahanan, PWDs, at kabataang may edad 16+ (negosyo) o 18+ (trabaho).</p>
+                </div>
+            </div>
+
+            <div class="fourps-benefits" aria-label="Mga uri ng tulong" data-i18n-aria-label="slp.benefitsLabel">
+                <article>
+                    <p data-i18n="slp.benefit.seed">Seed Capital Fund</p>
+                    <strong data-i18n="slp.benefit.seedDescription">Pondong Puhunan para sa Negosyo</strong>
+                </article>
+                <article>
+                    <p data-i18n="slp.benefit.skills">Skills Training Fund</p>
+                    <strong data-i18n="slp.benefit.skillsDescription">Pondo sa Pagsasanay at Sertipikasyon</strong>
+                </article>
+                <article>
+                    <p data-i18n="slp.benefit.employment">Employment Fund</p>
+                    <strong data-i18n="slp.benefit.employmentDescription">Tulong sa Requirements at Pamasahe</strong>
+                </article>
+            </div>
+        </section>
+
+        <section class="fourps-card" id="documents" aria-labelledby="documents-title">
+            <p class="fourps-step-label" data-i18n="slp.step2.label">Hakbang 2: Ihanda ang mga Dokumento</p>
+            <h2 id="documents-title" data-i18n="slp.step2.heading">Bago pumunta sa opisina, siguraduhing kumpleto ang mga sumusunod na papeles:</h2>
+
+            <ol class="fourps-document-list">
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="slp.document.1">Valid Government ID ng aplikante</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="slp.document.2">Barangay Certificate of Residency sa Pozorrubio</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="slp.document.3">SLP Modality Application Form</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="slp.document.4">Certificate of Attendance sa SLP Orientation</span>
+                </li>
+                <li>
+                    <span class="fourps-document-list__icon" aria-hidden="true"></span>
+                    <span data-i18n="slp.document.5">Simple Business Proposal Summary (Para sa Micro-Enterprise track)</span>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="application-process" aria-labelledby="process-title">
+            <p class="fourps-step-label" data-i18n="slp.step3.label">Hakbang 3: Sundan ang Proseso ng Pag-apply</p>
+            <h2 id="process-title" class="visually-hidden" data-i18n="slp.step3.heading">Proseso ng pag-apply sa SLP</h2>
+
+            <ol class="fourps-timeline">
+                <li>
+                    <span class="fourps-timeline__number">1</span>
+                    <div>
+                        <h3 data-i18n="slp.process.1.title">Dumalo sa Orientation</h3>
+                        <p data-i18n="slp.process.1.body">Umatend sa SLP Orientation sa inyong barangay o MSWDO.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">2</span>
+                    <div>
+                        <h3 data-i18n="slp.process.2.title">Eligibility Assessment</h3>
+                        <p data-i18n="slp.process.2.body">Sumailalim sa pagsusuri ng DSWD field worker.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">3</span>
+                    <div>
+                        <h3 data-i18n="slp.process.3.title">Pumili ng Track</h3>
+                        <p data-i18n="slp.process.3.body">Magpasya kung Micro-Enterprise Development o Employment Facilitation.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">4</span>
+                    <div>
+                        <h3 data-i18n="slp.process.4.title">Paghahanda ng Dokumento</h3>
+                        <p data-i18n="slp.process.4.body">Isumite ang application form at kaugnay na papeles.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="fourps-timeline__number">5</span>
+                    <div>
+                        <h3 data-i18n="slp.process.5.title">Pag-apruba at Pondo</h3>
+                        <p data-i18n="slp.process.5.body">Tanggapin ang kapital o magsimula sa vocational skills training.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <section class="fourps-card" id="local-data" aria-labelledby="data-title">
+            <p class="fourps-step-label" data-i18n="slp.step4.label">Hakbang 4: Mga Datos at Benepisyaryo</p>
+            <h2 id="data-title" data-i18n="slp.step4.heading">Talaan ng mga benepisyaryo sa ating bayan</h2>
+
+            <div class="fourps-data-placeholder" aria-label="Nakalaang espasyo para sa datos" data-i18n-aria-label="slp.data.placeholderLabel">
+                <p data-i18n="slp.data.placeholder">Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.</p>
+            </div>
+        </section>
+
+        <section class="fourps-related" aria-labelledby="related-title">
+            <div class="fourps-section-heading">
+                <div>
+                    <p class="fourps-step-label" data-i18n="slp.related.label">Mga Susunod na Maaaring Alamin</p>
+                    <h2 id="related-title" data-i18n="slp.related.title">Iba pang Programa ng Gobyerno</h2>
+                </div>
+                <p data-i18n="slp.related.body">Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.</p>
+            </div>
+
+            <div class="fourps-related__grid">
+                {% for slug, related_program in other_programs.items() %}
+                <article class="fourps-related-card">
+                    <div class="fourps-related-card__icon">
+                        <img src="{{ url_for('static', filename=related_program.icon) }}" alt="{{ related_program.code }} program logo" loading="lazy">
+                    </div>
+                    <p class="fourps-related-card__code">{{ related_program.code }}</p>
+                    <h3>{{ related_program.name }}</h3>
+                    <p data-i18n="program.{{ slug }}.cardDescription">{{ related_program.card_description }}</p>
+                    <a href="{{ url_for('public.program', program_slug=slug) }}">
+                        <span data-i18n="actions.learnMore">Alamin Pa</span>
+                        <span aria-hidden="true">&#8594;</span>
+                    </a>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="fourps-help" id="help" aria-labelledby="help-title">
+            <div class="fourps-help__content">
+                <h2 id="help-title" data-i18n="slp.help.title">Kailangan ng Tulong?</h2>
+                <p data-i18n="slp.help.body">Tumawag o bumisita sa Pozorrubio MSWDO desk para sa mga katanungan tungkol sa inyong aplikasyon. Ang aming mga kawani ay handang tumulong tungkol sa lahat ng inyong mga katanungan.</p>
+            </div>
+            <ul class="fourps-help__details">
+                <li>
+                    <span data-i18n="slp.help.hotlineLabel">Hotline</span>
+                    <strong>(075) 556-7015</strong>
+                </li>
+                <li>
+                    <span data-i18n="slp.help.scheduleLabel">Oras ng Opisina</span>
+                    <strong data-i18n="slp.help.schedule">Lunes - Biyernes (8 AM - 5 PM)</strong>
+                </li>
+                <li>
+                    <span data-i18n="slp.help.locationLabel">Lokasyon</span>
+                    <strong>Municipal Hall, Pozorrubio, Pangasinan</strong>
+                </li>
+            </ul>
+        </section>
+
+        <aside class="fourps-question" aria-labelledby="question-title">
+            <div>
+                <h2 id="question-title" data-i18n="slp.question.title">May karagdagang katanungan?</h2>
+                <p data-i18n="slp.question.body">Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.</p>
+            </div>
+            <a class="public-button public-button--primary" href="#help" data-i18n="slp.question.action">Bisitahin ang MSWDO</a>
+        </aside>
+    </div>
+</article>
+{% endblock %}

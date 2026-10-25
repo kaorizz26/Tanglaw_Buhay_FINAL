@@ -1,0 +1,98 @@
+{% extends "public_base.html" %}
+
+{% block title %}Tanglaw-Buhay | Gabay sa mga Programang Panlipunan{% endblock %}
+{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">{% endblock %}
+
+{% block content %}
+<section class="public-hero" aria-labelledby="hero-title">
+    <div class="public-container public-hero__inner">
+        <div class="public-hero__content">
+            <p class="public-eyebrow" data-i18n="hero.eyebrow">Para sa bawat pamilyang Pozorrubio</p>
+            <h1 id="hero-title" data-i18n="hero.title">Alamin ang mga Programang Maaaring Makatulong sa Iyong Pamilya</h1>
+            <p class="public-hero__lead" data-i18n="hero.lead">Mas madaling alamin ang mga programang maaaring angkop sa pangangailangan ng inyong pamilya, kasama ang mahahalagang impormasyon at mga kinakailangang dokumento.</p>
+            <div class="public-hero__actions">
+                <a class="public-button public-button--primary" href="#programs">
+                    <span data-i18n="actions.viewPrograms">Tingnan ang mga Programa</span>
+                    <span aria-hidden="true">&#8594;</span>
+                </a>
+                <a class="public-button public-button--secondary" href="#how-it-works" data-i18n="actions.how">Paano Gamitin</a>
+            </div>
+            <p class="public-hero__helper" data-i18n="hero.helper">Libreng impormasyon. Walang account na kailangan.</p>
+        </div>
+    </div>
+</section>
+
+<section class="programs-section" id="programs" aria-labelledby="programs-title">
+    <div class="public-container">
+        <div class="public-section-heading">
+            <div>
+                <p class="public-eyebrow" data-i18n="programs.eyebrow">Mga serbisyong maaari mong tuklasin</p>
+                <h2 id="programs-title" data-i18n="programs.title">Mga Programang Maaari Mong Alamin</h2>
+            </div>
+            <p data-i18n="programs.subtitle">Pumili ng programa upang malaman ang layunin nito, mahahalagang paalala, at mga dokumentong maaaring hingin ng awtorisadong tanggapan.</p>
+        </div>
+
+        <div class="program-grid">
+            {% for slug, program in programs.items() %}
+            <article class="program-card program-card--{{ slug }}">
+                <div class="program-card__icon-wrap">
+                    <img src="{{ url_for('static', filename=program.icon) }}" alt="{{ program.code }} program logo" loading="lazy">
+                </div>
+                <p class="program-card__code">{{ program.code }}</p>
+                <h3>{{ program.name }}</h3>
+                <p class="program-card__description" data-i18n="program.{{ slug }}.cardDescription">{{ program.card_description }}</p>
+                <a href="{{ url_for('public.program', program_slug=slug) }}">
+                    <span data-i18n="actions.learnMore">Alamin Pa</span>
+                    <span aria-hidden="true">&#8594;</span>
+                </a>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="how-section" id="how-it-works" aria-labelledby="how-title">
+    <div class="public-container">
+        <div class="public-section-heading public-section-heading--compact">
+            <div>
+                <p class="public-eyebrow" data-i18n="how.eyebrow">Simple at malinaw</p>
+                <h2 id="how-title" data-i18n="how.title">Paano Gamitin ang Tanglaw-Buhay</h2>
+            </div>
+            <p data-i18n="how.subtitle">Tatlong hakbang upang makita ang impormasyong kailangan mo.</p>
+        </div>
+
+        <ol class="steps-list">
+            <li>
+                <span class="steps-list__number">1</span>
+                <div>
+                    <h3 data-i18n="how.step1.title">Tuklasin ang mga Programa</h3>
+                    <p data-i18n="how.step1.body">Tingnan ang mga programang available sa Tanglaw-Buhay.</p>
+                </div>
+            </li>
+            <li>
+                <span class="steps-list__number">2</span>
+                <div>
+                    <h3 data-i18n="how.step2.title">Alamin ang Detalye</h3>
+                    <p data-i18n="how.step2.body">Basahin ang layunin, mahahalagang impormasyon, at mga kinakailangang dokumento.</p>
+                </div>
+            </li>
+            <li>
+                <span class="steps-list__number">3</span>
+                <div>
+                    <h3 data-i18n="how.step3.title">Sundin ang Susunod na Hakbang</h3>
+                    <p data-i18n="how.step3.body">Kapag naabisuhan ng awtorisadong tanggapan, sundin ang ibibigay na referral at submission instructions.</p>
+                </div>
+            </li>
+        </ol>
+    </div>
+</section>
+
+<section class="public-notice-section" aria-label="Mahalagang paalala" data-i18n-aria-label="notice.label">
+    <div class="public-container">
+        <aside class="public-info-notice">
+            <span class="public-info-notice__icon" aria-hidden="true">i</span>
+            <p data-i18n="notice.body">Ang impormasyong ipinapakita sa Tanglaw-Buhay ay nagsisilbing gabay lamang. Ang pinal na assessment, beripikasyon, at pag-apruba ay isinasagawa ng awtorisadong tanggapan ng pamahalaan.</p>
+        </aside>
+    </div>
+</section>
+{% endblock %}

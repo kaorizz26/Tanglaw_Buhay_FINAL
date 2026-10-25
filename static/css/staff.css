@@ -408,6 +408,14 @@
 }
 
 @media (max-width: 440px) {
+  .staff-account {
+    flex-wrap: wrap;
+  }
+
+  .staff-profile {
+    flex: 1 1 150px;
+  }
+
   .navigation-list {
     grid-template-columns: 1fr;
   }

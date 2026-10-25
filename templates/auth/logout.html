@@ -8,6 +8,6 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit">Sign out</button>
   </form>
-  <p><a href="{{ url_for('main.index') }}">Return to staff home</a></p>
+  <p><a href="{{ url_for('auth.change_password' if g.user.get('must_change_password') else 'main.administration' if g.user['role'] == 'system_administrator' else 'main.index') }}">Return to {{ 'password setup' if g.user.get('must_change_password') else 'dashboard' }}</a></p>
 </main></body>
 </html>
