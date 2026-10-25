@@ -3,36 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LGU Staff Login · Tanglaw-Buhay</title>
+  <title>Sign in · Tanglaw-Buhay</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+  <script src="{{ url_for('static', filename='js/password-toggle.js') }}" defer></script>
 </head>
 <body class="auth-page">
   <a class="skip-link" href="#login-title">Skip to sign in</a>
   <main class="login-layout">
-    <section class="identity-panel" aria-labelledby="portal-name">
-      <div class="identity-content">
-        <div class="brand-lockup">
-          <span class="brand-mark" aria-hidden="true"><span class="brand-initials">TB</span></span>
-          <div class="brand-copy">
-            <strong id="portal-name">Tanglaw-Buhay</strong>
-            <span>LGU Staff Portal</span>
-          </div>
-        </div>
-        <div class="identity-message">
-          <span class="identity-accent" aria-hidden="true"></span>
-          <p class="platform-name">Decision Support Analytics Platform</p>
-          <p class="location-name">Pozorrubio, Pangasinan</p>
-        </div>
-      </div>
-    </section>
+    {% include 'auth/_identity_panel.html' %}
 
     <section class="login-area" aria-labelledby="login-title">
       <div class="login-content">
         <header class="login-header">
-          <p class="login-eyebrow">LGU Staff Portal</p>
-          <h1 id="login-title">Sign in to your account</h1>
-          <p class="supporting-text">Staff and administrators use their assigned username and password.</p>
+          <p class="login-eyebrow">Authorized LGU Access</p>
+          <h1 id="login-title">Sign in to Tanglaw-Buhay</h1>
+          <p class="supporting-text">Sign in using your assigned LGU account.</p>
         </header>
 
         {% if error %}
@@ -51,14 +37,20 @@
           </div>
           <div class="form-field">
             <label for="password">Password</label>
-            <input id="password" name="password" type="password"
-                   autocomplete="current-password" maxlength="1024"
-                   {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}
-                   required>
+            <div class="password-field" data-password-field>
+              <input id="password" name="password" type="password"
+                     autocomplete="current-password" maxlength="1024"
+                     {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}
+                     required>
+              <button class="password-toggle" type="button" data-password-toggle
+                      data-label="password" aria-pressed="false"
+                      aria-label="Show password" hidden>Show</button>
+            </div>
           </div>
-          <button class="primary-button" type="submit">Sign In</button>
+          <button class="primary-button" type="submit">Sign in</button>
         </form>
-        <p class="authorized-note">New staff accounts are created by the System Administrator. Use the initial password they provide to sign in and set your own password.</p>
+        <p class="assistance-note">Having trouble signing in? Contact your system administrator.</p>
+        <p class="authorized-note">Authorized LGU personnel only.</p>
       </div>
     </section>
   </main>
