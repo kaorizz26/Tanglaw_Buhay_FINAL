@@ -18,7 +18,7 @@ from psycopg.types.json import Jsonb
 from repositories import assessment_runs as repository
 from repositories import assessment_evidence
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source, screening_source
-from services import assessment_queries as service
+from services import assessment_queries as service, read_cache
 from services import household_records as record_service
 from services.assessment_filters import (
     AssessmentFilters, InvalidAssessmentFilters, PROGRAM_ORDER, normalize_filters,
@@ -37,6 +37,8 @@ TEST_URL = os.getenv("TANGLAW_TEST_DATABASE_URL")
 
 class AssessmentQueryServiceTests(unittest.TestCase):
     def setUp(self):
+        read_cache.clear()
+        self.addCleanup(read_cache.clear)
         self.connection = MagicMock()
         self.connection.__enter__.return_value = self.connection
         self.connection.info.transaction_status = TransactionStatus.IDLE
@@ -110,6 +112,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         self.connection.execute.assert_called_once_with(
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         )
+        read_cache.clear()
         with patch.object(repository, "count_priority_groups", return_value=priority), \
                 patch.object(repository, "count_dashboard_findings",
                              return_value={**findings, "assessed_households": 31}), \
@@ -400,6 +403,7 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             raise
 
     def setUp(self):
+        read_cache.clear()
         self.schema = f"assessment_query_check_{uuid4().hex}"
         self.connection = self._connect()
         self.addCleanup(self.connection.close)

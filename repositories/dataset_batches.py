@@ -4,6 +4,9 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from services import read_cache
+
+BARANGAY_CACHE_SECONDS = 3600
 
 SOURCE_TABLES = {
     "household": ("households", ("uuid",)),
@@ -81,16 +84,25 @@ def find_household_identities(connection, batch_id, household_uuids):
 
 
 def list_barangays(connection, batch_id):
-    """Return distinct recorded barangays from the active source batch only."""
-    rows = connection.execute(
-        """SELECT DISTINCT btrim(responses ->> 'barangay') AS barangay
-           FROM households
-           WHERE batch_id = %s
-             AND btrim(responses ->> 'barangay') NOT IN ('', 'NA')
-           ORDER BY barangay ASC""",
-        (batch_id,),
-    ).fetchall()
-    return [row[0] for row in rows]
+    """Return distinct recorded barangays from the active source batch only.
+
+    The list is reference data of an imported batch, so it is reused per
+    database and batch for an hour.
+    """
+    def load():
+        rows = connection.execute(
+            """SELECT DISTINCT btrim(responses ->> 'barangay') AS barangay
+               FROM households
+               WHERE batch_id = %s
+                 AND btrim(responses ->> 'barangay') NOT IN ('', 'NA')
+               ORDER BY barangay ASC""",
+            (batch_id,),
+        ).fetchall()
+        return [row[0] for row in rows]
+
+    return read_cache.cached(
+        ("barangays", connection.info.dbname, batch_id), BARANGAY_CACHE_SECONDS, load,
+    )
 
 
 def count_household_profile(connection, batch_id):

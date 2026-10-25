@@ -9,9 +9,13 @@ from db import get_connection
 from repositories import assessment_runs, dataset_batches
 from repositories import assessment_evidence, staff_reviews
 from services.assessment_filters import AssessmentFilters, normalize_filters
+from services import read_cache
 from services.assessment_reference_labels import code_key
 from services.subsidy_priority import derive_subsidy_priority
 from services.spisc_age_progression import current_spisc_status, philippine_assessment_date
+
+
+DASHBOARD_CACHE_SECONDS = 300
 
 
 class AssessmentQueryError(RuntimeError):
@@ -134,28 +138,39 @@ def get_active_dashboard_summary(*, connection_factory=get_connection, assessmen
     """Read only municipal aggregates from the designated completed run.
 
     SPISC counts use the same current-age logic as Household Prioritization.
+    Results are reused for a few minutes for the same database, batch, run and
+    Philippine date; a different batch, run or date is always read afresh.
     """
     assessed = assessment_date if assessment_date is not None else philippine_assessment_date()
     with _read_context(connection_factory) as (connection, context):
-        current_age = _current_age_statuses(connection, context, assessed)
-        priority = assessment_runs.count_priority_groups(
-            connection, context["run_id"], filters=AssessmentFilters(), **current_age,
+        key = ("dashboard", connection.info.dbname, context["batch_id"],
+               context["run_id"], context["completed_at"], assessed)
+        return read_cache.cached(
+            key, DASHBOARD_CACHE_SECONDS,
+            lambda: _read_dashboard_summary(connection, context, assessed),
         )
-        findings = assessment_runs.count_dashboard_findings(
-            connection, context["run_id"], **current_age,
-        )
-        household_profile = dataset_batches.count_household_profile(
-            connection, context["batch_id"],
-        )
-        if priority["all"] != context["household_count"] or (
-            findings["assessed_households"] != context["household_count"]
-        ) or household_profile["household_count"] != context["household_count"] or (
-            sum(row["households"] for row in household_profile["water_sources"])
-            != context["household_count"]
-        ):
-            raise AssessmentQueryError("assessment_count_mismatch")
-        return {"context": context, "priority": priority, "findings": findings,
-                "household_profile": _present_household_profile(household_profile)}
+
+
+def _read_dashboard_summary(connection, context, assessed):
+    current_age = _current_age_statuses(connection, context, assessed)
+    priority = assessment_runs.count_priority_groups(
+        connection, context["run_id"], filters=AssessmentFilters(), **current_age,
+    )
+    findings = assessment_runs.count_dashboard_findings(
+        connection, context["run_id"], **current_age,
+    )
+    household_profile = dataset_batches.count_household_profile(
+        connection, context["batch_id"],
+    )
+    if priority["all"] != context["household_count"] or (
+        findings["assessed_households"] != context["household_count"]
+    ) or household_profile["household_count"] != context["household_count"] or (
+        sum(row["households"] for row in household_profile["water_sources"])
+        != context["household_count"]
+    ):
+        raise AssessmentQueryError("assessment_count_mismatch")
+    return {"context": context, "priority": priority, "findings": findings,
+            "household_profile": _present_household_profile(household_profile)}
 
 
 def list_active_assessment_summaries(
