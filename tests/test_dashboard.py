@@ -1,11 +1,16 @@
 """The municipal dashboard shows synthetic aggregates through staff-only routes."""
 
+from datetime import datetime, timezone
+from html import unescape
+import re
 from secrets import token_urlsafe
 from time import time
 import unittest
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlsplit
 
 from app import create_app
+from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError
 
 
@@ -15,6 +20,7 @@ class DashboardRouteTests(unittest.TestCase):
                                "DATABASE_URL": None})
         self.client = self.app.test_client()
         self.user = {"id": 1, "username": "synthetic_staff", "role": "lgu_staff",
+                     "display_name": "Synthetic Staff Name",
                      "is_active": True, "session_version": 1}
         for patcher in (
             patch("services.auth.get_connection", return_value=MagicMock()),
@@ -22,7 +28,23 @@ class DashboardRouteTests(unittest.TestCase):
         ):
             patcher.start()
             self.addCleanup(patcher.stop)
+        self.reviews = {
+            "cards": [{"status": "in-review", "label": "In Review", "count": 2},
+                      {"status": "follow-up", "label": "For LGU Follow-Up", "count": 1},
+                      {"status": "no-action", "label": "No Further Action", "count": 0}],
+            "recent": [{"id": 5, "household_uuid": "00000000-0000-0000-0000-000000000001",
+                        "program": "SLP", "household_reference_id": "HH-0008",
+                        "head_name": "Synthetic Head", "barangay": "Synthetic East",
+                        "created_at": datetime(2026, 10, 17, 8, tzinfo=timezone.utc)}],
+            "return_parameters": {"from_queue": "1", "queue_page": 1,
+                                  "queue_status": "in-review", "queue_scope": "mine",
+                                  "queue_sort": "desc"},
+        }
+        patcher = patch("routes.main.get_dashboard_reviews", return_value=self.reviews)
+        self.reviews_query = patcher.start()
+        self.addCleanup(patcher.stop)
         self.summary = {
+            "barangay": "", "barangays": ["Synthetic East", "Synthetic West"],
             "context": {"survey_year": 2022, "municipality": "Pozorrubio",
                         "household_count": 32},
             "priority": {"all": 32, "primary": 4, "secondary": 7,
@@ -55,8 +77,8 @@ class DashboardRouteTests(unittest.TestCase):
         with patch("routes.main.get_active_dashboard_summary", return_value=self.summary) as query:
             response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        query.assert_called_once_with()
-        for text in ("Dashboard", "CBMS 2022", "32", "Primary Priority",
+        query.assert_called_once_with(barangay=None)
+        for text in ("Dashboard", "Survey Year 2022", "32", "Primary Priority",
                      "Secondary Priority", "Needs Assessment Attention", "Review Queue",
                      "Household snapshot", "3.50", "Households with someone under 18",
                      "Main water source", "Piped into dwelling", "recorded no electricity"):
@@ -69,6 +91,69 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertNotIn("household_uuid", response.text)
         self.assertNotIn("Synthetic Household", response.text)
         self.assertNotIn("Single parent", response.text)
+
+    def test_welcome_uses_display_name_and_falls_back_to_username(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
+            self.assertIn("Welcome, Synthetic Staff Name", self.client.get("/").text)
+            self.user["display_name"] = None
+            self.assertIn("Welcome, synthetic_staff", self.client.get("/").text)
+
+    def test_review_cards_and_recent_reviews_link_to_queue_and_records(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
+            response = self.client.get("/")
+        self.reviews_query.assert_called_once_with(1)
+        for status in ("in-review", "follow-up", "no-action"):
+            self.assertIn(f'href="/assessments/queue?scope=mine&amp;status={status}"', response.text)
+        for text in ("My Staff Reviews", "In Review", "For LGU Follow-Up", "No Further Action",
+                     "2 reviews", "1 review", "HH-0008", "Synthetic Head", "SLP"):
+            self.assertIn(text, response.text)
+        link = re.search(r'href="(/assessments/[^"]+/reviews/SLP/5[^"]*)"', response.text)
+        self.assertIsNotNone(link)
+        query = parse_qs(urlsplit(unescape(link.group(1))).query)
+        self.assertEqual(query["from_queue"], ["1"])
+        self.assertEqual(query["queue_scope"], ["mine"])
+        self.assertEqual(query["queue_status"], ["in-review"])
+        self.assertIn("not affected by the barangay selection", response.text)
+
+    def test_barangay_filter_changes_statistics_only(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary",
+                   return_value={**self.summary, "barangay": "Synthetic East"}) as query:
+            response = self.client.get("/?barangay=Synthetic+East")
+        query.assert_called_once_with(barangay="Synthetic East")
+        self.reviews_query.assert_called_once_with(1)
+        for text in ("Survey Year 2022", "Barangay Synthetic East", "Show all barangays"):
+            self.assertIn(text, response.text)
+        self.assertIn('<option value="Synthetic East" selected>', response.text)
+        workload = response.text.split('id="reviews-heading"')[1].split("</section>")[0]
+        self.assertNotIn("barangay=", workload)
+        self.assertNotRegex(response.text, r'<select[^>]*name="(year|survey_year)"')
+
+    def test_invalid_barangay_is_rejected(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary",
+                   side_effect=InvalidAssessmentFilters("invalid_dashboard_barangay")):
+            self.assertEqual(self.client.get("/?barangay=Nowhere").status_code, 400)
+        self.assertEqual(self.client.get("/?barangay=A&barangay=B").status_code, 400)
+
+    def test_empty_and_unavailable_reviews_leave_statistics_visible(self):
+        self._sign_in()
+        self.reviews_query.return_value = {**self.reviews, "recent": [],
+                                           "cards": [{**c, "count": 0} for c in self.reviews["cards"]]}
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
+            self.assertIn("You have no reviews in progress.", self.client.get("/").text)
+            self.reviews_query.side_effect = AssessmentQueryError("private_database_details")
+            response = self.client.get("/")
+        self.assertIn("Your reviews are unavailable", response.text)
+        self.assertIn("Household snapshot", response.text)
+        self.assertNotIn("private_database_details", response.text)
+        with patch("routes.main.get_active_dashboard_summary",
+                   side_effect=AssessmentQueryError("private_database_details")):
+            response = self.client.get("/")
+        self.assertIn("Your reviews are unavailable", response.text)
+        self.assertIn("Assessment summary unavailable", response.text)
 
     def test_missing_assessments_keep_staff_home_and_fixture_boundary(self):
         self._sign_in()
@@ -88,8 +173,8 @@ class DashboardRouteTests(unittest.TestCase):
         with patch("routes.main.get_active_dashboard_summary", return_value=self.summary) as query:
             response = self.client.get("/administration")
         self.assertEqual(response.status_code, 200)
-        query.assert_called_once_with()
-        for text in ("Dashboard", "CBMS 2022", "Primary Priority",
+        query.assert_called_once_with(barangay=None)
+        for text in ("Dashboard", "Survey Year 2022", "Primary Priority",
                      "Secondary Priority", "Household snapshot", "Main water source"):
             self.assertIn(text, response.text)
         self.assertIn('href="/administration" aria-current="page"', response.text)
@@ -97,6 +182,9 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments?priority=primary"', response.text)
         self.assertIn('href="/assessments/queue"', response.text)
         self.assertEqual(self.client.get("/").location, "/administration")
+        self.reviews_query.assert_not_called()
+        self.assertNotIn("My Staff Reviews", response.text)
+        self.assertNotIn("Welcome,", response.text)
 
         with patch("routes.main.get_active_dashboard_summary",
                    side_effect=AssessmentQueryError("private_database_details")):

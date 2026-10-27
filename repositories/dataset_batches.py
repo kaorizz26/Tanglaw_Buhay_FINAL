@@ -105,8 +105,13 @@ def list_barangays(connection, batch_id):
     )
 
 
-def count_household_profile(connection, batch_id):
-    """Return batch-scoped source aggregates, never household or member rows."""
+def count_household_profile(connection, batch_id, barangay=None):
+    """Return batch-scoped source aggregates, never household or member rows.
+
+    An optional recorded barangay narrows every aggregate to that barangay.
+    """
+    in_barangay = " AND btrim(responses ->> 'barangay') = %s" if barangay else ""
+    scope = (batch_id, barangay) if barangay else (batch_id,)
     with connection.cursor(row_factory=dict_row) as cursor:
         households = cursor.execute(
             """SELECT count(*) AS household_count,
@@ -120,8 +125,8 @@ def count_household_profile(connection, batch_id):
                       count(*) FILTER (WHERE responses ->> 'q19_share_toilet' IS NULL
                           OR responses ->> 'q19_share_toilet' NOT IN ('1', '2'))
                           AS toilet_sharing_unclear
-               FROM households WHERE batch_id = %s""",
-            (batch_id,),
+               FROM households WHERE batch_id = %s""" + in_barangay,
+            scope,
         ).fetchone()
         members = cursor.execute(
             """WITH ages AS (
@@ -129,7 +134,12 @@ def count_household_profile(connection, batch_id):
                           CASE WHEN (responses ->> 'a07_age') ~ '^[0-9]{1,3}$'
                                THEN (responses ->> 'a07_age')::integer
                           END AS age
-                   FROM household_members WHERE batch_id = %s
+                   FROM household_members m WHERE m.batch_id = %s"""
+            + (""" AND EXISTS (
+                       SELECT 1 FROM households h
+                       WHERE h.batch_id = m.batch_id AND h.uuid = m.uuid
+                         AND btrim(h.responses ->> 'barangay') = %s)""" if barangay else "")
+            + """
                )
                SELECT count(*) AS member_count,
                       count(DISTINCT uuid) FILTER (WHERE age < 18)
@@ -139,14 +149,14 @@ def count_household_profile(connection, batch_id):
                       count(DISTINCT uuid) FILTER (WHERE age IS NULL)
                           AS households_with_unclear_age
                FROM ages""",
-            (batch_id,),
+            scope,
         ).fetchone()
         water_sources = cursor.execute(
             """SELECT coalesce(nullif(btrim(responses ->> 'q01_main_water'), ''), '')
                           AS code, count(*) AS households
-               FROM households WHERE batch_id = %s
+               FROM households WHERE batch_id = %s""" + in_barangay + """
                GROUP BY 1 ORDER BY households DESC, code""",
-            (batch_id,),
+            scope,
         ).fetchall()
         water_labels = cursor.execute(
             """SELECT responses ->> 'code' AS code,

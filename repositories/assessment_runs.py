@@ -394,14 +394,16 @@ def count_priority_groups(
     }
 
 
-def count_dashboard_findings(connection, run_id, *, spisc_age_statuses=None, batch_id=None):
+def count_dashboard_findings(
+    connection, run_id, *, filters=None, spisc_age_statuses=None, batch_id=None,
+):
     """Count aggregate uncertainty and screening findings in a completed run.
 
     With current-age statuses, SPISC uses the same household precedence as the
     Prioritization filters; stored findings are never changed.
     """
     selection, parameters = _summary_selection(
-        run_id, AssessmentFilters(),
+        run_id, filters or AssessmentFilters(),
         spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
     )
     current = spisc_age_statuses is not None

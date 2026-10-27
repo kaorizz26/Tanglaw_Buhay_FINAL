@@ -15,7 +15,7 @@ def find_by_id(connection, user_id):
     """Return authorization state without retrieving the password hash."""
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
-            """SELECT id, username, role, is_active, session_version,
+            """SELECT id, username, display_name, role, is_active, session_version,
                       must_change_password
                FROM staff_users WHERE id = %s""", (user_id,),
         ).fetchone()

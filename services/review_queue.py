@@ -104,6 +104,29 @@ def parse_queue_return(arguments):
     return parse_queue_arguments(values)
 
 
+DASHBOARD_RECENT_LIMIT = 5
+
+
+def _present_rows(connection, context, items):
+    """Add the household reference, head name and barangay to queue rows."""
+    identities = dataset_batches.find_household_identities(
+        connection, context['batch_id'], list({row['household_uuid'] for row in items}),
+    )
+    indexed = {row['household_uuid']: row for row in identities}
+    if set(indexed) != {row['household_uuid'] for row in items}:
+        raise AssessmentQueryError('household_identity_missing')
+    rows = []
+    for item in items:
+        identity = indexed[item['household_uuid']]
+        rows.append({
+            **item,
+            'household_reference_id': _household_reference_id(identity['source_row_number']),
+            'head_name': _head_name(identity),
+            'barangay': _source_text(identity['barangay']) or 'Not recorded',
+        })
+    return rows
+
+
 def get_review_queue_page(page, filters=None, *, staff_id=None, connection_factory=get_connection):
     filters = normalize_queue_filters(filters)
     if type(page) is not int or page < 1:
@@ -121,21 +144,7 @@ def get_review_queue_page(page, filters=None, *, staff_id=None, connection_facto
             connection, context['batch_id'], context['run_id'], filters,
             limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE, staff_id=staff_id,
         )
-        identities = dataset_batches.find_household_identities(
-            connection, context['batch_id'], list({row['household_uuid'] for row in items}),
-        )
-        indexed = {row['household_uuid']: row for row in identities}
-        if set(indexed) != {row['household_uuid'] for row in items}:
-            raise AssessmentQueryError('household_identity_missing')
-        rows = []
-        for item in items:
-            identity = indexed[item['household_uuid']]
-            rows.append({
-                **item,
-                'household_reference_id': _household_reference_id(identity['source_row_number']),
-                'head_name': _head_name(identity),
-                'barangay': _source_text(identity['barangay']) or 'Not recorded',
-            })
+        rows = _present_rows(connection, context, items)
         barangays = dataset_batches.list_barangays(connection, context['batch_id'])
     return {
         'context': context, 'items': rows, 'total': total, 'page': page,
@@ -155,3 +164,29 @@ def get_review_queue_page(page, filters=None, *, staff_id=None, connection_facto
                          'no-action': 'no-action'}[filters.status],
         'return_parameters': queue_return_parameters(page, filters),
     }
+
+
+def get_dashboard_reviews(staff_id, *, connection_factory=get_connection):
+    """Return one staff member's own review counts and latest active reviews.
+
+    Personal workload only: no barangay or other filter is applied.
+    """
+    if type(staff_id) is not int or staff_id < 1:
+        raise InvalidAssessmentFilters('invalid_review_queue_staff')
+    filters = {status: QueueFilters(status=status, scope='mine')
+               for status, _ in STATUS_OPTIONS}
+    recent_filters = QueueFilters(status='in-review', scope='mine', sort='desc')
+    with _read_context(connection_factory) as (connection, context):
+        cards = [{
+            'status': status, 'label': label,
+            'count': staff_reviews.count_queue(
+                connection, context['batch_id'], context['run_id'], filters[status],
+                staff_id=staff_id,
+            ),
+        } for status, label in STATUS_OPTIONS]
+        recent = _present_rows(connection, context, staff_reviews.list_queue(
+            connection, context['batch_id'], context['run_id'], recent_filters,
+            limit=DASHBOARD_RECENT_LIMIT, offset=0, staff_id=staff_id,
+        ))
+    return {'cards': cards, 'recent': recent,
+            'return_parameters': queue_return_parameters(1, recent_filters)}

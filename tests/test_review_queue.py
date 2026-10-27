@@ -339,6 +339,34 @@ class QueueDatabaseTests(unittest.TestCase):
         with self.assertRaisesRegex(AssessmentQueryError, 'approved_assessment_run_missing'):
             self.page()
 
+    def test_dashboard_reviews_are_personal_counts_with_recent_active_rows(self):
+        fx = self.fixture
+        mine, other = fx.staff_ids
+        active = fx.start('4Ps', staff_id=mine)
+        follow_up = fx.start('SLP', 'Staff request.', staff_id=mine)
+        fx.act(follow_up, 'finish', program='SLP', recommendation='For LGU Follow-Up', text='Examined.')
+        no_action = fx.start('SPISC', 'Staff request.', staff_id=mine)
+        fx.act(no_action, 'finish', program='SPISC', recommendation='No Further Action', text='Examined.')
+        theirs = fx.start('TUPAD', staff_id=other)
+        result = queue.get_dashboard_reviews(mine, connection_factory=self.connect)
+        self.assertEqual({card['status']: card['count'] for card in result['cards']},
+                         {'in-review': 1, 'follow-up': 1, 'no-action': 1})
+        self.assertEqual([card['label'] for card in result['cards']],
+                         ['In Review', 'For LGU Follow-Up', 'No Further Action'])
+        self.assertEqual([row['id'] for row in result['recent']], [active])
+        self.assertEqual(result['recent'][0]['household_reference_id'],
+                         self.page(scope='all')['items'][0]['household_reference_id'])
+        self.assertEqual(result['return_parameters'], queue.queue_return_parameters(
+            1, queue.QueueFilters(status='in-review', scope='mine', sort='desc')))
+        other_result = queue.get_dashboard_reviews(other, connection_factory=self.connect)
+        self.assertEqual([row['id'] for row in other_result['recent']], [theirs])
+        self.assertEqual([card['count'] for card in other_result['cards']], [1, 0, 0])
+        with self.connect() as connection:
+            self.assertEqual(fx.snapshot(connection), fx.originals)
+        for invalid in (None, 0, True, '1'):
+            with self.subTest(invalid=invalid), self.assertRaises(InvalidAssessmentFilters):
+                queue.get_dashboard_reviews(invalid, connection_factory=self.connect)
+
     def test_query_filtering_order_ties_and_pagination_with_stored_ranks(self):
         fx = self.fixture
         started = datetime(2026, 1, 1, tzinfo=timezone.utc)

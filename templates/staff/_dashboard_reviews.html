@@ -1,0 +1,52 @@
+<section class="dashboard-reviews" aria-labelledby="reviews-heading">
+  <div class="dashboard-section-heading">
+    <div>
+      <p class="dashboard-panel-kicker">Your workload</p>
+      <h2 id="reviews-heading">My Staff Reviews</h2>
+    </div>
+    <p>Reviews assigned to you. These are not affected by the barangay selection below.</p>
+  </div>
+  {% if reviews %}
+    <ul class="dashboard-review-cards">
+      {% for card in reviews.cards %}
+        <li>
+          <a class="dashboard-review-card dashboard-review-card-{{ card.status }}"
+             href="{{ url_for('assessments.queue', scope='mine', status=card.status) }}"
+             aria-label="{{ card.label }}: {{ card.count }} {{ 'review' if card.count == 1 else 'reviews' }}. Open in Review Queue.">
+            <span class="dashboard-metric-label">{{ card.label }}</span>
+            <span class="dashboard-metric-value">{{ '{:,}'.format(card.count) }}</span>
+            <span class="dashboard-metric-caption">{{ 'review' if card.count == 1 else 'reviews' }} · Open in Review Queue <span aria-hidden="true">→</span></span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <div class="dashboard-panel dashboard-recent-reviews">
+      <h3>Recent reviews in progress</h3>
+      {% if reviews.recent %}
+        <ul class="dashboard-recent-list">
+          {% for review in reviews.recent %}
+            <li>
+              <div>
+                <p class="dashboard-recent-title">{{ review.household_reference_id }} · {{ review.head_name }}</p>
+                <p class="dashboard-recent-detail">{{ review.program }} · Barangay {{ review.barangay }} · Started <time datetime="{{ review.created_at.isoformat() }}">{{ review.created_at | pht_date }}</time></p>
+              </div>
+              <a class="dashboard-recent-link"
+                 href="{{ url_for('assessments.review_record', household_uuid=review.household_uuid, review_program=review.program, review_id=review.id, **reviews.return_parameters) }}"
+                 aria-label="Open {{ review.program }} review for {{ review.household_reference_id }}">Open Review <span aria-hidden="true">→</span></a>
+            </li>
+          {% endfor %}
+        </ul>
+        <a class="dashboard-panel-link" href="{{ url_for('assessments.queue', scope='mine', status='in-review') }}">View all my reviews in progress <span aria-hidden="true">→</span></a>
+      {% else %}
+        <p class="dashboard-empty">You have no reviews in progress.</p>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="dashboard-unavailable" role="status">
+      <h3>Your reviews are unavailable</h3>
+      <p>Your review summary could not be loaded right now. You can still open the Review Queue.</p>
+      <a class="dashboard-primary-link" href="{{ url_for('assessments.queue', scope='mine') }}">Open Review Queue <span aria-hidden="true">→</span></a>
+    </div>
+  {% endif %}
+</section>

@@ -7,7 +7,9 @@ from flask import (
 import psycopg
 
 from services.auth import ADMIN_ROLE, admin_required, check_csrf, csrf_token
+from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError, get_active_dashboard_summary
+from services.review_queue import get_dashboard_reviews
 from services.staff_account_management import StaffAccountInputError, create_staff_account
 
 main = Blueprint("main", __name__)
@@ -19,22 +21,42 @@ def require_fixture_source():
         abort(403)
 
 
-def dashboard_summary():
+def dashboard_summary(barangay=None):
     try:
-        return get_active_dashboard_summary()
+        return get_active_dashboard_summary(barangay=barangay)
     except AssessmentQueryError:
         return None
+    except InvalidAssessmentFilters:
+        abort(400, description="Choose a valid barangay.")
+
+
+def dashboard_reviews():
+    """Personal review workload; a failure never hides the statistics."""
+    try:
+        return get_dashboard_reviews(g.user["id"])
+    except (AssessmentQueryError, InvalidAssessmentFilters):
+        return None
+
+
+def render_dashboard(role_label, *, with_reviews):
+    require_fixture_source()
+    supplied = request.args.getlist("barangay")
+    if len(supplied) > 1:
+        abort(400, description="Choose a valid barangay.")
+    return render_template(
+        "staff/dashboard.html", summary=dashboard_summary(supplied[0] if supplied else None),
+        show_reviews=with_reviews, reviews=dashboard_reviews() if with_reviews else None,
+        welcome_name=(g.user.get("display_name") or g.user["username"]),
+        role_label=role_label, staff_username=g.user["username"],
+        csrf_token=csrf_token(),
+    )
 
 
 @main.get("/")
 def index():
     if g.user["role"] == ADMIN_ROLE:
         return redirect(url_for("main.administration"))
-    require_fixture_source()
-    return render_template(
-        "staff/dashboard.html", summary=dashboard_summary(), role_label="LGU Staff",
-        staff_username=g.user["username"], csrf_token=csrf_token(),
-    )
+    return render_dashboard("LGU Staff", with_reviews=True)
 
 
 def render_admin_page(title, description=None):
@@ -49,12 +71,7 @@ def render_admin_page(title, description=None):
 @main.get("/administration")
 @admin_required
 def administration():
-    require_fixture_source()
-    return render_template(
-        "staff/dashboard.html", summary=dashboard_summary(),
-        role_label="System Administrator", staff_username=g.user["username"],
-        csrf_token=csrf_token(),
-    )
+    return render_dashboard("System Administrator", with_reviews=False)
 
 
 @main.get("/administration/import")

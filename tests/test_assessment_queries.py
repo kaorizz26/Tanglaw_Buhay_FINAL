@@ -96,7 +96,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
                 patch.object(repository, "count_dashboard_findings", return_value=findings) as counts, \
                 patch.object(service.dataset_batches, "count_household_profile",
                              return_value=household_profile) as profile, \
-                patch.object(repository, "list_assessment_summaries") as rows:
+                patch.object(service.dataset_batches, "list_barangays", return_value=[]),                 patch.object(repository, "list_assessment_summaries") as rows:
             result = service.get_active_dashboard_summary(connection_factory=self.factory)
         self.assertEqual(result["priority"], priority)
         self.assertEqual(result["findings"], findings)
@@ -106,8 +106,9 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             self.connection, 17, filters=AssessmentFilters(),
             spisc_age_statuses={}, batch_id=9)
         counts.assert_called_once_with(
-            self.connection, 17, spisc_age_statuses={}, batch_id=9)
-        profile.assert_called_once_with(self.connection, 9)
+            self.connection, 17, filters=AssessmentFilters(),
+            spisc_age_statuses={}, batch_id=9)
+        profile.assert_called_once_with(self.connection, 9, None)
         rows.assert_not_called()
         self.connection.execute.assert_called_once_with(
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
@@ -117,7 +118,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
                 patch.object(repository, "count_dashboard_findings",
                              return_value={**findings, "assessed_households": 31}), \
                 patch.object(service.dataset_batches, "count_household_profile",
-                             return_value=household_profile):
+                             return_value=household_profile),                 patch.object(service.dataset_batches, "list_barangays", return_value=[]):
             with self.assertRaisesRegex(service.AssessmentQueryError, "assessment_count_mismatch"):
                 service.get_active_dashboard_summary(connection_factory=self.factory)
 
@@ -871,6 +872,63 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 filters=AssessmentFilters(priority=priority), connection_factory=self._factory,
             )
             self.assertEqual(dashboard["priority"][priority], filtered["total"], priority)
+
+    def test_dashboard_barangay_statistics_reconcile_with_municipal_totals(self):
+        findings = self._filter_fixture()
+        municipal = service.get_active_dashboard_summary(connection_factory=self._factory)
+        self.assertEqual(municipal["barangay"], "")
+        self.assertEqual(municipal["barangays"], ["Synthetic East", "Synthetic West"])
+        by_barangay = {
+            name: service.get_active_dashboard_summary(
+                barangay=name, connection_factory=self._factory)
+            for name in municipal["barangays"]
+        }
+        # Households 31 and 32 record a blank or "NA" barangay and belong to no option.
+        unrecorded = 2
+        counts = {name: result["priority"]["all"] for name, result in by_barangay.items()}
+        self.assertEqual(counts, {"Synthetic East": 15, "Synthetic West": 15})
+        self.assertEqual(sum(counts.values()) + unrecorded, municipal["priority"]["all"])
+        for name, result in by_barangay.items():
+            self.assertEqual(result["barangay"], name)
+            self.assertEqual(result["findings"]["assessed_households"], counts[name])
+            for program, field in (("4Ps", "four_ps"), ("SLP", "slp"),
+                                   ("SPISC", "spisc"), ("TUPAD", "tupad")):
+                filtered = service.list_active_assessment_summaries(
+                    filters=AssessmentFilters(barangay=name, programs=(program,)),
+                    connection_factory=self._factory,
+                )
+                self.assertEqual(result["findings"][field], filtered["total"], (name, program))
+            for priority in ("primary", "secondary"):
+                filtered = service.list_active_assessment_summaries(
+                    filters=AssessmentFilters(barangay=name, priority=priority),
+                    connection_factory=self._factory,
+                )
+                self.assertEqual(result["priority"][priority], filtered["total"], (name, priority))
+        # Households with a missing or NA barangay are the whole difference in every aggregate.
+        profile_keys = ("with_children", "with_older_adults", "without_electricity", "shared_toilet")
+        older = {name: sum(
+            number % 5 == 0 for number in range(1, 31) if (number % 2 == 1) == (name == "Synthetic East")
+        ) for name in counts}
+        for name, result in by_barangay.items():
+            self.assertEqual(result["household_profile"]["with_older_adults"], older[name], name)
+        remainder_older = sum(number % 5 == 0 for number in (31, 32))
+        self.assertEqual(
+            sum(older.values()) + remainder_older,
+            municipal["household_profile"]["with_older_adults"],
+        )
+        for key in profile_keys:
+            self.assertLessEqual(
+                sum(result["household_profile"][key] for result in by_barangay.values()),
+                municipal["household_profile"][key], key,
+            )
+        self.assertEqual(len(findings), 32)
+
+    def test_dashboard_rejects_unknown_barangay_and_excludes_unrecorded_options(self):
+        self._filter_fixture()
+        for value in ("Synthetic Nowhere", "NA"):
+            with self.subTest(value=value), self.assertRaises(InvalidAssessmentFilters):
+                service.get_active_dashboard_summary(
+                    barangay=value, connection_factory=self._factory)
 
     def test_priority_boundaries_combinations_pagination_and_unchanged_findings(self):
         # Number 1 has only Needs Data Review, even with its high stored score.

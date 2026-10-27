@@ -15,17 +15,17 @@
       {% if summary %}
         <p class="dataset-reference">
           <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="15" height="15">
-          CBMS {{ summary.context.survey_year }} · Historical snapshot
+          Survey Year {{ summary.context.survey_year }} · Historical snapshot
         </p>
       {% endif %}
     </div>
     <div class="dashboard-intro">
       <div>
-        <p class="dashboard-eyebrow">Municipal overview</p>
-        <h1>Dashboard</h1>
+        <p class="dashboard-eyebrow">Dashboard</p>
+        <h1>{% if show_reviews %}Welcome, {{ welcome_name }}{% else %}Dashboard{% endif %}</h1>
         <p class="dashboard-subtitle">
           {% if summary %}
-            Historical CBMS {{ summary.context.survey_year }} · Municipality of {{ summary.context.municipality }}
+            Survey Year {{ summary.context.survey_year }} · Municipality of {{ summary.context.municipality }}
           {% else %}
             Municipality of Pozorrubio
           {% endif %}
@@ -39,17 +39,43 @@
     </div>
   </header>
 
+  {% if show_reviews %}
+    {% include 'staff/_dashboard_reviews.html' %}
+  {% endif %}
+
   {% if summary %}
+    {% set area = 'Barangay ' ~ summary.barangay if summary.barangay else 'all barangays' %}
+    <section class="dashboard-statistics-heading" aria-labelledby="statistics-heading">
+      <div class="dashboard-section-heading">
+        <div>
+          <p class="dashboard-panel-kicker">Historical household statistics</p>
+          <h2 id="statistics-heading">Survey Year {{ summary.context.survey_year }} · {{ area }}</h2>
+        </div>
+        <p>Choosing a barangay changes only the statistics below.</p>
+      </div>
+      <form class="dashboard-filter" method="get" action="">
+        <label for="dashboard-barangay">Barangay</label>
+        <select id="dashboard-barangay" name="barangay">
+          <option value="">All barangays</option>
+          {% for name in summary.barangays %}
+            <option value="{{ name }}" {% if name == summary.barangay %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Apply</button>
+        {% if summary.barangay %}<a href="{{ request.path }}">Show all barangays</a>{% endif %}
+      </form>
+    </section>
+
     <div class="dashboard-historical-note" role="note">
       <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-      <p>These {{ summary.context.survey_year }} findings provide a historical municipal overview. They do not establish official poverty classification, subsidy eligibility or approval.</p>
+      <p>These {{ summary.context.survey_year }} findings provide a historical overview. They do not establish official poverty classification, subsidy eligibility or approval.</p>
     </div>
 
-    <section class="dashboard-metrics" aria-label="Municipal assessment summary">
+    <section class="dashboard-metrics" aria-label="Assessment summary">
       <div class="dashboard-metric dashboard-metric-total">
         <p class="dashboard-metric-label">Assessed households</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority['all']) }}</p>
-        <p class="dashboard-metric-caption">In the selected municipal assessment</p>
+        <p class="dashboard-metric-caption">In {{ area }}</p>
       </div>
         <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary') }}">
         <p class="dashboard-metric-label">Primary Priority</p>
@@ -123,12 +149,12 @@
           <p class="dashboard-panel-kicker">Recorded household conditions</p>
           <h2 id="household-heading">Household snapshot</h2>
         </div>
-        <p>CBMS {{ summary.context.survey_year }} · {{ '{:,}'.format(summary.priority['all']) }} households</p>
+        <p>Survey Year {{ summary.context.survey_year }} · {{ '{:,}'.format(summary.priority['all']) }} households</p>
       </div>
       <div class="dashboard-household-grid">
         <div class="dashboard-panel dashboard-household-composition">
           <h3>Household members</h3>
-          <p class="dashboard-panel-description">A municipality-wide view of recorded household size and ages at the time of the survey.</p>
+          <p class="dashboard-panel-description">A view of recorded household size and ages at the time of the survey.</p>
           <div class="dashboard-household-stats">
             <div>
               <strong>{{ '%.2f' | format(summary.household_profile.average_members) }}</strong>
