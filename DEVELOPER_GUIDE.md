@@ -1656,7 +1656,7 @@ the list. They retain all non-priority filters and omit the selected priority
 restriction, so each group shows its available matches. Counts and rows reuse
 the same stored-result predicates. Group links preserve applied filters and
 reset pagination; one priority select in More Filters carries form state.
-`completeness=unknown` is presented as Needs Assessment Attention, separately
+`completeness=unknown` is presented as Households with Undetermined Results, separately
 from program Needs Data Review findings. `priority_display()` shares staff
 labels between the table and the existing score card on both detail tabs;
 the latter calls the approved policy over stored results. Internal No Subsidy

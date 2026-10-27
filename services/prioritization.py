@@ -18,7 +18,7 @@ PRIORITY_OPTIONS = (
 COMPLETENESS_OPTIONS = (
     ("all", "All assessment information"),
     ("determined", "All 16 Indicators Determined"),
-    ("unknown", "Needs Assessment Attention"),
+    ("unknown", "Households with Undetermined Results"),
 )
 PRIORITY_DESCRIPTIONS = {
     "all": "Browse all assessed households, including those without priority recommendations.",

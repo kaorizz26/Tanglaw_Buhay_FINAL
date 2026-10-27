@@ -78,8 +78,8 @@ class DashboardRouteTests(unittest.TestCase):
             response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         query.assert_called_once_with(barangay=None)
-        for text in ("Dashboard", "Survey Year 2022", "32", "Primary Priority",
-                     "Secondary Priority", "Needs Assessment Attention", "Review Queue",
+        for text in ("Dashboard", "Survey Year", "32", "Primary Priority",
+                     "Secondary Priority", "Households with Undetermined Results", "Review Queue",
                      "Household snapshot", "3.50", "Households with someone under 18",
                      "Main water source", "Piped into dwelling", "recorded no electricity"):
             self.assertIn(text, response.text)
@@ -95,9 +95,12 @@ class DashboardRouteTests(unittest.TestCase):
     def test_welcome_uses_display_name_and_falls_back_to_username(self):
         self._sign_in()
         with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
-            self.assertIn("Welcome, Synthetic Staff Name", self.client.get("/").text)
+            page = self.client.get("/").text
+            self.assertIn("<h1>Dashboard</h1>", page)
+            self.assertIn("Welcome back, Synthetic Staff Name!", page)
+            self.assertEqual(page.count("<h1"), 1)
             self.user["display_name"] = None
-            self.assertIn("Welcome, synthetic_staff", self.client.get("/").text)
+            self.assertIn("Welcome back, synthetic_staff!", self.client.get("/").text)
 
     def test_review_cards_and_recent_reviews_link_to_queue_and_records(self):
         self._sign_in()
@@ -106,8 +109,11 @@ class DashboardRouteTests(unittest.TestCase):
         self.reviews_query.assert_called_once_with(1)
         for status in ("in-review", "follow-up", "no-action"):
             self.assertIn(f'href="/assessments/queue?scope=mine&amp;status={status}"', response.text)
-        for text in ("My Staff Reviews", "In Review", "For LGU Follow-Up", "No Further Action",
-                     "2 reviews", "1 review", "HH-0008", "Synthetic Head", "SLP"):
+        for text in ("My Subsidy Reviews", "In Review", "For LGU Follow-Up", "No Further Action",
+                     "2 reviews", "1 review", "HH-0008", "Synthetic Head", "SLP",
+                     "Started, not yet finished",
+                     "Finished; further consideration recommended",
+                     "Finished; no further action recommended"):
             self.assertIn(text, response.text)
         link = re.search(r'href="(/assessments/[^"]+/reviews/SLP/5[^"]*)"', response.text)
         self.assertIsNotNone(link)
@@ -115,7 +121,14 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(query["from_queue"], ["1"])
         self.assertEqual(query["queue_scope"], ["mine"])
         self.assertEqual(query["queue_status"], ["in-review"])
-        self.assertIn("not affected by the barangay selection", response.text)
+        self.assertIn("Not changed by the barangay filter", response.text)
+        self.assertEqual(response.text.count("View in Review Queue"), 3)
+        cards = re.findall(r'<a class="dashboard-review-card.*?</a>', response.text, re.S)
+        self.assertEqual(len(cards), 3)
+        for card in cards:
+            self.assertIn("View in Review Queue", card)
+            self.assertNotIn("<button", card)
+            self.assertEqual(card.count("<a "), 1)
 
     def test_barangay_filter_changes_statistics_only(self):
         self._sign_in()
@@ -124,12 +137,29 @@ class DashboardRouteTests(unittest.TestCase):
             response = self.client.get("/?barangay=Synthetic+East")
         query.assert_called_once_with(barangay="Synthetic East")
         self.reviews_query.assert_called_once_with(1)
-        for text in ("Survey Year 2022", "Barangay Synthetic East", "Show all barangays"):
+        for text in ("Showing Barangay Synthetic East", "Show all barangays"):
             self.assertIn(text, response.text)
         self.assertIn('<option value="Synthetic East" selected>', response.text)
         workload = response.text.split('id="reviews-heading"')[1].split("</section>")[0]
         self.assertNotIn("barangay=", workload)
         self.assertNotRegex(response.text, r'<select[^>]*name="(year|survey_year)"')
+
+    def test_filter_row_pairs_barangay_with_read_only_survey_year(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
+            text = self.client.get("/").text
+        form = re.search(r'<form class="dashboard-filter".*?</form>', text, re.S)[0]
+        self.assertLess(form.index('id="dashboard-barangay"'), form.index("Survey Year"))
+        self.assertRegex(form, r'dashboard-filter-value">\s*2022\s*<')
+        self.assertEqual(form.count("<select"), 1)
+        self.assertEqual(form.count("<input"), 0)
+        self.assertNotIn("Municipal overview", text)
+        self.assertNotIn("Historical snapshot", text)
+        self.assertNotIn("Needs Assessment Attention", text)
+        self.assertIn("At least one assessment indicator could not be determined", text)
+        self.assertIn('href="/assessments?completeness=unknown"', text)
+        self.assertIn('href="/assessments/queue"', text)
+        self.assertIn("Open the household list or the Review Queue.", text)
 
     def test_invalid_barangay_is_rejected(self):
         self._sign_in()
@@ -174,7 +204,7 @@ class DashboardRouteTests(unittest.TestCase):
             response = self.client.get("/administration")
         self.assertEqual(response.status_code, 200)
         query.assert_called_once_with(barangay=None)
-        for text in ("Dashboard", "Survey Year 2022", "Primary Priority",
+        for text in ("Dashboard", "Survey Year", "Primary Priority",
                      "Secondary Priority", "Household snapshot", "Main water source"):
             self.assertIn(text, response.text)
         self.assertIn('href="/administration" aria-current="page"', response.text)
@@ -183,8 +213,9 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments/queue"', response.text)
         self.assertEqual(self.client.get("/").location, "/administration")
         self.reviews_query.assert_not_called()
-        self.assertNotIn("My Staff Reviews", response.text)
-        self.assertNotIn("Welcome,", response.text)
+        self.assertNotIn("My Subsidy Reviews", response.text)
+        self.assertNotIn("Welcome back", response.text)
+        self.assertIn("<h1>Dashboard</h1>", response.text)
 
         with patch("routes.main.get_active_dashboard_summary",
                    side_effect=AssessmentQueryError("private_database_details")):

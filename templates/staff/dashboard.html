@@ -8,34 +8,17 @@
 
 {% block content %}
   <header class="page-header dashboard-header">
-    <div class="context-bar">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <span aria-current="page">Dashboard</span>
-      </nav>
-      {% if summary %}
-        <p class="dataset-reference">
-          <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="15" height="15">
-          Survey Year {{ summary.context.survey_year }} · Historical snapshot
-        </p>
-      {% endif %}
-    </div>
     <div class="dashboard-intro">
       <div>
-        <p class="dashboard-eyebrow">Dashboard</p>
-        <h1>{% if show_reviews %}Welcome, {{ welcome_name }}{% else %}Dashboard{% endif %}</h1>
+        <h1>Dashboard</h1>
+        {% if show_reviews %}<p class="dashboard-welcome">Welcome back, {{ welcome_name }}!</p>{% endif %}
         <p class="dashboard-subtitle">
-          {% if summary %}
-            Survey Year {{ summary.context.survey_year }} · Municipality of {{ summary.context.municipality }}
-          {% else %}
-            Municipality of Pozorrubio
-          {% endif %}
+          {% if show_reviews %}Your subsidy reviews and household statistics for {% else %}Household statistics for {% endif %}Pozorrubio
         </p>
       </div>
-      
-        <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization') }}">
-          Explore households <span aria-hidden="true">→</span>
-        </a>
-      
+      <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization') }}">
+        Explore households <span aria-hidden="true">→</span>
+      </a>
     </div>
   </header>
 
@@ -47,28 +30,33 @@
     {% set area = 'Barangay ' ~ summary.barangay if summary.barangay else 'all barangays' %}
     <section class="dashboard-statistics-heading" aria-labelledby="statistics-heading">
       <div class="dashboard-section-heading">
-        <div>
-          <p class="dashboard-panel-kicker">Historical household statistics</p>
-          <h2 id="statistics-heading">Survey Year {{ summary.context.survey_year }} · {{ area }}</h2>
-        </div>
-        <p>Choosing a barangay changes only the statistics below.</p>
+        <h2 id="statistics-heading">Historical household statistics</h2>
+        <p>Showing {{ area }}</p>
       </div>
       <form class="dashboard-filter" method="get" action="">
-        <label for="dashboard-barangay">Barangay</label>
-        <select id="dashboard-barangay" name="barangay">
-          <option value="">All barangays</option>
-          {% for name in summary.barangays %}
-            <option value="{{ name }}" {% if name == summary.barangay %}selected{% endif %}>{{ name }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit">Apply</button>
-        {% if summary.barangay %}<a href="{{ request.path }}">Show all barangays</a>{% endif %}
+        <div class="dashboard-filter-field">
+          <label for="dashboard-barangay">Barangay</label>
+          <select id="dashboard-barangay" name="barangay">
+            <option value="">All barangays</option>
+            {% for name in summary.barangays %}
+              <option value="{{ name }}" {% if name == summary.barangay %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="dashboard-filter-field">
+          <span class="dashboard-filter-label">Survey Year</span>
+          <p class="dashboard-filter-value">{{ summary.context.survey_year }}</p>
+        </div>
+        <div class="dashboard-filter-actions">
+          <button type="submit">Apply</button>
+          {% if summary.barangay %}<a href="{{ request.path }}">Show all barangays</a>{% endif %}
+        </div>
       </form>
     </section>
 
     <div class="dashboard-historical-note" role="note">
       <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-      <p>These {{ summary.context.survey_year }} findings provide a historical overview. They do not establish official poverty classification, subsidy eligibility or approval.</p>
+      <p>Historical findings only. These are not an official poverty classification, subsidy eligibility or approval.</p>
     </div>
 
     <section class="dashboard-metrics" aria-label="Assessment summary">
@@ -80,17 +68,17 @@
         <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary') }}">
         <p class="dashboard-metric-label">Primary Priority</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.primary) }}</p>
-        <p class="dashboard-metric-caption">Recommended for consideration first <span aria-hidden="true">↗</span></p>
+        <p class="dashboard-metric-caption">Recommended for consideration first</p>
       </a>
         <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary') }}">
         <p class="dashboard-metric-label">Secondary Priority</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.secondary) }}</p>
-        <p class="dashboard-metric-caption">Recommended for subsequent consideration <span aria-hidden="true">↗</span></p>
+        <p class="dashboard-metric-caption">Recommended for subsequent consideration</p>
       </a>
         <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown') }}">
-        <p class="dashboard-metric-label">Needs Assessment Attention</p>
+        <p class="dashboard-metric-label">Households with Undetermined Results</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.findings.needs_attention) }}</p>
-        <p class="dashboard-metric-caption">At least one unknown indicator <span aria-hidden="true">↗</span></p>
+        <p class="dashboard-metric-caption">At least one assessment indicator could not be determined</p>
       </a>
     </section>
 
@@ -145,11 +133,7 @@
 
     <section class="dashboard-household" aria-labelledby="household-heading">
       <div class="dashboard-household-heading">
-        <div>
-          <p class="dashboard-panel-kicker">Recorded household conditions</p>
-          <h2 id="household-heading">Household snapshot</h2>
-        </div>
-        <p>Survey Year {{ summary.context.survey_year }} · {{ '{:,}'.format(summary.priority['all']) }} households</p>
+        <h2 id="household-heading">Household snapshot</h2>
       </div>
       <div class="dashboard-household-grid">
         <div class="dashboard-panel dashboard-household-composition">
@@ -218,9 +202,8 @@
   
   <section class="dashboard-work" aria-labelledby="work-heading">
     <div>
-      <p class="dashboard-panel-kicker">Continue your work</p>
       <h2 id="work-heading">Staff assessment pages</h2>
-      <p>Open the ranked household list or continue a review already started by staff.</p>
+      <p>Open the household list or the Review Queue.</p>
     </div>
     <div class="dashboard-work-links">
       <a href="{{ url_for('assessments.prioritization') }}">Household Prioritization <span aria-hidden="true">→</span></a>

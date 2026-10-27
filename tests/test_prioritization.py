@@ -279,7 +279,7 @@ class PrioritizationTests(unittest.TestCase):
         self.assertIn("<strong>51</strong>", selectors)
         self.assertIn("<strong>50</strong>", selectors)
         self.assertNotIn('class="more-filters" open', default)
-        self.assertIn("Needs Assessment Attention", default)
+        self.assertIn("Households with Undetermined Results", default)
         self.assertIn("Some household conditions could not be assessed using the available information.",
                       " ".join(default.split()))
         self.assertNotIn("MPI completeness", default)

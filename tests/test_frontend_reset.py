@@ -100,8 +100,9 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
             with patch("routes.main.get_active_dashboard_summary", return_value=None):
                 page = client.get(destination)
             self.assertEqual(page.status_code, 200)
-            self.assertIn("<h1>Dashboard</h1>" if username == "synthetic_admin"
-                          else f"<h1>Welcome, {username}</h1>", page.text)
+            self.assertIn("<h1>Dashboard</h1>", page.text)
+            self.assertEqual(f"Welcome back, {username}!" in page.text,
+                             username == "synthetic_staff")
             self.assertIn(label, page.text)
             self.assertIn("Sign Out", page.text)
             self.assertIn('action="/logout"', page.text)

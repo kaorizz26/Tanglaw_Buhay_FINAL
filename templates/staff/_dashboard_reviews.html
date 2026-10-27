@@ -1,10 +1,12 @@
+{% set card_notes = {
+  'in-review': 'Started, not yet finished',
+  'follow-up': 'Finished; further consideration recommended',
+  'no-action': 'Finished; no further action recommended',
+} %}
 <section class="dashboard-reviews" aria-labelledby="reviews-heading">
   <div class="dashboard-section-heading">
-    <div>
-      <p class="dashboard-panel-kicker">Your workload</p>
-      <h2 id="reviews-heading">My Staff Reviews</h2>
-    </div>
-    <p>Reviews assigned to you. These are not affected by the barangay selection below.</p>
+    <h2 id="reviews-heading">My Subsidy Reviews</h2>
+    <p>Assigned to you. Not changed by the barangay filter.</p>
   </div>
   {% if reviews %}
     <ul class="dashboard-review-cards">
@@ -14,8 +16,9 @@
              href="{{ url_for('assessments.queue', scope='mine', status=card.status) }}"
              aria-label="{{ card.label }}: {{ card.count }} {{ 'review' if card.count == 1 else 'reviews' }}. Open in Review Queue.">
             <span class="dashboard-metric-label">{{ card.label }}</span>
-            <span class="dashboard-metric-value">{{ '{:,}'.format(card.count) }}</span>
-            <span class="dashboard-metric-caption">{{ 'review' if card.count == 1 else 'reviews' }} · Open in Review Queue <span aria-hidden="true">→</span></span>
+            <span class="dashboard-metric-value">{{ '{:,}'.format(card.count) }} <span class="dashboard-review-unit">{{ 'review' if card.count == 1 else 'reviews' }}</span></span>
+            <span class="dashboard-metric-caption">{{ card_notes[card.status] }}</span>
+            <span class="dashboard-review-cue">View in Review Queue <span aria-hidden="true">→</span></span>
           </a>
         </li>
       {% endfor %}
