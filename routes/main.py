@@ -9,6 +9,7 @@ import psycopg
 from services.auth import ADMIN_ROLE, admin_required, check_csrf, csrf_token
 from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError, get_active_dashboard_summary
+from services.dashboard_patterns import select_area
 from services.review_queue import get_dashboard_reviews
 from services.staff_account_management import StaffAccountInputError, create_staff_account
 
@@ -45,6 +46,7 @@ def render_dashboard(role_label, *, with_reviews):
         abort(400, description="Choose a valid barangay.")
     return render_template(
         "staff/dashboard.html", summary=dashboard_summary(supplied[0] if supplied else None),
+        selected_area=select_area(request.args.get("area")),
         show_reviews=with_reviews, reviews=dashboard_reviews() if with_reviews else None,
         welcome_name=(g.user.get("display_name") or g.user["username"]),
         role_label=role_label, staff_username=g.user["username"],

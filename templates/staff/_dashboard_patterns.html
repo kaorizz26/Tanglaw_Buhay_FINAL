@@ -1,0 +1,56 @@
+<section class="dashboard-patterns" aria-labelledby="patterns-heading" data-patterns>
+  <div class="dashboard-section-heading">
+    <div>
+      <h2 id="patterns-heading">Household Assessment Patterns</h2>
+      <p>Explore the household conditions identified in the {{ summary.context.survey_year }} assessment.</p>
+    </div>
+  </div>
+
+  <div class="dashboard-panel dashboard-patterns-panel">
+    <div class="pattern-areas">
+      {% for area in summary.indicator_patterns %}
+        <button type="button" id="pattern-area-{{ area.key }}" class="pattern-area"
+                data-area="{{ area.key }}" aria-controls="pattern-panel-{{ area.key }}"
+                aria-pressed="{{ 'true' if area.key == selected_area else 'false' }}">
+          {{ area.name }}
+        </button>
+      {% endfor %}
+    </div>
+
+    <dl class="pattern-legend" aria-label="What the colors mean">
+      <div><span class="pattern-swatch pattern-deprived" aria-hidden="true"></span><dt>Deprived</dt><dd>Condition flagged</dd></div>
+      <div><span class="pattern-swatch pattern-not_deprived" aria-hidden="true"></span><dt>Not Deprived</dt><dd>Condition not flagged</dd></div>
+      <div><span class="pattern-swatch pattern-unknown" aria-hidden="true"></span><dt>Could Not Determine</dt><dd>Missing or unclear answers</dd></div>
+    </dl>
+    <p class="pattern-basis">Based on {{ '{:,}'.format(summary.priority['all']) }} assessed households in {{ area }}.</p>
+
+    {% for area in summary.indicator_patterns %}
+      <div id="pattern-panel-{{ area.key }}" class="pattern-panel" role="group"
+           aria-labelledby="pattern-area-{{ area.key }}" {% if area.key != selected_area %}hidden{% endif %}>
+        <ul class="pattern-list">
+          {% for indicator in area.indicators %}
+            <li class="pattern-row">
+              <h3 class="pattern-name">{{ indicator.name }}</h3>
+              <div class="pattern-bar" role="img"
+                   aria-label="{{ indicator.name }}: {% for o in indicator.outcomes %}{{ o.label }} {{ '{:,}'.format(o.count) }} households ({{ o.percent }}%){{ '; ' if not loop.last }}{% endfor %}">
+                {% for o in indicator.outcomes if o.count %}
+                  <span class="pattern-segment pattern-{{ o.key }}" style="flex-grow: {{ o.count }}"></span>
+                {% endfor %}
+              </div>
+              <dl class="pattern-counts">
+                {% for o in indicator.outcomes %}
+                  <div>
+                    <dt>{{ o.label }}</dt>
+                    <dd>{{ '{:,}'.format(o.count) }} <span>({{ o.percent }}%)</span></dd>
+                  </div>
+                {% endfor %}
+              </dl>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+  <noscript><style>.pattern-panel[hidden] { display: block; }</style></noscript>
+  <script src="{{ url_for('static', filename='js/dashboard-patterns.js') }}" defer></script>
+</section>

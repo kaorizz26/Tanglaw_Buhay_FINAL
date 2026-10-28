@@ -12,6 +12,7 @@ from services.assessment_filters import (
     AssessmentFilters, InvalidAssessmentFilters, normalize_filters,
 )
 from services import read_cache
+from services.dashboard_patterns import present_indicator_patterns
 from services.assessment_reference_labels import code_key
 from services.subsidy_priority import derive_subsidy_priority
 from services.spisc_age_progression import current_spisc_status, philippine_assessment_date
@@ -174,11 +175,21 @@ def _read_dashboard_summary(connection, context, assessed, barangay):
         connection, context["batch_id"], barangay or None,
     )
     households = household_profile["household_count"]
+    try:
+        patterns = present_indicator_patterns(
+            assessment_runs.count_indicator_findings(
+                connection, context["run_id"], filters=filters,
+            ),
+            households,
+        )
+    except (KeyError, ValueError):
+        raise AssessmentQueryError("assessment_count_mismatch") from None
     if priority["all"] != households or findings["assessed_households"] != households or (
         sum(row["households"] for row in household_profile["water_sources"]) != households
     ) or (not barangay and households != context["household_count"]):
         raise AssessmentQueryError("assessment_count_mismatch")
     return {"context": context, "priority": priority, "findings": findings,
+            "indicator_patterns": patterns,
             "household_profile": _present_household_profile(household_profile)}
 
 

@@ -25,6 +25,8 @@ from services.assessment_filters import (
 )
 from services.assessments import build_unified_assessments
 from services.development_data import development_sources
+from services.assessment_evidence_view import DISPLAY_NAMES
+from services.vulnerability.scoring import INDICATOR_WEIGHTS
 from services.subsidy_priority import (
     NO_SUBSIDY_PRIORITY, PRIMARY_PRIORITY, SECONDARY_PRIORITY,
 )
@@ -92,7 +94,11 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             "water_labels": [{"code": "1", "label": "Piped into dwelling"},
                              {"code": "4", "label": "Protected well"}],
         }
+        indicators = {"assessed_households": 32, "indicators": {
+            name: {"deprived": 5, "not_deprived": 20, "unknown": 7}
+            for name in INDICATOR_WEIGHTS}}
         with patch.object(repository, "count_priority_groups", return_value=priority) as groups, \
+                patch.object(repository, "count_indicator_findings", return_value=indicators) as patterns, \
                 patch.object(repository, "count_dashboard_findings", return_value=findings) as counts, \
                 patch.object(service.dataset_batches, "count_household_profile",
                              return_value=household_profile) as profile, \
@@ -102,6 +108,12 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         self.assertEqual(result["findings"], findings)
         self.assertEqual(result["household_profile"]["average_members"], 3.5)
         self.assertEqual(result["household_profile"]["water_sources"][0]["percent"], 75.0)
+        patterns.assert_called_once_with(self.connection, 17, filters=AssessmentFilters())
+        self.assertEqual([area["key"] for area in result["indicator_patterns"]],
+                         ["education", "health", "housing", "employment"])
+        patterns.assert_called_once_with(self.connection, 17, filters=AssessmentFilters())
+        self.assertEqual([area["key"] for area in result["indicator_patterns"]],
+                         ["education", "health", "housing", "employment"])
         groups.assert_called_once_with(
             self.connection, 17, filters=AssessmentFilters(),
             spisc_age_statuses={}, batch_id=9)
@@ -115,6 +127,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         )
         read_cache.clear()
         with patch.object(repository, "count_priority_groups", return_value=priority), \
+                patch.object(repository, "count_indicator_findings", return_value=indicators), \
                 patch.object(repository, "count_dashboard_findings",
                              return_value={**findings, "assessed_households": 31}), \
                 patch.object(service.dataset_batches, "count_household_profile",
@@ -922,6 +935,51 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
                 municipal["household_profile"][key], key,
             )
         self.assertEqual(len(findings), 32)
+
+    def test_indicator_counts_match_stored_flags_and_barangay_scope(self):
+        findings = self._filter_fixture()
+        before = self.connection.execute(
+            "SELECT md5(string_agg(findings::text, '' ORDER BY household_uuid)) FROM household_assessments"
+        ).fetchone()
+        municipal = service.get_active_dashboard_summary(connection_factory=self._factory)
+        rows = {indicator["name"]: indicator for area in municipal["indicator_patterns"]
+                for indicator in area["indicators"]}
+        self.assertEqual(len(rows), 16)
+        for name in INDICATOR_WEIGHTS:
+            expected = [item["mpi"][name] for item in findings.values()]
+            shown = {o["key"]: o["count"] for o in rows[DISPLAY_NAMES.get(name, name)]["outcomes"]}
+            self.assertEqual(shown, {"deprived": expected.count(1),
+                                     "not_deprived": expected.count(0),
+                                     "unknown": expected.count(None)}, name)
+        east = service.get_active_dashboard_summary(
+            barangay="Synthetic East", connection_factory=self._factory)
+        east_uuids = {uuid for number, uuid in enumerate(findings, 1) if number <= 30 and number % 2 == 1}
+        for area in east["indicator_patterns"]:
+            for indicator in area["indicators"]:
+                self.assertEqual(sum(o["count"] for o in indicator["outcomes"]),
+                                 east["priority"]["all"])
+        self.assertEqual(east["priority"]["all"], len(east_uuids))
+        after = self.connection.execute(
+            "SELECT md5(string_agg(findings::text, '' ORDER BY household_uuid)) FROM household_assessments"
+        ).fetchone()
+        self.assertEqual(before, after)
+
+    def test_unexpected_or_missing_stored_indicator_values_are_not_counted(self):
+        self._filter_fixture()
+        for label, change in (
+            ("text flag", "jsonb_set(findings, '{mpi,Water}', '\"1\"')"),
+            ("out of range", "jsonb_set(findings, '{mpi,Water}', '2')"),
+            ("boolean", "jsonb_set(findings, '{mpi,Water}', 'true')"),
+            ("missing key", "findings #- '{mpi,Water}'"),
+        ):
+            with self.subTest(label):
+                read_cache.clear()
+                self.connection.execute(
+                    "UPDATE household_assessments SET findings = " + change
+                    + " WHERE household_uuid = (SELECT min(household_uuid) FROM household_assessments)"
+                )
+                with self.assertRaisesRegex(service.AssessmentQueryError, "assessment_count_mismatch"):
+                    service.get_active_dashboard_summary(connection_factory=self._factory)
 
     def test_dashboard_rejects_unknown_barangay_and_excludes_unrecorded_options(self):
         self._filter_fixture()

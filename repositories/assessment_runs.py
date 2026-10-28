@@ -420,6 +420,41 @@ def count_dashboard_findings(
         ).fetchone()
 
 
+STORED_INDICATOR_OUTCOMES = {"1": "deprived", "0": "not_deprived", "null": "unknown"}
+
+
+def count_indicator_findings(connection, run_id, *, filters=None):
+    """Count stored Deprived (1), Not Deprived (0) and Unknown (null) per indicator.
+
+    Each indicator is expanded once per household, because reading every
+    indicator separately re-reads the large stored document. An outcome is
+    counted only when stored exactly as 1, 0 or null; a missing key or any
+    other value is counted nowhere, so callers' reconciliation exposes it.
+    Indicator names come from the approved weights, never from request input.
+    """
+    filters = filters or AssessmentFilters()
+    selection, parameters = _summary_selection(run_id, filters)
+    counts = {
+        name: {outcome: 0 for outcome in STORED_INDICATOR_OUTCOMES.values()}
+        for name in INDICATOR_WEIGHTS
+    }
+    for name, stored, households in connection.execute(
+        "SELECT indicator.key, indicator.value::text, count(*) FROM ("
+        "SELECT h.findings -> 'mpi' AS mpi " + selection + ") assessed "
+        "CROSS JOIN LATERAL jsonb_each(assessed.mpi) indicator "
+        "WHERE indicator.key = ANY(%s) GROUP BY 1, 2",
+        (*parameters, list(INDICATOR_WEIGHTS)),
+    ).fetchall():
+        if stored in STORED_INDICATOR_OUTCOMES:
+            counts[name][STORED_INDICATOR_OUTCOMES[stored]] = households
+    return {
+        "assessed_households": count_assessment_summaries(
+            connection, run_id, filters=filters,
+        ),
+        "indicators": counts,
+    }
+
+
 def list_assessment_summaries(
     connection, run_id, *, limit, offset, filters=None, spisc_age_statuses=None, batch_id=None,
 ):

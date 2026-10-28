@@ -12,6 +12,8 @@ from urllib.parse import parse_qs, urlsplit
 from app import create_app
 from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError
+from services.dashboard_patterns import present_indicator_patterns
+from services.vulnerability.scoring import INDICATOR_WEIGHTS
 
 
 class DashboardRouteTests(unittest.TestCase):
@@ -51,6 +53,10 @@ class DashboardRouteTests(unittest.TestCase):
                          "both": 11, "other": 21},
             "findings": {"assessed_households": 32, "needs_attention": 3,
                          "four_ps": 8, "slp": 6, "spisc": 2, "tupad": 1},
+            "indicator_patterns": present_indicator_patterns({
+                "assessed_households": 32,
+                "indicators": {name: {"deprived": 4, "not_deprived": 24, "unknown": 4}
+                               for name in INDICATOR_WEIGHTS}}, 32),
             "household_profile": {
                 "average_members": 3.5, "with_children": 18,
                 "with_older_adults": 9, "with_unclear_age": 0,
@@ -152,7 +158,8 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertLess(form.index('id="dashboard-barangay"'), form.index("Survey Year"))
         self.assertRegex(form, r'dashboard-filter-value">\s*2022\s*<')
         self.assertEqual(form.count("<select"), 1)
-        self.assertEqual(form.count("<input"), 0)
+        self.assertEqual(form.count("<input"), 1)
+        self.assertIn('type="hidden" id="dashboard-area" name="area" value="education"', form)
         self.assertNotIn("Municipal overview", text)
         self.assertNotIn("Historical snapshot", text)
         self.assertNotIn("Needs Assessment Attention", text)
@@ -160,6 +167,87 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments?completeness=unknown"', text)
         self.assertIn('href="/assessments/queue"', text)
         self.assertIn("Open the household list or the Review Queue.", text)
+        self.assertNotIn("Priority groups", text)
+
+    def test_assessment_patterns_show_four_areas_with_education_selected(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
+            text = self.client.get("/").text
+        self.assertIn("Household Assessment Patterns", text)
+        self.assertIn("Explore the household conditions identified in the 2022 assessment.", text)
+        buttons = re.findall(r'<button type="button" id="pattern-area-(\w+)".*?aria-pressed="(\w+)"',
+                             text, re.S)
+        self.assertEqual(buttons, [("education", "true"), ("health", "false"),
+                                   ("housing", "false"), ("employment", "false")])
+        self.assertEqual(text.count("aria-pressed"), 4)
+        self.assertNotIn("aria-selected", text)
+        panels = re.findall(r'<div id="pattern-panel-(\w+)"[^>]*?(hidden)?>', text)
+        self.assertEqual([p for p, hidden in panels if not hidden], ["education"])
+        self.assertEqual(text.count('class="pattern-row"'), 16)
+        for phrase in ("Condition flagged", "Condition not flagged", "Missing or unclear answers",
+                       "Could Not Determine", "Illness and Treatment", "Wanting More Work Hours"):
+            self.assertIn(phrase, text)
+        self.assertIn("Based on 32 assessed households in all barangays.", text)
+        self.assertIn("4 <span>(12.5%)</span>", text)
+        section = text.split('id="patterns-heading"')[1].split("</section>")[0]
+        self.assertNotIn("<a ", section)
+        self.assertNotIn("View Household Prioritization", text)
+
+    def test_selected_area_is_validated_and_carried_by_the_filter(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary",
+                   return_value={**self.summary, "barangay": "Synthetic East"}):
+            text = self.client.get("/?barangay=Synthetic+East&area=employment").text
+            fallback = self.client.get("/?area=%3Cscript%3E").text
+        self.assertRegex(text, r'id="pattern-area-employment"[^>]*aria-pressed="true"')
+        self.assertIn('name="area" value="employment"', text)
+        self.assertIn('href="/?area=employment" data-keep-area', text)
+        self.assertIn('name="area" value="education"', fallback)
+        self.assertNotIn("<script>", fallback)
+
+    def test_historical_links_keep_the_selected_barangay_only(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary",
+                   return_value={**self.summary, "barangay": "Synthetic East"}):
+            text = self.client.get("/?barangay=Synthetic+East").text
+        historical = text.split('id="statistics-heading"')[0].split("</header>")[0] +             text.split('id="statistics-heading"')[1]
+        links = re.findall(r'href="(/assessments\?[^"]*)"', historical)
+        self.assertGreaterEqual(len(links), 8)
+        for link in links:
+            self.assertEqual(parse_qs(urlsplit(unescape(link)).query)["barangay"], ["Synthetic East"], link)
+        header = re.search(r'<a class="dashboard-primary-link" href="([^"]+)"', text)[1]
+        self.assertEqual(unescape(header), "/assessments?barangay=Synthetic+East")
+        workload = text.split('id="reviews-heading"')[1].split("</section>")[0]
+        self.assertNotIn("barangay=", workload)
+
+    def test_bottom_assessment_pages_follow_snapshot_and_keep_review_queue_independent(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary",
+                   return_value={**self.summary, "barangay": "Synthetic East"}):
+            text = self.client.get("/?barangay=Synthetic+East").text
+        self.assertLess(text.index('id="household-heading"'), text.index('id="work-heading"'))
+        work = text.split('id="work-heading"')[1].split("</section>")[0]
+        self.assertIn('href="/assessments?barangay=Synthetic+East">Household Prioritization', work)
+        self.assertIn('href="/assessments/queue">Review Queue', work)
+        self.assertEqual(text.count('id="work-heading"'), 1)
+        with patch("routes.main.get_active_dashboard_summary",
+                   side_effect=AssessmentQueryError("private_database_details")):
+            text = self.client.get("/?barangay=Synthetic+East").text
+        work = text.split('id="work-heading"')[1].split("</section>")[0]
+        self.assertIn('href="/assessments">Household Prioritization', work)
+        self.assertIn('href="/assessments/queue">Review Queue', work)
+
+    def test_header_link_works_without_a_summary_or_barangay(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
+            text = self.client.get("/").text
+        self.assertIn('class="dashboard-primary-link" href="/assessments"', text)
+        self.assertNotIn("barangay=", text.split("Historical household statistics")[1])
+        with patch("routes.main.get_active_dashboard_summary",
+                   side_effect=AssessmentQueryError("private_database_details")):
+            text = self.client.get("/").text
+        self.assertIn('class="dashboard-primary-link" href="/assessments"', text)
+        self.assertNotIn("Household Assessment Patterns", text)
 
     def test_invalid_barangay_is_rejected(self):
         self._sign_in()
@@ -205,7 +293,8 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         query.assert_called_once_with(barangay=None)
         for text in ("Dashboard", "Survey Year", "Primary Priority",
-                     "Secondary Priority", "Household snapshot", "Main water source"):
+                     "Secondary Priority", "Household snapshot", "Main water source",
+                     "Household Assessment Patterns", "Findings marked"):
             self.assertIn(text, response.text)
         self.assertIn('href="/administration" aria-current="page"', response.text)
         self.assertIn('href="/households"', response.text)
