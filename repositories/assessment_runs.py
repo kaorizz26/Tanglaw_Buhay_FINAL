@@ -394,30 +394,56 @@ def count_priority_groups(
     }
 
 
-def count_dashboard_findings(
+def count_dashboard_overview(
     connection, run_id, *, filters=None, spisc_age_statuses=None, batch_id=None,
 ):
-    """Count aggregate uncertainty and screening findings in a completed run.
+    """Count priority groups, undetermined results and program findings in one pass.
 
-    With current-age statuses, SPISC uses the same household precedence as the
-    Prioritization filters; stored findings are never changed.
+    The stored findings are large, so each household's results are read once
+    here instead of once per count. Priority rules and the SPISC current-age
+    precedence match count_priority_groups and the Prioritization filters.
     """
+    filters = filters or AssessmentFilters()
     selection, parameters = _summary_selection(
-        run_id, filters or AssessmentFilters(),
-        spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
+        run_id, filters, spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
     )
-    current = spisc_age_statuses is not None
-    columns = ", ".join(
-        f"count(*) FILTER (WHERE {_program_status(code, current)} = 'For Review') AS {key}"
-        for code, key in (("4Ps", "four_ps"), ("SLP", "slp"), ("SPISC", "spisc"), ("TUPAD", "tupad"))
+    spisc = (
+        "COALESCE(current_status, 'Needs Data Review')" if spisc_age_statuses is not None
+        else "stored -> 'SPISC' ->> 'screening_status'"
+    )
+    programs = (("4Ps", "four_ps"), ("SLP", "slp"), ("SPISC", "spisc"), ("TUPAD", "tupad"))
+    program_counts = ", ".join(
+        f"count(*) FILTER (WHERE {field} = 'For Review') AS {field}" for _, field in programs
     )
     with connection.cursor(row_factory=dict_row) as cursor:
-        return cursor.execute(
+        row = cursor.execute(
             "SELECT count(*) AS assessed_households, "
-            "count(*) FILTER (WHERE (h.findings #>> '{mpi,unknown_indicator_count}')::integer > 0)"
-            f" AS needs_attention, {columns} " + selection,
-            parameters,
+            "count(*) FILTER (WHERE score > %s AND any_review) AS primary_group, "
+            "count(*) FILTER (WHERE score >= %s AND score <= %s AND any_review) AS secondary_group, "
+            "count(*) FILTER (WHERE unknown_count > 0) AS needs_attention, "
+            + program_counts + " FROM ("
+            "SELECT score, unknown_count, four_ps, slp, spisc, tupad, "
+            "COALESCE(four_ps = 'For Review' OR slp = 'For Review' OR spisc = 'For Review' "
+            "OR tupad = 'For Review', false) AS any_review FROM ("
+            "SELECT (mpi ->> 'vulnerability_score')::numeric AS score, "
+            "(mpi ->> 'unknown_indicator_count')::integer AS unknown_count, "
+            "stored -> '4Ps' ->> 'screening_status' AS four_ps, "
+            "stored -> 'SLP' ->> 'screening_status' AS slp, "
+            f"{spisc} AS spisc, "
+            "stored -> 'TUPAD' ->> 'screening_status' AS tupad FROM ("
+            "SELECT h.findings -> 'mpi' AS mpi, h.findings -> 'programs' AS stored, "
+            "current_spisc.status AS current_status " + selection
+            + ") src) fields) counted",
+            (PRIMARY_CUTOFF, SECONDARY_MIN_SCORE, PRIMARY_CUTOFF, *parameters),
         ).fetchone()
+    first, next_group = row["primary_group"], row["secondary_group"]
+    total = row["assessed_households"]
+    return {
+        "priority": {"all": total, "primary": first, "secondary": next_group,
+                     "both": first + next_group, "other": total - first - next_group},
+        "findings": {key: row[key] for key in (
+            "assessed_households", "needs_attention", "four_ps", "slp", "spisc", "tupad")},
+    }
 
 
 STORED_INDICATOR_OUTCOMES = {"1": "deprived", "0": "not_deprived", "null": "unknown"}

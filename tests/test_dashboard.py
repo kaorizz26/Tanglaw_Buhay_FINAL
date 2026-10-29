@@ -86,7 +86,7 @@ class DashboardRouteTests(unittest.TestCase):
         query.assert_called_once_with(barangay=None)
         for text in ("Dashboard", "Survey Year", "32", "Primary Priority",
                      "Secondary Priority", "Households with Undetermined Results", "Review Queue",
-                     "Household snapshot", "3.50", "Households with someone under 18",
+                     "Household Snapshot", "3.50", "Households with someone under 18",
                      "Main water source", "Piped into dwelling", "recorded no electricity"):
             self.assertIn(text, response.text)
         self.assertIn('href="/" aria-current="page"', response.text)
@@ -163,7 +163,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertNotIn("Municipal overview", text)
         self.assertNotIn("Historical snapshot", text)
         self.assertNotIn("Needs Assessment Attention", text)
-        self.assertIn("At least one assessment indicator could not be determined", text)
+        self.assertIn("Some survey information was missing or unclear", text)
         self.assertIn('href="/assessments?completeness=unknown"', text)
         self.assertIn('href="/assessments/queue"', text)
         self.assertIn("Open the household list or the Review Queue.", text)
@@ -237,6 +237,46 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments">Household Prioritization', work)
         self.assertIn('href="/assessments/queue">Review Queue', work)
 
+    def test_kpi_captions_screening_text_and_snapshot_wording(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
+            text = self.client.get("/").text
+        cards = re.findall(r'<(?:div|a) class="dashboard-metric[ "].*?</(?:div|a)>',
+                           text.split('aria-label="Assessment summary"')[1], re.S)
+        self.assertEqual(len(cards), 4)
+        for label, caption in (
+            ("Assessed Households", "Households evaluated by the system"),
+            ("Primary Priority", "Higher vulnerability score with a program flagged for review"),
+            ("Secondary Priority", "Moderate vulnerability score with a program flagged for review"),
+            ("Households with Undetermined Results", "Some survey information was missing or unclear"),
+        ):
+            card = next(c for c in cards if label in c)
+            self.assertIn(caption, card)
+        screening = text.split('id="screening-heading"')[1].split("</section>")[0]
+        for phrase in ("System findings", "more than one program",
+                       "not an approval or a staff review", "Explore screening findings"):
+            self.assertIn(phrase, screening)
+        self.assertNotIn("immediate", screening)
+        snapshot = text.split('id="household-heading"')[1].split("</section>")[0]
+        for phrase in ("Household members", "Housing &amp; utilities", "Main water source",
+                       "do not show subsidy eligibility", "Average recorded members per household",
+                       "recorded no electricity", "recorded a shared toilet"):
+            self.assertIn(phrase, snapshot)
+        for banned in ("Roof", "Walls", "Floor"):
+            self.assertNotIn(banned, snapshot)
+
+    def test_snapshot_flags_unclear_answers_without_counting_them_as_negative(self):
+        self._sign_in()
+        profile = {**self.summary["household_profile"], "electricity_unclear": 3,
+                   "toilet_sharing_unclear": 2, "with_unclear_age": 1}
+        with patch("routes.main.get_active_dashboard_summary",
+                   return_value={**self.summary, "household_profile": profile}):
+            text = self.client.get("/").text
+        for phrase in ("3 households had no clear Yes or No electricity response.",
+                       "2 households had no Yes or No toilet-sharing response.",
+                       "whose age was not recorded clearly"):
+            self.assertIn(phrase, text)
+
     def test_header_link_works_without_a_summary_or_barangay(self):
         self._sign_in()
         with patch("routes.main.get_active_dashboard_summary", return_value=self.summary):
@@ -265,7 +305,7 @@ class DashboardRouteTests(unittest.TestCase):
             self.reviews_query.side_effect = AssessmentQueryError("private_database_details")
             response = self.client.get("/")
         self.assertIn("Your reviews are unavailable", response.text)
-        self.assertIn("Household snapshot", response.text)
+        self.assertIn("Household Snapshot", response.text)
         self.assertNotIn("private_database_details", response.text)
         with patch("routes.main.get_active_dashboard_summary",
                    side_effect=AssessmentQueryError("private_database_details")):
@@ -293,7 +333,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         query.assert_called_once_with(barangay=None)
         for text in ("Dashboard", "Survey Year", "Primary Priority",
-                     "Secondary Priority", "Household snapshot", "Main water source",
+                     "Secondary Priority", "Household Snapshot", "Main water source",
                      "Household Assessment Patterns", "Findings marked"):
             self.assertIn(text, response.text)
         self.assertIn('href="/administration" aria-current="page"', response.text)

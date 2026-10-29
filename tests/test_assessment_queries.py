@@ -97,9 +97,9 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         indicators = {"assessed_households": 32, "indicators": {
             name: {"deprived": 5, "not_deprived": 20, "unknown": 7}
             for name in INDICATOR_WEIGHTS}}
-        with patch.object(repository, "count_priority_groups", return_value=priority) as groups, \
+        overview = {"priority": priority, "findings": findings}
+        with patch.object(repository, "count_dashboard_overview", return_value=overview) as counts, \
                 patch.object(repository, "count_indicator_findings", return_value=indicators) as patterns, \
-                patch.object(repository, "count_dashboard_findings", return_value=findings) as counts, \
                 patch.object(service.dataset_batches, "count_household_profile",
                              return_value=household_profile) as profile, \
                 patch.object(service.dataset_batches, "list_barangays", return_value=[]),                 patch.object(repository, "list_assessment_summaries") as rows:
@@ -114,9 +114,6 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         patterns.assert_called_once_with(self.connection, 17, filters=AssessmentFilters())
         self.assertEqual([area["key"] for area in result["indicator_patterns"]],
                          ["education", "health", "housing", "employment"])
-        groups.assert_called_once_with(
-            self.connection, 17, filters=AssessmentFilters(),
-            spisc_age_statuses={}, batch_id=9)
         counts.assert_called_once_with(
             self.connection, 17, filters=AssessmentFilters(),
             spisc_age_statuses={}, batch_id=9)
@@ -126,10 +123,10 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         )
         read_cache.clear()
-        with patch.object(repository, "count_priority_groups", return_value=priority), \
+        with patch.object(repository, "count_dashboard_overview", return_value={
+                    "priority": priority,
+                    "findings": {**findings, "assessed_households": 31}}), \
                 patch.object(repository, "count_indicator_findings", return_value=indicators), \
-                patch.object(repository, "count_dashboard_findings",
-                             return_value={**findings, "assessed_households": 31}), \
                 patch.object(service.dataset_batches, "count_household_profile",
                              return_value=household_profile),                 patch.object(service.dataset_batches, "list_barangays", return_value=[]):
             with self.assertRaisesRegex(service.AssessmentQueryError, "assessment_count_mismatch"):

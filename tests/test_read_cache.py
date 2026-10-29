@@ -35,6 +35,15 @@ class ReadCacheTests(unittest.TestCase):
             read_cache.cached(number, 300, lambda: number)
         self.assertLessEqual(len(read_cache._entries), read_cache.MAX_ENTRIES)
 
+    def test_cache_holds_every_barangay_summary_plus_shared_entries(self):
+        self.assertGreaterEqual(read_cache.MAX_ENTRIES, 34 + 1 + 4)
+        for number in range(35):
+            read_cache.cached(("dashboard", number), 300, lambda: number)
+        loads = []
+        for number in range(35):
+            read_cache.cached(("dashboard", number), 300, lambda: loads.append(1))
+        self.assertEqual(loads, [])
+
     def test_barangays_are_cached_per_database_and_batch(self):
         def connection(dbname):
             mock = MagicMock()

@@ -63,24 +63,24 @@
 
     <section class="dashboard-metrics" aria-label="Assessment summary">
       <div class="dashboard-metric dashboard-metric-total">
-        <p class="dashboard-metric-label">Assessed households</p>
+        <p class="dashboard-metric-label">Assessed Households</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority['all']) }}</p>
-        <p class="dashboard-metric-caption">In {{ area }}</p>
+        <p class="dashboard-metric-caption">Households evaluated by the system</p>
       </div>
         <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary', barangay=barangay_arg) }}">
         <p class="dashboard-metric-label">Primary Priority</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.primary) }}</p>
-        <p class="dashboard-metric-caption">Recommended for consideration first</p>
+        <p class="dashboard-metric-caption">Higher vulnerability score with a program flagged for review</p>
       </a>
         <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary', barangay=barangay_arg) }}">
         <p class="dashboard-metric-label">Secondary Priority</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.secondary) }}</p>
-        <p class="dashboard-metric-caption">Recommended for subsequent consideration</p>
+        <p class="dashboard-metric-caption">Moderate vulnerability score with a program flagged for review</p>
       </a>
         <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown', barangay=barangay_arg) }}">
         <p class="dashboard-metric-label">Households with Undetermined Results</p>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.findings.needs_attention) }}</p>
-        <p class="dashboard-metric-caption">At least one assessment indicator could not be determined</p>
+        <p class="dashboard-metric-caption">Some survey information was missing or unclear</p>
       </a>
     </section>
 
@@ -94,7 +94,7 @@
             <h2 id="screening-heading">Findings marked “For Review”</h2>
           </div>
         </div>
-        <p class="dashboard-panel-description">Households may appear in more than one program. These findings do not create staff reviews.</p>
+        <p class="dashboard-panel-description">System findings from the survey. A household may be flagged under more than one program. A finding is not an approval or a staff review.</p>
         <div class="dashboard-bars">
           {% for code, field in [('4Ps', 'four_ps'), ('SLP', 'slp'), ('SPISC', 'spisc'), ('TUPAD', 'tupad')] %}
             {% set count = summary.findings[field] %}
@@ -113,12 +113,12 @@
 
     <section class="dashboard-household" aria-labelledby="household-heading">
       <div class="dashboard-household-heading">
-        <h2 id="household-heading">Household snapshot</h2>
+        <h2 id="household-heading">Household Snapshot</h2>
       </div>
       <div class="dashboard-household-grid">
         <div class="dashboard-panel dashboard-household-composition">
           <h3>Household members</h3>
-          <p class="dashboard-panel-description">A view of recorded household size and ages at the time of the survey.</p>
+          <p class="dashboard-panel-description">Recorded household size and ages at the time of the survey. These counts do not show subsidy eligibility.</p>
           <div class="dashboard-household-stats">
             <div>
               <strong>{{ '%.2f' | format(summary.household_profile.average_members) }}</strong>
@@ -140,7 +140,7 @@
 
         <div class="dashboard-panel dashboard-household-utilities">
           <h3>Housing &amp; utilities</h3>
-          <p class="dashboard-panel-description">Recorded main water source, electricity, and toilet sharing.</p>
+          <p class="dashboard-panel-description">Recorded water source, electricity, and toilet sharing at the time of the survey.</p>
           <h4>Main water source</h4>
           <div class="dashboard-water-content">
             <div class="dashboard-water-donut" style="background: {{ summary.household_profile.water_gradient }}" aria-hidden="true">

@@ -17,16 +17,23 @@
   text-transform: uppercase;
 }
 
+.dashboard-header h1 {
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
 .dashboard-welcome {
-  margin-top: 6px;
+  margin-top: 10px;
   color: var(--navy);
-  font-size: 1.125rem;
+  font-size: 1.4rem;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .dashboard-subtitle {
-  margin-top: 4px;
+  margin-top: 6px;
   color: var(--text-muted);
+  font-size: 0.9375rem;
 }
 
 .dashboard-primary-link {
@@ -245,9 +252,12 @@ a.dashboard-bar-row:hover .dashboard-bar-label {
 
 .dashboard-household-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: start;
   gap: 20px;
 }
+
+.dashboard-household-grid .dashboard-panel { padding: 20px 22px; }
 
 .dashboard-household-grid h3 {
   font-size: 1.15rem;
@@ -255,21 +265,22 @@ a.dashboard-bar-row:hover .dashboard-bar-label {
 
 .dashboard-household-grid .dashboard-panel-description {
   min-height: 0;
-  margin-bottom: 18px;
+  margin: 6px 0 12px;
 }
 
 .dashboard-household-stats {
   display: grid;
-  gap: 12px;
 }
 
 .dashboard-household-stats > div {
   display: flex;
   align-items: baseline;
   gap: 14px;
-  padding: 14px 0;
+  padding: 16px 0;
   border-top: 1px solid var(--border);
 }
+
+.dashboard-household-stats > div:last-child { padding-bottom: 4px; }
 
 .dashboard-household-stats strong {
   flex: 0 0 88px;
@@ -286,7 +297,7 @@ a.dashboard-bar-row:hover .dashboard-bar-label {
 }
 
 .dashboard-household-utilities h4 {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   font-size: 0.875rem;
 }
 
@@ -297,10 +308,10 @@ a.dashboard-bar-row:hover .dashboard-bar-label {
 }
 
 .dashboard-water-donut {
-  flex: 0 0 158px;
+  flex: 0 0 132px;
   display: grid;
   place-items: center;
-  width: 158px;
+  width: 132px;
   aspect-ratio: 1;
   border-radius: 50%;
 }
@@ -369,11 +380,11 @@ a.dashboard-bar-row:hover .dashboard-bar-label {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 16px;
 }
 
 .dashboard-utility-facts p {
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #f7f9fa;
@@ -394,7 +405,7 @@ a.dashboard-bar-row:hover .dashboard-bar-label {
 }
 
 .dashboard-household-uncertainty {
-  margin-top: 12px;
+  margin-top: 8px;
   color: var(--text-muted);
   font-size: 0.8125rem;
 }
@@ -629,6 +640,8 @@ a.dashboard-bar-row:hover .dashboard-bar-label {
 }
 
 @media (max-width: 760px) {
+  .dashboard-header h1 { font-size: 1.75rem; }
+  .dashboard-welcome { font-size: 1.25rem; }
   .dashboard-review-cards { grid-template-columns: 1fr; }
   .dashboard-section-heading,
   .dashboard-recent-list li { align-items: flex-start; flex-direction: column; }

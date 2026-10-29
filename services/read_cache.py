@@ -4,7 +4,7 @@ from copy import deepcopy
 from threading import Lock
 import time
 
-MAX_ENTRIES = 16
+MAX_ENTRIES = 64
 _entries = {}
 _lock = Lock()
 

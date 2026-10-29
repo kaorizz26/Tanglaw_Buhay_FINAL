@@ -110,24 +110,36 @@ def count_household_profile(connection, batch_id, barangay=None):
 
     An optional recorded barangay narrows every aggregate to that barangay.
     """
-    in_barangay = " AND btrim(responses ->> 'barangay') = %s" if barangay else ""
+    in_barangay = " AND btrim(answers.barangay) = %s" if barangay else ""
     scope = (batch_id, barangay) if barangay else (batch_id,)
     with connection.cursor(row_factory=dict_row) as cursor:
-        households = cursor.execute(
-            """SELECT count(*) AS household_count,
-                      count(*) FILTER (WHERE responses ->> 'r12_electricity' = '2')
-                          AS without_electricity,
-                      count(*) FILTER (WHERE responses ->> 'r12_electricity' IS NULL
-                          OR responses ->> 'r12_electricity' NOT IN ('1', '2'))
-                          AS electricity_unclear,
-                      count(*) FILTER (WHERE responses ->> 'q19_share_toilet' = '1')
-                          AS shared_toilet,
-                      count(*) FILTER (WHERE responses ->> 'q19_share_toilet' IS NULL
-                          OR responses ->> 'q19_share_toilet' NOT IN ('1', '2'))
-                          AS toilet_sharing_unclear
-               FROM households WHERE batch_id = %s""" + in_barangay,
+        # Each household's large answer set is read once for all four answers.
+        answer_groups = cursor.execute(
+            """SELECT coalesce(nullif(btrim(answers.q01_main_water), ''), '') AS water,
+                      answers.r12_electricity AS electricity,
+                      answers.q19_share_toilet AS toilet_sharing,
+                      count(*) AS households
+               FROM households h
+               CROSS JOIN LATERAL jsonb_to_record(h.responses) AS answers(
+                   barangay text, q01_main_water text, r12_electricity text,
+                   q19_share_toilet text)
+               WHERE h.batch_id = %s""" + in_barangay + """
+               GROUP BY 1, 2, 3""",
             scope,
-        ).fetchone()
+        ).fetchall()
+        households = {
+            "household_count": sum(row["households"] for row in answer_groups),
+            "without_electricity": sum(
+                row["households"] for row in answer_groups if row["electricity"] == "2"),
+            "electricity_unclear": sum(
+                row["households"] for row in answer_groups
+                if row["electricity"] not in ("1", "2")),
+            "shared_toilet": sum(
+                row["households"] for row in answer_groups if row["toilet_sharing"] == "1"),
+            "toilet_sharing_unclear": sum(
+                row["households"] for row in answer_groups
+                if row["toilet_sharing"] not in ("1", "2")),
+        }
         members = cursor.execute(
             """WITH ages AS (
                    SELECT uuid,
@@ -151,13 +163,13 @@ def count_household_profile(connection, batch_id, barangay=None):
                FROM ages""",
             scope,
         ).fetchone()
-        water_sources = cursor.execute(
-            """SELECT coalesce(nullif(btrim(responses ->> 'q01_main_water'), ''), '')
-                          AS code, count(*) AS households
-               FROM households WHERE batch_id = %s""" + in_barangay + """
-               GROUP BY 1 ORDER BY households DESC, code""",
-            scope,
-        ).fetchall()
+        water_counts = {}
+        for row in answer_groups:
+            water_counts[row["water"]] = water_counts.get(row["water"], 0) + row["households"]
+        water_sources = [
+            {"code": code, "households": count}
+            for code, count in sorted(water_counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
         water_labels = cursor.execute(
             """SELECT responses ->> 'code' AS code,
                       responses ->> 'label' AS label

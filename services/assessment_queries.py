@@ -18,7 +18,7 @@ from services.subsidy_priority import derive_subsidy_priority
 from services.spisc_age_progression import current_spisc_status, philippine_assessment_date
 
 
-DASHBOARD_CACHE_SECONDS = 300
+DASHBOARD_CACHE_SECONDS = 1800
 
 
 class AssessmentQueryError(RuntimeError):
@@ -165,12 +165,10 @@ def get_active_dashboard_summary(
 def _read_dashboard_summary(connection, context, assessed, barangay):
     filters = AssessmentFilters(barangay=barangay)
     current_age = _current_age_statuses(connection, context, assessed)
-    priority = assessment_runs.count_priority_groups(
+    overview = assessment_runs.count_dashboard_overview(
         connection, context["run_id"], filters=filters, **current_age,
     )
-    findings = assessment_runs.count_dashboard_findings(
-        connection, context["run_id"], filters=filters, **current_age,
-    )
+    priority, findings = overview["priority"], overview["findings"]
     household_profile = dataset_batches.count_household_profile(
         connection, context["batch_id"], barangay or None,
     )
