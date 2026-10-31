@@ -27,7 +27,7 @@
       </div>
       <div class="record-detail-actions">
         <a class="record-back" href="{{ list_url }}">← Back to Records</a>
-        <a class="record-assessment" href="{{ url_for('assessments.detail', household_uuid=record.household_uuid) }}">View Assessment →</a>
+        <a class="record-assessment" href="{{ url_for('assessments.detail', household_uuid=record.household_uuid, **assessment_parameters) }}">View Assessment →</a>
       </div>
     </div>
   </header>

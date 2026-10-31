@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from werkzeug.datastructures import MultiDict
+
 from db import get_connection
 from repositories import assessment_evidence, dataset_batches, household_records
 from services.assessment_evidence_view import FIELD_LABELS, _display_value
@@ -12,6 +14,7 @@ from services.prioritization import _head_name, _household_reference_id, _source
 
 PAGE_SIZE = 25
 MAX_FILTER_LENGTH = 200
+RECORD_RETURN_KEYS = ("record_page", "record_q", "record_barangay")
 HOUSEHOLD_GROUPS = (
     ("Water and sanitation", (
         "q01_main_water", "q14_toilet_facility", "q19_share_toilet",
@@ -67,6 +70,39 @@ def parse_record_arguments(arguments):
     ):
         raise InvalidRecordFilters("invalid_record_filters")
     return int(page), RecordFilters(search=search, barangay=barangay)
+
+
+def record_return_parameters(page, filters):
+    """Describe the Household Records list state as prefixed assessment-link parameters.
+
+    The prefix keeps these values apart from the Prioritization filters, which
+    use the same names (page, q, barangay) on the assessment pages.
+    """
+    return {
+        "from_record": "1", "record_page": page,
+        **{"record_" + name: value for name, value in filters.parameters.items()},
+    }
+
+
+def parse_record_return(arguments):
+    """Read and validate the Household Records origin of an assessment page.
+
+    Returns None when the page was not opened from Household Records, otherwise
+    (page, filters). Only known parameters are accepted and no URL is ever read
+    from the request, so the return link cannot point to another site.
+    """
+    origin_flags = arguments.getlist("from_record")
+    record_keys = [key for key in arguments if key.startswith("record_")]
+    if not origin_flags and not record_keys:
+        return None
+    if origin_flags != ["1"] or any(key not in RECORD_RETURN_KEYS for key in record_keys):
+        raise InvalidRecordFilters("invalid_record_return")
+    # Remove the prefix; repeated values are kept so the shared parser rejects them.
+    list_arguments = MultiDict(
+        (key[len("record_"):], value)
+        for key in record_keys for value in arguments.getlist(key)
+    )
+    return parse_record_arguments(list_arguments)
 
 
 def get_record_page(page, filters, *, connection_factory=get_connection):

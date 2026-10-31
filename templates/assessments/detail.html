@@ -11,10 +11,24 @@
 
 {% block content %}
   {% set focused_review = review_record is defined and review_record %}
+  {# Where the staff member came from decides the breadcrumb and Back link. #}
+  {% if queue_return_url %}
+    {% set return_url = queue_return_url %}
+    {% set breadcrumb_label = 'Review Queue' %}
+    {% set back_label = 'Review Queue' %}
+  {% elif record_list_state %}
+    {% set return_url = url_for('households.detail', household_uuid=results.household_uuid, **record_list_state) %}
+    {% set breadcrumb_label = 'Household Record' %}
+    {% set back_label = 'Household Record' %}
+  {% else %}
+    {% set return_url = url_for('assessments.prioritization', **list_parameters) %}
+    {% set breadcrumb_label = 'Assessments' %}
+    {% set back_label = 'Prioritization' %}
+  {% endif %}
   <header class="page-header detail-header">
     <div class="context-bar">
       <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="{{ queue_return_url or url_for('assessments.prioritization', **list_parameters) }}">{{ 'Review Queue' if queue_return_url else 'Assessments' }}</a>
+        <a href="{{ return_url }}">{{ breadcrumb_label }}</a>
         <span aria-hidden="true">/</span>
         <span aria-current="page">{{ 'Staff Review' if focused_review else 'Household Assessment' }}</span>
       </nav>
@@ -23,8 +37,8 @@
       </p>
     </div>
     {% if not focused_review %}
-      <a class="back-to-prioritization context-navigation" href="{{ queue_return_url or url_for('assessments.prioritization', **list_parameters) }}">
-        <span aria-hidden="true">←</span> Back to {{ 'Review Queue' if queue_return_url else 'Prioritization' }}
+      <a class="back-to-prioritization context-navigation" href="{{ return_url }}">
+        <span aria-hidden="true">←</span> Back to {{ back_label }}
       </a>
     {% endif %}
     <div class="page-heading">

@@ -5,6 +5,9 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from services.assessment_queries import AssessmentQueryError
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
 from services.auth import ADMIN_ROLE, check_csrf, csrf_token
+from services.household_records import (
+    InvalidRecordFilters, parse_record_return, record_return_parameters,
+)
 from services.prioritization import get_prioritization_page
 from services.assessment_details import detail_navigation, get_assessment_detail
 from services.staff_reviews import (
@@ -23,18 +26,40 @@ assessments = Blueprint("assessments", __name__)
 
 
 def _assessment_navigation(arguments):
+    """Validate where the staff member came from and build the links that keep it.
+
+    An assessment page can be opened from Prioritization (the default), the
+    Review Queue or a Household Record. Only one origin is allowed at a time.
+    """
     tab, list_parameters = detail_navigation(arguments)
     queue_state = parse_queue_return(arguments)
+    try:
+        record_state = parse_record_return(arguments)
+    except InvalidRecordFilters:
+        raise InvalidAssessmentFilters('invalid_record_return') from None
+    if queue_state and record_state:
+        raise InvalidAssessmentFilters('conflicting_return_origins')
+
     queue_parameters = {}
     queue_url = None
     if queue_state:
         page, filters = queue_state
         queue_parameters = queue_return_parameters(page, filters)
         queue_url = url_for('assessments.queue', page=page, **filters.parameters)
+
+    # The record's own address needs its household, so the template completes
+    # it with the household shown on the page.
+    record_parameters = {}
+    record_list_state = None
+    if record_state:
+        page, filters = record_state
+        record_parameters = record_return_parameters(page, filters)
+        record_list_state = {'page': page, **filters.parameters}
     return tab, {
         'list_parameters': list_parameters,
-        'detail_parameters': {**list_parameters, **queue_parameters},
+        'detail_parameters': {**list_parameters, **queue_parameters, **record_parameters},
         'queue_return_url': queue_url,
+        'record_list_state': record_list_state,
     }
 
 

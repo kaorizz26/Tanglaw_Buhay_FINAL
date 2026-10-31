@@ -6,6 +6,7 @@ from services.assessment_queries import AssessmentQueryError
 from services.auth import ADMIN_ROLE, csrf_token
 from services.household_records import (
     InvalidRecordFilters, get_record_detail, get_record_page, parse_record_arguments,
+    record_return_parameters,
 )
 
 
@@ -49,5 +50,7 @@ def detail(household_uuid):
     return render_template(
         "households/detail.html", record=record,
         list_url=url_for("households.index", page=page, **filters.parameters),
+        # Lets the assessment page link back to this record with the same list state.
+        assessment_parameters=record_return_parameters(page, filters),
         **_staff_context(),
     )
