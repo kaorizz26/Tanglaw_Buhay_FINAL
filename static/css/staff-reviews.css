@@ -425,6 +425,18 @@
   gap: 20px;
 }
 
+/* The status panel comes first in the page so narrow screens show it before the notes;
+   on wide screens the grid keeps it in the right-hand column. */
+.review-main {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.review-action-panel {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .review-main,
 .review-action-panel {
   min-width: 0;
@@ -496,6 +508,29 @@
 
 .review-empty-notes {
   color: var(--text-muted);
+}
+
+/* Highlights the newest note when the page opens at it after Save Note. */
+#latest-note {
+  scroll-margin-top: 24px;
+}
+
+#latest-note:target .review-saved-note {
+  background: var(--notice);
+}
+
+.finding-more {
+  margin-top: 12px;
+}
+
+.finding-more > summary {
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.finding-more .finding-list {
+  margin-top: 10px;
 }
 
 .review-add-note .section-helper,
@@ -779,11 +814,9 @@
   outline-offset: 3px;
 }
 
-.review-responsible {
-  margin: 0 0 4px;
-}
-
 .review-action-divider {
+  display: flex;
+  flex-direction: column;
   margin-top: 20px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
@@ -792,6 +825,18 @@
 @media (max-width: 1100px) {
   .review-workspace {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-main,
+  .review-action-panel {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .review-action-buttons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
   }
 }
 

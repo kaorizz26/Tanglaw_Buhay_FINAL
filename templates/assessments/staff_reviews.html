@@ -8,7 +8,8 @@
     <p class="section-helper">Historical screening findings are system results. Staff recommendations are recorded separately and do not approve assistance.</p>
   {% endif %}
 
-  {% for message in get_flashed_messages() %}
+  {# "Note saved." is shown beside the saved notes instead (see review_record.html). #}
+  {% for message in get_flashed_messages(category_filter=['message']) %}
     <p class="review-notice" role="status">{{ message }}</p>
   {% endfor %}
 

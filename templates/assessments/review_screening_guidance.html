@@ -1,10 +1,34 @@
-{# Stored screening guidance for one program. Inputs: guidance_code; optional guidance_reference (closed/cancelled review) and guidance_nested (heading level). #}
+{# Stored screening guidance for one program. Inputs: guidance_code; optional guidance_reference (closed/cancelled review), guidance_nested (heading level) and guidance_hide_link. #}
 {# Present stored age wording as an "Age in CBMS <year>" chip; other text is shown unchanged. #}
 {% macro age_chip_label(text, year) -%}
   {%- if text.startswith('Age at survey: ') -%}Age in CBMS {{ year }}: {{ text[15:].rstrip('.') }}
   {%- elif text.startswith('Age ') and text.endswith(' CBMS survey.') -%}Age in CBMS {{ year }}: {{ text.split(' ')[1] }}
   {%- endif -%}
 {%- endmacro %}
+{# One system finding for a member or the household. #}
+{% macro finding_card(item, guidance_code, guidance, year, callout_class) %}
+  <li class="finding-card">
+    <strong class="finding-name">{{ 'Household composition' if guidance_code == '4Ps' and item.subject == 'CBMS ' ~ year else item.subject }}</strong>
+    {% set text_chip = age_chip_label(item.text, year) if item.text else '' %}
+    {% if guidance_code == 'SPISC' %}
+      <span class="age-chips">
+        <span class="age-chip">Age in CBMS {{ year }}: {{ item.recorded_age if item.recorded_age is not none else 'Not recorded or unclear' }}</span>
+        <span class="age-chip">Estimated now ({{ guidance.date_label }}): {% if item.minimum_age is not none %}{{ item.minimum_age }}{% if item.minimum_age != item.maximum_age %}–{{ item.maximum_age }}{% endif %}{% else %}Unavailable{% endif %}</span>
+      </span>
+      <span class="{{ callout_class }}">{{ item.text }}</span>
+    {% elif text_chip %}
+      {% if guidance_code == '4Ps' %}<span class="finding-context">Child aged 0–18 recorded in CBMS {{ year }}</span>{% endif %}
+      <span class="age-chips"><span class="age-chip">{{ text_chip }}</span></span>
+    {% elif item.text %}
+      <span class="{{ callout_class }}">{{ item.text }}</span>
+    {% else %}
+      {% if item.age %}<span class="age-chips"><span class="age-chip">{{ age_chip_label(item.age, year) or item.age }}</span></span>{% endif %}
+      {% if item.details %}
+        <span class="{{ callout_class }}">{% for detail in item.details %}<span>{% if guidance_code == 'SLP' and item.pathway and 'needs confirmation' not in detail %}Recorded work: {% endif %}{{ detail }}</span>{% endfor %}</span>
+      {% endif %}
+    {% endif %}
+  </li>
+{% endmacro %}
 {% set screening = results.screening_programs | selectattr('code', 'equalto', guidance_code) | first %}
 {% if screening %}
   {% set guidance = screening.guidance %}
@@ -23,18 +47,18 @@
     {% if guidance_code != 'SPISC' and guidance_nested %}
       <div class="status-badge-row">
         <p class="status-badge-item">
-          <span class="panel-label">Historical screening finding</span>
+          <span class="panel-label">Automated Screening Finding</span>
           <span class="screening-status screening-status--{{ summary.status_class }}">{{ summary.status_label }}</span>
         </p>
       </div>
     {% elif guidance_code == 'SPISC' %}
       <div class="status-badge-row">
         <p class="status-badge-item">
-          <span class="panel-label">Current SPISC recommendation (as of {{ guidance.date_label }})</span>
+          <span class="panel-label">Automated Screening Finding: current age (as of {{ guidance.date_label }})</span>
           <span class="screening-status screening-status--{{ summary.status_class }}">{{ summary.status_label }}</span>
         </p>
         <p class="status-badge-item">
-          <span class="panel-label">CBMS {{ year }} screening</span>
+          <span class="panel-label">Automated Screening Finding: CBMS {{ year }} (historical)</span>
           <span class="screening-status screening-status--{{ screening.status_class }}">{{ summary.historical_status_label }}</span>
         </p>
       </div>
@@ -42,28 +66,8 @@
 
     <h5 class="panel-label">What the system found</h5>
     <ul class="finding-list">
-      {% for item in guidance.found %}
-        <li class="finding-card">
-          <strong class="finding-name">{{ 'Household composition' if guidance_code == '4Ps' and item.subject == 'CBMS ' ~ year else item.subject }}</strong>
-          {% set text_chip = age_chip_label(item.text, year) if item.text else '' %}
-          {% if guidance_code == 'SPISC' %}
-            <span class="age-chips">
-              <span class="age-chip">Age in CBMS {{ year }}: {{ item.recorded_age if item.recorded_age is not none else 'Not recorded or unclear' }}</span>
-              <span class="age-chip">Estimated now ({{ guidance.date_label }}): {% if item.minimum_age is not none %}{{ item.minimum_age }}{% if item.minimum_age != item.maximum_age %}–{{ item.maximum_age }}{% endif %}{% else %}Unavailable{% endif %}</span>
-            </span>
-            <span class="{{ callout_class }}">{{ item.text }}</span>
-          {% elif text_chip %}
-            {% if guidance_code == '4Ps' %}<span class="finding-context">Child aged 0–18 recorded in CBMS {{ year }}</span>{% endif %}
-            <span class="age-chips"><span class="age-chip">{{ text_chip }}</span></span>
-          {% elif item.text %}
-            <span class="{{ callout_class }}">{{ item.text }}</span>
-          {% else %}
-            {% if item.age %}<span class="age-chips"><span class="age-chip">{{ age_chip_label(item.age, year) or item.age }}</span></span>{% endif %}
-            {% if item.details %}
-              <span class="{{ callout_class }}">{% for detail in item.details %}<span>{% if guidance_code == 'SLP' and item.pathway and 'needs confirmation' not in detail %}Recorded work: {% endif %}{{ detail }}</span>{% endfor %}</span>
-            {% endif %}
-          {% endif %}
-        </li>
+      {% for item in guidance.found[:3] %}
+        {{ finding_card(item, guidance_code, guidance, year, callout_class) }}
       {% else %}
         <li class="finding-card">
           {% if guidance_code == 'SPISC' %}
@@ -75,6 +79,17 @@
         </li>
       {% endfor %}
     </ul>
+    {# Long lists stay readable: the first three findings show, the rest open on request. #}
+    {% if guidance.found | length > 3 %}
+      <details class="finding-more">
+        <summary>Show {{ guidance.found | length - 3 }} more finding{{ 's' if guidance.found | length - 3 > 1 }}</summary>
+        <ul class="finding-list">
+          {% for item in guidance.found[3:] %}
+            {{ finding_card(item, guidance_code, guidance, year, callout_class) }}
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
 
     {% if clarifications and screening.status != 'Needs Data Review' %}
       <h5 class="panel-label">Information to clarify</h5>
@@ -88,6 +103,8 @@
       {% for question in guidance.questions %}<li>{{ question }}</li>{% endfor %}
     </ol>
 
+    {% if not guidance_hide_link %}
     <a class="review-button review-button--secondary review-guidance-link" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-' ~ slug, **(assessment_parameters | default(detail_parameters))) }}">View full {{ guidance_code }} screening <span aria-hidden="true">→</span></a>
+    {% endif %}
   </details>
 {% endif %}

@@ -228,7 +228,7 @@ class ResponsibilityDatabaseTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('Confirm Reassignment', response.text)
         for label in ('Back to Review Queue', 'View Staff Reviews', 'View Household Assessment',
-                      'View full 4Ps screening', 'Responsible Staff', 'Started by'):
+                      'View 4Ps Screening', 'Responsible Staff', 'Started By', 'Date Started'):
             self.assertIn(label, response.text)
         self.assertIn('tab=reviews', response.text)
         self.assertIn('#staff-reviews-heading', response.text)

@@ -323,8 +323,7 @@ class StaffReviewRouteTests(unittest.TestCase):
                 if program == 'SPISC':
                     self.assertIn('Estimated now (', page)
                 else:
-                    self.assertIn('Historical screening finding</span>', page)
-                    self.assertNotIn('Historical screening finding:', page)
+                    self.assertIn('Automated Screening Finding</span>', page)
                 self.assertIn(f'reviews/{program}?origin=screening&amp;page=2', page)
                 self.assertIn(f'tab=screening&amp;page=2#screening-{program.lower()}"'
                               '>Cancel</a>', page)
@@ -345,9 +344,9 @@ class StaffReviewRouteTests(unittest.TestCase):
     def test_spisc_guidance_separates_current_and_historical_results(self):
         self.session()
         page = self.client.get(self.path + '/reviews/SPISC').text
-        self.assertIn('Current SPISC recommendation (as of ', page)
+        self.assertIn('Automated Screening Finding: current age (as of ', page)
         year = self.source['context']['survey_year']
-        self.assertIn(f'CBMS {year} screening<', page)
+        self.assertIn(f'Automated Screening Finding: CBMS {year} (historical)<', page)
         # Status appears once, as badges in the panel, with a single link to the full screening.
         self.assertEqual(page.count('class="status-badge-item"'), 2)
         self.assertNotIn('View SPISC finding and current-age evidence', page)
@@ -385,13 +384,17 @@ class StaffReviewRouteTests(unittest.TestCase):
                 self.assertIn('Information to check', page)
                 self.assertNotIn('Current system screening', page)
                 positions = [page.index(marker) for marker in (
-                    'id="review-details-heading"', 'id="guidance-heading-',
-                    'id="add-note-heading"', 'id="review-notes-heading"')]
+                    'id="review-status-heading"', 'id="review-details-heading"',
+                    'id="guidance-heading-', 'id="add-note-heading"', 'id="review-notes-heading"')]
                 self.assertEqual(positions, sorted(positions))
+                self.assertIn('href="#add-note-heading">Add a Note</a>', page)
                 self.assertIn('Back to Review Queue', page)
-                self.assertIn('queue_page=3', page.split('View full', 1)[1])
+                nav = page.split('Review and household links', 1)[1].split('</nav>', 1)[0]
+                self.assertIn(f'View {program} Screening', nav)
+                self.assertIn('queue_page=3', nav.split('Screening', 1)[0].rsplit('<a', 1)[1])
+                self.assertNotIn('View full', page)
                 self.assertNotIn('View Subsidy Screening', page)
-                actions = page.split('class="review-action-buttons"', 1)[1]
+                actions = page.split('class="review-action-buttons"', 1)[1].split('</aside>', 1)[0]
                 self.assertLess(actions.index('Finish Review'), actions.index('Cancel Review'))
                 self.assertLess(actions.index('Cancel Review'), actions.index('Reassign Staff'))
                 self.assertEqual(actions.count('class="review-button"'), 1)
@@ -409,10 +412,91 @@ class StaffReviewRouteTests(unittest.TestCase):
                 nav = page.split('Review and household links', 1)[1].split('</nav>', 1)[0]
                 self.assertIn('View SLP Screening', nav)
                 self.assertIn('#screening-slp', nav)
+                self.assertNotIn('View full', page)
+
+    def test_open_forms_explain_how_to_add_another_note(self):
+        self.session()
+        self.source['staff_reviews'] = [self.review_row('4Ps')]
+        for action in ('finish', 'cancel', 'reassign'):
+            with self.subTest(action=action), patch(
+                    'routes.assessments.get_assignable_staff', return_value=[{'id': 8, 'username': 'other'}]):
+                page = self.client.get(f'{self.path}/reviews/4Ps/42?action={action}').text
+                self.assertIn('To add another note first, choose Keep Reviewing.', page)
+                self.assertIn('Keep Reviewing', page)
+                self.assertNotIn('id="add-note-heading"', page)
+        idle = self.client.get(f'{self.path}/reviews/4Ps/42').text
+        self.assertNotIn('To add another note first', idle)
+
+    def test_review_labels_separate_finding_status_staff_and_dates(self):
+        self.session()
         self.source['staff_reviews'] = [self.review_row('SLP')]
-        nav = self.client.get(f'{self.path}/reviews/SLP/42').text.split(
-            'Review and household links', 1)[1].split('</nav>', 1)[0]
-        self.assertNotIn('View SLP Screening', nav)
+        page = self.client.get(f'{self.path}/reviews/SLP/42').text
+        for label in ('Automated Screening Finding', 'Staff Review Status', 'Responsible Staff',
+                      'Started By', 'Date Started'):
+            self.assertIn(label, page)
+        self.assertEqual(page.count('Responsible Staff'), 1)
+        self.source['staff_reviews'] = [self.review_row('SLP', 'Closed')]
+        closed = self.client.get(f'{self.path}/reviews/SLP/42').text
+        self.assertIn('Current Staff Recommendation', closed)
+        self.assertNotIn('Add a Note', closed)
+
+    def test_saved_note_confirmation_sits_beside_the_newest_note(self):
+        self.session()
+        notes = [{'username': 'first_author', 'body': 'Oldest note',
+                  'created_at': datetime(2026, 10, 1, 16, 30, tzinfo=timezone.utc)},
+                 {'username': 'second_author', 'body': 'Newest note',
+                  'created_at': datetime(2026, 10, 2, 1, 0, tzinfo=timezone.utc)}]
+        self.source['staff_reviews'] = [self.review_row('4Ps', notes=notes)]
+        path = f'{self.path}/reviews/4Ps/42?page=2'
+        data = {'csrf_token': 'test-token', 'batch_id': '1', 'run_id': '2',
+                'action': 'note', 'text': 'Newest note'}
+        with patch('routes.assessments.act_on_review') as act:
+            saved = self.client.post(path, data=data)
+        act.assert_called_once()
+        self.assertEqual(saved.status_code, 303)
+        self.assertTrue(saved.location.endswith('#latest-note'))
+        self.assertIn('page=2', saved.location)
+        page = self.client.get(path).text
+        self.assertEqual(page.count('Note saved.'), 1)
+        self.assertEqual(page.count('id="latest-note"'), 1)
+        newest = page.index('Newest note')
+        self.assertLess(page.index('id="latest-note"'), newest)
+        self.assertLess(newest, page.index('Note saved.'))
+        self.assertNotIn('Note saved.', self.client.get(path).text)
+
+    def test_other_actions_keep_their_notice_at_the_top_without_an_anchor(self):
+        self.session()
+        self.source['staff_reviews'] = [self.review_row('4Ps')]
+        data = {'csrf_token': 'test-token', 'batch_id': '1', 'run_id': '2',
+                'action': 'cancel', 'text': ''}
+        with patch('routes.assessments.act_on_review'):
+            cancelled = self.client.post(
+                f'{self.path}/reviews/4Ps/42?action=cancel', data=data)
+        self.assertEqual(cancelled.status_code, 303)
+        self.assertNotIn('#', cancelled.location)
+        page = self.client.get(cancelled.location).text
+        self.assertLess(page.index('Review cancelled. No recommendation was made.'),
+                        page.index('id="review-status-heading"'))
+
+    def test_long_finding_lists_show_three_findings_and_fold_the_rest(self):
+        self.session()
+        self.source['staff_reviews'] = [self.review_row('TUPAD')]
+
+        def with_extra_findings(household_uuid):
+            results = service.get_staff_review_detail(household_uuid)
+            program = next(row for row in results['screening_programs'] if row['code'] == 'TUPAD')
+            template = {'subject': 'Synthetic Member', 'age': 'Age at survey: 40.',
+                        'details': ['Recorded work']}
+            program['guidance']['found'] = [dict(template, subject=f'Finding subject {n}') for n in range(1, 6)]
+            return results
+
+        with patch('routes.assessments.get_staff_review_detail', side_effect=with_extra_findings):
+            page = self.client.get(f'{self.path}/reviews/TUPAD/42').text
+        self.assertIn('Show 2 more findings', page)
+        visible, folded = page.split('class="finding-more"', 1)
+        self.assertEqual(visible.count('Finding subject '), 3)
+        self.assertEqual(folded.count('Finding subject '), 2)
+        self.assertIn('Information to check', page)
 
     def test_saved_notes_stay_oldest_first_and_times_use_philippine_time(self):
         self.session()

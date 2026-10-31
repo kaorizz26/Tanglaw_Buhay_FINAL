@@ -379,10 +379,13 @@ def review_record(household_uuid, review_program, review_id):
                 ),
                 'cancel': 'Review cancelled. No recommendation was made.',
                 'reassign': 'Responsible Staff updated. The change is saved in assignment history.',
-            }[action])
+            }[action], 'note' if action == 'note' else 'message')
+            # A saved note reopens the page at the newest note, next to its confirmation.
             return redirect(url_for(
                 'assessments.review_record', household_uuid=household_uuid,
-                review_program=program, review_id=review_id, **navigation['detail_parameters'],
+                review_program=program, review_id=review_id,
+                _anchor='latest-note' if action == 'note' else None,
+                **navigation['detail_parameters'],
             ), code=303)
     try:
         results = get_staff_review_detail(str(household_uuid))
