@@ -76,6 +76,12 @@
             {% endfor %}
           </select>
         </div>
+        {# Display only: the field has no name, so the survey year is never submitted as a filter. #}
+        <div class="filter-field filter-year">
+          <label for="queue-survey-year">Survey Year</label>
+          <input id="queue-survey-year" type="text" value="{{ results.context.survey_year }}" readonly aria-describedby="queue-survey-year-hint">
+          <span id="queue-survey-year-hint" class="visually-hidden">The survey year of the household records in use. It cannot be changed here.</span>
+        </div>
         <div class="filter-actions">
           <button class="apply-filters" type="submit">Apply Filters</button>
           {% if results.filters.active or results.filters.sort %}

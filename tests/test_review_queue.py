@@ -246,6 +246,118 @@ class QueueRouteTests(unittest.TestCase):
         self.assertIn('Responsible Staff:', main)
         self.assertIn('(you)', main)
 
+    def test_survey_year_is_a_read_only_value_from_the_active_dataset(self):
+        self.fixture.session()
+
+        def queue_for_year_2025(page, filters, **kwargs):
+            result = queue_fixture(page, filters, **kwargs)
+            result['context']['survey_year'] = 2025
+            return result
+        self.query.side_effect = queue_for_year_2025
+        page = self.client.get('/assessments/queue')
+        field = re.search(r'<input id="queue-survey-year"[^>]*>', page.text)[0]
+        self.assertIn('value="2025"', field)
+        self.assertIn('readonly', field)
+        # No name attribute: the year is never submitted with the filters.
+        self.assertNotIn('name=', field)
+        self.assertIn('<label for="queue-survey-year">Survey Year</label>', page.text)
+
+    def test_focused_review_header_shows_survey_year_without_the_uuid(self):
+        self.fixture.session()
+        self.fixture.source['staff_reviews'] = [{
+            'id': 42, 'current_review_id': 42, 'program': '4Ps', 'status': 'In Review',
+            'username': 'synthetic_staff', 'notes': [], 'starting_reason': '',
+            'created_at': datetime(2026, 10, 17, tzinfo=timezone.utc),
+            'closing_recommendation': None,
+        }]
+        query = urlencode(queue.queue_return_parameters(2, queue.QueueFilters()), doseq=True)
+        record = self.client.get(self.fixture.path + '/reviews/4Ps/42?' + query)
+        assessment = self.client.get(self.fixture.path + '?tab=overview&' + query)
+        for page in (record, assessment):
+            self.assertIn('Survey Year: <strong>2022</strong>', page.text)
+            self.assertNotIn('aria-label="Breadcrumb"', page.text)
+            self.assertNotIn('CBMS Data', page.text)
+            self.assertIn('Back to Review Queue', page.text)
+        self.assertNotIn('Household UUID', record.text)
+        self.assertIn('Household UUID', assessment.text)
+
+    def _start_review_origin_fixture(self):
+        """One in-progress 4Ps review, opened from page 2 of a filtered queue."""
+        self.fixture.session()
+        self.fixture.source['staff_reviews'] = [{
+            'id': 42, 'current_review_id': 42, 'program': '4Ps', 'status': 'In Review',
+            'username': 'synthetic_staff', 'notes': [], 'starting_reason': '',
+            'created_at': datetime(2026, 10, 17, tzinfo=timezone.utc),
+            'closing_recommendation': None,
+        }]
+        filters = queue.QueueFilters('in-review', 'Synthetic', '', ('4Ps',), 'mine', 'desc')
+        self.queue_query = urlencode(queue.queue_return_parameters(2, filters), doseq=True)
+        self.record_path = self.fixture.path + '/reviews/4Ps/42'
+
+    def test_assessment_opened_from_a_review_leads_back_to_that_review(self):
+        self._start_review_origin_fixture()
+        record = self.client.get(self.record_path + '?' + self.queue_query)
+        links = [unescape(url) for url in re.findall(r'href="([^"]+)"', record.text)]
+        assessment_links = [url for url in links if url.startswith(self.fixture.path + '?tab=')]
+        # Every link from the review to an assessment page names the review.
+        self.assertGreaterEqual(len(assessment_links), 3)
+        for url in assessment_links:
+            self.assertEqual(parse_qs(urlsplit(url).query)['from_review'], ['4Ps-42'])
+        for tab in ('overview', 'mpi', 'screening', 'reviews'):
+            with self.subTest(tab=tab):
+                page = self.client.get(
+                    f'{self.fixture.path}?tab={tab}&from_review=4Ps-42&{self.queue_query}')
+                self.assertEqual(page.status_code, 200)
+                self.assertIn('Back to 4Ps Staff Review', page.text)
+                self.assertNotIn('Back to Review Queue', page.text)
+                back = unescape(re.search(r'<a class="back-to-prioritization context-navigation" '
+                                          r'href="([^"]+)"', page.text)[1])
+                self.assertEqual(urlsplit(back).path, self.record_path)
+                self.assertEqual(parse_qs(urlsplit(back).query)['queue_page'], ['2'])
+                self.assertNotIn('from_review', back)
+                # The origin survives every tab link on the page.
+                tab_links = [unescape(url) for url in re.findall(r'href="([^"]+)"', page.text)
+                             if '?tab=' in url]
+                self.assertTrue(tab_links)
+                for url in tab_links:
+                    self.assertEqual(parse_qs(urlsplit(url).query)['from_review'], ['4Ps-42'])
+        # From the review, Back to Review Queue still keeps the original filters and page.
+        self.assertIn('Back to Review Queue', record.text)
+        queue_back = unescape(re.search(r'<a class="review-return-link context-navigation" '
+                                        r'href="([^"]+)"', record.text)[1])
+        self.assertEqual(parse_qs(urlsplit(queue_back).query)['q'], ['Synthetic'])
+        self.assertEqual(parse_qs(urlsplit(queue_back).query)['page'], ['2'])
+        self.assertEqual(self.client.get(queue_back).status_code, 200)
+
+    def test_other_origins_keep_their_own_back_links(self):
+        self._start_review_origin_fixture()
+        # A household that merely has an active review does not imply a review origin.
+        for query, expected in ((self.queue_query, 'Back to Review Queue'),
+                                ('page=3', 'Back to Prioritization')):
+            page = self.client.get(f'{self.fixture.path}?tab=overview&{query}')
+            self.assertIn(expected, page.text)
+            self.assertNotIn('Back to 4Ps Staff Review', page.text)
+            self.assertNotIn('from_review', page.text)
+
+    def test_invalid_conflicting_and_stale_review_origins_are_rejected(self):
+        self._start_review_origin_fixture()
+        record_origin = urlencode({'from_record': '1', 'record_page': 1})
+        for label, query in (
+            ('missing number', 'from_review=4Ps'), ('zero', 'from_review=4Ps-0'),
+            ('unknown program', 'from_review=XYZ-42'), ('text number', 'from_review=4Ps-abc'),
+            ('non-ASCII digits', 'from_review=4Ps-٤٢'), ('too long', 'from_review=4Ps-' + '1' * 19),
+            ('repeated', 'from_review=4Ps-42&from_review=4Ps-42'), ('url', 'from_review=https://example.com'),
+            ('wrong program', 'from_review=SLP-42'), ('review not in household', 'from_review=4Ps-99'),
+        ):
+            with self.subTest(label):
+                page = self.client.get(f'{self.fixture.path}?{query}&{self.queue_query}')
+                self.assertEqual(page.status_code, 400)
+                self.assertNotIn('Back to 4Ps Staff Review', page.text)
+        for label, query in (('no queue origin', ''), ('record origin', record_origin)):
+            with self.subTest(label):
+                page = self.client.get(f'{self.fixture.path}?from_review=4Ps-42&{query}')
+                self.assertEqual(page.status_code, 400)
+
     def test_clear_filters_and_more_filters_follow_the_applied_filters(self):
         self.fixture.session()
         # (query, Clear Filters shown, More Filters open)

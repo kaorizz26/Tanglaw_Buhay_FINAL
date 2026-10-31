@@ -88,6 +88,6 @@
       {% for question in guidance.questions %}<li>{{ question }}</li>{% endfor %}
     </ol>
 
-    <a class="review-button review-button--secondary review-guidance-link" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-' ~ slug, **detail_parameters) }}">View full {{ guidance_code }} screening <span aria-hidden="true">→</span></a>
+    <a class="review-button review-button--secondary review-guidance-link" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-' ~ slug, **(assessment_parameters | default(detail_parameters))) }}">View full {{ guidance_code }} screening <span aria-hidden="true">→</span></a>
   </details>
 {% endif %}

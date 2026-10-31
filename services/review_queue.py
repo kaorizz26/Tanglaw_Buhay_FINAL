@@ -104,6 +104,25 @@ def parse_queue_return(arguments):
     return parse_queue_arguments(values)
 
 
+def parse_review_origin(arguments, *, opened_from_queue):
+    """Read the optional "from_review" value, such as 4Ps-42, as (program, review ID).
+
+    It is only valid together with a Review Queue return, because that is the
+    only path that sends staff from a review to a household assessment. The
+    value is never used as an address; the caller checks the review exists.
+    """
+    supplied = arguments.getlist('from_review')
+    if not supplied:
+        return None
+    program, _, number = supplied[0].partition('-')
+    if (len(supplied) > 1 or program not in PROGRAM_ORDER or not number.isascii()
+            or not number.isdecimal() or len(number) > 18 or int(number) < 1):
+        raise InvalidAssessmentFilters('invalid_review_origin')
+    if not opened_from_queue:
+        raise InvalidAssessmentFilters('conflicting_return_origins')
+    return program, int(number)
+
+
 DASHBOARD_RECENT_LIMIT = 5
 
 

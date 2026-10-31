@@ -459,8 +459,11 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.source["identity"].update(first_name="Synthetic", middle_name="Recorded",
                                       last_name="Full Name")
         response = self.client.get(self.path + "?page=2&completeness=unknown")
-        self.assertIn("CBMS Data · 2025", response.text)
-        self.assertNotIn("CBMS Data · 2022", response.text)
+        # The survey year is read from the selected dataset and shown with the household.
+        self.assertIn("Survey Year: <strong>2025</strong>", response.text)
+        self.assertNotIn("2022", response.text.split("<main", 1)[1].split("assessment-metrics", 1)[0])
+        for removed in ('aria-label="Breadcrumb"', "CBMS Data", "dataset-reference"):
+            self.assertNotIn(removed, response.text)
         self.assertIn("Synthetic Recorded Full Name", response.text)
         self.assertIn(f'<dd class="detail-record-id">{HOUSEHOLD_UUID}</dd>', response.text)
         self.assertIn("<dt>Barangay</dt>", response.text)

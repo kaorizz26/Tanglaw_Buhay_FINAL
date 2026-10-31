@@ -48,9 +48,9 @@
 
 .household-identity {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px 24px;
+  gap: 16px 28px;
   margin-top: 8px;
   padding: 14px 18px;
   border: 1px solid var(--border);
@@ -65,20 +65,49 @@
   overflow-wrap: anywhere;
 }
 
-.household-records {
-  display: grid;
-  justify-self: end;
-  max-width: 100%;
-  gap: 8px;
-  margin: 0;
+/* Page title on the left, read-only Survey Year on the right. */
+.detail-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
 
-.household-records dt {
+.survey-year-panel {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--navy);
+  font-size: 0.9375rem;
+  white-space: nowrap;
+}
+
+.household-identity-main {
+  min-width: 0;
+}
+
+/* Left group: name, Household ID and (on the assessment page) the UUID. */
+.household-uuid {
+  margin: 8px 0 0;
+}
+
+/* Right group: Barangay, aligned with the card's right edge. */
+.household-records {
+  max-width: 280px;
+  margin: 0;
+  text-align: right;
+}
+
+.household-records dt,
+.household-uuid dt {
   color: var(--text-muted);
   font-size: 0.875rem;
 }
 
-.household-records dd {
+.household-records dd,
+.household-uuid dd {
   margin: 2px 0 0;
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -1196,7 +1225,8 @@
   }
 
   .household-records {
-    justify-self: stretch;
+    max-width: none;
+    text-align: left;
   }
 
   .household-identity {

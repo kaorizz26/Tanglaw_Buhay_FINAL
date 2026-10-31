@@ -17,7 +17,7 @@ from services.staff_reviews import (
 from services.subsidy_screening_content import PROGRAM_NAMES
 from services.review_queue import (
     get_review_queue_page, parse_queue_arguments, parse_queue_return,
-    queue_return_parameters,
+    parse_review_origin, queue_return_parameters,
 )
 from routes.recommendation_changes import recommendation_form
 
@@ -60,6 +60,27 @@ def _assessment_navigation(arguments):
         'detail_parameters': {**list_parameters, **queue_parameters, **record_parameters},
         'queue_return_url': queue_url,
         'record_list_state': record_list_state,
+        'review_return_url': None,
+        'review_return_label': None,
+    }
+
+
+def _add_review_origin(navigation, household_uuid, review_origin, review_history):
+    """Point Back at the review that opened this assessment, if it is really one of
+    this household's reviews; a wrong or stale review ID is rejected."""
+    program, review_id = review_origin
+    if not any(row['id'] == review_id and row['program'] == program for row in review_history):
+        raise InvalidAssessmentFilters('stale_review_origin')
+    return {
+        **navigation,
+        'review_return_url': url_for(
+            'assessments.review_record', household_uuid=household_uuid,
+            review_program=program, review_id=review_id, **navigation['detail_parameters'],
+        ),
+        'review_return_label': f'{program} Staff Review',
+        # Keeps the origin while staff move between the four assessment tabs.
+        'detail_parameters': {**navigation['detail_parameters'],
+                              'from_review': f'{program}-{review_id}'},
     }
 
 
@@ -123,10 +144,17 @@ def detail(household_uuid):
     """Show one stored household only after the unchanged staff authorization guard."""
     try:
         tab, navigation = _assessment_navigation(request.args)
+        review_origin = parse_review_origin(
+            request.args, opened_from_queue=navigation['queue_return_url'] is not None,
+        )
         if tab == "reviews":
             results = get_staff_review_detail(str(household_uuid))
         else:
             results = get_assessment_detail(str(household_uuid))
+        if review_origin:
+            navigation = _add_review_origin(
+                navigation, household_uuid, review_origin, results['review_history'],
+            )
     except InvalidAssessmentFilters:
         abort(400, description="Choose a valid assessment section and return filters.")
     except AssessmentQueryError as error:

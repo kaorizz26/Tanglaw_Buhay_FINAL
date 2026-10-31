@@ -11,54 +11,48 @@
 
 {% block content %}
   {% set focused_review = review_record is defined and review_record %}
-  {# Where the staff member came from decides the breadcrumb and Back link. #}
-  {% if queue_return_url %}
+  {# Where the staff member came from decides the Back link. #}
+  {% if review_return_url %}
+    {% set return_url = review_return_url %}
+    {% set back_label = review_return_label %}
+  {% elif queue_return_url %}
     {% set return_url = queue_return_url %}
-    {% set breadcrumb_label = 'Review Queue' %}
     {% set back_label = 'Review Queue' %}
   {% elif record_list_state %}
     {% set return_url = url_for('households.detail', household_uuid=results.household_uuid, **record_list_state) %}
-    {% set breadcrumb_label = 'Household Record' %}
     {% set back_label = 'Household Record' %}
   {% else %}
     {% set return_url = url_for('assessments.prioritization', **list_parameters) %}
-    {% set breadcrumb_label = 'Assessments' %}
     {% set back_label = 'Prioritization' %}
   {% endif %}
   <header class="page-header detail-header">
-    <div class="context-bar">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="{{ return_url }}">{{ breadcrumb_label }}</a>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{{ 'Staff Review' if focused_review else 'Household Assessment' }}</span>
-      </nav>
-      <p class="dataset-reference">
-        CBMS Data · {{ results.context.survey_year }}
-      </p>
-    </div>
     {% if not focused_review %}
       <a class="back-to-prioritization context-navigation" href="{{ return_url }}">
         <span aria-hidden="true">←</span> Back to {{ back_label }}
       </a>
     {% endif %}
     <div class="page-heading">
-      <h1>{{ review_record.program ~ ' Staff Review' if focused_review else 'Household Assessment' }}</h1>
+      <div class="detail-title-row">
+        <h1>{{ review_record.program ~ ' Staff Review' if focused_review else 'Household Assessment' }}</h1>
+        <div class="survey-year-panel">Survey Year: <strong>{{ results.context.survey_year }}</strong></div>
+      </div>
       <div class="household-identity">
-        <div>
+        <div class="household-identity-main">
           <h2 class="detail-head-name">{{ results.head_name }}</h2>
           <p class="detail-household-id">{{ results.household_reference_id }}</p>
+          {# The focused review page has never shown the UUID. #}
+          {% if not focused_review %}
+            <dl class="household-uuid">
+              <dt>Household UUID</dt>
+              <dd class="detail-record-id">{{ results.household_uuid }}</dd>
+            </dl>
+          {% endif %}
         </div>
         <dl class="household-records">
           <div>
             <dt>Barangay</dt>
             <dd>{{ results.barangay }}</dd>
           </div>
-          {% if not focused_review %}
-            <div>
-              <dt>Household UUID</dt>
-              <dd class="detail-record-id">{{ results.household_uuid }}</dd>
-            </div>
-          {% endif %}
         </dl>
       </div>
     </div>

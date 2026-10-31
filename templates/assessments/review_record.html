@@ -1,13 +1,15 @@
 {% set review = review_record %}
+{# Only a review opened from the Review Queue is passed on, so the next page can lead back here. #}
+{% set assessment_parameters = dict(detail_parameters, from_review=review.program ~ '-' ~ review.id) if queue_return_url else detail_parameters %}
 {% set record_url = url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, **detail_parameters) %}
 <nav class="review-navigation" aria-label="Review and household links">
   <a class="review-return-link context-navigation" href="{{ queue_return_url or url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}"><span aria-hidden="true">←</span> Back to {{ 'Review Queue' if queue_return_url else 'Staff Reviews' }}</a>
   {% if queue_return_url %}
-    <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}">View Staff Reviews</a>
+    <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **assessment_parameters) }}">View Staff Reviews <span aria-hidden="true">→</span></a>
   {% endif %}
-  <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **detail_parameters) }}">View Household Assessment <span aria-hidden="true">→</span></a>
+  <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='overview', **assessment_parameters) }}">View Household Assessment <span aria-hidden="true">→</span></a>
   {% if review.status != 'In Review' %}
-    <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-' ~ (review.program | lower), **detail_parameters) }}">View {{ review.program }} Screening <span aria-hidden="true">→</span></a>
+    <a class="context-navigation" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='screening', _anchor='screening-' ~ (review.program | lower), **assessment_parameters) }}">View {{ review.program }} Screening <span aria-hidden="true">→</span></a>
   {% endif %}
 </nav>
 
