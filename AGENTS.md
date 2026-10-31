@@ -20,11 +20,12 @@
 - Never copy technical documentation into operational screens. Omit synthetic-support labels, pilot-approximation or provenance narratives, developer notes, formulas, internal implementation details, and unnecessary methodology. Do not hide these in disclosures or tooltips.
 - Preserve material missing, conflicting, or uncertain information through brief, understandable messages. Do not imply that supplemental or derived values were directly observed or verified by PSA. Keep accurate origins, transformations, and limitations internally.
 - Show all 16 MPI indicators with Deprived, Not Deprived, or Unknown findings and relevant household/member information through View Evidence. CBMS Record Details was intentionally removed from MPI Indicators; preserve original source values and mappings internally. Keep MPI and subsidy screening findings separate from staff review decisions.
-- Review affected screens from an LGU staff member's perspective before marking UI work complete.
+- Review affected screens from an LGU staff member's perspective before marking UI work complete: staff should see where they are, what each control does and how to return, without a manual. Avoid article-like text blocks, decorative cards, repeated explanations and unexplained statistics.
 
 ## Implementation and verification
 
 - Keep code simple, readable, modular, and consistent with repository conventions and PEP 8. Separate routes, services, repository access, templates, styles, and interaction scripts. Keep frontend source expanded and organized by feature; preserve keyboard access and readable contrast.
+- Code must be explainable in the capstone source-code review: descriptive names, functions with one clear purpose, short plain-English docstrings for important functions, and comments only for non-obvious rules, validation, security checks and design decisions. Prefer clarity over clever or compressed code.
 - Prefer the smallest maintainable change. Avoid unnecessary files, abstractions, dependencies, unrelated refactoring, and lengthy documentation logs. Update essential technical documentation when architecture or developer-facing behavior materially changes.
 - Check changes proportionately: focused tests and relevant viewport checks under [UI_SPEC.md](docs/UI_SPEC.md) for small UI work; the full unittest suite and relevant Developer Guide checks for backend/database changes, higher-risk behavior changes, or final integration. Documentation-only work needs content, link, and diff review rather than application tests.
 - For an explicitly authorized behavior-preserving engine refactor, compare complete outputs before and after; equal totals alone are insufficient. Keep private comparisons in Git-ignored storage.

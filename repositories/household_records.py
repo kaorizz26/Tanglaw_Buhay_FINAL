@@ -6,14 +6,15 @@ from repositories.assessment_runs import _reference_position
 
 
 HOUSEHOLD_FIELDS = (
-    "q01_main_water", "q14_toilet_facility", "q19_share_toilet",
-    "r03_roof", "r04_outer_walls", "r06_floor", "r07_floor_area",
-    "r10_tenure", "r12_electricity",
+    "r01_building_type", "r10_tenure", "r03_roof", "r04_outer_walls", "r06_floor",
+    "r07_floor_area", "r09_number_of_bedrooms", "r12_electricity", "r15_fuel_for_cooking",
+    "q01_main_water", "q03_drinking_water", "q14_toilet_facility",
+    "q18_toilet_facility_located", "q19_share_toilet", "q23_handwashing",
 )
 MEMBER_FIELDS = (
     "a01_first_name", "a01_middle_name", "a01_last_name",
-    "a02_relation_to_hh_head", "a05_sex", "a07_age",
-    "c03_currently_attending_school", "e01_employed",
+    "a02_relation_to_hh_head", "a05_sex", "a07_age", "c02_hgc_group",
+    "c03_currently_attending_school", "e01_employed", "e18_class_of_worker",
 )
 
 

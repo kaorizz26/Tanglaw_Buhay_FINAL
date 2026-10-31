@@ -16,6 +16,7 @@ This document sets the current staff-facing UI direction and responsive expectat
 - Show uncertainty where it matters, briefly and accurately. Never invent missing answers or imply that supplemental or derived values were directly collected or verified by PSA.
 - Keep routine screens free of synthetic-support labels, pilot-development or provenance narratives, technical formulas, data-preparation notes, internal task references, developer assumptions, and lengthy methodology. Retain those details in internal metadata and technical documentation.
 - Check usability from a first-time staff perspective as well as functional correctness before completing a screen.
+- Present information as grouped, scannable sections, not article-like text. Use navy, white and gold accents, consistent borders and spacing, and only the cards, colors and statistics that carry meaning. Show a fixed context value, such as the active survey year, as clearly read-only rather than as a control that appears changeable.
 
 ## Responsive design by portal
 

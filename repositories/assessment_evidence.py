@@ -62,8 +62,11 @@ def list_member_sources(connection, batch_id, household_uuid):
         ).fetchall()
 
 
-def list_evidence_references(connection, batch_id):
-    """Read the active batch's references for relevant variables, never fixtures."""
+def list_evidence_references(connection, batch_id, variable_names=REFERENCE_FIELDS):
+    """Read the active batch's references for relevant variables, never fixtures.
+
+    Assessments use the default variables; Household Records passes its own list.
+    """
     references = {}
     for name, table in (
         ("codebook", "codebook_values"),
@@ -77,7 +80,7 @@ def list_evidence_references(connection, batch_id):
         ).format(sql.Identifier(table))
         references[name] = [
             row[0] for row in connection.execute(
-                statement, (batch_id, list(REFERENCE_FIELDS)),
+                statement, (batch_id, list(variable_names)),
             ).fetchall()
         ]
     return references

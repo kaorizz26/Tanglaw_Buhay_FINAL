@@ -2150,3 +2150,25 @@ and the archive path. Recovery requires the same household/staff IDs and schema;
 do not restore over newer review work. Isolated tests exercise an actual backup,
 reset and restore, plus wrong targets, refused confirmation, archive failure and
 rollback, while comparing every protected source/assessment table and staff account.
+
+## Household Records detail (HR-2)
+
+`services.household_records.get_record_detail()` reads one household's selected
+answers and roster through `repositories/household_records.py` (SELECT only) and
+decodes them with the batch codebook via `evidence_cell()`; only the fields listed
+in `HOUSEHOLD_GROUPS` and `MEMBER_COLUMNS` are fetched or labelled. It shows
+recorded answers only, never MPI findings, screening statuses, ranks or reviews.
+Household Composition groups members by recorded 2022 age (A07, as of
+June 30, 2022) using the shared `as_integer()` rule and a 0–120 range: 0–17,
+18–59 and 60+. Missing or invalid ages are counted only as unclear, so the
+groups always equal the roster total. Bedrooms (R09) has no codebook; any whole,
+non-negative number is shown as recorded and other values as "Meaning unclear".
+In the roster a dash means no recorded answer (possibly a skipped question), not
+No. Internet (N01), transportation (H01) and E15 are Synthetic Support and are
+deliberately not shown here.
+
+Name provenance: the variable definitions mark A01 first, middle and last name
+as Synthetic Support for this pilot batch. The stored names are displayed
+unlabelled across staff screens, as AGENTS.md requires, but they are placeholders
+rather than verified identities. Real names in a future batch are private
+personal data and stay behind the existing staff authorization.

@@ -21,9 +21,9 @@
     </div>
     <div class="record-detail-heading">
       <div>
-        <p class="records-kicker">Household record · {{ record.reference_id }}</p>
+        <p class="records-kicker">Household record</p>
         <h1>{{ record.head_name }}</h1>
-        <p>{{ record.barangay }} · Municipality of {{ record.context.municipality }}</p>
+        <p>Household ID {{ record.reference_id }} · {{ record.barangay }} · Municipality of {{ record.context.municipality }}</p>
       </div>
       <div class="record-detail-actions">
         <a class="record-back" href="{{ list_url }}">← Back to Records</a>
@@ -34,25 +34,28 @@
 
   <div class="record-notice" role="note">
     <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-    <p>These answers describe the {{ record.context.survey_year }} survey. A blank or skipped question is not a recorded “No.” Assessment findings and staff reviews are available through View Assessment.</p>
+    <p>These are answers from the {{ record.context.survey_year }} household survey. Missing answers do not mean ‘No’.</p>
   </div>
 
-  <div class="record-overview" aria-label="Household overview">
-    <div><span>Household ID</span><strong>{{ record.reference_id }}</strong></div>
-    <div><span>Barangay</span><strong>{{ record.barangay }}</strong></div>
-    <div><span>Members in recorded roster</span><strong>{{ record.member_count }}</strong></div>
-  </div>
+  {% set composition = record.composition %}
+  <section class="record-section record-composition" aria-labelledby="composition-heading">
+    <h2 id="composition-heading">Household Composition</h2>
+    <p class="record-section-note">Ages as recorded in the {{ record.context.survey_year }} survey.</p>
+    <dl class="composition-counts">
+      <div><dt>Household members</dt><dd>{{ composition.total }}</dd></div>
+      <div><dt>Children (0–17)</dt><dd>{{ composition.children }}</dd></div>
+      <div><dt>Adults (18–59)</dt><dd>{{ composition.adults }}</dd></div>
+      <div><dt>Older adults (60+)</dt><dd>{{ composition.older_adults }}</dd></div>
+      {# Shown only when needed, so the groups visibly add up to the total. #}
+      {% if composition.unclear_age %}
+        <div class="composition-unclear"><dt>Age not recorded or unclear</dt><dd>{{ composition.unclear_age }}</dd></div>
+      {% endif %}
+    </dl>
+  </section>
 
-  <nav class="record-jump-links" aria-label="Record sections">
-    <span>On this page</span>
-    <a href="#household-answers">Household Answers ↓</a>
-    <a href="#member-roster">Member Roster ↓</a>
-  </nav>
-
-  <div class="record-detail-grid" id="household-answers" role="region" aria-label="Household answers" tabindex="-1">
+  <div class="record-detail-grid">
     {% for group in record.groups %}
       <section class="record-section" aria-labelledby="record-group-{{ loop.index }}">
-        <p class="records-kicker">Household answers</p>
         <h2 id="record-group-{{ loop.index }}">{{ group.title }}</h2>
         <dl class="record-answer-list">
           {% for cell in group.cells %}
@@ -66,33 +69,38 @@
     {% endfor %}
   </div>
 
-  <section class="record-section record-members" id="member-roster" aria-labelledby="record-members-heading" tabindex="-1">
+  <section class="record-section record-members" aria-labelledby="record-members-heading">
     <div class="record-section-heading">
-      <div>
-        <p class="records-kicker">Recorded household members</p>
-        <h2 id="record-members-heading">Member roster</h2>
-      </div>
-      <span>{{ record.member_count }} {% if record.member_count == 1 %}member{% else %}members{% endif %}</span>
+      <h2 id="record-members-heading">Household Members</h2>
+      <span>{{ composition.total }} {% if composition.total == 1 %}member{% else %}members{% endif %}</span>
     </div>
     {% if record.members %}
-      <div class="record-member-grid">
-        {% for member in record.members %}
-          <article class="record-member">
-            <div class="record-member-heading">
-              <span>Member {{ member.line_number }}</span>
-              <h3>{{ member.name }}</h3>
-            </div>
-            <dl class="record-answer-list">
-              {% for cell in member.cells %}
-                <div>
-                  <dt>{{ cell.label }}</dt>
-                  <dd>{{ cell.value }}</dd>
-                </div>
+      <div class="roster-scroll" role="region" aria-labelledby="record-members-heading" tabindex="0">
+        <table class="roster-table">
+          <caption class="visually-hidden">Household members in roster order, with answers recorded in the {{ record.context.survey_year }} survey.</caption>
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Name</th>
+              {% for column in record.member_columns %}
+                <th scope="col">{{ column }}</th>
               {% endfor %}
-            </dl>
-          </article>
-        {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in record.members %}
+              <tr>
+                <td class="roster-number">{{ member.line_number }}</td>
+                <th scope="row">{{ member.name }}</th>
+                {% for answer in member.answers %}
+                  <td>{{ answer }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
+      <p class="roster-key">“—” means no answer was recorded. The question may not have been asked for that member.</p>
     {% else %}
       <p class="record-no-members">No household members were recorded in this roster.</p>
     {% endif %}

@@ -77,7 +77,9 @@ class RecordNavigationRouteTests(unittest.TestCase):
             'context': {'survey_year': 2022, 'municipality': 'Pozorrubio'},
             'household_uuid': str(HOUSEHOLD_UUID), 'reference_id': 'HH-00001',
             'head_name': 'Synthetic Head', 'barangay': 'Synthetic East',
-            'member_count': 0, 'groups': [], 'members': [],
+            'composition': {'total': 0, 'children': 0, 'adults': 0,
+                            'older_adults': 0, 'unclear_age': 0},
+            'groups': [], 'member_columns': [], 'members': [],
         }
         with patch('routes.households.get_record_detail', return_value=record):
             page = self.client.get(RECORD_URL + '?' + urlencode(LIST_STATE))

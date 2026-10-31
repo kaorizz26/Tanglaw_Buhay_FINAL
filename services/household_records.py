@@ -6,31 +6,55 @@ from werkzeug.datastructures import MultiDict
 
 from db import get_connection
 from repositories import assessment_evidence, dataset_batches, household_records
-from services.assessment_evidence_view import FIELD_LABELS, _display_value
+from services.assessment_evidence_view import _display_value
 from services.assessment_queries import AssessmentQueryError, _read_context
 from services.assessment_reference_labels import evidence_cell, reference_index
 from services.prioritization import _head_name, _household_reference_id, _source_text
+from services.screening.common import as_integer, is_missing
 
 
 PAGE_SIZE = 25
 MAX_FILTER_LENGTH = 200
 RECORD_RETURN_KEYS = ("record_page", "record_q", "record_barangay")
+# Each section lists (staff label, source field) in display order.
 HOUSEHOLD_GROUPS = (
-    ("Water and sanitation", (
-        "q01_main_water", "q14_toilet_facility", "q19_share_toilet",
+    ("Housing & Utilities", (
+        ("Building type", "r01_building_type"),
+        ("House and lot arrangement", "r10_tenure"),
+        ("Roof", "r03_roof"),
+        ("Outer walls", "r04_outer_walls"),
+        ("Floor", "r06_floor"),
+        ("Floor area", "r07_floor_area"),
+        ("Bedrooms", "r09_number_of_bedrooms"),
+        ("Electricity", "r12_electricity"),
+        ("Cooking fuel", "r15_fuel_for_cooking"),
     )),
-    ("Home and utilities", (
-        "r10_tenure", "r03_roof", "r04_outer_walls", "r06_floor",
-        "r07_floor_area", "r12_electricity",
+    ("Water & Sanitation", (
+        ("Main water source", "q01_main_water"),
+        ("Drinking water source", "q03_drinking_water"),
+        ("Toilet facility", "q14_toilet_facility"),
+        ("Toilet location", "q18_toilet_facility_located"),
+        ("Shared toilet", "q19_share_toilet"),
+        ("Handwashing place", "q23_handwashing"),
     )),
 )
-MEMBER_DETAILS = (
-    ("Relationship to household head", "a02_relation_to_hh_head"),
+# Roster table columns shown after the member number and name.
+MEMBER_COLUMNS = (
+    ("Relationship to head", "a02_relation_to_hh_head"),
     ("Sex", "a05_sex"),
-    ("Age at survey", "a07_age"),
-    ("School attendance", "c03_currently_attending_school"),
-    ("Work in the past week", "e01_employed"),
+    ("Age in 2022", "a07_age"),
+    ("Highest grade completed", "c02_hgc_group"),
+    ("Attending school", "c03_currently_attending_school"),
+    ("Worked in the past week", "e01_employed"),
+    ("Class of worker", "e18_class_of_worker"),
 )
+# Codebook labels are loaded only for the fields this page shows.
+RECORD_REFERENCE_FIELDS = tuple(
+    field for _, fields in HOUSEHOLD_GROUPS for _, field in fields
+) + tuple(field for _, field in MEMBER_COLUMNS)
+MAX_SURVEY_AGE = 120
+# Shown in the roster when no answer was recorded; it never means "No".
+NO_RECORDED_ANSWER = "—"
 
 
 class InvalidRecordFilters(ValueError):
@@ -142,14 +166,71 @@ def get_record_page(page, filters, *, connection_factory=get_connection):
         }
 
 
-def _recorded_cell(field, raw, dataset, index, *, label=None):
-    cell = evidence_cell(field, raw, dataset, index)
-    value = _display_value(cell)
-    if value == "Not recorded" and field in (
-        "c03_currently_attending_school", "e01_employed",
-    ):
-        value = "Not recorded or skipped"
-    return {"label": label or FIELD_LABELS.get(field, cell["label"]), "value": value}
+def survey_age(raw_age):
+    """Return a member's recorded 2022 age in whole years, or None if it cannot be used.
+
+    Uses the screening engines' shared number rule (whole and non-negative) plus
+    the agreed 0–120 survey-age range. Missing, fractional, text and out-of-range
+    values return None so they are never placed in an age group.
+    """
+    age = as_integer(raw_age)
+    if age is None or age > MAX_SURVEY_AGE:
+        return None
+    return age
+
+
+def count_household_composition(members):
+    """Count roster members by their recorded 2022 age group.
+
+    Each member is counted in exactly one group, so children, adults, older
+    adults and unclear ages always add up to the total number of members.
+    """
+    composition = {"total": len(members), "children": 0, "adults": 0,
+                   "older_adults": 0, "unclear_age": 0}
+    for member in members:
+        age = survey_age(member["responses"].get("a07_age"))
+        if age is None:
+            composition["unclear_age"] += 1
+        elif age < 18:
+            composition["children"] += 1
+        elif age < 60:
+            composition["adults"] += 1
+        else:
+            composition["older_adults"] += 1
+    return composition
+
+
+def _bedroom_count(raw):
+    """Show the recorded number of bedrooms, which has no codebook labels.
+
+    The field records a count, so any whole, non-negative number is shown as
+    recorded (0 is a valid answer). Other values stay visibly uncertain.
+    """
+    if is_missing(raw):
+        return "Not recorded"
+    count = as_integer(raw)
+    return "Meaning unclear" if count is None else str(count)
+
+
+def _household_answer(field, raw, index):
+    """Decode one household answer into plain wording using the batch codebook."""
+    if field == "r09_number_of_bedrooms":
+        return _bedroom_count(raw)
+    return _display_value(evidence_cell(field, raw, "household", index))
+
+
+def _member_answer(field, raw, index):
+    """Decode one roster answer for the members table.
+
+    A dash means no answer was recorded; the question may have been skipped for
+    this member, so it never stands for "No" or "Not applicable".
+    """
+    if is_missing(raw):
+        return NO_RECORDED_ANSWER
+    if field == "a07_age":
+        age = survey_age(raw)
+        return "Age unclear" if age is None else str(age)
+    return _display_value(evidence_cell(field, raw, "section_a_e_indiv", index))
 
 
 def get_record_detail(household_uuid, *, connection_factory=get_connection):
@@ -171,7 +252,7 @@ def get_record_detail(household_uuid, *, connection_factory=get_connection):
             connection, context["batch_id"], household_uuid,
         )
         references = assessment_evidence.list_evidence_references(
-            connection, context["batch_id"],
+            connection, context["batch_id"], RECORD_REFERENCE_FIELDS,
         )
         index = reference_index(references)
         return {
@@ -179,25 +260,25 @@ def get_record_detail(household_uuid, *, connection_factory=get_connection):
             "reference_id": _household_reference_id(record["source_row_number"]),
             "head_name": _head_name(identities[0]),
             "barangay": _source_text(record["barangay"]) or "Not recorded",
-            "member_count": len(members),
+            "composition": count_household_composition(members),
             "groups": [{
                 "title": title,
                 "cells": [
-                    _recorded_cell(field, record["responses"].get(field),
-                                   "household", index)
-                    for field in fields
+                    {"label": label,
+                     "value": _household_answer(field, record["responses"].get(field), index)}
+                    for label, field in fields
                 ],
             } for title, fields in HOUSEHOLD_GROUPS],
+            "member_columns": [label for label, _ in MEMBER_COLUMNS],
             "members": [{
                 "name": " ".join(filter(None, (
                     _source_text(member["responses"].get(field))
                     for field in ("a01_first_name", "a01_middle_name", "a01_last_name")
                 ))) or f"Member {member['line_number']}",
                 "line_number": member["line_number"],
-                "cells": [
-                    _recorded_cell(field, member["responses"].get(field),
-                                   "section_a_e_indiv", index, label=label)
-                    for label, field in MEMBER_DETAILS
+                "answers": [
+                    _member_answer(field, member["responses"].get(field), index)
+                    for _, field in MEMBER_COLUMNS
                 ],
             } for member in members],
         }
