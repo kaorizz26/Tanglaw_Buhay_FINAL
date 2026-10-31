@@ -829,6 +829,8 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
 
     def _assert_filtered_rows(self, filters, expected_numbers, findings, *, page_size=25):
         """Check full matching sets/counts across pages and original stored values."""
+        # These tests edit source rows in place, so each check must read the database.
+        read_cache.clear()
         expected = [value for number, value in enumerate(findings.values(), 1) if number in expected_numbers]
         expected.sort(key=lambda row: (row["mpi"]["vulnerability_rank"], row["household_uuid"]))
         actual = []

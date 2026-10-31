@@ -1,6 +1,7 @@
 """Read stored active-batch findings internally; route authorization is separate."""
 
 from contextlib import contextmanager
+from dataclasses import replace
 
 import psycopg
 from psycopg.pq import TransactionStatus
@@ -19,6 +20,7 @@ from services.spisc_age_progression import current_spisc_status, philippine_asse
 
 
 DASHBOARD_CACHE_SECONDS = 1800
+PRIORITIZATION_CACHE_SECONDS = 300
 
 
 class AssessmentQueryError(RuntimeError):
@@ -125,7 +127,26 @@ def _present_household_profile(raw):
     }
 
 
+def _cache_scope(connection, context, assessed):
+    """Identify one dataset snapshot for cache keys: database, batch, run and date.
+
+    A new batch, a new designated run, a new completion time or a new Philippine
+    date produces a different scope, so older results are never reused.
+    """
+    return (connection.info.dbname, context["batch_id"], context["run_id"],
+            context["completed_at"], assessed)
+
+
 def _current_age_statuses(connection, context, assessed):
+    """Return the current-age SPISC status of each recorded age, reused for a few minutes."""
+    key = ("spisc-ages", *_cache_scope(connection, context, assessed))
+    return read_cache.cached(
+        key, PRIORITIZATION_CACHE_SECONDS,
+        lambda: _read_current_age_statuses(connection, context, assessed),
+    )
+
+
+def _read_current_age_statuses(connection, context, assessed):
     """Classify each recorded age once for the current Philippine date."""
     return {
         "spisc_age_statuses": {
@@ -201,6 +222,8 @@ def list_active_assessment_summaries(
     Filters/counts and optional active-batch barangays share the selected-run
     snapshot. Identities read only the current page's household/head fields.
     Callers remain responsible for authenticated staff authorization.
+    An identical request for the same dataset snapshot and Philippine date is
+    answered from memory for a few minutes; anything different is read afresh.
     """
     if (
         type(page) is not int or page < 1
@@ -210,50 +233,85 @@ def list_active_assessment_summaries(
     filters = normalize_filters(filters)
     assessed = assessment_date if assessment_date is not None else philippine_assessment_date()
     with _read_context(connection_factory) as (connection, context):
-        current_age = _current_age_statuses(connection, context, assessed)
-        selection = {"filters": filters} if filters.active else {}
-        total = context["household_count"]
-        if filters.active:
-            total = assessment_runs.count_assessment_summaries(
-                connection, context["run_id"], filters=filters, **current_age,
-            )
-        items = assessment_runs.list_assessment_summaries(
-            connection, context["run_id"], limit=page_size, offset=(page - 1) * page_size,
-            **selection, **current_age,
+        # The caller has already been authorized. The key includes every input
+        # that changes the page, so only an identical request reuses a result.
+        key = ("prioritization-page", *_cache_scope(connection, context, assessed),
+               page, page_size, filters, include_household_identity,
+               include_barangays, include_priority_counts)
+        return read_cache.cached(
+            key, PRIORITIZATION_CACHE_SECONDS,
+            lambda: _read_summary_page(
+                connection, context, assessed, page, page_size, filters,
+                include_household_identity, include_barangays, include_priority_counts,
+            ),
         )
+
+
+def _priority_counts(connection, context, assessed, filters, current_age):
+    """Count the four priority cards, reused while only the selected card changes.
+
+    The counts ignore the selected priority but respect every other filter, so
+    the key uses the filters with the priority reset to "all".
+    """
+    key = ("priority-counts", *_cache_scope(connection, context, assessed),
+           replace(filters, priority="all"))
+    return read_cache.cached(
+        key, PRIORITIZATION_CACHE_SECONDS,
+        lambda: assessment_runs.count_priority_groups(
+            connection, context["run_id"], filters=filters, **current_age,
+        ),
+    )
+
+
+def _read_summary_page(
+    connection, context, assessed, page, page_size, filters,
+    include_household_identity, include_barangays, include_priority_counts,
+):
+    """Read one summary page from the database; the caller decides whether to cache it."""
+    current_age = _current_age_statuses(connection, context, assessed)
+    selection = {"filters": filters} if filters.active else {}
+    total = context["household_count"]
+    if filters.active:
+        total = assessment_runs.count_assessment_summaries(
+            connection, context["run_id"], filters=filters, **current_age,
+        )
+    items = assessment_runs.list_assessment_summaries(
+        connection, context["run_id"], limit=page_size, offset=(page - 1) * page_size,
+        **selection, **current_age,
+    )
+    items = [
+        {**item, "subsidy_priority": derive_subsidy_priority(
+            item["vulnerability_score"], item["program_statuses"],
+        )}
+        for item in items
+    ]
+    if include_household_identity:
+        identities = dataset_batches.find_household_identities(
+            connection, context["batch_id"],
+            [item["household_uuid"] for item in items],
+        )
+        by_uuid = {item["household_uuid"]: item for item in identities}
+        if set(by_uuid) != {item["household_uuid"] for item in items}:
+            raise AssessmentQueryError("household_identity_missing")
         items = [
-            {**item, "subsidy_priority": derive_subsidy_priority(
-                item["vulnerability_score"], item["program_statuses"],
-            )}
+            {**item, "identity": by_uuid[item["household_uuid"]]}
             for item in items
         ]
-        if include_household_identity:
-            identities = dataset_batches.find_household_identities(
-                connection, context["batch_id"],
-                [item["household_uuid"] for item in items],
-            )
-            by_uuid = {item["household_uuid"]: item for item in identities}
-            if set(by_uuid) != {item["household_uuid"] for item in items}:
-                raise AssessmentQueryError("household_identity_missing")
-            items = [
-                {**item, "identity": by_uuid[item["household_uuid"]]}
-                for item in items
-            ]
-        result = {
-            "context": context,
-            "items": items,
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "assessment_date": assessed,
-        }
-        if include_barangays:
-            result["barangays"] = dataset_batches.list_barangays(connection, context["batch_id"])
-        if include_priority_counts:
-            result["priority_counts"] = assessment_runs.count_priority_groups(
-                connection, context["run_id"], filters=filters, **current_age,
-            )
-        return result
+    result = {
+        "context": context,
+        "items": items,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "assessment_date": assessed,
+    }
+    if include_barangays:
+        result["barangays"] = dataset_batches.list_barangays(connection, context["batch_id"])
+    if include_priority_counts:
+        result["priority_counts"] = _priority_counts(
+            connection, context, assessed, filters, current_age,
+        )
+    return result
 
 
 def get_active_household_assessment(household_uuid, *, connection_factory=get_connection):
