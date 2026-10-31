@@ -8,27 +8,13 @@
 
 {% block content %}
   <header class="page-header records-header">
-    <div class="context-bar">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <span aria-current="page">Household Records</span>
-      </nav>
-      <p class="dataset-reference">
-        <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="15" height="15">
-        CBMS {{ results.context.survey_year }} · Historical snapshot
-      </p>
-    </div>
     <div class="page-heading">
       <h1>Household Records</h1>
       <p>Find recorded household and member information for {{ results.context.municipality }}.</p>
     </div>
   </header>
 
-  <section class="records-panel" aria-labelledby="directory-heading">
-    <div class="records-panel-heading">
-      <h2 id="directory-heading">Household directory</h2>
-      <p class="records-total"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}recorded{% endif %} households</p>
-    </div>
-
+  <section class="records-panel" aria-label="Household directory">
     <form class="records-filters" method="get" action="{{ url_for('households.index') }}" role="search">
       <div class="records-field records-search">
         <label for="record-search">Household ID or household head</label>
@@ -56,6 +42,9 @@
         {% endif %}
       </div>
     </form>
+
+    {# The total comes from the query; with a search or barangay it counts matches only. #}
+    <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}recorded{% endif %} households</p>
 
     {% if results['items'] %}
       <div class="records-table-scroll" role="region" aria-label="Household records table" tabindex="0">

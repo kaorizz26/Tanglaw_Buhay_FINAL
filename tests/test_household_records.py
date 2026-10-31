@@ -78,8 +78,19 @@ class HouseholdRecordRouteTests(unittest.TestCase):
             self.assertNotIn('name="year"', response.text)
             self.assertIn('<th scope="col" class="records-members">Members</th>', response.text)
             self.assertNotIn("Clear Filters", response.text)
-            # The directory relies on the CBMS year label and Survey Year; no notice banner.
+            # The Survey Year filter carries the dataset context; no banner, label or extra heading.
             self.assertNotIn("record-notice", response.text)
+            self.assertNotIn("Historical snapshot", response.text)
+            self.assertNotIn("<h2", response.text)
+            # The H1 already names the page, so the directory has no breadcrumb.
+            self.assertNotIn('aria-label="Breadcrumb"', response.text)
+            self.assertIn("Find recorded household and member information for Pozorrubio.",
+                          response.text)
+            # The count sits in the summary row between the filters and the table.
+            summary = '<p class="records-summary"><strong>1</strong> recorded households</p>'
+            self.assertIn(summary, response.text)
+            self.assertLess(response.text.index("</form>"), response.text.index(summary))
+            self.assertLess(response.text.index(summary), response.text.index("<table"))
             self.assertIn('Cache-Control', response.headers)
             self.assertNotIn(str(HOUSEHOLD_UUID), response.text.split("<main", 1)[0])
 
@@ -98,6 +109,8 @@ class HouseholdRecordRouteTests(unittest.TestCase):
         self.assertIn('page=3', response.text)
         self.assertIn('barangay=Synthetic+East', response.text)
         self.assertIn("Showing <strong>26–50</strong> of 60 households", response.text)
+        self.assertIn('<p class="records-summary"><strong>60</strong> matching households</p>',
+                      response.text)
         # Clear Filters resets search and barangay; the year is not a request parameter.
         self.assertIn('<a href="/households">Clear Filters</a>', response.text)
         with patch("routes.households.get_record_detail", return_value=self.record):
@@ -106,6 +119,7 @@ class HouseholdRecordRouteTests(unittest.TestCase):
             )
         self.assertEqual(detail.status_code, 200)
         self.assertIn('/households?page=2&amp;q=Synthetic&amp;barangay=Synthetic+East', detail.text)
+        self.assertIn('aria-label="Breadcrumb"', detail.text)
         self.assertIn(f'/assessments/{HOUSEHOLD_UUID}', detail.text)
         self.assertIn("Synthetic answer", detail.text)
         self.assertIn("<td>35</td>", detail.text)

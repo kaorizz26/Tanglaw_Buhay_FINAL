@@ -4,11 +4,13 @@
 .record-notice { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 24px; padding: 13px 16px; border: 1px solid var(--gold-border); border-radius: 8px; background: var(--notice); font-size: .875rem; }
 .record-notice img { flex: none; margin-top: 2px; }
 .records-panel, .record-section { min-width: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.records-panel-heading, .record-section-heading { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 22px 24px; }
-.records-panel-heading h2, .record-section h2 { margin-top: 4px; font-size: 1.25rem; }
-.records-total, .record-section-heading > span { color: var(--text-muted); font-size: .875rem; }
-.records-total strong { color: var(--text); }
-.records-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) 120px auto; align-items: end; gap: 16px; padding: 20px 24px; border-top: 1px solid var(--border); background: var(--surface-muted); }
+.record-section-heading { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 22px 24px; }
+.record-section h2 { margin-top: 4px; font-size: 1.25rem; }
+.record-section-heading > span { color: var(--text-muted); font-size: .875rem; }
+/* The filters now open the panel, so they take its rounded top corners. */
+.records-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) 120px auto; align-items: end; gap: 16px; padding: 20px 24px; border-radius: 9px 9px 0 0; background: var(--surface-muted); }
+.records-summary { padding: 14px 24px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: .875rem; }
+.records-summary strong { color: var(--text); }
 .records-field { display: grid; min-width: 0; gap: 7px; }
 .records-field label { font-size: .8125rem; font-weight: 600; }
 .records-field input, .records-field select { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid #aab7bf; border-radius: 6px; background: white; color: var(--text); font: inherit; }
@@ -83,7 +85,8 @@
   .record-detail-grid { grid-template-columns: 1fr; gap: 0; }
 }
 @media (max-width: 600px) {
-  .records-panel-heading, .record-section-heading { padding: 20px; }
+  .record-section-heading { padding: 20px; }
+  .records-summary { padding: 12px 20px; }
   .records-filters { grid-template-columns: 1fr; padding: 20px; }
   .records-filter-actions { grid-column: auto; flex-wrap: wrap; }
   .records-pagination { padding: 16px 20px; }
