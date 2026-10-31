@@ -40,7 +40,8 @@ class CurrentSpiscTests(unittest.TestCase):
                     patch.object(assessment_runs, 'count_assessment_summaries', return_value=0) as count, \
                     patch.object(assessment_runs, 'count_priority_groups', return_value={}) as groups:
                 result = assessment_queries.list_active_assessment_summaries(
-                    filters=AssessmentFilters(programs=('SPISC',)), include_priority_counts=True,
+                    filters=AssessmentFilters(programs=('SPISC',), priority='other'),
+                    include_priority_counts=True,
                     connection_factory=fixture.factory)
                 clock.assert_called_once_with()
                 ages.assert_called_once_with(fixture.connection, 9)

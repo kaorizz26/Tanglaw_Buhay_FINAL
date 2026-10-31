@@ -211,18 +211,19 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         with patch.object(repository, "count_assessment_summaries", return_value=3) as count, \
                 patch.object(repository, "list_assessment_summaries", return_value=[]) as page, \
                 patch.object(service.dataset_batches, "list_barangays", return_value=["Synthetic East"]) as options, \
-                patch.object(repository, "count_priority_groups", return_value={"all": 8}) as groups:
+                patch.object(repository, "count_priority_groups",
+                             return_value={"all": 8, "both": 3}) as groups:
             result = service.list_active_assessment_summaries(
                 page=2, filters=filters, include_barangays=True, include_priority_counts=True,
                 connection_factory=self.factory,
             )
         self.assertEqual(result["total"], 3)
         self.assertEqual(result["barangays"], ["Synthetic East"])
-        self.assertEqual(result["priority_counts"], {"all": 8})
+        self.assertEqual(result["priority_counts"], {"all": 8, "both": 3})
         groups.assert_called_once_with(self.connection, 17, filters=filters,
                                        spisc_age_statuses={}, batch_id=9)
-        count.assert_called_once_with(self.connection, 17, filters=filters,
-                                      spisc_age_statuses={}, batch_id=9)
+        # The "both" card count already is the page total, so no second count runs.
+        count.assert_not_called()
         page.assert_called_once_with(self.connection, 17, limit=25, offset=25, filters=filters,
                                      spisc_age_statuses={}, batch_id=9)
         options.assert_called_once_with(self.connection, 9)
@@ -1054,6 +1055,24 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             "FROM household_assessments h",
         ).fetchone()
         self.assertEqual(before, after)
+
+    def test_other_priority_total_ignores_card_count_when_a_score_is_missing(self):
+        # One household loses its stored score after saving (normal storage rejects
+        # that). The "other" card counts it, but the "other" page rule never matches
+        # it, so the page total must come from the page's own count.
+        self._filter_fixture(scores=[30] * 32)
+        self.connection.execute(
+            "UPDATE household_assessments SET findings = jsonb_set(findings, "
+            "'{mpi,vulnerability_score}', 'null') WHERE household_uuid = ("
+            "SELECT household_uuid FROM household_assessments "
+            "ORDER BY household_uuid OFFSET 4 LIMIT 1)"
+        )
+        result = service.list_active_assessment_summaries(
+            page_size=100, filters=AssessmentFilters(priority="other"),
+            include_priority_counts=True, connection_factory=self._factory,
+        )
+        self.assertEqual(result["total"], len(result["items"]))
+        self.assertEqual(result["priority_counts"]["other"], result["total"] + 1)
 
     def test_all_subsidy_sets_in_broad_and_exact_modes_with_other_filters(self):
         findings = self._filter_fixture()

@@ -300,20 +300,22 @@ def _summary_selection(run_id, filters, *, spisc_age_statuses=None, batch_id=Non
     current_spisc = spisc_age_statuses is not None
     if current_spisc:
         # Python classifies distinct tokens once per operation. SQL only applies
-        # the same household precedence, with a LEFT JOIN retaining empty rosters.
+        # the same household precedence. The LATERAL join looks up only this
+        # household's members, and HAVING returns no row for an empty roster so
+        # the LEFT JOIN leaves the status NULL, as before.
         joins += """
-            LEFT JOIN (
-                SELECT ages.batch_id, ages.uuid,
-                       CASE WHEN bool_or(ages.status = 'For Review') THEN 'For Review'
+            LEFT JOIN LATERAL (
+                SELECT CASE WHEN bool_or(ages.status = 'For Review') THEN 'For Review'
                             WHEN bool_or(ages.status = 'Needs Data Review') THEN 'Needs Data Review'
                             ELSE 'No Historical CBMS Trigger' END AS status
                 FROM (
-                    SELECT m.batch_id, m.uuid, COALESCE(%s::jsonb ->> (m.responses ->> 'a07_age'),
-                                           'Needs Data Review') AS status
-                    FROM household_members m WHERE m.batch_id = %s
-                ) ages GROUP BY ages.batch_id, ages.uuid
-            ) current_spisc ON current_spisc.batch_id = h.batch_id
-                          AND current_spisc.uuid = h.household_uuid
+                    SELECT COALESCE(%s::jsonb ->> (m.responses ->> 'a07_age'),
+                                    'Needs Data Review') AS status
+                    FROM household_members m
+                    WHERE m.batch_id = %s AND m.uuid = h.household_uuid
+                ) ages
+                HAVING count(*) > 0
+            ) current_spisc ON true
         """
         parameters = [Jsonb(spisc_age_statuses), batch_id, *parameters]
     if position is not None or filters.barangay:

@@ -143,6 +143,24 @@ class PrioritizationCacheTests(unittest.TestCase):
                 self.read(filters=other)
                 self.assertEqual(self.groups.call_count, before + 1)
 
+    def test_card_counts_serve_as_the_total_except_for_other(self):
+        for priority in ("all", "primary", "secondary", "both"):
+            with self.subTest(priority=priority):
+                filters = AssessmentFilters(programs=("4Ps",), priority=priority)
+                self.assertEqual(self.read(filters=filters)["total"], COUNTS[priority])
+        self.count.assert_not_called()
+        # "other" keeps its own matching count, and so does a page without card counts.
+        other = AssessmentFilters(programs=("4Ps",), priority="other")
+        self.assertEqual(self.read(filters=other)["total"], 4)
+        self.assertEqual(self.count.call_count, 1)
+        read_cache.clear()
+        service.list_active_assessment_summaries(
+            filters=AssessmentFilters(priority="primary"), assessment_date=TODAY,
+            connection_factory=self.factory,
+        )
+        self.assertEqual(self.count.call_count, 2)
+        self.groups.assert_called()
+
     def test_age_statuses_match_current_spisc_logic_and_follow_the_date(self):
         context = {"survey_year": 2022, "source_provenance": {"kind": "synthetic"}}
         for assessed in (TODAY, date(2027, 6, 1), TODAY):

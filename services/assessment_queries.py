@@ -21,6 +21,11 @@ from services.spisc_age_progression import current_spisc_status, philippine_asse
 
 DASHBOARD_CACHE_SECONDS = 1800
 PRIORITIZATION_CACHE_SECONDS = 300
+# Priority groups whose card count uses the same rule as the page filter, so the
+# card count can serve as the page total. "other" is a negated rule (a missing
+# score would be counted by the cards but not matched by the page), so it is
+# always counted with the page's own query.
+COUNTED_PRIORITIES = ("all", "primary", "secondary", "both")
 
 
 class AssessmentQueryError(RuntimeError):
@@ -271,10 +276,16 @@ def _read_summary_page(
     current_age = _current_age_statuses(connection, context, assessed)
     selection = {"filters": filters} if filters.active else {}
     total = context["household_count"]
+    priority_counts = None
+    if include_priority_counts:
+        priority_counts = _priority_counts(connection, context, assessed, filters, current_age)
     if filters.active:
-        total = assessment_runs.count_assessment_summaries(
-            connection, context["run_id"], filters=filters, **current_age,
-        )
+        if priority_counts is not None and filters.priority in COUNTED_PRIORITIES:
+            total = priority_counts[filters.priority]
+        else:
+            total = assessment_runs.count_assessment_summaries(
+                connection, context["run_id"], filters=filters, **current_age,
+            )
     items = assessment_runs.list_assessment_summaries(
         connection, context["run_id"], limit=page_size, offset=(page - 1) * page_size,
         **selection, **current_age,
@@ -307,10 +318,8 @@ def _read_summary_page(
     }
     if include_barangays:
         result["barangays"] = dataset_batches.list_barangays(connection, context["batch_id"])
-    if include_priority_counts:
-        result["priority_counts"] = _priority_counts(
-            connection, context, assessed, filters, current_age,
-        )
+    if priority_counts is not None:
+        result["priority_counts"] = priority_counts
     return result
 
 
