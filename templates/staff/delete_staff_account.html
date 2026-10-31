@@ -1,0 +1,31 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Delete Staff Account{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header accounts-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('main.staff_accounts') }}">Staff Accounts</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Delete Account</span>
+    </nav>
+    <h1>Delete staff account</h1>
+  </header>
+
+  <section class="accounts-card accounts-delete-card" aria-labelledby="delete-heading">
+    <p class="accounts-kicker">Confirm deletion</p>
+    <h2 id="delete-heading">{{ account.display_name or account.username }}</h2>
+    <p>Username: <strong>{{ account.username }}</strong></p>
+    <p>Deleting this account removes it from the staff list and immediately ends its access. Its name stays on past records, and this username cannot be used for a new account.</p>
+    <p>This action cannot be undone.</p>
+    <form method="post" action="{{ url_for('main.staff_account_delete', account_id=account.id) }}" class="accounts-delete-actions">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <a class="accounts-copy-button accounts-cancel-link" href="{{ url_for('main.staff_accounts') }}">Cancel</a>
+      <button class="accounts-button accounts-danger-button" type="submit">Delete account</button>
+    </form>
+  </section>
+{% endblock %}

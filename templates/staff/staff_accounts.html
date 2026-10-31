@@ -1,6 +1,6 @@
 {% extends 'staff/layout.html' %}
 
-{% block title %}Staff Accounts{% endblock %}
+{% block title %}{{ 'Create Account' if show_create else 'Account List' }}{% endblock %}
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-accounts.css') }}">
@@ -10,46 +10,144 @@
 {% block content %}
   <header class="page-header accounts-header">
     <nav class="breadcrumb" aria-label="Breadcrumb">
-      <span aria-current="page">Staff Accounts</span>
+      <a href="{{ url_for('main.staff_accounts') }}">Staff Accounts</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{{ 'Create Account' if show_create else 'Account List' }}</span>
     </nav>
-    <h1>Staff Accounts</h1>
-    <p>Create a login for an LGU staff member.</p>
+    <h1>{{ 'Create Account' if show_create else 'Account List' }}</h1>
+    <p>{{ 'Create a login for an LGU staff member.' if show_create else 'View staff accounts and help new staff complete their password setup.' }}</p>
   </header>
+
+  {% if error %}
+    <p class="accounts-error accounts-page-error" id="account-error" role="alert">{{ error }}</p>
+  {% endif %}
+  {% for message in get_flashed_messages() %}
+    <p class="accounts-success accounts-page-success" role="status">{{ message }}</p>
+  {% endfor %}
+
+  {% if revealed_account %}
+    <dialog class="accounts-modal" id="temporary-password-dialog" aria-labelledby="temporary-password-heading" aria-describedby="temporary-password-description" data-account-id="{{ revealed_account.id }}" open>
+      <p class="accounts-kicker">Pending account</p>
+      <h2 id="temporary-password-heading">Temporary password for {{ revealed_account.display_name }}</h2>
+      <p id="temporary-password-description">Share these sign-in details privately with the staff member.</p>
+      <dl class="accounts-credentials">
+        <div><dt>Username</dt><dd>{{ revealed_account.username }}</dd></div>
+        <div>
+          <dt>Temporary password</dt>
+          <dd>
+            <code id="revealed-temp-password">{{ revealed_account.temporary_password }}</code>
+            <span class="accounts-copy-status" role="status" aria-live="polite"></span>
+          </dd>
+        </div>
+      </dl>
+      <p class="accounts-password-note">This password becomes unavailable after the staff member sets their own password.</p>
+      <form method="dialog" class="accounts-modal-actions">
+        <button class="accounts-copy-button" type="button" data-copy-target="revealed-temp-password" aria-label="Copy temporary password">Copy password</button>
+        <button class="accounts-button" type="submit">Close</button>
+      </form>
+    </dialog>
+  {% endif %}
 
   {% if created_account %}
     <section class="accounts-card accounts-created" aria-labelledby="created-heading">
       <p class="accounts-kicker">Account created</p>
       <h2 id="created-heading">{{ created_account.display_name }}</h2>
-      <p>The staff member can sign in with the username and initial password below. They must set their own password before using staff pages.</p>
+      <p>The staff member can sign in with these details. They must set their own password before using staff pages.</p>
       <dl class="accounts-credentials">
+        <div><dt>Username</dt><dd>{{ created_account.username }}</dd></div>
         <div>
-          <dt>Username</dt>
-          <dd>{{ created_account.username }}</dd>
-        </div>
-        <div>
-          <dt>Initial password</dt>
-          <dd><code>{{ created_account.temporary_password }}</code></dd>
+          <dt>Temporary password</dt>
+          <dd>
+            <span class="accounts-secret-row">
+              <code id="created-temp-password">{{ created_account.temporary_password }}</code>
+              <button class="accounts-copy-button" type="button" data-copy-target="created-temp-password" aria-label="Copy temporary password">Copy password</button>
+            </span>
+            <span class="accounts-copy-status" role="status" aria-live="polite"></span>
+          </dd>
         </div>
       </dl>
-      <p class="accounts-password-note">Copy the password now. It is shown only on this page and remains valid until changed. Share it privately with the staff member.</p>
-      <a class="accounts-button" href="{{ url_for('main.staff_accounts') }}">Create another staff account</a>
+      <p class="accounts-password-note">Share this privately. You can reveal it again while password setup is pending. It becomes unavailable after the staff member sets their own password.</p>
+      <a class="accounts-button" href="{{ url_for('main.staff_accounts') }}">Hide password and return to accounts</a>
+      <a class="accounts-next-link" href="{{ url_for('main.staff_account_create') }}">Create another account</a>
     </section>
-  {% else %}
+  {% endif %}
+
+  {% if not show_create %}
+  <section class="accounts-card accounts-directory" aria-labelledby="directory-heading">
+    <div class="accounts-directory-header">
+      <div>
+        <h2 id="directory-heading">Staff accounts <span class="accounts-count">{{ accounts|length }}</span></h2>
+        <p>Pending password setup means the staff member still needs to choose their own password.</p>
+      </div>
+      <a class="accounts-button" href="{{ url_for('main.staff_account_create') }}">Create Staff Account</a>
+    </div>
+    {% if accounts %}
+      <div class="accounts-table-scroll" role="region" aria-labelledby="directory-heading" tabindex="0">
+        <table class="accounts-table">
+          <caption class="visually-hidden">LGU Staff accounts, newest first. Creation dates are in Philippine time.</caption>
+          <thead>
+            <tr><th scope="col">Staff name</th><th scope="col">Username</th><th scope="col">Status</th><th scope="col">Date created</th><th scope="col">Temporary password</th><th scope="col">Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for account in accounts %}
+              <tr>
+                <th scope="row">{{ account.display_name or 'Name not provided' }}</th>
+                <td>{{ account.username }}</td>
+                <td>
+                  {% if not account.is_active %}
+                    <span class="accounts-status accounts-status-inactive">Inactive</span>
+                  {% elif account.must_change_password %}
+                    <span class="accounts-status accounts-status-pending">Pending password setup</span>
+                  {% else %}
+                    <span class="accounts-status accounts-status-ready">Ready</span>
+                  {% endif %}
+                </td>
+                <td><time datetime="{{ account.created_at.isoformat() }}">{{ account.created_at.strftime('%d %b %Y') }}</time></td>
+                <td>
+                  {% if account.is_active and account.must_change_password and account.has_temporary_password %}
+                    <form method="post" action="{{ url_for('main.staff_accounts') }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                      <input type="hidden" name="action" value="reveal">
+                      <input type="hidden" name="account_id" value="{{ account.id }}">
+                      <button class="accounts-button accounts-reveal" type="submit" data-account-id="{{ account.id }}" aria-label="Reveal temporary password for {{ account.username }}">Reveal password</button>
+                    </form>
+                  {% elif not account.is_active %}
+                    <span class="accounts-unavailable">Unavailable while inactive</span>
+                  {% elif account.must_change_password %}
+                    <span class="accounts-unavailable">Unavailable — created before password retrieval was enabled</span>
+                  {% else %}
+                    <span class="accounts-unavailable">Not available</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="get" action="{{ url_for('main.staff_account_delete', account_id=account.id) }}">
+                    <button class="accounts-delete-button" type="submit" aria-label="Delete account for {{ account.display_name or account.username }}">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="accounts-empty">No staff accounts yet. Choose Create Staff Account to add the first one.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if show_create and not created_account %}
     <section class="accounts-card" aria-labelledby="create-heading">
       <p class="accounts-kicker">New staff login</p>
       <h2 id="create-heading">Create staff account</h2>
       <p>Enter the staff member's name and choose a unique username. The account will have LGU Staff access.</p>
 
-      {% if error %}
-        <p class="accounts-error" id="account-error" role="alert">{{ error }}</p>
-      {% endif %}
-
-      <form class="accounts-form" method="post" action="{{ url_for('main.staff_accounts') }}">
+      <form class="accounts-form" method="post" action="{{ url_for('main.staff_account_create') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="action" value="create">
         <div class="accounts-field">
           <label for="display-name">Staff member's name</label>
           <input id="display-name" name="display_name" type="text" value="{{ display_name }}"
-                 autocomplete="name" maxlength="120" required autofocus>
+                 autocomplete="name" maxlength="120" required>
         </div>
         <div class="accounts-field">
           <label for="staff-username">Username</label>
@@ -59,7 +157,7 @@
           <p id="username-hint">Suggested from the name. You can change it; use 3–64 lowercase letters, numbers, dots, dashes or underscores.</p>
         </div>
         <div class="accounts-form-footer">
-          <p>An initial password will be generated and shown once after creation.</p>
+          <p>A temporary password will be generated. You can reveal it until the staff member completes password setup.</p>
           <button class="accounts-button" type="submit">Create Staff Account</button>
         </div>
       </form>

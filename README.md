@@ -22,6 +22,7 @@ planned. **A navigation item or placeholder does not mean a feature is complete.
 | Feature | Available functionality |
 | --- | --- |
 | Staff Authentication | Database-backed login, logout, staff sessions, and role-based access protection. |
+| Staff Accounts | Admin-only staff directory, account creation, temporary password reveal for pending accounts, and confirmed account deletion. |
 | Staff Login UI | V3 split-panel sign-in design adapted to the current CSRF-protected login. |
 | Dashboard | Protected municipal overview of the designated completed 2022 assessment: household totals, priority groups, unknown-indicator attention, and per-program “For Review” screening counts, with links to assessments and staff reviews. |
 | Household Records | Protected, read-only directory with household ID/head search, barangay filter, pagination, and focused source-record pages with household conditions, member roster, and assessment links. |
@@ -45,7 +46,7 @@ still require approval.
 | --- | --- |
 | Dashboard enhancements | Additional interactive analytics require defined questions, labels, and acceptance criteria. |
 | General Welfare Review | Staff-initiated and system-suggested welfare consideration; the suggestion rule and threshold require validation and approval. |
-| Administration | Administrator screens for managing staff accounts, roles, and other authorized operations. |
+| Administration | Remaining account lifecycle actions, including edits, deactivation, and password reset. |
 | CBMS Import Management | Administrator-only upload, validation, import history, and controlled activation of additional CBMS batches. |
 | Assessment Run Management | Authorized assessment execution, storage, verification, and selection for new validated batches. |
 | Submissions | Staff review and management of citizen-submitted documents. |
@@ -256,14 +257,16 @@ also passed. The adjacent private manifest records the verification results.
 
 ### Apply account schema updates after restoring the handoff backup
 
-The supplied backup includes migrations 0001–0008. This branch adds two account
-columns that must be applied **once** to each teammate's local development
+The supplied backup includes migrations 0001–0008. This branch adds four account
+schema updates that must be applied **once** to each teammate's local development
 database, in order. Git does not update PostgreSQL, and application startup does
 not run migrations. From the project directory, use your own local database role:
 
 ```powershell
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0009_staff_display_name.sql"
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0010_staff_password_change_required.sql"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0011_staff_temporary_password.sql"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0012_staff_account_deletion.sql"
 ```
 
 If using an existing development database, check `staff_users` first and run only
@@ -272,7 +275,7 @@ the missing migration(s). Do not reapply a migration whose column already exists
 ```sql
 SELECT column_name FROM information_schema.columns
 WHERE table_schema = 'public' AND table_name = 'staff_users'
-  AND column_name IN ('display_name', 'must_change_password')
+  AND column_name IN ('display_name', 'must_change_password', 'temporary_password_encrypted', 'deleted_at')
 ORDER BY column_name;
 ```
 
@@ -296,6 +299,7 @@ Paste the generated random value into `SECRET_KEY`. Edit `.env` locally:
 DATABASE_URL=postgresql://tanglaw_local:YOUR_URL_ENCODED_PASSWORD@localhost:5432/tanglaw_buhay_dev
 TANGLAW_TEST_DATABASE_URL=postgresql://tanglaw_local:YOUR_URL_ENCODED_PASSWORD@localhost:5432/tanglaw_buhay_test
 SECRET_KEY=PASTE_YOUR_GENERATED_RANDOM_VALUE_HERE
+STAFF_TEMP_PASSWORD_KEY=PASTE_YOUR_GENERATED_FERNET_KEY_HERE
 SESSION_COOKIE_SECURE=false
 ```
 
@@ -304,6 +308,30 @@ Replace every placeholder. URL-encode special password characters such as `@`,
 Use `SESSION_COOKIE_SECURE=false` **only for local loopback HTTP development**.
 Deployment requires HTTPS and secure cookies. Keep `.env`, passwords, and signing
 keys private; never paste them into ChatGPT, Codex prompts, screenshots, or Git.
+
+Install the updated `requirements.txt`, then generate a separate key locally for
+temporary password retrieval:
+
+```powershell
+python -m pip install -r requirements.txt
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Paste that value into `STAFF_TEMP_PASSWORD_KEY` in your private `.env`. Keep this
+key stable and backed up securely outside Git; replacing or losing it makes
+existing encrypted temporary passwords unreadable. Each teammate with a separate
+local database generates their own key. Processes sharing one database must use
+the same key. Restart the application after changing configuration.
+
+New staff passwords retain a login hash and an encrypted temporary copy. The
+new temporary password is 16 random characters using clear uppercase letters
+and digits. Existing pending passwords keep their original value. The
+administrator can explicitly reveal that copy only while the account is active
+and password setup is pending. Completing setup deletes the encrypted copy in
+the same transaction as changing the password. Staff-chosen passwords are never
+stored reversibly. Accounts created before migration 0011 have no retrievable
+temporary password. Missing or invalid encryption configuration blocks account
+creation and reveal; existing sign-in continues to use password hashes.
 
 ## 7. Create your System Administrator account
 
@@ -376,7 +404,7 @@ python -B -m unittest discover -s tests
 
 Confirm `TANGLAW_TEST_DATABASE_URL` points only to your empty, local
 `tanglaw_buhay_test`. Database tests must execute, not silently skip. Keep actual
-CBMS data out of tests. The latest application regression passed **407 tests**.
+CBMS data out of tests. The latest application regression passed **411 tests**.
 
 ## 10. Troubleshooting
 

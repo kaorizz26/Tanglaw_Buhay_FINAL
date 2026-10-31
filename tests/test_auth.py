@@ -105,7 +105,10 @@ class StaffAuthenticationTests(unittest.TestCase):
                     sql.SQL("SET LOCAL search_path TO {}").format(sql.Identifier(self.schema)),
                 )
                 for migration in ("0002_staff_authentication.sql",
-                                  "0010_staff_password_change_required.sql"):
+                                  "0009_staff_display_name.sql",
+                                  "0010_staff_password_change_required.sql",
+                                  "0011_staff_temporary_password.sql",
+                                  "0012_staff_account_deletion.sql"):
                     connection.execute((ROOT / "migrations" / migration).read_text())
         self.app.config.update(
             DATABASE_URL=self.url, PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
