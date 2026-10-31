@@ -8,48 +8,17 @@
 
 {% block content %}
   <header class="page-header prioritization-header">
-    <div class="context-bar">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <span>Assessments</span>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">Prioritization</span>
-      </nav>
-      <p class="dataset-reference">
-        <img
-          src="{{ url_for('static', filename='icons/database.svg') }}"
-          alt=""
-          width="15"
-          height="15"
-        >
-        CBMS {{ results.context.survey_year }} · Historical snapshot
-      </p>
-    </div>
-
     <div class="page-heading">
       <h1>Household Prioritization</h1>
       <p>
-        Historical CBMS {{ results.context.survey_year }} ·
-        Municipality of {{ results.context.municipality }}
+        Find households using vulnerability scores and subsidy screening results for
+        {{ results.context.municipality }}.
       </p>
     </div>
-
-    <p class="assessment-summary">
-      <strong>{{ '{:,}'.format(results.context.household_count) }}</strong> assessed households
+    <p class="priority-note">
+      Priority recommendations help staff decide which households to examine first.
+      They do not confirm subsidy eligibility or approval.
     </p>
-
-    <div class="historical-notice" role="note">
-      <img
-        src="{{ url_for('static', filename='icons/info.svg') }}"
-        alt=""
-        width="18"
-        height="18"
-      >
-      <p>
-        Based on CBMS {{ results.context.survey_year }} household records. Scores and subsidy
-        findings support staff review; they do not establish official poverty classification,
-        eligibility or approval.
-      </p>
-    </div>
   </header>
 
   <section class="ranking-panel" aria-labelledby="ranking-heading">
@@ -100,7 +69,6 @@
               <td class="household-reference-id">{{ household.household_reference_id }}</td>
               <th scope="row" class="household-cell">
                 <span class="household-name">{{ household.head_name }}</span>
-                <span class="household-identifier">{{ household.household_uuid }}</span>
               </th>
               <td>{{ household.barangay }}</td>
               <td class="score-cell">
@@ -154,12 +122,8 @@
   </section>
 
   <p class="ranking-explanation" id="ranking-explanation">
-    Household IDs are Tanglaw-Buhay references for these historical records, not official
-    PSA identifiers. Households with equal scores share municipal ranks; display order does
-    not break ties. Original ranks are retained across pages and filters. Missing household
-    information can make vulnerability appear lower. For Review signals
-    do not create staff reviews.
-    Subsidy Priority recommends the order of consideration; Subsidies for Review
-    lists programs with review signals, including current SPISC age guidance.
+    Household IDs are system references, not official PSA identifiers. Municipal ranks stay
+    the same when you filter, and households with equal scores share a rank. Missing
+    household information can make a score appear lower.
   </p>
 {% endblock %}

@@ -1,3 +1,4 @@
+{# Priority cards act as links: the selected card is highlighted and other filters are kept. #}
 <nav class="priority-selectors" aria-label="Subsidy priority groups">
   {% for selector in results.priority_selectors %}
     <a
@@ -10,24 +11,20 @@
         <strong>{{ '{:,}'.format(selector.count) }}</strong>
       </span>
       <small>{{ selector.description }}</small>
+      {% if results.filters.priority == selector.value %}
+        <span class="priority-selector-state">Selected</span>
+      {% endif %}
     </a>
   {% endfor %}
 </nav>
 
 <div class="priority-context">
-  <div>
-    <p><strong>{{ results.priority_label }}:</strong> {{ results.priority_description }}</p>
-    {% if results.other_filters_active %}
-      <p class="filter-help">Group counts reflect your other applied filters.</p>
-    {% endif %}
-  </div>
+  {% if results.other_filters_active %}
+    <p class="filter-help">Group counts reflect your other applied filters.</p>
+  {% endif %}
   <details class="priority-help">
     <summary>How are priorities determined?</summary>
     <div>
-      <p>
-        The system considers household vulnerability and recorded conditions relevant to
-        assistance programs.
-      </p>
       <ul>
         <li>
           Primary Priority: a vulnerability score above 25 and at least one subsidy
@@ -38,11 +35,7 @@
           boundaries, and at least one subsidy For Review finding.
         </li>
       </ul>
-      <p>
-        These groups help staff decide which households to examine first. They do not
-        confirm official poverty classification, subsidy eligibility or approval.
-        Households outside the priority groups can still be examined.
-      </p>
+      <p>Households outside the priority groups can still be examined.</p>
     </div>
   </details>
 </div>
@@ -55,13 +48,13 @@
 >
   <div class="filter-fields">
     <div class="filter-field filter-search">
-      <label for="household-search">Household search</label>
+      <label for="household-search">Household ID or household head</label>
       <input
         type="search"
         id="household-search"
         name="q"
         value="{{ results.filters.search }}"
-        placeholder="Head name or HH-00001"
+        placeholder="e.g. HH-00001 or a name"
         maxlength="200"
       >
     </div>
@@ -76,6 +69,12 @@
           <option value="{{ barangay }}" {% if barangay == results.filters.barangay %}selected{% endif %}>{{ barangay }}</option>
         {% endfor %}
       </select>
+    </div>
+    {# Display only: the field has no name, so the survey year is never submitted as a filter. #}
+    <div class="filter-field filter-year">
+      <label for="survey-year">Survey Year</label>
+      <input id="survey-year" type="text" value="{{ results.context.survey_year }}" readonly aria-describedby="survey-year-hint">
+      <span id="survey-year-hint" class="visually-hidden">The survey year of the household records in use. It cannot be changed here.</span>
     </div>
     <div class="filter-actions">
       <button type="submit" class="apply-filters">Apply Filters</button>
@@ -125,23 +124,25 @@
           </div>
         </fieldset>
         <p class="filter-help" id="subsidy-filter-help" aria-live="polite">
-          <span class="subsidy-help-any">Match For Review findings for any selected subsidy.</span>
-          <span class="subsidy-help-exact">Match For Review findings for exactly the selected subsidies, with no additional For Review findings.</span>
+          <span class="subsidy-help-any">Any selected subsidy is a match. Leave all unchecked to skip this filter.</span>
+          <span class="subsidy-help-exact">Only the selected subsidies are For Review, with no others.</span>
         </p>
-        <p class="filter-help">Leave subsidies unchecked to apply no subsidy restriction.</p>
       </fieldset>
       <div class="assessment-filter-fields">
         <div class="filter-field">
-          <label for="completeness-filter">Assessment information</label>
-          <select id="completeness-filter" name="completeness" aria-describedby="assessment-attention-help">
+          <label for="completeness-filter">Indicator Results</label>
+          <select id="completeness-filter" name="completeness">
             {% for value, label in results.completeness_options %}
               <option value="{{ value }}" {% if value == results.filters.completeness %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
-          <p class="filter-help" id="assessment-attention-help">
-            Households with Undetermined Results: Some household conditions could not be assessed
-            using the available information.
-          </p>
+          <details class="filter-help-disclosure">
+            <summary>What does “undetermined” mean?</summary>
+            <p>
+              The available information could not establish the result of at least one
+              indicator. This does not mean the household is not deprived.
+            </p>
+          </details>
         </div>
         <div class="filter-field">
           <label for="priority-filter">Priority group</label>

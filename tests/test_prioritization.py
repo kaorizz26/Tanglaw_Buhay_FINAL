@@ -150,7 +150,7 @@ class PrioritizationTests(unittest.TestCase):
                 self.assertIn('href="/assessments/SYNTHETIC', response.text)
                 self.assertIn('aria-label="View Assessment for HH-', response.text)
                 self.assertIn('type="search"', response.text)
-                self.assertIn("All 16 Indicators Determined", response.text)
+                self.assertIn("All 16 indicators determined", response.text)
                 self.assertNotIn('scope="col">MPI Data Status', response.text)
                 self.assertNotIn("Needs Data Review KPI", response.text)
         self.query.assert_called_with(
@@ -160,6 +160,23 @@ class PrioritizationTests(unittest.TestCase):
         for name in ("base", "staff", "assessments"):
             with self.client.get(f"/static/css/{name}.css") as stylesheet:
                 self.assertEqual(stylesheet.status_code, 200)
+
+    def test_page_shows_simplified_header_readonly_year_and_no_raw_identifiers(self):
+        self._session()
+        text = self.client.get("/assessments?priority=primary").text
+        self.assertIn("Find households using vulnerability scores", text)
+        self.assertNotIn('aria-label="Breadcrumb"', text)
+        self.assertNotIn("Historical snapshot", text)
+        self.assertNotIn("assessed households", text)
+        self.assertIn("Household ID or household head", text)
+        year_field = re.search(r'<input id="survey-year"[^>]*>', text)[0]
+        self.assertIn("readonly", year_field)
+        self.assertNotIn("name=", year_field)
+        ranking_rows = text.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
+        self.assertNotIn("household-identifier", ranking_rows)
+        self.assertNotIn(">SYNTHETIC-", ranking_rows)
+        # Exactly one card is marked Selected.
+        self.assertEqual(text.count('class="priority-selector-state">Selected'), 1)
 
     def test_pagination_links_and_counts_include_last_partial_page(self):
         self._session()
@@ -279,9 +296,8 @@ class PrioritizationTests(unittest.TestCase):
         self.assertIn("<strong>51</strong>", selectors)
         self.assertIn("<strong>50</strong>", selectors)
         self.assertNotIn('class="more-filters" open', default)
-        self.assertIn("Households with Undetermined Results", default)
-        self.assertIn("Some household conditions could not be assessed using the available information.",
-                      " ".join(default.split()))
+        self.assertIn("Households with undetermined results", default)
+        self.assertIn("This does not mean the household is not deprived.", " ".join(default.split()))
         self.assertNotIn("MPI completeness", default)
         self.assertNotIn("No Subsidy Priority", default)
 

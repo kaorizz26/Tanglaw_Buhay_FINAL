@@ -151,6 +151,7 @@
 
 .navigation-chevron {
   margin-left: auto;
+  line-height: 1;
   font-size: 1.25rem;
 }
 
@@ -161,14 +162,16 @@
 .navigation-children {
   display: grid;
   gap: 4px;
-  margin: 4px 0 8px 14px;
-  padding: 0 0 0 12px;
+  margin: 4px 0 8px 4px;
+  padding: 0 0 0 8px;
   border-left: 1px solid var(--navy-border);
   list-style: none;
 }
 
 .navigation-children .navigation-item {
   min-height: 44px;
+  padding-right: 8px;
+  padding-left: 8px;
   font-size: 0.875rem;
 }
 
@@ -291,7 +294,8 @@
 }
 
 /* Responsive staff layout and navigation */
-@media (min-width: 761px) and (max-height: 800px) {
+/* Compact spacing keeps the expanded sidebar (about 900px tall for administrators) on screen. */
+@media (min-width: 761px) and (max-height: 920px) {
   .staff-sidebar {
     padding-top: 20px;
     padding-bottom: 16px;
@@ -305,13 +309,23 @@
     margin-top: 20px;
   }
 
+  .navigation-list {
+    gap: 4px;
+  }
+
+  .navigation-item {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
   .navigation-note {
     margin-top: 10px;
     margin-bottom: 10px;
   }
 
   .staff-account {
-    padding-top: 20px;
+    padding-top: 12px;
   }
 
   .account-notice {
