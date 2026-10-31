@@ -54,8 +54,11 @@ Local Excel files and finalized reference CSVs
 | `services/cbms_import.py` | Runs preflight and orchestrates one atomic import; no public route invokes it. |
 | `services/active_batch_loader.py` | Reconstructs four sources, three references and separate metadata from one read-only active-batch snapshot; no route invokes it. |
 | `services/assessment_queries.py` | Resolves the explicitly designated completed active-batch run and retrieves filtered summaries or one household's stored findings through read-only snapshots. |
-| `routes/assessments.py`, `services/prioritization.py` | Serve protected Prioritization and Assessment Details without engine execution. |
-| `routes/main.py` | Provides the minimal protected landing, fixture-source guard, retired staff URLs and public health check. |
+| `routes/assessments.py`, `routes/recommendation_changes.py`, `services/prioritization.py`, `services/assessment_details.py` | Serve protected Prioritization, Assessment Details, Staff Reviews and the Review Queue without engine execution. |
+| `routes/households.py`, `services/household_records.py` | Serve the read-only Household Records list and detail. |
+| `routes/main.py` | Serves the Dashboard, administration pages, retired staff URLs and the `/test` health check, and defines the fixture-source guard. |
+| `routes/public.py`, `services/public_programs.py` | Serve the public program information pages (no sign-in, no database). |
+| `services/read_cache.py` | Small in-process cache for Dashboard, Prioritization and barangay reads (see the staff modules summary). |
 | `services/data_loader.py` | Reads sources, validates keys, joins records, and checks mapping inputs. |
 | `services/vulnerability/direct.py` | Converts finalized CSV codes into deprivation outcomes. |
 | `services/vulnerability/housing.py` | Calculates assets, sanitation, housing materials and overcrowding. |
@@ -73,8 +76,9 @@ Local Excel files and finalized reference CSVs
 The frontend reset removed the Phase 6A staff screens. Later tasks rebuilt
 protected Prioritization and Assessment Details with read-only PostgreSQL
 queries. Flask startup loads no household records and does not run assessment
-engines. The public `/test` route retains its fixture-only boundary and responds
-without PostgreSQL; no configuration switch exposes actual CBMS records there.
+engines. The `/public` pages keep the fixture-only guard, and `/test` is a public
+health check that responds without PostgreSQL; no configuration switch exposes
+actual CBMS records through either.
 
 `services/assessments.py` remains the backend integration layer: it combines
 engines by UUID, preserves complete MPI/four-program payloads and rejects
@@ -461,50 +465,59 @@ can underestimate vulnerability, and approved employment assumptions can affect
 ranking. Historical stored MPI run 1 retains its former nonworking E01 assumption;
 the corrected in-memory logic and pending persistence are documented in section 20.
 
-## 9. Minimal staff interface after the frontend reset
+## 9. Current routes and module locations
 
-Run `python app.py` locally and open http://127.0.0.1:5000/login. The server binds
-to loopback with debug disabled. Authentication requires the configured signing
-key and existing staff accounts (section 13); no original datasets are read.
+Run `python app.py` and open http://127.0.0.1:5000/login. The server binds to
+loopback with debug disabled. Staff routes require the configured signing key and
+an existing account (section 13); every protected request is checked by
+`services.auth.protect_staff_routes`, and no original datasets are read at startup.
+This section replaced the description of the minimal interface left after the
+frontend reset; that history remains in Git at `9a6b24c`.
 
-| Route | Current behavior |
-|---|---|
-| `/` | Fixture-guarded protected landing showing the role, a Household Prioritization link and CSRF-protected Sign Out. |
-| `/login` | Minimal sign-in form; successful/already authenticated login redirects to `/`. |
-| `/logout` | Sign-out confirmation; only a CSRF-protected POST ends sessions. |
-| `/test` | Public JSON health check, independent of records/database availability. |
-| `/assessments` | Protected real-data prioritization with read-only selected-run retrieval and 25 households per page; see section 22. |
-| `/households`, household/assessment detail paths, `/assessments?view=queue` | Anonymous users redirect to login; authenticated requests return HTTP 410. No identifiers/responses are echoed. |
+| Route | Who can open it | Current behavior and code |
+|---|---|---|
+| `/login`, `/logout`, `/change-password` | Everyone / signed-in staff | Shared sign-in, CSRF-protected sign-out, and first-login password setup. `routes/auth.py` |
+| `/` | LGU Staff | Dashboard with My Subsidy Reviews. An administrator is redirected to `/administration`. `routes/main.py` |
+| `/administration` | System Administrator | Dashboard with statistics only. |
+| `/administration/import` | System Administrator | Placeholder page; no import controls. |
+| `/administration/accounts` | System Administrator | Creates LGU Staff accounts (see the account creation section below). |
+| `/households`, `/households/<household_uuid>` | Both roles | Read-only Household Records list and detail. `routes/households.py` |
+| `/assessments` | Both roles | Household Prioritization. `routes/assessments.py::prioritization` |
+| `/assessments/<household_uuid>` | Both roles | Household Assessment; `?tab=overview`, `mpi`, `screening` or `reviews`. |
+| `/assessments/queue` | Both roles | Review Queue. |
+| `/assessments/<household_uuid>/reviews/<program>` | Both roles | Start Review confirmation (GET) and creation (POST). `<program>` is `4Ps`, `SLP`, `SPISC` or `TUPAD`. |
+| `/assessments/<household_uuid>/reviews/<program>/<review_id>` | Both roles | Focused review workspace; POST saves a note. `?action=finish`, `cancel`, `reassign`, `correct` or `withdraw` selects the other forms. Correct and withdraw are handled by `routes/recommendation_changes.py`. |
+| `/public`, `/public/programs/<slug>` | Anyone, no sign-in | Public information pages; `<slug>` is `4ps`, `spisc`, `slp` or `tupad`. `routes/public.py` |
+| `/test` | Anyone, no sign-in | JSON health check; independent of the database. |
 
-The old staff blueprints, sidebar, records/assessment templates, shared UI macros,
-CSS, JavaScript, favicon, presentation helpers and pagination were intentionally
-removed on `dev/frontend-reset`. Their prior implementation remains in Git at
-`9a6b24c`. The landing and auth templates remain minimal. Frontend Task 1 adds
-only the shared staff layout and protected prioritization screen (section 22).
+Unmatched paths under `/households/` and `/assessments/`, and `/assessments?view=...`,
+return HTTP 410 (`retired_staff_pages` in `routes/main.py`) so old bookmarks never
+echo household information.
 
-The development boundary now holds only a source-kind marker, not a calculated
-workspace. A non-fixture marker blocks the landing with 403. Authenticated real
-CBMS access still requires a separately approved protected repository/view flow;
-do not remove the guard to connect records. Backend engines, fixtures, validation,
-importer, SQL migrations and repositories are retained.
+Where the code lives: routes validate requests and authorization; `services/`
+holds rules, validation and presentation; `repositories/` holds the SQL;
+`templates/` has `staff/` (layout, Dashboard, administration), `households/`,
+`assessments/`, `auth/` and the `public_*.html` pages; styles are in
+`static/css/<feature>.css` and small scripts in `static/js/`. The staff sidebar
+is `templates/staff/layout.html`: Dashboard, Household Records, an expandable
+Assessments group (Household Prioritization and Review Queue), then Submissions
+(disabled, planned) for LGU Staff or Data Import and Staff Accounts for administrators.
 
-Future review requirements remain per household/program: continuation by
-appropriately authorized staff, Not Yet Reviewed / In Review / Completed,
-Further Verification Recommended / No Further Action, and justification when
-starting without a historical trigger. These workflows remain unimplemented;
-review decisions must never overwrite system scores or screening findings.
+The development boundary holds only a source-kind marker, not a calculated
+workspace. `require_fixture_source()` blocks the Dashboard, administration pages and
+the `/public` pages with 403 if the marker changes; `/test` does not use it. Real CBMS
+access still requires a separately approved protected repository/view flow; do not
+remove the guard to connect records. Review decisions never overwrite system
+scores or screening findings.
 
-`tests/test_assessments.py` retains backend output/identity/immutability checks.
-`tests/test_frontend_reset.py` checks the minimal routes and real auth service
-with generated accounts and mocked account SQL, including role checks and
-revocation. Removed UI behavior is no longer asserted. Existing PostgreSQL auth
-tests now expect the minimal landing and retired URLs.
-
-For verification with a strict no-database-change boundary, run the focused
-`test_frontend_reset.py` suite. For the broader suite, set
-`TANGLAW_TEST_DATABASE_URL` to an empty string only in the test process and block
-`psycopg.connect`; database integration cases then skip. Record those skips
-explicitly, rather than treating them as fresh PostgreSQL verification.
+Test files by feature: `test_dashboard*.py`, `test_prioritization*.py`,
+`test_household_records.py`, `test_assessment_details.py`, `test_staff_reviews.py`,
+`test_review_queue.py`, `test_review_responsibility.py`,
+`test_recommendation_changes.py`, `test_staff_account_creation.py`, `test_auth.py`
+and `test_public_pages.py`. `tests/test_frontend_reset.py` still checks the retired
+URLs and authentication boundaries with generated accounts and mocked account SQL.
+Database tests need `TANGLAW_TEST_DATABASE_URL` and run only in disposable
+schemas of `tanglaw_buhay_test`; do not treat skipped database tests as verified.
 
 ## 10. Phase 6B.1 database foundation
 
@@ -666,8 +679,9 @@ The application guard requires login for existing and future application routes,
 except `/login`, static assets and `/test`. At this authentication checkpoint,
 both roles accessed only a minimal landing and the old record/assessment pages
 were retired; later frontend tasks restored protected assessment pages.
-`services.auth.admin_required` checks the current database role for future
-import/account routes; those workflows are not implemented yet.
+`services.auth.admin_required` checks the current database role for the
+administrator-only routes (Staff Accounts creation is implemented; the import
+workflow is not).
 
 Flask signs the cookie using a private `SECRET_KEY` (no default); staff access
 returns 503 if it is missing or shorter than 32 characters. Generate a random
@@ -702,8 +716,10 @@ empty staff account table. It prompts for a username and a confirmed password
 (12-1024 characters), refuses terminal input that could echo the password, and
 stores only its hash. Usernames use 3-64 lowercase letters/digits/dot/dash/underscore
 and are normalized at creation/login. There are no password command arguments,
-default credentials, automatic accounts or web account-management screens.
-Open `/login` to sign in and `/logout` to sign out; the landing also provides
+default credentials or automatic accounts. At this checkpoint there were no web
+account-management screens; administrator-created LGU Staff accounts were added
+later (see the staff modules summary).
+Open `/login` to sign in and `/logout` to sign out; the staff sidebar also provides
 Sign Out directly. At the authentication checkpoint, the old sidebar and staff
 screens were intentionally retired; subsequent tasks rebuilt the staff shell
 and assessment views.
@@ -2172,3 +2188,129 @@ as Synthetic Support for this pilot batch. The stored names are displayed
 unlabelled across staff screens, as AGENTS.md requires, but they are placeholders
 rather than verified identities. Real names in a future batch are private
 personal data and stay behind the existing staff authorization.
+
+## Current staff modules: technical summary
+
+This section summarizes how the completed staff modules work today. Earlier numbered
+sections and the task sections above keep the original decisions and verification
+records; where they disagree with this summary, the code and this summary win.
+
+### Dashboard and read caching
+
+`routes/main.py::render_dashboard` validates the optional `barangay` and `area`
+arguments and calls `services/assessment_queries.get_active_dashboard_summary()`.
+All figures are aggregates read from the designated completed run, never
+recalculated by the page. LGU Staff also receive `services/review_queue.get_dashboard_reviews()`
+(counts and up to five recent active reviews for the signed-in account), and a failure
+there never hides the statistics. `services/dashboard_patterns.py` selects the area shown
+in the Household Assessment Patterns panel (Deprived, Not Deprived and Could Not Determine
+counts for the 16 indicators).
+
+`services/read_cache.py` is a small in-process cache (a dictionary guarded by a lock,
+at most 64 entries, values copied on read). It is per worker process, resets when the
+server restarts, and never stores a failed load. Cached reads and their lifetimes:
+
+| Data | Lifetime | Defined in |
+|---|---|---|
+| Dashboard summary (keyed by database, batch, designated run, run completion time, Philippine date and barangay) | 30 minutes | `DASHBOARD_CACHE_SECONDS` in `services/assessment_queries.py` |
+| Prioritization pages, priority counts and SPISC age statuses | 5 minutes | `PRIORITIZATION_CACHE_SECONDS` in the same file |
+| Barangay list per batch | 1 hour | `BARANGAY_CACHE_SECONDS` in `repositories/dataset_batches.py` |
+
+The first uncached load is slower. The timings recorded in `docs/IMPLEMENTATION_PLAN.md`
+are local measurements from the milestones that produced them, not guarantees.
+
+### Household Prioritization
+
+`routes/assessments.py::prioritization` validates `page` and the filters
+(`services/assessment_filters.py`), then `services/prioritization.get_prioritization_page()`
+reads one 25-household page from the designated run. Search and filters only narrow
+the rows; each row keeps the municipal rank stored for the full batch. SPISC counts and
+filters use the same current-age rule as the assessment pages
+(`services/spisc_age_progression.py`).
+
+### Household Assessment
+
+`routes/assessments.py::detail` serves four tabs from `?tab=`: Overview, MPI Indicators,
+Subsidy Screening and Staff Reviews. The first three use `services/assessment_details.py`
+(stored findings plus evidence from `services/mpi_evidence.py` and
+`repositories/assessment_evidence.py`); Staff Reviews uses
+`services/staff_reviews.get_staff_review_detail()`. Screening presentation lives in
+`services/*_screening_presentation.py` and `services/subsidy_screening_content.py`, which
+map the stored statuses to the staff labels (For Review, Not Enough Information, No
+Review Signal). The Household Assessment page shows the Household UUID; the focused
+review page does not. Both are intentional UI requirements (see `docs/UI_SPEC.md`).
+
+### Staff review lifecycle and Review Queue
+
+A review belongs to one household and one program. It starts In Review and ends as a
+completed review with a recommendation (For LGU Follow-Up or No Further Action) or as
+cancelled. `services/staff_reviews.py` starts reviews and applies note, finish, cancel and
+reassign actions; `services/recommendation_changes.py` applies the confirmed correction
+and withdrawal. Every write re-checks the batch, designated run, signed-in account and
+review state under row locks, and every POST needs the session CSRF token. SQL lives in
+`repositories/staff_reviews.py`. The Review Queue (`services/review_queue.py`) shows one
+current review per household and program, using the selection rule documented under
+Task 5.2 above. When `scope` is omitted the queue opens on `mine` (Assigned to Me) for LGU
+Staff and `all` (All Staff Reviews) for administrators. Migrations 0005–0008 provide
+the review tables; the earlier sections describe each.
+
+### Review navigation and return state
+
+Staff can reach an assessment or review from Prioritization, the Review Queue, a
+Household Record or a review, and Back must return to where they came from. Only
+validated parameters are accepted; the app never follows a redirect address from the
+request.
+
+| Origin | Parameters | Validated in |
+|---|---|---|
+| Prioritization (default) | `tab`, `page` and the Prioritization filters | `services/assessment_details.detail_navigation` |
+| Review Queue | `from_queue=1`, `queue_status`, `queue_q`, `queue_barangay`, repeated `queue_program`, `queue_scope`, `queue_sort`, `queue_page` | `services/review_queue.parse_queue_return` |
+| Household Record | `from_record=1`, `record_page`, `record_q`, `record_barangay` | `services/household_records.parse_record_return` |
+| Review that opened an assessment | `from_review=<program>-<review_id>` (only together with a Review Queue origin) | `services/review_queue.parse_review_origin`; the review must belong to the household |
+
+An assessment may have only one origin; mixing queue and record origins returns
+HTTP 400, as does a malformed or stale `from_review`. The Back label (Prioritization,
+Review Queue or Household Record) is chosen in `templates/assessments/detail.html`.
+`routes/assessments.py::_assessment_navigation` builds the parameters that every link
+on the page carries forward. After a note is saved the review page redirects to
+`#latest-note` and shows "Note saved." beside the new note.
+
+### Staff account creation and first-login behavior
+
+`/administration/accounts` (admin only) calls `services/staff_account_management.create_staff_account()`.
+It trims the display name (1–120 characters), checks the username
+(`[a-z0-9][a-z0-9_.-]{2,63}`), generates a random initial password, stores only its scrypt
+hash through `repositories/staff_users.py`, and returns the password once for display.
+New accounts have role `lgu_staff` and `must_change_password = true`. While the flag is
+set, `protect_staff_routes` redirects every protected page except `/change-password`
+and `/logout` to the password page; `services/initial_password.py` checks the initial
+password, saves the new one, clears the flag and revokes older sessions. A duplicate
+username shows a message instead of an error. Listing, editing, deactivating and
+resetting accounts are not implemented.
+
+### Public information pages
+
+`routes/public.py` serves `/public` and `/public/programs/<slug>` from the Filipino
+content in `services/public_programs.py`, with `templates/public_*.html`,
+`static/css/public.css` and `static/js/public.js`. They are exempt from sign-in but
+keep the fixture guard, query no database and read no CBMS records. They offer no
+forms, submissions or citizen accounts.
+
+### Migrations 0009 and 0010
+
+Neither is applied automatically; startup never migrates. Both only add a column to
+`staff_users`, so existing accounts and rows are unchanged:
+
+| Migration | Change |
+|---|---|
+| `0009_staff_display_name.sql` | Nullable `display_name` (1–120 characters) so a person's name is stored apart from the unique login username. |
+| `0010_staff_password_change_required.sql` | `must_change_password boolean NOT NULL DEFAULT false`; accounts created by an administrator set it to true until first password setup. |
+
+### Verification record
+
+Latest full regression: 582 tests passed at commit `a95575f`. After the terminology
+correction at `3778780` only 83 focused tests were run (staff reviews, Review Queue,
+review responsibility, SPISC integration, recommendation changes); the full suite has not
+been rerun. The integrated staff workflow was also checked separately with an isolated
+synthetic schema and a temporary server. Older counts quoted in earlier sections describe
+those checkpoints only. None of this replaces future verification with real pilot usage.

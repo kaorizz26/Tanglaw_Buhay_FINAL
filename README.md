@@ -13,45 +13,62 @@ Cloning Git alone does not provide household records or assessment results.
 ## Current Development Status
 
 Tanglaw-Buhay is an ongoing capstone decision-support system for LGU personnel
-in Pozorrubio, Pangasinan. The core assessment and subsidy screening
-functionality is implemented, while several staff and citizen modules are still
-planned. **A navigation item or placeholder does not mean a feature is complete.**
+in Pozorrubio, Pangasinan. The assessment, subsidy screening, and staff review
+workflows are implemented and verified; several administration and citizen
+modules are still partial or planned. **A navigation item or placeholder does not
+mean a feature is complete.**
 
-### Implemented Features
+Both roles, **System Administrator** and **LGU Staff**, sign in at `/login` and
+may use the Dashboard, Household Records, Household Prioritization, Household
+Assessment, Staff Reviews, and Review Queue. Data Import and Staff Accounts are
+administrator-only. Imported CBMS records are read-only for everyone.
+
+### Completed Features
 
 | Feature | Available functionality |
 | --- | --- |
-| Staff Authentication | Database-backed login, logout, staff sessions, and role-based access protection. |
-| Staff Login UI | V3 split-panel sign-in design adapted to the current CSRF-protected login. |
-| Dashboard | Protected municipal overview of the designated completed 2022 assessment: household totals, priority groups, unknown-indicator attention, and per-program “For Review” screening counts, with links to assessments and staff reviews. |
-| Household Records | Protected, read-only directory with household ID/head search, barangay filter, pagination, and focused source-record pages with household conditions, member roster, and assessment links. |
-| PostgreSQL Data Foundation | CBMS households, members, reference mappings, dataset batches, assessment runs, and review tables. |
-| CBMS Data Import Foundation | Validated, transactional backend import of the authorized 2022 dataset; no general-purpose admin upload interface yet. |
-| MPI Vulnerability Assessment | Sixteen indicators across four dimensions, weighted vulnerability scores, uncertainty handling, and stored results. |
-| Household Prioritization | Municipality-wide rankings, search, barangay and other filters, pagination, and assessment links in stored municipal rank order. |
-| Household Assessment Details | Overview, all sixteen MPI indicators, supporting evidence, and plain-language findings. |
-| Subsidy Screening | Four separate historical screening outputs for 4Ps, SLP, SPISC, and TUPAD, with supporting evidence. |
-| Staff Reviews | Start, notes, staff responsibility/reassignment, finish, cancel, and attributed review history. |
-| Review Queue | Three clickable status cards, assigned/shared scopes, search and filters, date sorting, and review navigation. |
+| Authentication and Roles | Database-backed login/logout, sessions, CSRF protection, role guards, and a shared branded sign-in page. There is no self-registration. |
+| Staff Account Creation | The administrator creates LGU Staff accounts under Staff Accounts. A generated initial password is shown once, and the staff member must set their own password at first sign-in. |
+| Dashboard | Historical household statistics for the designated completed run, with a Barangay filter, per-program “For Review” counts, and household assessment patterns for the 16 indicators. LGU Staff also see **My Subsidy Reviews**. The administrator Dashboard shows statistics only. |
+| Household Records | Read-only directory with household ID/head search, barangay filter, pagination, and focused pages with household answers, the member roster, and a link to the assessment. |
+| Household Prioritization | Stored municipal ranks with search, barangay and other filters, and pagination (25 households per page). Filters never change a rank. |
+| Household Assessment | Overview, all 16 MPI indicators with View Evidence, Subsidy Screening, and Staff Reviews tabs for one household. |
+| Subsidy Screening | Four separate historical screening findings for 4Ps, SLP, SPISC, and TUPAD, shown as For Review, Not Enough Information, or No Review Signal. SPISC uses a current-age recommendation. |
+| Staff Reviews | Start a review for one household and program, add permanent notes, reassign the responsible staff member, finish with a recommendation, or cancel. |
+| Review Queue | Municipality-wide queue with three status cards (In Review, For LGU Follow-Up, No Further Action), Assigned to Me / All Staff Reviews scope, search, filters, date sorting, and direct links to each review. |
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
+| Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. They need no account, read no CBMS records, and accept no submissions. |
+| MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
+| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review tables (migrations 0001–0010), and a validated backend importer used once for the 2022 batch. |
 | Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
 
-### Features Still to Be Developed or Completed
+### Partial or Incomplete
 
-These describe the intended direction; detailed workflows and acceptance criteria
-still require approval.
-
-| Module | Planned work |
+| Module | Current state |
 | --- | --- |
-| Dashboard enhancements | Additional interactive analytics require defined questions, labels, and acceptance criteria. |
-| General Welfare Review | Staff-initiated and system-suggested welfare consideration; the suggestion rule and threshold require validation and approval. |
-| Administration | Administrator screens for managing staff accounts, roles, and other authorized operations. |
-| CBMS Import Management | Administrator-only upload, validation, import history, and controlled activation of additional CBMS batches. |
-| Assessment Run Management | Authorized assessment execution, storage, verification, and selection for new validated batches. |
-| Submissions | Staff review and management of citizen-submitted documents. |
-| Citizen Portal | Informational pages for 4Ps, SLP, SPISC, and TUPAD are available at `/public`. Citizen identity, access codes, and secure submissions are not implemented. |
-| Household Progression Tracking | Comparisons across survey periods once reliable household identity matching is established. |
-| End-to-End Testing and Deployment | Verify workflows, roles, privacy, security, usability, and LGU pilot readiness. |
+| Staff Accounts lifecycle | Only account creation exists. Account listing, editing, deactivation, and password reset are not implemented. |
+| Data Import interface | The administrator Data Import page is a placeholder. Importing is available only through the backend importer and the one-time 2022 runner script. |
+| Assessment-run management | New runs are created and designated only by controlled backend scripts; there is no administrator interface. |
+| Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
+
+### Planned, Not Started
+
+| Module | Notes |
+| --- | --- |
+| Submissions | Staff handling of citizen-submitted documents. The staff navigation item is disabled and no workflow exists. |
+| Public submission integration | Depends on the citizen identity and security decisions above. |
+| Pilot verification | End-to-end verification with real LGU usage has not been done. Verification so far used synthetic data. |
+| Deployment and production hardening | The built-in Flask server is for local development only. |
+| Multi-year support and household progression | The database currently restricts source records to survey year 2022 and Pozorrubio; comparing periods also needs reliable household identity matching. |
+
+### Latest Verified Test Results
+
+- **582** full regression tests passed at commit `a95575f`.
+- After the wording correction at commit `3778780`, **83 focused tests** passed
+  (staff reviews, Review Queue, review responsibility, SPISC integration, and
+  recommendation changes). The full suite has **not** been rerun since.
+- The integrated staff workflow was verified separately using isolated synthetic
+  data, not real CBMS records.
 
 ### Future CBMS Data Support
 
@@ -60,21 +77,19 @@ multiple CBMS dataset batches and multiple assessment runs, including preservati
 of historical results. The current database schema restricts source records to
 **survey year 2022 and Pozorrubio**. Supporting later survey years requires an approved schema change,
 even when the questionnaire structure stays the same. Changes to questionnaires
-may also require approved mapping and validation updates. The full
-administrator-facing future-import and assessment-run management workflows are
-**not yet implemented**. Tracking household
-changes across periods additionally requires reliable identity matching.
+may also require approved mapping and validation updates. The administrator-facing
+future-import and assessment-run workflows are **not yet implemented**.
 
 ### Development Guidelines
 
-Create a separate feature branch for each assigned module. Use `AGENTS.md`, the
-relevant project skill, and the relevant parts of `docs/UI_SPEC.md` and
-`docs/PROJECT_CONTEXT.md` when planning with ChatGPT or Codex. Design for
-first-time, nontechnical LGU staff; preserve finalized MPI and subsidy rules,
-original CBMS records, and existing review behavior. Use synthetic data for tests,
-protect authorized household information, and coordinate migrations and pull
-requests. See [Safe team development](#11-safe-team-development) and
-[ChatGPT Chat + Codex workflow](#12-chatgpt-chat--codex-workflow).
+Create a separate feature branch for each assigned module. Read `AGENTS.md` and
+the relevant parts of `docs/UI_SPEC.md` and `docs/PROJECT_CONTEXT.md` before
+planning. Design for first-time, nontechnical LGU staff; preserve finalized MPI
+and subsidy rules, original CBMS records, and existing review behavior. Use
+synthetic data for tests, protect authorized household information, and
+coordinate migrations and pull requests. See
+[Safe team development](#11-safe-team-development). Using an AI assistant is
+optional; see [Optional AI-assisted development](#12-optional-ai-assisted-development).
 
 **Stack:** Python 3.13, Flask/Jinja2, HTML/CSS/JavaScript, PostgreSQL 18,
 psycopg, pandas/NumPy, and pinned dependencies in [requirements.txt](requirements.txt).
@@ -107,19 +122,31 @@ If PostgreSQL was installed elsewhere, adjust its `bin` path in subsequent comma
 
 ## 2. Clone and open the project
 
-Clone the current stable `main` branch:
+The current application is on the `dev/integration-admin-public` branch. `main`
+is behind it and does not yet contain the Dashboard, Household Records, staff
+account creation, or the refined review workflow, so do not set up from `main`.
+Clone the repository and check out the integration branch:
 
 ```powershell
 git clone https://github.com/kaorizz26/Tanglaw_Buhay_FINAL.git
 Set-Location Tanglaw_Buhay_FINAL
-git switch main
-git pull --ff-only origin main
+git fetch origin
+git switch dev/integration-admin-public
+git branch --show-current
+git status
 code .
 ```
 
+Expected: `git branch --show-current` prints `dev/integration-admin-public`, and
+`git status` reports the branch is up to date with `origin/dev/integration-admin-public`
+with a clean working tree. Then continue with the environment and database steps below.
+If `git switch` cannot find the branch, run `git fetch origin` again and check that
+your GitHub account has access to the repository.
+
 GitHub may ask you to sign in and must grant you access to the repository.
-The completed handoff has been merged into `main`. Create a separate feature
-branch for development; do not commit new feature work directly on `main`.
+Do not commit feature work directly on this shared branch or on `main`; create your
+own feature branch from it (see [Safe team development](#11-safe-team-development)).
+How and when the integration branch is merged into `main` has not been decided.
 
 ## 3. Create your Python environment
 
@@ -178,15 +205,16 @@ never commit, attach to a public issue, or upload them to GitHub. Google Drive
 sharing, if used, must be restricted to authorized teammates.
 
 The handoff backup includes imported household/member/reference records, batch
-metadata, completed Run 1 and selected Run 2, stored MPI rankings and all four
-program findings, and schema migrations **0001–0008**. It retains account/review
+metadata, completed Runs 1 and 2 (Run 2 selected when the backup was prepared),
+stored MPI rankings and all four program findings, and schema migrations
+**0001–0008**. It retains account/review
 table structures but excludes all rows from `staff_users`, `staff_reviews`,
 `staff_review_notes`, `staff_review_reassignments`, and
 `staff_review_recommendation_changes`. Each teammate creates their own account.
 
 **Choose one restore method. Restore once into the empty development database.**
 Do not run migrations 0001–0008 after restoring this backup. Do not rerun the
-historical CBMS import, assessment persistence, or Run 2 correction/selection
+historical CBMS import, assessment persistence, or run correction/selection
 scripts; their results are already included. Application startup never migrates.
 
 ### PowerShell method
@@ -244,10 +272,20 @@ SELECT id, status, expected_household_count FROM assessment_runs ORDER BY id;
 SELECT batch_id, run_id FROM assessment_run_selections ORDER BY batch_id;
 ```
 
-For this handoff, expect **19,304 households**, **69,350 members**, two completed
-runs with **19,304 assessments each** (38,608 total), and batch `1` selecting
-Run `2`. Before administrator bootstrap, all five account/review tables should
-have zero rows. Confirm these values against the supplied manifest.
+For the backup as originally prepared, expect **19,304 households**, **69,350
+members**, two completed runs with **19,304 assessments each** (38,608 total),
+and batch `1` selecting Run `2`. Before administrator bootstrap, all five
+account/review tables should have zero rows. Confirm these values against the
+supplied manifest, which is authoritative if the owner provides a newer backup.
+
+The project's current development database designates completed **Run 3**, which
+adopts the refined SLP and TUPAD screening rules. If your restored database still
+selects Run 2, or the manifest lists migrations only up to 0008, it is an older
+snapshot. **Warning:** the backup you were given may contain only Runs 1–2 and
+migrations 0001–0008. No updated Run 3 backup is assumed to exist. Read the
+backup's JSON manifest, then confirm with the project owner which database
+snapshot to restore. Do not run the assessment persistence scripts yourself; they
+need separate owner approval.
 
 The prepared handoff backup was restored into a separate disposable database.
 All retained rows and schema definitions matched the source, including stored MPI
@@ -256,8 +294,8 @@ also passed. The adjacent private manifest records the verification results.
 
 ### Apply account schema updates after restoring the handoff backup
 
-The supplied backup includes migrations 0001–0008. This branch adds two account
-columns that must be applied **once** to each teammate's local development
+The supplied backup includes migrations 0001–0008. Migrations 0009 and 0010 add
+two account columns that must be applied **once** to each teammate's local development
 database, in order. Git does not update PostgreSQL, and application startup does
 not run migrations. From the project directory, use your own local database role:
 
@@ -276,8 +314,8 @@ WHERE table_schema = 'public' AND table_name = 'staff_users'
 ORDER BY column_name;
 ```
 
-Existing accounts keep their current passwords and have
-`must_change_password = false`. Accounts created through the administrator page
+After both are applied the database matches migrations 0001–0010. Existing
+accounts keep their current passwords and have `must_change_password = false`. Accounts created through the administrator page
 have the flag set until their first password change. The empty test database does
 not need these migrations applied manually; the tests create disposable schemas.
 
@@ -303,7 +341,7 @@ Replace every placeholder. URL-encode special password characters such as `@`,
 `#`, `%`, and `/` in the connection URLs; pgAdmin still takes the original password.
 Use `SESSION_COOKIE_SECURE=false` **only for local loopback HTTP development**.
 Deployment requires HTTPS and secure cookies. Keep `.env`, passwords, and signing
-keys private; never paste them into ChatGPT, Codex prompts, screenshots, or Git.
+keys private; never paste them into AI assistant prompts, screenshots, or Git.
 
 ## 7. Create your System Administrator account
 
@@ -330,12 +368,14 @@ python app.py
 ```
 
 Open [Staff sign in](http://127.0.0.1:5000/login) and use your new application
-account. The System Administrator opens `/administration` and can create LGU Staff
-accounts under Staff Accounts. Give a new staff member their generated initial
+account. The System Administrator opens `/administration` (the Dashboard) and can
+create LGU Staff accounts under Staff Accounts. Give a new staff member their generated initial
 password privately; they sign in at `/login` and must set a new password before
-opening staff pages. Only LGU Staff can open Household Prioritization, assessments,
-and Review Queue. The queue starts empty because the handoff intentionally
-excludes staff reviews. `/test` is only a health check; it does not verify the
+opening staff pages. Both roles can open Household Records, Household Prioritization,
+assessments, and the Review Queue (it opens on Assigned to Me for LGU Staff and
+All Staff Reviews for administrators). The queue starts empty because the handoff intentionally
+excludes staff reviews. `/public` shows the public program information pages
+without signing in. `/test` is only a health check; it does not verify the
 database. Stop the server with **Ctrl+C**.
 
 The built-in Flask server is for local development; production deployment is
@@ -376,7 +416,9 @@ python -B -m unittest discover -s tests
 
 Confirm `TANGLAW_TEST_DATABASE_URL` points only to your empty, local
 `tanglaw_buhay_test`. Database tests must execute, not silently skip. Keep actual
-CBMS data out of tests. The latest application regression passed **407 tests**.
+CBMS data out of tests. The latest full regression passed **582 tests** at commit `a95575f`; after the
+wording correction at `3778780`, 83 focused tests passed and the full suite has
+not been rerun (see [Latest Verified Test Results](#latest-verified-test-results)).
 
 ## 10. Troubleshooting
 
@@ -389,7 +431,7 @@ CBMS data out of tests. The latest application regression passed **407 tests**.
 | Restore says an object already exists | Stop. Check that this is a new empty database; do not add `--clean` or delete existing work. |
 | Restore says role is missing | Use `--no-owner --no-acl` with the local database owner as shown above. |
 | Sign-in unavailable or does not persist | Set a random `SECRET_KEY` of at least 32 characters; use `SESSION_COOKIE_SECURE=false` only on local HTTP; restart the app. |
-| Staff reviews/assessments unavailable | Check restore success, migrations 0001–0008 structures, selected completed Run 2, and `.env`; do not blindly reapply migrations or import scripts. |
+| Staff reviews/assessments unavailable | Check restore success, migrations 0001–0010 structures, the selected completed run, and `.env`; do not blindly reapply migrations or import scripts. |
 | Initial admin already exists | Bootstrap is intentionally blocked; coordinate account access instead of clearing accounts. |
 | Port 5000 already in use | Stop the older local server and restart; avoid running duplicate project instances. |
 
@@ -397,90 +439,58 @@ Share sanitized error descriptions, never credentials or household records.
 
 ## 11. Safe team development
 
-Begin each assigned module from updated `main` with a clean working tree:
+Begin each assigned module from the updated integration branch with a clean working
+tree (until the team decides how it is merged into `main`):
 
 ```powershell
 git status
-git switch main
-git pull --ff-only origin main
+git switch dev/integration-admin-public
+git pull --ff-only origin dev/integration-admin-public
 git switch -c dev/your-module-name
 ```
 
 Replace `your-module-name` with your assigned scope. Coordinate ownership before
 editing shared files, especially routes, layout, configuration, and migrations.
-Use separate branches and separate ChatGPT/Codex conversations for each module;
-conversations do not synchronize teammates' laptop files or database state.
+Use a separate branch for each module. AI assistant conversations, if you use
+them, do not synchronize teammates' laptop files or database state.
 
 Review `git diff` and `git status`; stage explicit intended paths only. After
 human review, commit and push your module branch, then open a GitHub pull request
-into `main`. Have a teammate review it before the approved merge. Never force-push
+into the branch your team lead names. Have a teammate review it before the approved merge. Never force-push
 shared branches, commit private data/backups, or reset/discard another person's work.
 Git transfers code, not local databases; coordinate new migrations explicitly.
 
-## 12. ChatGPT Chat + Codex workflow
+## 12. Optional AI-assisted development
 
-Use **ChatGPT Chat → planning/brainstorming → approved Codex prompt → Codex
-implementation → ChatGPT review → next task**. Keep one approved deliverable at
-a time. Give ChatGPT the relevant current documents and sanitized Codex result;
-it should not assume it has inspected your local repository or another conversation.
-Use focused Codex tasks for implementation and verification rather than repeated
-repository-wide audits. This is our team workflow, not a guarantee about account
-usage limits. Follow the account's access rules and never include private records.
+Using an AI assistant is optional; nothing in setup, testing, or running the
+application depends on one. If you choose to use any assistant, keep one approved
+deliverable at a time, give it the relevant current documents and your own
+sanitized results, and remember that it cannot see your local repository or
+database unless you provide the information. Follow your account's usage rules and
+never include private household records, backups, passwords, or `.env` contents.
 
-### Copy-paste onboarding prompt for ChatGPT Chat
-
-Paste this into a **new ChatGPT Chat conversation**, then supply the referenced
-documents and name your assigned module:
+A short prompt you may adapt for any assistant:
 
 ```text
 We are continuing Tanglaw-Buhay (kaorizz26/Tanglaw_Buhay_FINAL), a Flask/Jinja2/
 PostgreSQL decision support system for LGU/CSWDO staff in Pozorrubio.
 My assigned module is: [MODULE]. My local branch is: [BRANCH].
 
-Act as my planning and review partner. Proceed with caution. First understand the
-existing implementation from the current documents, relevant code I provide, and
-sanitized Codex reports. Do not claim to have inspected files you cannot access.
-Ask for missing relevant context; do not assume all planned modules are complete.
+Help me plan and review one focused task at a time. Read AGENTS.md first, then
+only the relevant parts of docs/UI_SPEC.md, docs/PROJECT_CONTEXT.md,
+docs/IMPLEMENTATION_PLAN.md, and DEVELOPER_GUIDE.md. For frontend work, also read
+.codex/skills/tanglaw-frontend/SKILL.md. Inspect the actual affected code and do
+not assume planned modules are complete.
 
-Workflow: ChatGPT Chat -> planning and brainstorming with me -> I approve the
-scope -> you write one focused, copy-paste-ready Codex task -> Codex implements
-and reports -> we review together -> we choose the next task.
-Do not generate an implementation prompt before we agree on the task.
-
-Every Codex task must specify its objective, boundaries, acceptance criteria,
-proportionate tests, and relevant visual checks. Tell Codex to read AGENTS.md;
-for frontend work, read .codex/skills/tanglaw-frontend/SKILL.md; inspect the actual
-affected code and relevant sections of docs/UI_SPEC.md, docs/PROJECT_CONTEXT.md,
-and docs/IMPLEMENTATION_PLAN.md. Use targeted DEVELOPER_GUIDE.md sections only
-when needed; never require reading the entire guide by default.
-
-Protect completed MPI calculations, mappings, weights, unknown handling,
-subsidy rules, source records, stored assessments/rankings, authentication,
-permissions, and Staff Review behavior. Keep staff decisions separate from
-screening findings. Never describe findings as official eligibility or approval.
-Avoid overengineering, new dependencies, unrelated edits, repeated broad audits,
-and unnecessary test reruns. Preserve teammate work and coordinate shared files.
-Never authorize commits, pushes, merges, migrations, resets, or destructive
-database operations automatically; require my explicit task-specific approval.
-Never request passwords, private household records, or backups in the chat.
-
-When I say "proceed with caution", apply these standards throughout:
-Primary users are first-time, nontechnical LGU personnel. Every staff screen
-must be professional, understandable, practical, accessible, and responsive,
-using the existing navy/gold design. Make the page purpose, household/program,
-status, available action, consequence, and return navigation clear. Use readable
-typography, spacing, labels, colors, tables, and forms. Explain important scores,
-historical findings, unknowns, and workflow statuses briefly in everyday language.
-Avoid plain unfinished, article-like, overcrowded, repetitive, or developer-facing
-operational screens. Omit technical methodology, provenance stories, and internal
-implementation notes from staff screens; keep meaningful uncertainty visible.
-
-Start by helping me understand my module's current state and plan its smallest
-useful next deliverable. Do not start coding or authorize Git/database changes.
+State the objective, boundaries, acceptance criteria, and proportionate tests
+before any code is written. Protect completed MPI calculations, subsidy rules,
+source records, stored assessments and rankings, authentication, permissions, and
+Staff Review behavior. Keep staff decisions separate from screening findings and
+never describe findings as official eligibility or approval. Avoid new
+dependencies and unrelated edits. Do not commit, push, migrate, reset, or run
+destructive database operations without my explicit approval for that task.
+Never ask for passwords, private household records, or backups.
 ```
-
-OpenAI's [Codex best practices](https://developers.openai.com/codex/learn/best-practices/)
-provide further guidance on context, task scope, and verification.
 
 ## Project references
 
