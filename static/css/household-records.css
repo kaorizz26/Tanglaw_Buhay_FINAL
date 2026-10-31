@@ -18,7 +18,11 @@
 .records-filter-actions { display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .records-filter-actions button, .record-assessment { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 16px; border: 0; border-radius: 6px; background: var(--navy); color: white; font-size: .875rem; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
 .records-filter-actions button:hover, .record-assessment:hover { background: var(--navy-active); color: white; }
-.records-filter-actions a, .record-back { font-size: .875rem; font-weight: 600; white-space: nowrap; }
+.records-filter-actions a { font-size: .875rem; font-weight: 600; white-space: nowrap; }
+/* Secondary outlined action, matching the assessment page's context navigation. */
+.record-back { display: inline-flex; align-items: center; min-height: 44px; padding: 9px 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--navy); font-size: .875rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.record-back:hover { background: var(--surface-muted); color: var(--navy); }
+.record-back:focus-visible, .record-assessment:focus-visible, .records-row-link:focus-visible { outline: 3px solid #167eb5; outline-offset: 3px; }
 .records-table-scroll { max-width: 100%; overflow-x: auto; }
 .records-table { width: 100%; min-width: 680px; border-collapse: collapse; text-align: left; }
 .records-table th { padding: 12px 24px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: #f8fafb; color: var(--text-muted); font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
@@ -27,8 +31,13 @@
 .records-table tbody tr:hover { background: #fafbf9; }
 .records-id { color: var(--gold-text); font-weight: 700; white-space: nowrap; }
 .records-table .records-members { text-align: center; }
-.records-row-link { font-weight: 700; white-space: nowrap; }
-.records-row-link span { margin-left: 4px; }
+/* Compact primary row action, matching the Review Queue's Open Review button. */
+.records-row-link { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border-radius: 6px; background: var(--navy); color: var(--surface); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.records-row-link:hover { background: var(--navy-active); color: var(--surface); }
+/* Less padding around the button keeps the 25 rows compact. */
+.records-table td.records-action { padding-top: 8px; padding-bottom: 8px; }
+/* The Action header and its buttons share one centred column. */
+.records-table .records-action { text-align: center; }
 .records-empty { padding: 52px 24px; border-top: 1px solid var(--border); text-align: center; }
 .records-empty h3 { margin: 0 0 8px; font-size: 1.125rem; }
 .records-empty p { margin-bottom: 16px; color: var(--text-muted); }
@@ -89,6 +98,7 @@
   .records-table tr { display: grid; min-width: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; }
   .records-table td { display: flex; justify-content: space-between; gap: 14px; min-width: 0; padding: 8px 0; border: 0; text-align: right; overflow-wrap: anywhere; }
   .records-table td.records-members { text-align: right; }
+  .records-table td.records-action { align-items: center; }
   .records-table td::before { content: attr(data-label); flex: 0 0 42%; color: var(--text-muted); font-size: .75rem; font-weight: 700; text-align: left; text-transform: uppercase; }
   .records-table td:last-child { padding-top: 12px; border-top: 1px solid var(--border); }
 }

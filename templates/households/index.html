@@ -67,7 +67,7 @@
               <th scope="col">Household Head</th>
               <th scope="col">Barangay</th>
               <th scope="col" class="records-members">Members</th>
-              <th scope="col">Action</th>
+              <th scope="col" class="records-action">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -77,7 +77,7 @@
                 <td data-label="Household head">{{ item.head_name }}</td>
                 <td data-label="Barangay">{{ item.barangay }}</td>
                 <td class="records-members" data-label="Members">{{ item.member_count }}</td>
-                <td data-label="Record"><a class="records-row-link" href="{{ url_for('households.detail', household_uuid=item.household_uuid, page=results.page, **results.filters.parameters) }}">View Record <span aria-hidden="true">→</span></a></td>
+                <td class="records-action" data-label="Record"><a class="records-row-link" href="{{ url_for('households.detail', household_uuid=item.household_uuid, page=results.page, **results.filters.parameters) }}">View Record</a></td>
               </tr>
             {% endfor %}
           </tbody>
