@@ -56,11 +56,11 @@
           </div>
           <dl class="review-findings">
             <div>
-              <dt>{{ 'Current SPISC recommendation' if program.name == 'SPISC' else 'Automated historical screening finding' }}</dt>
+              <dt>{{ 'Automated Screening Finding (current age)' if program.name == 'SPISC' else 'Automated Screening Finding' }}</dt>
               <dd><span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span></dd>
             </div>
             <div>
-              <dt>{{ 'Staff review status' if not program.latest or program.latest.status != 'Closed' else 'Staff recommendation' }}</dt>
+              <dt>{{ 'Staff Review Status' if not program.latest or program.latest.status != 'Closed' else 'Staff Recommendation' }}</dt>
               <dd>
                 {% if program.latest and program.latest.withdrawn %}
                   <span class="staff-review-badge staff-review-badge--withdrawn">Recommendation Withdrawn</span>

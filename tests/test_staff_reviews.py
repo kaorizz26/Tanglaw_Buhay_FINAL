@@ -140,13 +140,14 @@ class StaffReviewRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.text.count('class="staff-review-card"'), 4)
         for text in ('Not Started', 'In Review', 'synthetic_admin', '17 Oct 2026',
-                     'Not Enough Information', 'Current SPISC recommendation', '&lt;script&gt;reason&lt;/script&gt;'):
+                     'Not Enough Information', 'Automated Screening Finding (current age)', '&lt;script&gt;reason&lt;/script&gt;'):
             self.assertIn(text, response.text)
         self.assertNotIn('program=SLP', response.text)
         self.assertIn('/reviews/SLP/42', response.text)
         self.assertIn('Open Review', response.text)
-        self.assertIn('Automated historical screening finding', response.text)
-        self.assertIn('Staff review status', response.text)
+        self.assertEqual(response.text.count('Automated Screening Finding</dt>'), 3)
+        self.assertEqual(response.text.count('Automated Screening Finding (current age)</dt>'), 1)
+        self.assertIn('Staff Review Status', response.text)
         self.assertIn('Staff recommendations are recorded separately', response.text)
         for text in ('Continue Review', 'Close Review', 'Add Notes'):
             self.assertNotIn(text, response.text)
@@ -256,7 +257,7 @@ class StaffReviewRouteTests(unittest.TestCase):
                      'Sustainable Livelihood Program',
                      'Social Pension for Indigent Senior Citizens',
                      'Tulong Panghanapbuhay sa Ating Disadvantaged / Displaced Workers',
-                     'Staff recommendation', 'For LGU Follow-Up', 'No Further Action',
+                     'Staff Recommendation', 'For LGU Follow-Up', 'No Further Action',
                      'Cancelled', 'View Review History (2)'):
             self.assertIn(text, reviews.text)
         self.assertNotIn('Closed', reviews.text)
@@ -285,7 +286,7 @@ class StaffReviewRouteTests(unittest.TestCase):
         )[0]
         slp_current = slp_card.split('<details class="review-history">', 1)[0]
         self.assertIn('Cancelled', slp_current)
-        self.assertNotIn('Staff recommendation', slp_current)
+        self.assertNotIn('Staff Recommendation', slp_current)
         self.assertIn('This review ended without a recommendation.', slp_current)
         self.assertIn('Start Review', slp_current)
 
