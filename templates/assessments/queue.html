@@ -10,17 +10,10 @@
 
 {% block content %}
   {% set review_label = 'review' if results.total == 1 else 'reviews' %}
-  <header class="page-header queue-header">
-    <div class="context-bar">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <span>Assessments</span><span aria-hidden="true">/</span>
-        <span aria-current="page">Review Queue</span>
-      </nav>
-      <p class="dataset-reference">CBMS Data · {{ results.context.survey_year }}</p>
-    </div>
+  <header class="page-header">
     <div class="page-heading">
       <h1>Review Queue</h1>
-      <p>Subsidy reviews started by LGU staff · Municipality of {{ results.context.municipality }}</p>
+      <p>Track subsidy reviews and recommendations recorded by LGU staff.</p>
     </div>
   </header>
 
@@ -46,7 +39,7 @@
         >{{ label }}</a>
       {% endfor %}
     </nav>
-    <p class="queue-scope-explanation">{{ 'Reviews assigned to you as the responsible staff member.' if results.filters.scope == 'mine' else 'Reviews assigned to authorized LGU personnel.' }}</p>
+    <p class="queue-scope-explanation">{{ 'Reviews assigned to you as the responsible staff member. Other authorized staff can also assist.' if results.filters.scope == 'mine' else 'Reviews assigned to authorized LGU personnel. Any authorized staff member can also assist.' }}</p>
   </div>
 
   {% for message in get_flashed_messages() %}
@@ -64,11 +57,11 @@
       <input type="hidden" name="scope" value="{{ results.filters.scope }}">
       <div class="filter-fields">
         <div class="filter-field filter-search">
-          <label for="queue-search">Household search</label>
+          <label for="queue-search">Household ID or household head</label>
           <input
             type="search" id="queue-search" name="q"
             value="{{ results.filters.search }}"
-            placeholder="Head name or HH-00001" maxlength="200"
+            placeholder="e.g. HH-00001 or a name" maxlength="200"
           >
         </div>
         <div class="filter-field">
@@ -85,42 +78,49 @@
         </div>
         <div class="filter-actions">
           <button class="apply-filters" type="submit">Apply Filters</button>
-          <a class="clear-filters" href="{{ url_for('assessments.queue', status=results.filters.status, scope=results.filters.scope) }}">Clear Filters</a>
+          {% if results.filters.active or results.filters.sort %}
+            <a class="clear-filters" href="{{ url_for('assessments.queue', status=results.filters.status, scope=results.filters.scope) }}">Clear Filters</a>
+          {% endif %}
         </div>
       </div>
-      <div class="queue-secondary-filters">
-        <div class="filter-field queue-sort">
-          <label for="queue-sort">Sort by Date {{ 'Started' if results.filters.status == 'in-review' else 'Finished' }}</label>
-          <select id="queue-sort" name="sort">
-            <option value="">Default · {{ 'oldest first' if results.filters.status == 'in-review' else 'newest first' }}</option>
-            <option value="asc" {% if results.filters.sort == 'asc' %}selected{% endif %}>Ascending · oldest first</option>
-            <option value="desc" {% if results.filters.sort == 'desc' %}selected{% endif %}>Descending · newest first</option>
-          </select>
+
+      {# Stay open while a hidden filter is applied, so staff can see why the list is narrowed. #}
+      {% set more_filters_active = results.filters.programs or results.filters.sort %}
+      <details class="more-filters" {% if more_filters_active %}open{% endif %}>
+        <summary>More Filters{% if more_filters_active %}<span>Additional filters applied</span>{% endif %}</summary>
+        <div class="queue-secondary-filters">
+          <div class="filter-field queue-sort">
+            <label for="queue-sort">Sort by Date {{ 'Started' if results.filters.status == 'in-review' else 'Finished' }}</label>
+            <select id="queue-sort" name="sort">
+              <option value="">Default · {{ 'oldest first' if results.filters.status == 'in-review' else 'newest first' }}</option>
+              <option value="asc" {% if results.filters.sort == 'asc' %}selected{% endif %}>Ascending · oldest first</option>
+              <option value="desc" {% if results.filters.sort == 'desc' %}selected{% endif %}>Descending · newest first</option>
+            </select>
+          </div>
+          <fieldset class="subsidy-filters queue-programs" aria-describedby="queue-program-help">
+            <legend>Subsidy Programs</legend>
+            <div class="program-choices">
+              {% for program in results.program_options %}
+                <label class="program-choice">
+                  <input
+                    type="checkbox" name="program" value="{{ program }}"
+                    {% if program in results.filters.programs %}checked{% endif %}
+                  >
+                  <span>{{ program }}</span>
+                </label>
+              {% endfor %}
+            </div>
+            <p class="filter-help" id="queue-program-help">Show any selected program. Leave all unchecked to show every program.</p>
+          </fieldset>
         </div>
-      <fieldset class="subsidy-filters queue-programs" aria-describedby="queue-program-help">
-        <legend>Subsidy programs</legend>
-        <div class="program-choices">
-          {% for program in results.program_options %}
-            <label class="program-choice">
-              <input
-                type="checkbox" name="program" value="{{ program }}"
-                {% if program in results.filters.programs %}checked{% endif %}
-              >
-              <span>{{ program }}</span>
-            </label>
-          {% endfor %}
-        </div>
-        <p class="filter-help" id="queue-program-help">Show any selected program. Leave all unchecked to show every program.</p>
-      </fieldset>
-      </div>
+      </details>
     </form>
 
     <div class="ranking-heading">
       <h2 id="queue-table-heading">{{ 'Reviews in progress' if results.filters.status == 'in-review' else results.status_label }}</h2>
       <p>{{ '{:,}'.format(results.total) }} {% if results.filters.active %}matching {% endif %}{{ review_label }}</p>
     </div>
-    <p class="queue-rank-explanation" id="queue-rank-explanation">Municipal Rank reflects household vulnerability across the municipality, not review order.</p>
-    <p class="queue-rank-explanation">Each subsidy review has its own row and Responsible Staff. Other authorized staff can also help.</p>
+    <p class="queue-rank-explanation" id="queue-rank-explanation">Municipal Rank shows household vulnerability, not review order. Each row represents one subsidy review.</p>
     <div class="table-scroll" role="region" aria-label="Staff review table" tabindex="0">
       <table class="ranking-table queue-table" aria-describedby="queue-rank-explanation">
         <caption class="visually-hidden">
@@ -198,8 +198,15 @@
         </tbody>
       </table>
     </div>
-    {% with pagination_endpoint='assessments.queue', record_label=review_label, pagination_label='Review queue pages' %}
-      {% include 'assessments/pagination.html' %}
-    {% endwith %}
+    {# One page needs only the results count; page controls appear when there are more pages. #}
+    {% if results.page_count > 1 %}
+      {% with pagination_endpoint='assessments.queue', record_label=review_label, pagination_label='Review queue pages' %}
+        {% include 'assessments/pagination.html' %}
+      {% endwith %}
+    {% elif results.total > 0 %}
+      <div class="pagination-footer">
+        <p class="record-count"><strong>{{ '{:,}'.format(results.first_record) }}–{{ '{:,}'.format(results.last_record) }}</strong> of {{ '{:,}'.format(results.total) }} {{ review_label }}</p>
+      </div>
+    {% endif %}
   </section>
 {% endblock %}

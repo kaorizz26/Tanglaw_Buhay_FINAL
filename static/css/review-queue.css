@@ -1,9 +1,4 @@
 /* Municipality-wide, staff-initiated subsidy reviews. */
-.queue-header {
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
 .queue-status-guide {
   margin: 0 0 18px;
 }
@@ -127,7 +122,7 @@
 }
 
 .queue-filters {
-  padding: 18px 16px 16px;
+  padding-top: 18px;
 }
 
 .queue-programs {
@@ -144,7 +139,7 @@
   align-items: start;
   flex-wrap: wrap;
   gap: 16px 28px;
-  margin-top: 18px;
+  padding: 8px 0 16px;
 }
 
 .queue-sort {

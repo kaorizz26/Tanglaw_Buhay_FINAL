@@ -191,8 +191,11 @@ class QueueRouteTests(unittest.TestCase):
                     self.assertIn('scope=' + scope, selected)
                     self.assertNotIn('id="queue-scope"', response.text)
                     self.assertIn(f'name="scope" value="{scope}"', response.text)
-                    expected = ('Reviews assigned to you as the responsible staff member.'
-                                if scope == 'mine' else 'Reviews assigned to authorized LGU personnel.')
+                    expected = (
+                        'Reviews assigned to you as the responsible staff member. '
+                        'Other authorized staff can also assist.' if scope == 'mine' else
+                        'Reviews assigned to authorized LGU personnel. '
+                        'Any authorized staff member can also assist.')
                     self.assertIn(expected, response.text)
                     self.assertLess(response.text.index('queue-status-guide'),
                                     response.text.index('queue-scope-switch'))
@@ -228,6 +231,58 @@ class QueueRouteTests(unittest.TestCase):
             # Apply Filters submits the hidden selection and resets pagination.
             self.client.get('/assessments/queue?' + urlencode({**parameters, 'page': 1}, doseq=True))
             self.assertEqual(self.query.call_args.args[1].scope, scope)
+
+    def test_header_and_note_are_short_and_free_of_repeated_context(self):
+        self.fixture.session()
+        page = self.client.get('/assessments/queue')
+        main = page.text.split('<main', 1)[1]
+        self.assertIn('Track subsidy reviews and recommendations recorded by LGU staff.', main)
+        for removed in ('aria-label="Breadcrumb"', 'CBMS Data', 'Municipality of',
+                        'Each subsidy review has its own row',
+                        'Municipal Rank reflects household vulnerability'):
+            self.assertNotIn(removed, main)
+        self.assertEqual(main.count('Municipal Rank shows household vulnerability, '
+                                    'not review order. Each row represents one subsidy review.'), 1)
+        self.assertIn('Responsible Staff:', main)
+        self.assertIn('(you)', main)
+
+    def test_clear_filters_and_more_filters_follow_the_applied_filters(self):
+        self.fixture.session()
+        # (query, Clear Filters shown, More Filters open)
+        for query, clear, more_open in (
+            ('', False, False), ('status=follow-up&scope=all', False, False),
+            ('q=Synthetic', True, False), ('barangay=Synthetic+Barangay', True, False),
+            ('program=SLP', True, True), ('sort=desc', True, True),
+            ('q=Synthetic&program=4Ps&program=TUPAD&sort=asc', True, True),
+        ):
+            with self.subTest(query=query):
+                page = self.client.get('/assessments/queue?' + query)
+                self.assertEqual('class="clear-filters"' in page.text, clear)
+                details = re.search(r'<details class="more-filters"[^>]*>', page.text)[0]
+                self.assertEqual(' open' in details, more_open)
+                # Search and Barangay stay visible; the two secondary filters sit inside.
+                form = re.search(r'<form[^>]*aria-label="Filter staff reviews".*?</form>',
+                                 page.text, re.S)[0]
+                disclosure = re.search(r'<details class="more-filters".*?</details>', form, re.S)[0]
+                self.assertIn('Household ID or household head', form.split('<details', 1)[0])
+                self.assertIn('Barangay', form.split('<details', 1)[0])
+                self.assertIn('name="sort"', disclosure)
+                self.assertEqual(disclosure.count('name="program"'), 4)
+
+    def test_pagination_controls_appear_only_when_there_is_more_than_one_page(self):
+        self.fixture.session()
+        self.query.side_effect = lambda page, filters, **kwargs: queue_fixture(page, filters, total=7)
+        single = self.client.get('/assessments/queue')
+        self.assertIn('of 7 reviews', single.text)
+        self.assertNotIn('Review queue pages', single.text)
+        self.assertNotIn('Previous', single.text)
+        self.query.side_effect = lambda page, filters, **kwargs: queue_fixture(page, filters, total=0)
+        empty = self.client.get('/assessments/queue')
+        self.assertNotIn('record-count', empty.text)
+        self.query.side_effect = queue_fixture
+        several = self.client.get('/assessments/queue')
+        self.assertIn('Review queue pages', several.text)
+        self.assertIn('Page 1 of 3', several.text)
 
     def test_personal_empty_state_is_distinct_from_filtered_and_shared_lists(self):
         self.fixture.session()
