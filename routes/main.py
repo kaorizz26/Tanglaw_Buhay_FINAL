@@ -1,7 +1,7 @@
 """Protected staff dashboard, retired URLs and an independent health check."""
 
 from flask import (
-    Blueprint, abort, current_app, g, jsonify, redirect, render_template,
+    Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template,
     request, url_for,
 )
 import psycopg
@@ -11,7 +11,11 @@ from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError, get_active_dashboard_summary
 from services.dashboard_patterns import select_area
 from services.review_queue import get_dashboard_reviews
-from services.staff_account_management import StaffAccountInputError, create_staff_account
+from services.staff_account_management import (
+    StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
+    deactivate_staff_account, get_staff_account_to_deactivate, get_staff_accounts,
+    reveal_temporary_password,
+)
 
 main = Blueprint("main", __name__)
 
@@ -83,11 +87,15 @@ def data_import():
 
 
 @main.route("/administration/accounts", methods=["GET", "POST"])
+@main.route("/administration/accounts/create", methods=["GET", "POST"],
+            endpoint="staff_account_create")
 @admin_required
 def staff_accounts():
     require_fixture_source()
+    show_create = request.endpoint == "main.staff_account_create"
     error = None
     created_account = None
+    revealed_account = None
     display_name = ""
     username = ""
     if request.method == "POST":
@@ -95,19 +103,76 @@ def staff_accounts():
         display_name = request.form.get("display_name", "")
         username = request.form.get("username", "")
         try:
-            created_account = create_staff_account(display_name, username)
+            action = request.form.get("action")
+            if action is None and (show_create or "display_name" in request.form):
+                action = "create"
+            if action == "create":
+                created_account = create_staff_account(display_name, username)
+                show_create = True
+            elif action == "reveal" and not show_create:
+                revealed_account = reveal_temporary_password(
+                    request.form.get("account_id", type=int),
+                )
+            else:
+                raise StaffAccountInputError("Choose a valid account action.")
         except StaffAccountInputError as exc:
             error = str(exc)
         except psycopg.errors.UniqueViolation:
             error = "That username is already in use. Choose another username."
         except (psycopg.Error, RuntimeError):
-            abort(503, description="Staff account creation is unavailable. Please try again.")
+            abort(503, description="This account action is unavailable. Please try again.")
+    try:
+        accounts = [] if show_create else get_staff_accounts()
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Staff accounts are unavailable. Please try again.")
     return render_template(
         "staff/staff_accounts.html", error=error, created_account=created_account,
+        accounts=accounts, revealed_account=revealed_account, show_create=show_create,
         display_name=display_name, username=username,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), (400 if error else 200)
+
+
+@main.route("/administration/accounts/<int:account_id>/deactivate",
+            methods=["GET", "POST"])
+@admin_required
+def staff_account_deactivate(account_id):
+    require_fixture_source()
+    if request.method == "POST":
+        check_csrf()
+        try:
+            deactivate_staff_account(account_id)
+        except StaffAccountHasActiveReviews as exc:
+            try:
+                account = get_staff_account_to_deactivate(account_id)
+            except StaffAccountInputError:
+                abort(404, description="This staff account is no longer active.")
+            except (psycopg.Error, RuntimeError):
+                abort(503, description="Staff accounts are unavailable. Please try again.")
+            return render_template(
+                "staff/deactivate_staff_account.html", account=account,
+                error=str(exc), role_label="System Administrator",
+                staff_username=g.user["username"], csrf_token=csrf_token(),
+            ), 409
+        except StaffAccountInputError:
+            abort(404, description="This staff account is no longer active.")
+        except (psycopg.Error, RuntimeError):
+            abort(503, description="This account action is unavailable. Please try again.")
+        flash("Staff account deactivated.")
+        return redirect(url_for("main.staff_accounts"))
+
+    try:
+        account = get_staff_account_to_deactivate(account_id)
+    except StaffAccountInputError:
+        abort(404, description="This staff account is no longer active.")
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Staff accounts are unavailable. Please try again.")
+    return render_template(
+        "staff/deactivate_staff_account.html", account=account, error=None,
+        role_label="System Administrator", staff_username=g.user["username"],
+        csrf_token=csrf_token(),
+    )
 
 
 @main.get("/households/<path:retired_path>")

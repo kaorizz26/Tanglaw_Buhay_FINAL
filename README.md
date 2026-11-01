@@ -28,7 +28,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Feature | Available functionality |
 | --- | --- |
 | Authentication and Roles | Database-backed login/logout, sessions, CSRF protection, role guards, and a shared branded sign-in page. There is no self-registration. |
-| Staff Account Creation | The administrator creates LGU Staff accounts under Staff Accounts. A generated initial password is shown once, and the staff member must set their own password at first sign-in. |
+| Staff Accounts | Administrators create LGU Staff accounts, view their status, reveal and copy an initial password while setup is pending, and deactivate accounts after resolving active review assignments. Staff must set their own password at first sign-in. |
 | Dashboard | Historical household statistics for the designated completed run, with a Barangay filter, per-program “For Review” counts, and household assessment patterns for the 16 indicators. LGU Staff also see **My Subsidy Reviews**. The administrator Dashboard shows statistics only. |
 | Household Records | Read-only directory with household ID/head search, barangay filter, pagination, and focused pages with household answers, the member roster, and a link to the assessment. |
 | Household Prioritization | Stored municipal ranks with search, barangay and other filters, and pagination (25 households per page). Filters never change a rank. |
@@ -46,7 +46,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 
 | Module | Current state |
 | --- | --- |
-| Staff Accounts lifecycle | Only account creation exists. Account listing, editing, deactivation, and password reset are not implemented. |
+| Staff Accounts lifecycle | Listing, creation, pending initial-password reveal, and deactivation are implemented. Editing, reactivation, and password reset are not implemented. |
 | Data Import interface | The administrator Data Import page is a placeholder. Importing is available only through the backend importer and the one-time 2022 runner script. |
 | Assessment-run management | New runs are created and designated only by controlled backend scripts; there is no administrator interface. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
@@ -294,14 +294,15 @@ also passed. The adjacent private manifest records the verification results.
 
 ### Apply account schema updates after restoring the handoff backup
 
-The supplied backup includes migrations 0001–0008. Migrations 0009 and 0010 add
-two account columns that must be applied **once** to each teammate's local development
+The supplied backup includes migrations 0001–0008. Migrations 0009–0011 add
+account columns that must be applied **once** to each teammate's local development
 database, in order. Git does not update PostgreSQL, and application startup does
 not run migrations. From the project directory, use your own local database role:
 
 ```powershell
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0009_staff_display_name.sql"
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0010_staff_password_change_required.sql"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0011_staff_temporary_password.sql"
 ```
 
 If using an existing development database, check `staff_users` first and run only
@@ -310,13 +311,21 @@ the missing migration(s). Do not reapply a migration whose column already exists
 ```sql
 SELECT column_name FROM information_schema.columns
 WHERE table_schema = 'public' AND table_name = 'staff_users'
-  AND column_name IN ('display_name', 'must_change_password')
+  AND column_name IN ('display_name', 'must_change_password', 'temporary_password_encrypted', 'deleted_at')
 ORDER BY column_name;
 ```
 
-After both are applied the database matches migrations 0001–0010. Existing
+Migration 0012 is retained unchanged because it was already applied in one local
+development database. It only adds `deleted_at`; the current Deactivate action does
+not use that column. Teammates who have not applied 0012 do not need it for this
+feature. Do not reapply it where `deleted_at` already exists.
+
+After migrations 0009–0011 are applied, existing
 accounts keep their current passwords and have `must_change_password = false`. Accounts created through the administrator page
-have the flag set until their first password change. The empty test database does
+have the flag set until their first password change. Pending initial passwords are
+stored as a login hash and a separately encrypted retrievable copy. Set a private
+`STAFF_TEMP_PASSWORD_KEY` as described below; changing or losing it makes pending
+copies unreadable. Password setup clears the encrypted copy. The empty test database does
 not need these migrations applied manually; the tests create disposable schemas.
 
 ## 6. Configure your private `.env`
@@ -326,14 +335,17 @@ Copy the template once. If `.env` already exists, edit it without overwriting it
 ```powershell
 Copy-Item .env.example .env
 python -c "import secrets; print(secrets.token_hex(32))"
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Paste the generated random value into `SECRET_KEY`. Edit `.env` locally:
+Paste the first generated value into `SECRET_KEY` and the second into
+`STAFF_TEMP_PASSWORD_KEY`. Edit `.env` locally:
 
 ```dotenv
 DATABASE_URL=postgresql://tanglaw_local:YOUR_URL_ENCODED_PASSWORD@localhost:5432/tanglaw_buhay_dev
 TANGLAW_TEST_DATABASE_URL=postgresql://tanglaw_local:YOUR_URL_ENCODED_PASSWORD@localhost:5432/tanglaw_buhay_test
 SECRET_KEY=PASTE_YOUR_GENERATED_RANDOM_VALUE_HERE
+STAFF_TEMP_PASSWORD_KEY=PASTE_YOUR_GENERATED_FERNET_KEY_HERE
 SESSION_COOKIE_SECURE=false
 ```
 
@@ -370,7 +382,8 @@ python app.py
 Open [Staff sign in](http://127.0.0.1:5000/login) and use your new application
 account. The System Administrator opens `/administration` (the Dashboard) and can
 create LGU Staff accounts under Staff Accounts. Give a new staff member their generated initial
-password privately; they sign in at `/login` and must set a new password before
+password privately; an administrator can reveal it again only until the staff member sets a
+new password. They sign in at `/login` and must set a new password before
 opening staff pages. Both roles can open Household Records, Household Prioritization,
 assessments, and the Review Queue (it opens on Assigned to Me for LGU Staff and
 All Staff Reviews for administrators). The queue starts empty because the handoff intentionally
