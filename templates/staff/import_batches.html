@@ -1,0 +1,62 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Prepare Imported Batches{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/data-import.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header import-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('main.data_import') }}">Data Import</a>
+      <span aria-current="page">Prepare Assessments</span>
+    </nav>
+    <h1>Prepare Assessments</h1>
+    <p>Run the approved assessment methods for a stored, inactive CBMS batch.</p>
+  </header>
+
+  {% if error %}<p class="import-error" role="alert">{{ error }}</p>{% endif %}
+  {% if prepared %}
+    <p class="import-status-pass" role="status">
+      Batch {{ prepared.batch_id }} is prepared with completed Run {{ prepared.run_id }}.
+      {{ prepared.households }} households and {{ prepared.subsidy_findings }} subsidy findings were verified.
+      The current dataset is unchanged.
+    </p>
+  {% endif %}
+
+  <section class="import-card" aria-labelledby="batches-heading">
+    <h2 id="batches-heading">Stored batches</h2>
+    {% if batches %}
+      <ul class="import-batch-list">
+        {% for batch in batches %}
+          <li class="import-batch">
+            <div>
+              <h3>Batch {{ batch.id }} · {{ batch.survey_year }}</h3>
+              <p>{{ batch.households }} households ·
+                {% if batch.is_active %}Active dataset
+                {% elif batch.designated_run_id %}Prepared · Run {{ batch.designated_run_id }} designated
+                {% elif batch.run_count %}Assessment preparation needs attention
+                {% else %}Inactive · assessments not yet run{% endif %}
+              </p>
+            </div>
+            {% if not batch.is_active and not batch.run_count %}
+              <form method="post" action="{{ url_for('main.import_batches') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="batch_id" value="{{ batch.id }}">
+                <label class="import-confirmation">
+                  <input type="checkbox" name="confirm_prepare" value="yes" required>
+                  <span>Prepare assessments for Batch {{ batch.id }}</span>
+                </label>
+                <button type="submit" class="import-action-button">Run and verify assessments</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <p>Preparation may take several minutes. Keep this page open until the result appears.</p>
+    {% else %}
+      <p>No stored import batches are available yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

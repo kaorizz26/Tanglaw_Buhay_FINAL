@@ -33,6 +33,18 @@ def find_active_batches(connection):
         ).fetchall()
 
 
+def find_validated_batch_metadata(connection, batch_id):
+    """Read a specific validated batch without changing the active selection."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, survey_year, municipality, source_columns, source_provenance,
+                      validation_status, is_active
+               FROM dataset_batches
+               WHERE id = %s AND validation_status = 'validated'""",
+            (batch_id,),
+        ).fetchone()
+
+
 def iter_batch_records(connection, batch_id, dataset_name):
     """Yield original row positions and JSON responses from a trusted table."""
     tables = {name: table for name, (table, _) in SOURCE_TABLES.items()}
@@ -240,6 +252,28 @@ def verify_batch_counts(connection, batch_id, datasets, references):
         ).fetchone()[0]
         if stored != len(frame):
             raise RuntimeError("Stored batch counts do not match the validated snapshot.")
+
+
+def mark_batch_validated(connection, batch_id):
+    """Finish an inactive batch only after its stored snapshot has been checked."""
+    changed = connection.execute(
+        """UPDATE dataset_batches SET validation_status = 'validated'
+           WHERE id = %s AND validation_status = 'pending' AND NOT is_active""",
+        (batch_id,),
+    ).rowcount
+    if changed != 1:
+        raise RuntimeError("The pending batch could not be validated.")
+
+
+def find_matching_bundle(connection, bundle_sha256):
+    """Avoid storing the same administrator bundle twice under the import lock."""
+    row = connection.execute(
+        """SELECT id FROM dataset_batches
+           WHERE source_provenance -> 'declared' ->> 'bundle_sha256' = %s
+           ORDER BY id LIMIT 1""",
+        (bundle_sha256,),
+    ).fetchone()
+    return row[0] if row else None
 
 
 def activate_batch(connection, batch_id):

@@ -1,0 +1,91 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Data Import{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/data-import.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header import-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <span aria-current="page">Data Import</span>
+    </nav>
+    <h1>Data Import</h1>
+    <p>Check a 2022 Pozorrubio CBMS bundle before it is prepared for use.</p>
+    <a href="{{ url_for('main.import_batches') }}">View stored batches and prepare assessments →</a>
+  </header>
+
+  <section class="import-card" aria-labelledby="upload-heading">
+    <h2 id="upload-heading">Select the four CBMS files</h2>
+    <p>Choose one CSV for each source below. The system supplies its codebook, indicator mapping and field definitions. You can check the files or store a passing bundle as an inactive dataset.</p>
+    {% if error %}<p class="import-error" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="{{ url_for('main.data_import') }}" enctype="multipart/form-data" class="import-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="import-fields">
+        <div class="import-field">
+          <label for="household-csv">Households <span>household.csv</span></label>
+          <input id="household-csv" name="household" type="file" accept=".csv,text/csv" required>
+        </div>
+        <div class="import-field">
+          <label for="members-csv">Household members <span>section_a_e_indiv.csv</span></label>
+          <input id="members-csv" name="section_a_e_indiv" type="file" accept=".csv,text/csv" required>
+        </div>
+        <div class="import-field">
+          <label for="health-csv">Member health records <span>section_l02_to_l41.csv</span></label>
+          <input id="health-csv" name="section_l02_to_l41" type="file" accept=".csv,text/csv" required>
+        </div>
+        <div class="import-field">
+          <label for="child-csv">Child death records <span>section_l11_to_l14.csv</span></label>
+          <input id="child-csv" name="section_l11_to_l14" type="file" accept=".csv,text/csv" required>
+        </div>
+      </div>
+      <label class="import-confirmation">
+        <input name="authorized_source" type="checkbox" value="yes">
+        <span>I confirm these are authorized 2022 Pozorrubio CBMS files. Required when storing a batch.</span>
+      </label>
+      <div class="import-form-footer">
+        <p>All four files together must be under 256 MiB. Validation and storage may take a few minutes.</p>
+        <div class="import-actions">
+          <button type="submit" name="action" value="check" class="import-secondary">Check files</button>
+          <button type="submit" name="action" value="store">Store passing bundle</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  {% if report %}
+    <section class="import-card import-results" aria-labelledby="result-heading" aria-live="polite">
+      <h2 id="result-heading">Validation result</h2>
+      {% if batch_id %}
+        <p class="import-status import-status-pass">Stored as inactive batch {{ batch_id }}. Assessments have not been run. The current dataset is unchanged.</p>
+      {% elif report.passed %}
+        <p class="import-status import-status-pass">The files passed validation. No dataset has been added or activated.</p>
+      {% else %}
+        <p class="import-status import-status-fail">The files need correction before they can be prepared. The current dataset is unchanged.</p>
+      {% endif %}
+      <h3>Records checked</h3>
+      <ul class="import-counts">
+        {% for source in report.sources %}
+          <li><span>{{ source.name }}</span><strong>{{ source.records if source.records is not none else 'Could not read' }}</strong></li>
+        {% endfor %}
+      </ul>
+      {% if report.errors %}
+        <h3>Issues to fix</h3>
+        <ul class="import-issues">
+          {% for issue in report.errors %}
+            <li><strong>{{ issue.source }}:</strong> {{ issue.message }} <span>({{ issue.count }})</span></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if report.warnings %}
+        <h3>Items to review</h3>
+        <ul class="import-issues">
+          {% for issue in report.warnings %}
+            <li><strong>{{ issue.source }}:</strong> {{ issue.message }} <span>({{ issue.count }})</span></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

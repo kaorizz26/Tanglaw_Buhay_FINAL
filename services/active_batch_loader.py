@@ -16,7 +16,7 @@ class ActiveBatchError(RuntimeError):
     """Fixed failure code that contains no source values or database details."""
 
 
-def _batch_metadata(batches):
+def _batch_metadata(batches, *, require_active=True):
     """Require the approved pilot and complete column/file reconstruction metadata."""
     if not batches:
         raise ActiveBatchError("active_batch_missing")
@@ -33,7 +33,7 @@ def _batch_metadata(batches):
         type(batch.get("id")) is not int or batch["id"] <= 0
         or type(batch.get("survey_year")) is not int or batch["survey_year"] != 2022
         or batch.get("municipality") != "Pozorrubio"
-        or batch.get("is_active") is not True
+        or batch.get("is_active") is not require_active
         or batch.get("validation_status") != "validated"
         or not isinstance(columns, dict) or set(columns) != set(filenames)
         or not isinstance(provenance, dict)
@@ -60,7 +60,8 @@ def _batch_metadata(batches):
     return deepcopy({
         "batch_id": batch["id"], "survey_year": batch["survey_year"],
         "municipality": batch["municipality"],
-        "validation_status": batch["validation_status"], "is_active": True,
+        "validation_status": batch["validation_status"],
+        "is_active": batch["is_active"],
         "source_columns": columns, "source_provenance": provenance,
     })
 
@@ -117,4 +118,35 @@ def load_active_batch(connection_factory=get_connection):
         raise
     except (psycopg.Error, RuntimeError):
         raise ActiveBatchError("active_batch_unavailable") from None
+    return datasets, references, metadata
+
+
+def load_inactive_batch(batch_id, connection_factory=get_connection):
+    """Reconstruct one validated inactive batch in a read-only stable snapshot."""
+    if type(batch_id) is not int or batch_id <= 0:
+        raise ActiveBatchError("invalid_batch_selection")
+    try:
+        with connection_factory() as connection:
+            if connection.info.transaction_status != TransactionStatus.IDLE:
+                raise ActiveBatchError("active_batch_connection_not_idle")
+            with connection.transaction():
+                connection.execute(
+                    "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+                )
+                batch = repository.find_validated_batch_metadata(connection, batch_id)
+                metadata = _batch_metadata(
+                    [batch] if batch else [], require_active=False,
+                )
+                datasets = {
+                    name: _reconstruct_frame(connection, metadata, name)
+                    for name in EXCEL_FILES
+                }
+                references = {
+                    name: _reconstruct_frame(connection, metadata, name)
+                    for name in REFERENCE_FILES
+                }
+    except ActiveBatchError:
+        raise
+    except (psycopg.Error, RuntimeError):
+        raise ActiveBatchError("inactive_batch_unavailable") from None
     return datasets, references, metadata

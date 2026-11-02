@@ -93,8 +93,8 @@
                     </ul>
                   </details>
                 {% elif icon == 'database' %}
-                  <a class="navigation-item{% if request.endpoint == 'main.data_import' %} navigation-item-active{% endif %}"
-                     href="{{ url_for('main.data_import') }}" {% if request.endpoint == 'main.data_import' %}aria-current="page"{% endif %}>
+                  <a class="navigation-item{% if request.endpoint in ('main.data_import', 'main.import_batches') %} navigation-item-active{% endif %}"
+                     href="{{ url_for('main.data_import') }}" {% if request.endpoint in ('main.data_import', 'main.import_batches') %}aria-current="page"{% endif %}>
                     <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="20" height="20">
                     <span>{{ label }}</span>
                   </a>

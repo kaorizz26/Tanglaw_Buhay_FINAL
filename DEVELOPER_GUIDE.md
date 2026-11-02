@@ -670,6 +670,58 @@ it in Git does not authorize another import. Private `.env`, CSVs and database
 contents remain outside Git. No credentials or source household records are
 embedded in the runner.
 
+### Administrator four-file validation and inactive storage
+
+`GET/POST /administration/import` is System Administrator-only and retains the
+development source guard. The form accepts only `household.csv`,
+`section_a_e_indiv.csv`, `section_l02_to_l41.csv` and
+`section_l11_to_l14.csv`. The other three reference CSVs are not uploaded.
+Validation reads their stored, validated snapshot from the documented 2022
+pilot batch `1`, checks its metadata and ordered row counts, then runs the
+existing preflight with those references. The administrator can check files
+without storage or confirm their authorized source and store a passing bundle.
+Preflight does not independently certify source authorization.
+
+The storage action reuses the same parsed frames. One transaction serializes
+imports, rejects an identical stored bundle, creates an inactive pending batch,
+stores all four original source CSVs plus three approved reference snapshots,
+verifies every table count, and marks the batch validated. A count or database
+failure rolls back the new batch. It never changes the active pointer, creates
+an assessment run, or alters existing source, findings, rankings or reviews.
+The one-time 2022 importer remains separate and unchanged.
+
+Only this route raises its request cap to 256 MiB; ordinary routes retain the
+1 MiB cap. One validation at a time uses a PostgreSQL advisory lock. The four
+files are copied to canonical names in a private temporary directory outside
+the application, bounded by a 1 GiB staging quota, and removed after each
+attempt. A later attempt removes abandoned staging directories older than 24
+hours. The preflight itself still parses CSVs in memory, so deployment must
+measure peak memory with the authorized bundle before enabling real uploads.
+
+Migration `0013_import_validation_audit.sql` must be applied explicitly before
+using the page. It records actor, time, pass/fail/rejection or successful
+staging, the trusted reference version, file sizes and hashes, and aggregate
+issue counts. It stores no source rows or full report. A successful staging
+event links to its batch and is retained with that batch. Standalone validation
+attempts older than 90 days are purged on later attempts or through
+`flask purge-import-validation-audit`; deployment should schedule that command
+to enforce the limit during inactivity. This migration adds only its audit
+table; it does not modify existing source, assessment or staff-review tables.
+An admin-only `/administration/import/batches` page lists staged batches and
+prepares one validated inactive batch on explicit confirmation. The preparation
+service reconstructs that batch from one read-only snapshot, runs the unchanged
+MPI and four screening engines, applies the existing complete-output verifier,
+and compares source-frame fingerprints. Under a preparation advisory lock it
+rechecks the administrator, batch identity, inactivity, source counts and absence
+of earlier runs. One transaction creates the run, stores all findings, completes
+it, compares every stored finding and rank with the calculated output, and
+designates the run. Failure rolls back all run writes and leaves the active
+batch, older runs, original responses and staff reviews untouched. Calculation
+provenance records the administrator ID, source/reference version and engine
+file hashes. The page runs synchronously; deployments should allow a request
+long enough for the full batch or add a durable job worker before production use.
+Activation and switch-back still need separate audited controls.
+
 ## 13. Phase 6B.3 Task 1: staff authentication
 
 `0002_staff_authentication.sql` adds only `staff_users`, separate from CBMS

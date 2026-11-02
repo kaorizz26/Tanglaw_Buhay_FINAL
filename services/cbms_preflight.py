@@ -46,7 +46,7 @@ REQUIRED_ENGINE_COLUMNS = {
 }
 
 
-def validate_csv_bundle(data_dir: str | Path = DATA_DIR) -> dict:
+def validate_csv_bundle(data_dir: str | Path = DATA_DIR, *, reference_frames=None) -> dict:
     """Return aggregate errors/warnings for four source and three reference CSVs.
 
     Files use the existing raw/reference directory layout, with source filenames
@@ -54,11 +54,11 @@ def validate_csv_bundle(data_dir: str | Path = DATA_DIR) -> dict:
     are returned. Passing preflight permits further import work; it neither
     inserts a batch nor establishes survey provenance or staff authorization.
     """
-    _, _, report = load_csv_bundle(data_dir)
+    _, _, report = load_csv_bundle(data_dir, reference_frames=reference_frames)
     return report
 
 
-def load_csv_bundle(data_dir: str | Path):
+def load_csv_bundle(data_dir: str | Path, *, reference_frames=None):
     """Return private source/reference frames and their aggregate preflight report.
 
     Each file is read once. Frame attrs hold its filename and SHA-256 from the
@@ -74,10 +74,22 @@ def load_csv_bundle(data_dir: str | Path):
         {name: root / "raw" / f"{name}.csv" for name in EXCEL_FILES},
         report, "datasets",
     )
-    references = _read_group(
-        {name: root / "reference" / filename for name, filename in REFERENCE_FILES.items()},
-        report, "references",
-    )
+    if reference_frames is None:
+        references = _read_group(
+            {name: root / "reference" / filename for name, filename in REFERENCE_FILES.items()},
+            report, "references",
+        )
+    else:
+        references = {
+            name: reference_frames[name] for name in REFERENCE_FILES
+            if name in reference_frames
+        }
+        for name, frame in references.items():
+            report["references"][name] = {
+                "records": len(frame), "columns": len(frame.columns),
+            }
+        for name in REFERENCE_FILES.keys() - references.keys():
+            _issue(report, "errors", name, "missing_file")
     _check_sources(datasets, report)
     _check_references(references, report)
     if len(datasets) == len(EXCEL_FILES):
