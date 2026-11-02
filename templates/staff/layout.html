@@ -99,7 +99,7 @@
                     <span>{{ label }}</span>
                   </a>
                 {% elif icon == 'administration' %}
-                  {% set accounts_open = request.endpoint in ('main.staff_accounts', 'main.staff_account_create', 'main.staff_account_deactivate') %}
+                  {% set accounts_open = request.endpoint in ('main.staff_accounts', 'main.staff_account_create', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %}
                   <details class="navigation-group" {% if accounts_open %}open{% endif %}>
                     <summary class="navigation-item">
                       <img src="{{ url_for('static', filename='icons/administration.svg') }}" alt="" width="20" height="20">
@@ -107,7 +107,7 @@
                       <span class="navigation-chevron" aria-hidden="true">›</span>
                     </summary>
                     <ul class="navigation-children">
-                      <li><a class="navigation-item{% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate') %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_accounts') }}" {% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate') %}aria-current="page"{% endif %}>Account List</a></li>
+                      <li><a class="navigation-item{% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_accounts') }}" {% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %}aria-current="page"{% endif %}>Account List</a></li>
                       <li><a class="navigation-item{% if request.endpoint == 'main.staff_account_create' %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_account_create') }}" {% if request.endpoint == 'main.staff_account_create' %}aria-current="page"{% endif %}>Create Account</a></li>
                     </ul>
                   </details>

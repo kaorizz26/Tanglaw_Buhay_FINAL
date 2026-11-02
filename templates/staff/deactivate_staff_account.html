@@ -1,45 +1,25 @@
-{% extends 'staff/layout.html' %}
+<dialog class="accounts-modal" id="account-action-dialog" aria-labelledby="account-action-heading" aria-describedby="account-action-description" data-account-id="{{ account.id }}" data-action="deactivate" data-return-url="{{ url_for('main.staff_accounts') }}" open>
+  <p class="accounts-kicker">Confirm deactivation</p>
+  <h2 id="account-action-heading">Deactivate {{ account.display_name or account.username }}?</h2>
+  <p id="account-action-description">Username: <strong>{{ account.username }}</strong></p>
+  <p>Deactivation ends this person's access and signs them out. Their account remains in the list as Inactive, and their name remains on past reviews.</p>
 
-{% block title %}Deactivate Staff Account{% endblock %}
+  {% if account.active_reviews %}
+    <p class="accounts-error" role="alert">This person still has {{ account.active_reviews }} active {{ 'review' if account.active_reviews == 1 else 'reviews' }} assigned. Reassign or close {{ 'it' if account.active_reviews == 1 else 'them' }} before deactivating this account.</p>
+    <a class="accounts-next-link" href="{{ url_for('assessments.queue', scope='all') }}">Open Review Queue</a>
+  {% elif action_error %}
+    <p class="accounts-error" role="alert">{{ action_error }}</p>
+  {% endif %}
 
-{% block page_styles %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-accounts.css') }}">
-{% endblock %}
-
-{% block content %}
-  <header class="page-header accounts-header">
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href="{{ url_for('main.staff_accounts') }}">Staff Accounts</a>
-      <span aria-hidden="true">/</span>
-      <span aria-current="page">Deactivate Account</span>
-    </nav>
-    <h1>Deactivate staff account</h1>
-  </header>
-
-  <section class="accounts-card accounts-deactivate-card" aria-labelledby="deactivate-heading">
-    <p class="accounts-kicker">Confirm deactivation</p>
-    <h2 id="deactivate-heading">{{ account.display_name or account.username }}</h2>
-    <p>Username: <strong>{{ account.username }}</strong></p>
-    <p>Deactivation ends this person's access and signs them out. Their account remains in the list as Inactive, and their name remains on past reviews.</p>
-
-    {% if error and not account.active_reviews %}
-      <p class="accounts-error" role="alert">{{ error }}</p>
+  <div class="accounts-modal-actions">
+    <form method="dialog">
+      <button class="accounts-copy-button" type="submit">Cancel</button>
+    </form>
+    {% if not account.active_reviews %}
+      <form method="post" action="{{ url_for('main.staff_account_deactivate', account_id=account.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="accounts-button accounts-danger-button" type="submit">Deactivate account</button>
+      </form>
     {% endif %}
-    {% if account.active_reviews %}
-      <p class="accounts-error" role="alert">This person still has {{ account.active_reviews }} active {{ 'review' if account.active_reviews == 1 else 'reviews' }} assigned. Reassign or close {{ 'it' if account.active_reviews == 1 else 'them' }} before deactivating this account.</p>
-      <a class="accounts-next-link" href="{{ url_for('assessments.queue', scope='all') }}">Open Review Queue</a>
-    {% else %}
-      <p>Review this account before continuing. It cannot sign in after deactivation.</p>
-    {% endif %}
-
-    <div class="accounts-deactivate-actions">
-      <a class="accounts-copy-button accounts-cancel-link" href="{{ url_for('main.staff_accounts') }}">Cancel</a>
-      {% if not account.active_reviews %}
-        <form method="post" action="{{ url_for('main.staff_account_deactivate', account_id=account.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button class="accounts-button accounts-danger-button" type="submit">Deactivate account</button>
-        </form>
-      {% endif %}
-    </div>
-  </section>
-{% endblock %}
+  </div>
+</dialog>

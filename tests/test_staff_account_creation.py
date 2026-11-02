@@ -407,9 +407,13 @@ class StaffAccountCreationTests(unittest.TestCase):
         url = f"/administration/accounts/{staff_id}/deactivate"
         list_page = self.client.get("/administration/accounts")
         self.assertIn(f'action="{url}"', list_page.text)
-        self.assertIn('class="accounts-deactivate-button" type="submit"', list_page.text)
+        self.assertIn('class="accounts-deactivate-button accounts-action-trigger" type="submit"', list_page.text)
         confirmation = self.client.get(url)
         self.assertEqual(confirmation.status_code, 200)
+        self.assertIn('<h1>Account List</h1>', confirmation.text)
+        self.assertIn('id="account-action-dialog"', confirmation.text)
+        self.assertIn('data-action="deactivate"', confirmation.text)
+        self.assertIn('method="dialog"', confirmation.text)
         self.assertIn("synthetic_staff", confirmation.text)
         self.assertIn("remains in the list as Inactive", confirmation.text)
         self.assertEqual(self.client.post(url).status_code, 400)
@@ -488,6 +492,7 @@ class StaffAccountCreationTests(unittest.TestCase):
         page = self.client.get(url)
         self.assertEqual(page.status_code, 200)
         self.assertIn("1 active review assigned", page.text)
+        self.assertIn('id="account-action-dialog"', page.text)
         self.assertIn('href="/assessments/queue?scope=all"', page.text)
         self.assertNotIn('type="submit">Deactivate account</button>', page.text)
         blocked = self.client.post(url, data={"csrf_token": token})
@@ -514,6 +519,147 @@ class StaffAccountCreationTests(unittest.TestCase):
         self.assertIsNone(encrypted)
         self.assertFalse(active)
         self.assertNotIn(password, self.client.get("/administration/accounts").text)
+
+    def test_admin_reset_revokes_sessions_and_requires_password_setup(self):
+        self._login()
+        token = self._csrf(self.client, "/administration/accounts")
+        with psycopg.connect(self.url) as connection:
+            staff_id = connection.execute(
+                "SELECT id FROM staff_users WHERE username = 'synthetic_staff'",
+            ).fetchone()[0]
+        staff_client = self.app.test_client()
+        self._login("synthetic_staff", staff_client)
+        url = f"/administration/accounts/{staff_id}/reset-password"
+        self.assertIn(f'action="{url}"', self.client.get("/administration/accounts").text)
+        self.assertIn("Reset password", self.client.get(url).text)
+        self.assertIn('<h1>Account List</h1>', self.client.get(url).text)
+        self.assertIn('data-action="reset"', self.client.get(url).text)
+        self.assertEqual(self.client.post(url).status_code, 400)
+
+        response = self.client.post(url, data={"csrf_token": token})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('id="account-action-dialog"', response.text)
+        temporary_password = re.search(
+            r'<code id="recovery-temp-password">([^<]+)</code>', response.text,
+        ).group(1)
+        self.assertNotEqual(temporary_password, self.password)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+        with psycopg.connect(self.url) as connection:
+            password_hash, must_change, encrypted, version = connection.execute(
+                """SELECT password_hash, must_change_password,
+                          temporary_password_encrypted, session_version
+                   FROM staff_users WHERE id = %s""", (staff_id,),
+            ).fetchone()
+        self.assertTrue(check_password_hash(password_hash, temporary_password))
+        self.assertFalse(check_password_hash(password_hash, self.password))
+        self.assertTrue(must_change)
+        self.assertIsNotNone(encrypted)
+        self.assertEqual(version, 2)
+        self.assertEqual(staff_client.get("/").location, "/login")
+        self.assertEqual(staff_client.post("/login", data={
+            "csrf_token": self._csrf(staff_client, "/login"),
+            "username": "synthetic_staff", "password": self.password,
+        }).status_code, 401)
+        self.assertEqual(staff_client.post("/login", data={
+            "csrf_token": self._csrf(staff_client, "/login"),
+            "username": "synthetic_staff", "password": temporary_password,
+        }).location, "/change-password")
+        new_password = token_urlsafe(32)
+        self.assertEqual(staff_client.post("/change-password", data={
+            "csrf_token": self._csrf(staff_client, "/change-password"),
+            "current_password": temporary_password,
+            "new_password": new_password, "confirm_password": new_password,
+        }).location, "/")
+        with psycopg.connect(self.url) as connection:
+            encrypted_after_setup = connection.execute(
+                "SELECT temporary_password_encrypted FROM staff_users WHERE id = %s",
+                (staff_id,),
+            ).fetchone()[0]
+        self.assertIsNone(encrypted_after_setup)
+
+    def test_reactivation_replaces_unknown_pending_password(self):
+        account_id, token, old_password = self._create_pending_account()
+        deactivate_url = f"/administration/accounts/{account_id}/deactivate"
+        self.assertEqual(self.client.post(
+            deactivate_url, data={"csrf_token": token},
+        ).status_code, 302)
+        reactivate_url = f"/administration/accounts/{account_id}/reactivate"
+        directory = self.client.get("/administration/accounts")
+        self.assertIn(f'action="{reactivate_url}"', directory.text)
+        self.assertNotIn(old_password, directory.text)
+        self.assertIn("Reactivate account", self.client.get(reactivate_url).text)
+        self.assertIn('data-action="reactivate"', self.client.get(reactivate_url).text)
+
+        response = self.client.post(reactivate_url, data={"csrf_token": token})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('id="account-action-dialog"', response.text)
+        new_password = re.search(
+            r'<code id="recovery-temp-password">([^<]+)</code>', response.text,
+        ).group(1)
+        self.assertNotEqual(new_password, old_password)
+        with psycopg.connect(self.url) as connection:
+            active, must_change, password_hash, encrypted, version = connection.execute(
+                """SELECT is_active, must_change_password, password_hash,
+                          temporary_password_encrypted, session_version
+                   FROM staff_users WHERE id = %s""", (account_id,),
+            ).fetchone()
+        self.assertTrue(active)
+        self.assertTrue(must_change)
+        self.assertTrue(check_password_hash(password_hash, new_password))
+        self.assertFalse(check_password_hash(password_hash, old_password))
+        self.assertIsNotNone(encrypted)
+        self.assertEqual(version, 3)
+        staff_client = self.app.test_client()
+        self.assertEqual(staff_client.post("/login", data={
+            "csrf_token": self._csrf(staff_client, "/login"),
+            "username": "pending.staff", "password": new_password,
+        }).location, "/change-password")
+
+    def test_recovery_routes_reject_wrong_role_state_and_missing_key(self):
+        self._login()
+        token = self._csrf(self.client, "/administration/accounts")
+        with psycopg.connect(self.url) as connection:
+            admin_id = connection.execute(
+                "SELECT id FROM staff_users WHERE username = 'synthetic_admin'",
+            ).fetchone()[0]
+            staff_id = connection.execute(
+                "SELECT id FROM staff_users WHERE username = 'synthetic_staff'",
+            ).fetchone()[0]
+        reset_url = f"/administration/accounts/{staff_id}/reset-password"
+        reactivate_url = f"/administration/accounts/{staff_id}/reactivate"
+        for action in ("reset-password", "reactivate"):
+            url = f"/administration/accounts/{admin_id}/{action}"
+            self.assertEqual(self.client.get(url).status_code, 404)
+            self.assertEqual(self.client.post(url, data={"csrf_token": token}).status_code, 404)
+        self.assertEqual(self.client.get(reactivate_url).status_code, 404)
+        self.assertEqual(self.client.post(
+            reactivate_url, data={"csrf_token": token},
+        ).status_code, 404)
+        anonymous = self.app.test_client()
+        self.assertEqual(anonymous.post(reset_url).location, "/login")
+        staff_client = self.app.test_client()
+        self._login("synthetic_staff", staff_client)
+        self.assertEqual(staff_client.get(reset_url).status_code, 403)
+        self.assertEqual(staff_client.post(reset_url, data={
+            "csrf_token": self._csrf(staff_client, "/logout"),
+        }).status_code, 403)
+        with patch.dict(self.app.extensions["development_workspace"],
+                        source_kind="actual_cbms"):
+            self.assertEqual(self.client.post(
+                reset_url, data={"csrf_token": token},
+            ).status_code, 403)
+        original_key = self.app.config["STAFF_TEMP_PASSWORD_KEY"]
+        self.app.config["STAFF_TEMP_PASSWORD_KEY"] = None
+        try:
+            self.assertEqual(self.client.post(
+                reset_url, data={"csrf_token": token},
+            ).status_code, 503)
+        finally:
+            self.app.config["STAFF_TEMP_PASSWORD_KEY"] = original_key
+        with psycopg.connect(self.url) as connection:
+            self.assertTrue(connection.execute(
+                "SELECT is_active FROM staff_users WHERE id = %s", (staff_id,),
+            ).fetchone()[0])
 
 
 if __name__ == "__main__":

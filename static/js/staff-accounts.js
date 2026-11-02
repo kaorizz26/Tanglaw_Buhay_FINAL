@@ -34,10 +34,7 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
   });
 });
 
-(() => {
-  const dialog = document.getElementById("temporary-password-dialog");
-  if (!dialog) return;
-
+document.querySelectorAll(".accounts-modal[open]").forEach((dialog) => {
   // The open attribute leaves the details accessible if dialog scripting fails.
   if (typeof dialog.showModal === "function") {
     dialog.removeAttribute("open");
@@ -45,10 +42,14 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
   }
 
   dialog.addEventListener("close", () => {
+    if (dialog.id === "account-action-dialog") {
+      window.location.replace(dialog.dataset.returnUrl);
+      return;
+    }
     const revealButton = document.querySelector(
       `.accounts-reveal[data-account-id="${dialog.dataset.accountId}"]`
     );
     dialog.remove();
     revealButton?.focus();
   });
-})();
+});

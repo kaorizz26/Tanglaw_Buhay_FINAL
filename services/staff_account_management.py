@@ -42,6 +42,13 @@ def get_staff_accounts():
     return accounts
 
 
+def new_temporary_credentials():
+    """Create a login hash and an encrypted copy of one new password."""
+    password = token_urlsafe(24)
+    encrypted = temporary_password_cipher().encrypt(password.encode("utf-8")).decode("ascii")
+    return password, generate_password_hash(password, method="scrypt"), encrypted
+
+
 def create_staff_account(display_name, username):
     """Store a login hash and an encrypted initial password for pending staff."""
     display_name = " ".join(display_name.split())
@@ -53,11 +60,7 @@ def create_staff_account(display_name, username):
             "Use 3–64 username characters: lowercase letters, numbers, dots, dashes or underscores."
         )
 
-    temporary_password = token_urlsafe(24)
-    encrypted_password = temporary_password_cipher().encrypt(
-        temporary_password.encode("utf-8"),
-    ).decode("ascii")
-    password_hash = generate_password_hash(temporary_password, method="scrypt")
+    temporary_password, password_hash, encrypted_password = new_temporary_credentials()
     with get_connection() as connection:
         staff_users.insert_staff(
             connection, display_name, username, password_hash, encrypted_password,
@@ -126,3 +129,37 @@ def deactivate_staff_account(user_id):
                     "Reassign or close this staff member's active reviews before deactivating."
                 )
             staff_users.deactivate_staff(connection, user_id)
+
+
+def get_staff_account_for_recovery(user_id, *, reactivate):
+    """Return an inactive reactivation target or an active reset target."""
+    if not isinstance(user_id, int) or not 0 < user_id <= 9223372036854775807:
+        raise StaffAccountInputError("Choose a valid staff account.")
+    with get_connection() as connection:
+        account = staff_users.find_staff_for_recovery(
+            connection, user_id, active=not reactivate,
+        )
+    if not account:
+        raise StaffAccountInputError("This staff account is not available for this action.")
+    return account
+
+
+def recover_staff_account(user_id, *, reactivate):
+    """Reset or reactivate staff with a fresh temporary password."""
+    if not isinstance(user_id, int) or not 0 < user_id <= 9223372036854775807:
+        raise StaffAccountInputError("Choose a valid staff account.")
+    with get_connection() as connection:
+        with connection.transaction():
+            account = staff_users.find_staff_for_recovery(
+                connection, user_id, active=not reactivate, lock=True,
+            )
+            if not account:
+                raise StaffAccountInputError("This staff account is not available for this action.")
+            password, password_hash, encrypted = new_temporary_credentials()
+            staff_users.replace_staff_password(
+                connection, user_id, password_hash, encrypted, reactivate=reactivate,
+            )
+    return {
+        "id": account["id"], "display_name": account["display_name"] or account["username"],
+        "username": account["username"], "temporary_password": password,
+    }

@@ -13,7 +13,8 @@ from services.dashboard_patterns import select_area
 from services.review_queue import get_dashboard_reviews
 from services.staff_account_management import (
     StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
-    deactivate_staff_account, get_staff_account_to_deactivate, get_staff_accounts,
+    deactivate_staff_account, get_staff_account_for_recovery,
+    get_staff_account_to_deactivate, get_staff_accounts, recover_staff_account,
     reveal_temporary_password,
 )
 
@@ -134,6 +135,21 @@ def staff_accounts():
     ), (400 if error else 200)
 
 
+def render_account_list_dialog(template, *, status=200, **dialog_context):
+    """Keep account confirmations and results over the staff directory."""
+    try:
+        accounts = get_staff_accounts()
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Staff accounts are unavailable. Please try again.")
+    return render_template(
+        "staff/staff_accounts.html", error=None, created_account=None,
+        accounts=accounts, revealed_account=None, show_create=False,
+        display_name="", username="", action_dialog_template=template,
+        role_label="System Administrator", staff_username=g.user["username"],
+        csrf_token=csrf_token(), **dialog_context,
+    ), status
+
+
 @main.route("/administration/accounts/<int:account_id>/deactivate",
             methods=["GET", "POST"])
 @admin_required
@@ -150,11 +166,10 @@ def staff_account_deactivate(account_id):
                 abort(404, description="This staff account is no longer active.")
             except (psycopg.Error, RuntimeError):
                 abort(503, description="Staff accounts are unavailable. Please try again.")
-            return render_template(
+            return render_account_list_dialog(
                 "staff/deactivate_staff_account.html", account=account,
-                error=str(exc), role_label="System Administrator",
-                staff_username=g.user["username"], csrf_token=csrf_token(),
-            ), 409
+                action_error=str(exc), status=409,
+            )
         except StaffAccountInputError:
             abort(404, description="This staff account is no longer active.")
         except (psycopg.Error, RuntimeError):
@@ -168,11 +183,45 @@ def staff_account_deactivate(account_id):
         abort(404, description="This staff account is no longer active.")
     except (psycopg.Error, RuntimeError):
         abort(503, description="Staff accounts are unavailable. Please try again.")
-    return render_template(
-        "staff/deactivate_staff_account.html", account=account, error=None,
-        role_label="System Administrator", staff_username=g.user["username"],
-        csrf_token=csrf_token(),
+    return render_account_list_dialog(
+        "staff/deactivate_staff_account.html", account=account,
+        action_error=None,
     )
+
+
+def staff_account_recovery(account_id, *, reactivate):
+    """Confirm and complete one administrator credential action."""
+    require_fixture_source()
+    try:
+        if request.method == "POST":
+            check_csrf()
+            account = recover_staff_account(account_id, reactivate=reactivate)
+            completed = True
+        else:
+            account = get_staff_account_for_recovery(account_id, reactivate=reactivate)
+            completed = False
+    except StaffAccountInputError:
+        abort(404, description="This staff account is not available for this action.")
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="This account action is unavailable. Please try again.")
+    return render_account_list_dialog(
+        "staff/recover_staff_account.html", account=account,
+        reactivate=reactivate, completed=completed,
+    )
+
+
+@main.route("/administration/accounts/<int:account_id>/reset-password",
+            methods=["GET", "POST"])
+@admin_required
+def staff_account_reset_password(account_id):
+    return staff_account_recovery(account_id, reactivate=False)
+
+
+@main.route("/administration/accounts/<int:account_id>/reactivate",
+            methods=["GET", "POST"])
+@admin_required
+def staff_account_reactivate(account_id):
+    return staff_account_recovery(account_id, reactivate=True)
 
 
 @main.get("/households/<path:retired_path>")

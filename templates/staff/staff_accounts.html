@@ -48,6 +48,10 @@
     </dialog>
   {% endif %}
 
+  {% if action_dialog_template %}
+    {% include action_dialog_template %}
+  {% endif %}
+
   {% if created_account %}
     <section class="accounts-card accounts-created" aria-labelledby="created-heading">
       <p class="accounts-kicker">Account created</p>
@@ -120,13 +124,20 @@
                   {% endif %}
                 </td>
                 <td>
-                  {% if account.is_active %}
-                    <form method="get" action="{{ url_for('main.staff_account_deactivate', account_id=account.id) }}">
-                      <button class="accounts-deactivate-button" type="submit" aria-label="Deactivate account for {{ account.display_name or account.username }}">Deactivate</button>
-                    </form>
-                  {% else %}
-                    <span class="accounts-unavailable">No action</span>
-                  {% endif %}
+                  <div class="accounts-row-actions">
+                    {% if account.is_active %}
+                      <form method="get" action="{{ url_for('main.staff_account_reset_password', account_id=account.id) }}">
+                        <button class="accounts-copy-button accounts-action-trigger" type="submit" data-account-id="{{ account.id }}" data-action="reset" aria-label="Reset password for {{ account.display_name or account.username }}">Reset password</button>
+                      </form>
+                      <form method="get" action="{{ url_for('main.staff_account_deactivate', account_id=account.id) }}">
+                        <button class="accounts-deactivate-button accounts-action-trigger" type="submit" data-account-id="{{ account.id }}" data-action="deactivate" aria-label="Deactivate account for {{ account.display_name or account.username }}">Deactivate</button>
+                      </form>
+                    {% else %}
+                      <form method="get" action="{{ url_for('main.staff_account_reactivate', account_id=account.id) }}">
+                        <button class="accounts-copy-button accounts-action-trigger" type="submit" data-account-id="{{ account.id }}" data-action="reactivate" aria-label="Reactivate account for {{ account.display_name or account.username }}">Reactivate</button>
+                      </form>
+                    {% endif %}
+                  </div>
                 </td>
               </tr>
             {% endfor %}

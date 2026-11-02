@@ -1,0 +1,36 @@
+{% set action_label = 'Reactivate account' if reactivate else 'Reset password' %}
+{% set action_endpoint = 'main.staff_account_reactivate' if reactivate else 'main.staff_account_reset_password' %}
+<dialog class="accounts-modal" id="account-action-dialog" aria-labelledby="account-action-heading" aria-describedby="account-action-description" data-account-id="{{ account.id }}" data-action="{{ 'reactivate' if reactivate else 'reset' }}" data-return-url="{{ url_for('main.staff_accounts') }}" open>
+  <p class="accounts-kicker">{{ 'Account ready' if completed else 'Confirm account action' }}</p>
+  <h2 id="account-action-heading">{{ action_label }} for {{ account.display_name or account.username }}</h2>
+  <p id="account-action-description">Username: <strong>{{ account.username }}</strong></p>
+
+  {% if completed %}
+    <p>{{ 'The account is active again.' if reactivate else 'The old password is no longer valid, and earlier sessions have ended.' }} Share the temporary password privately. The staff member must set their own password at sign-in.</p>
+    <dl class="accounts-credentials">
+      <div>
+        <dt>Temporary password</dt>
+        <dd>
+          <code id="recovery-temp-password">{{ account.temporary_password }}</code>
+          <span class="accounts-copy-status" role="status" aria-live="polite"></span>
+        </dd>
+      </div>
+    </dl>
+    <p class="accounts-password-note">You can reveal this password again while password setup is pending. It becomes unavailable after the staff member sets their own password.</p>
+    <form method="dialog" class="accounts-modal-actions">
+      <button class="accounts-copy-button" type="button" data-copy-target="recovery-temp-password" aria-label="Copy temporary password">Copy password</button>
+      <button class="accounts-button" type="submit">Close</button>
+    </form>
+  {% else %}
+    <p>{{ 'This will restore sign-in access with a new temporary password.' if reactivate else 'This will replace the current password and end the staff member’s existing sessions.' }} The staff member must set their own password at the next sign-in.</p>
+    <div class="accounts-modal-actions">
+      <form method="dialog">
+        <button class="accounts-copy-button" type="submit">Cancel</button>
+      </form>
+      <form method="post" action="{{ url_for(action_endpoint, account_id=account.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="accounts-button" type="submit">{{ action_label }}</button>
+      </form>
+    </div>
+  {% endif %}
+</dialog>

@@ -231,6 +231,14 @@
   color: var(--text-muted);
 }
 
+.accounts-modal > .accounts-error {
+  color: #8e2525;
+}
+
+.accounts-modal > .accounts-next-link {
+  margin-left: 0;
+}
+
 .accounts-modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -304,6 +312,12 @@
 
 .accounts-table time {
   white-space: nowrap;
+}
+
+.accounts-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .accounts-status {

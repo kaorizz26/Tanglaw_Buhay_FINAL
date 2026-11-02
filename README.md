@@ -28,7 +28,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Feature | Available functionality |
 | --- | --- |
 | Authentication and Roles | Database-backed login/logout, sessions, CSRF protection, role guards, and a shared branded sign-in page. There is no self-registration. |
-| Staff Accounts | Administrators create LGU Staff accounts, view their status, reveal and copy an initial password while setup is pending, and deactivate accounts after resolving active review assignments. Staff must set their own password at first sign-in. |
+| Staff Accounts | Administrators create LGU Staff accounts, view their status, reveal and copy a pending temporary password, deactivate accounts after resolving active reviews, reset passwords, and reactivate inactive staff. A new or reset password requires staff to set their own password at sign-in. |
 | Dashboard | Historical household statistics for the designated completed run, with a Barangay filter, per-program “For Review” counts, and household assessment patterns for the 16 indicators. LGU Staff also see **My Subsidy Reviews**. The administrator Dashboard shows statistics only. |
 | Household Records | Read-only directory with household ID/head search, barangay filter, pagination, and focused pages with household answers, the member roster, and a link to the assessment. |
 | Household Prioritization | Stored municipal ranks with search, barangay and other filters, and pagination (25 households per page). Filters never change a rank. |
@@ -46,7 +46,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 
 | Module | Current state |
 | --- | --- |
-| Staff Accounts lifecycle | Listing, creation, pending initial-password reveal, and deactivation are implemented. Editing, reactivation, and password reset are not implemented. |
+| Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, and administrator password reset are implemented. Account editing is not implemented. |
 | Data Import interface | The administrator Data Import page is a placeholder. Importing is available only through the backend importer and the one-time 2022 runner script. |
 | Assessment-run management | New runs are created and designated only by controlled backend scripts; there is no administrator interface. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
@@ -381,9 +381,10 @@ python app.py
 
 Open [Staff sign in](http://127.0.0.1:5000/login) and use your new application
 account. The System Administrator opens `/administration` (the Dashboard) and can
-create LGU Staff accounts under Staff Accounts. Give a new staff member their generated initial
-password privately; an administrator can reveal it again only until the staff member sets a
-new password. They sign in at `/login` and must set a new password before
+create LGU Staff accounts under Staff Accounts. Give a new or reactivated staff member their
+generated temporary password privately; an administrator can reveal it again only until the
+staff member sets their own password. An administrator reset also issues a new temporary
+password and ends older sessions. Staff sign in at `/login` and must set a new password before
 opening staff pages. Both roles can open Household Records, Household Prioritization,
 assessments, and the Review Queue (it opens on Assigned to Me for LGU Staff and
 All Staff Reviews for administrators). The queue starts empty because the handoff intentionally

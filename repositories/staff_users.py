@@ -131,3 +131,28 @@ def find_temporary_password(connection, user_id):
                  AND must_change_password
                FOR UPDATE""", (user_id,),
         ).fetchone()
+
+
+def find_staff_for_recovery(connection, user_id, *, active, lock=False):
+    """Find staff in the required activity state for reset or reactivation."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, display_name, username, is_active
+               FROM staff_users
+               WHERE id = %s AND role = 'lgu_staff' AND is_active = %s"""
+            + (" FOR UPDATE" if lock else ""),
+            (user_id, active),
+        ).fetchone()
+
+
+def replace_staff_password(connection, user_id, password_hash, encrypted_password,
+                           *, reactivate):
+    """Require first-login setup and revoke every older session."""
+    connection.execute(
+        """UPDATE staff_users
+           SET password_hash = %s, temporary_password_encrypted = %s,
+               must_change_password = true, is_active = true,
+               session_version = session_version + 1
+           WHERE id = %s AND role = 'lgu_staff' AND is_active = %s""",
+        (password_hash, encrypted_password, user_id, not reactivate),
+    )
