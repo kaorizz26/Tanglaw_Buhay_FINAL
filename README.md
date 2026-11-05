@@ -28,7 +28,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Feature | Available functionality |
 | --- | --- |
 | Authentication and Roles | Database-backed login/logout, sessions, CSRF protection, role guards, and a shared branded sign-in page. There is no self-registration. |
-| Staff Account Creation | The administrator creates LGU Staff accounts under Staff Accounts. A generated initial password is shown once, and the staff member must set their own password at first sign-in. |
+| Staff Accounts | Administrators create LGU Staff accounts, view their status, reveal and copy a pending temporary password, deactivate accounts after resolving active reviews, reset passwords, and reactivate inactive staff. A new or reset password requires staff to set their own password at sign-in. |
 | Dashboard | Historical household statistics for the designated completed run, with a Barangay filter, per-program “For Review” counts, and household assessment patterns for the 16 indicators. LGU Staff also see **My Subsidy Reviews**. The administrator Dashboard shows statistics only. |
 | Household Records | Read-only directory with household ID/head search, barangay filter, pagination, and focused pages with household answers, the member roster, and a link to the assessment. |
 | Household Prioritization | Stored municipal ranks with search, barangay and other filters, and pagination (25 households per page). Filters never change a rank. |
@@ -39,14 +39,14 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
 | Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. They need no account, read no CBMS records, and accept no submissions. |
 | MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
-| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review tables (migrations 0001–0010), and a validated backend importer used once for the 2022 batch. |
+| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), and a validated backend importer used once for the 2022 batch. |
 | Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
 
 ### Partial or Incomplete
 
 | Module | Current state |
 | --- | --- |
-| Staff Accounts lifecycle | Only account creation exists. Account listing, editing, deactivation, and password reset are not implemented. |
+| Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, and administrator password reset are implemented. Account editing is not implemented. |
 | Data Import interface | The administrator Data Import page is a placeholder. Importing is available only through the backend importer and the one-time 2022 runner script. |
 | Assessment-run management | New runs are created and designated only by controlled backend scripts; there is no administrator interface. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
@@ -160,6 +160,9 @@ python -m pip check
 ```
 
 Expected: the prompt shows `(.venv)` and pip reports no broken requirements.
+The pinned `cryptography` package in `requirements.txt` is required for the
+administrator's encrypted temporary-password copy. If installation fails, fix
+the environment and rerun the requirements command before creating staff accounts.
 In VS Code, choose **Python: Select Interpreter → .venv\Scripts\python.exe**.
 Activate the environment whenever you open a new terminal.
 
@@ -294,14 +297,15 @@ also passed. The adjacent private manifest records the verification results.
 
 ### Apply account schema updates after restoring the handoff backup
 
-The supplied backup includes migrations 0001–0008. Migrations 0009 and 0010 add
-two account columns that must be applied **once** to each teammate's local development
+The supplied backup includes migrations 0001–0008. Migrations 0009–0011 add
+account columns that must be applied **once** to each teammate's local development
 database, in order. Git does not update PostgreSQL, and application startup does
 not run migrations. From the project directory, use your own local database role:
 
 ```powershell
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0009_staff_display_name.sql"
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0010_staff_password_change_required.sql"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0011_staff_temporary_password.sql"
 ```
 
 If using an existing development database, check `staff_users` first and run only
@@ -310,14 +314,38 @@ the missing migration(s). Do not reapply a migration whose column already exists
 ```sql
 SELECT column_name FROM information_schema.columns
 WHERE table_schema = 'public' AND table_name = 'staff_users'
-  AND column_name IN ('display_name', 'must_change_password')
+  AND column_name IN ('display_name', 'must_change_password', 'temporary_password_encrypted', 'deleted_at')
 ORDER BY column_name;
 ```
 
-After both are applied the database matches migrations 0001–0010. Existing
+Migration 0012 is retained unchanged because it was already applied in one local
+development database. It only adds `deleted_at`; the current Deactivate action does
+not use that column. Teammates who have not applied 0012 do not need it for this
+feature. Do not reapply it where `deleted_at` already exists.
+The Data Import branch adds migration `0013_import_validation_audit.sql`. It creates
+an audit table whose actor references the retained `staff_users` row; it does not
+read `deleted_at` or depend on 0012. After the Data Import branch is integrated,
+apply 0013 once where its table is absent. If applying both migrations to a fresh
+database, use numeric order (0012, then 0013); check existing schema first and
+never reapply an already-applied migration. Integrate Staff Accounts first, then
+bring the Data Import branch onto that integration tip before merging it.
+
+After migrations 0009–0011 are applied, existing
 accounts keep their current passwords and have `must_change_password = false`. Accounts created through the administrator page
-have the flag set until their first password change. The empty test database does
+have the flag set until their first password change. Pending initial passwords are
+stored as a login hash and a separately encrypted retrievable copy. Set a private
+`STAFF_TEMP_PASSWORD_KEY` as described below; changing or losing it makes pending
+copies unreadable. Password setup clears the encrypted copy. The empty test database does
 not need these migrations applied manually; the tests create disposable schemas.
+Only a signed-in System Administrator can request a reveal, and the request requires
+a CSRF token. The account must still be active and awaiting password setup; after
+setup or deactivation the retrievable copy is cleared. A reset or reactivation
+issues a new temporary password and requires setup again. Account pages use
+`Cache-Control: no-store`. Treat the displayed or copied password as a secret:
+share it privately, clear it from the clipboard after use, and keep screenshots,
+logs and messages containing it out of Git. Keep the encryption key private and
+available to every app instance; replacing or losing it makes existing pending
+copies unreadable even though their login hashes remain valid.
 
 ## 6. Configure your private `.env`
 
@@ -326,14 +354,17 @@ Copy the template once. If `.env` already exists, edit it without overwriting it
 ```powershell
 Copy-Item .env.example .env
 python -c "import secrets; print(secrets.token_hex(32))"
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Paste the generated random value into `SECRET_KEY`. Edit `.env` locally:
+Paste the first generated value into `SECRET_KEY` and the second into
+`STAFF_TEMP_PASSWORD_KEY`. Edit `.env` locally:
 
 ```dotenv
 DATABASE_URL=postgresql://tanglaw_local:YOUR_URL_ENCODED_PASSWORD@localhost:5432/tanglaw_buhay_dev
 TANGLAW_TEST_DATABASE_URL=postgresql://tanglaw_local:YOUR_URL_ENCODED_PASSWORD@localhost:5432/tanglaw_buhay_test
 SECRET_KEY=PASTE_YOUR_GENERATED_RANDOM_VALUE_HERE
+STAFF_TEMP_PASSWORD_KEY=PASTE_YOUR_GENERATED_FERNET_KEY_HERE
 SESSION_COOKIE_SECURE=false
 ```
 
@@ -369,8 +400,10 @@ python app.py
 
 Open [Staff sign in](http://127.0.0.1:5000/login) and use your new application
 account. The System Administrator opens `/administration` (the Dashboard) and can
-create LGU Staff accounts under Staff Accounts. Give a new staff member their generated initial
-password privately; they sign in at `/login` and must set a new password before
+create LGU Staff accounts under Staff Accounts. Give a new or reactivated staff member their
+generated temporary password privately; an administrator can reveal it again only until the
+staff member sets their own password. An administrator reset also issues a new temporary
+password and ends older sessions. Staff sign in at `/login` and must set a new password before
 opening staff pages. Both roles can open Household Records, Household Prioritization,
 assessments, and the Review Queue (it opens on Assigned to Me for LGU Staff and
 All Staff Reviews for administrators). The queue starts empty because the handoff intentionally

@@ -7,7 +7,9 @@ def find_by_username(connection, username):
     """Return the login record, including its hash, or None."""
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
-            "SELECT * FROM staff_users WHERE username = %s", (username,),
+            """SELECT id, username, display_name, password_hash, role, is_active,
+                      session_version, must_change_password
+               FROM staff_users WHERE username = %s""", (username,),
         ).fetchone()
 
 
@@ -37,6 +39,7 @@ def complete_initial_password_change(connection, user_id, password_hash):
         return cursor.execute(
             """UPDATE staff_users
                SET password_hash = %s, must_change_password = false,
+                   temporary_password_encrypted = NULL,
                    session_version = session_version + 1
                WHERE id = %s
                RETURNING id, role, session_version""",
@@ -63,12 +66,93 @@ def insert_initial_admin(connection, username, password_hash):
     )
 
 
-def insert_staff(connection, display_name, username, password_hash):
+def insert_staff(connection, display_name, username, password_hash, encrypted_password):
     """Create an active LGU Staff account with a required password change."""
     connection.execute(
         """INSERT INTO staff_users
            (display_name, username, password_hash, role, is_active,
-            must_change_password)
-           VALUES (%s, %s, %s, 'lgu_staff', true, true)""",
-        (display_name, username, password_hash),
+            must_change_password, temporary_password_encrypted)
+           VALUES (%s, %s, %s, 'lgu_staff', true, true, %s)""",
+        (display_name, username, password_hash, encrypted_password),
+    )
+
+
+def list_staff_accounts(connection):
+    """Read staff account details without fetching any password hashes."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, display_name, username, is_active,
+                      must_change_password, created_at,
+                      temporary_password_encrypted IS NOT NULL AS has_temporary_password
+               FROM staff_users WHERE role = 'lgu_staff'
+               ORDER BY created_at DESC, id DESC""",
+        ).fetchall()
+
+
+def find_active_staff(connection, user_id, *, lock=False):
+    """Find an active LGU Staff account, optionally locking its access state."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, display_name, username
+               FROM staff_users
+               WHERE id = %s AND role = 'lgu_staff' AND is_active"""
+            + (" FOR UPDATE" if lock else ""),
+            (user_id,),
+        ).fetchone()
+
+
+def count_active_assigned_reviews(connection, user_id):
+    """Block deactivation while this person owns unfinished reviews."""
+    return connection.execute(
+        """SELECT count(*) FROM staff_reviews
+           WHERE responsible_staff_id = %s AND status = 'In Review'""",
+        (user_id,),
+    ).fetchone()[0]
+
+
+def deactivate_staff(connection, user_id):
+    """End access and clear the retrievable password, retaining the staff row."""
+    connection.execute(
+        """UPDATE staff_users
+           SET is_active = false, temporary_password_encrypted = NULL,
+               session_version = session_version + 1
+           WHERE id = %s AND role = 'lgu_staff' AND is_active""",
+        (user_id,),
+    )
+
+
+def find_temporary_password(connection, user_id):
+    """Lock a pending active staff account against concurrent password setup."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, display_name, username, password_hash, temporary_password_encrypted
+               FROM staff_users
+               WHERE id = %s AND role = 'lgu_staff' AND is_active
+                 AND must_change_password
+               FOR UPDATE""", (user_id,),
+        ).fetchone()
+
+
+def find_staff_for_recovery(connection, user_id, *, active, lock=False):
+    """Find staff in the required activity state for reset or reactivation."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, display_name, username, is_active
+               FROM staff_users
+               WHERE id = %s AND role = 'lgu_staff' AND is_active = %s"""
+            + (" FOR UPDATE" if lock else ""),
+            (user_id, active),
+        ).fetchone()
+
+
+def replace_staff_password(connection, user_id, password_hash, encrypted_password,
+                           *, reactivate):
+    """Require first-login setup and revoke every older session."""
+    connection.execute(
+        """UPDATE staff_users
+           SET password_hash = %s, temporary_password_encrypted = %s,
+               must_change_password = true, is_active = true,
+               session_version = session_version + 1
+           WHERE id = %s AND role = 'lgu_staff' AND is_active = %s""",
+        (password_hash, encrypted_password, user_id, not reactivate),
     )
