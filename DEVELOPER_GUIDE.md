@@ -480,7 +480,8 @@ frontend reset; that history remains in Git at `9a6b24c`.
 | `/` | LGU Staff | Dashboard with My Subsidy Reviews. An administrator is redirected to `/administration`. `routes/main.py` |
 | `/administration` | System Administrator | Dashboard with statistics only. |
 | `/administration/import` | System Administrator | Placeholder page; no import controls. |
-| `/administration/accounts` | System Administrator | Creates LGU Staff accounts (see the account creation section below). |
+| `/administration/accounts`, `/administration/accounts/create` | System Administrator | List LGU Staff accounts, reveal pending temporary passwords, and create accounts. `routes/main.py` |
+| `/administration/accounts/<account_id>/deactivate`, `/reset-password`, `/reactivate` | System Administrator | Confirm account actions over the list. Deactivation keeps the staff row; reset and reactivation issue a new temporary password. `routes/main.py` |
 | `/households`, `/households/<household_uuid>` | Both roles | Read-only Household Records list and detail. `routes/households.py` |
 | `/assessments` | Both roles | Household Prioritization. `routes/assessments.py::prioritization` |
 | `/assessments/<household_uuid>` | Both roles | Household Assessment; `?tab=overview`, `mpi`, `screening` or `reviews`. |
@@ -732,8 +733,8 @@ except `/login`, static assets and `/test`. At this authentication checkpoint,
 both roles accessed only a minimal landing and the old record/assessment pages
 were retired; later frontend tasks restored protected assessment pages.
 `services.auth.admin_required` checks the current database role for the
-administrator-only routes (Staff Accounts creation is implemented; the import
-workflow is not).
+administrator-only routes (Staff Accounts management is implemented; the import
+workflow is separate).
 
 Flask signs the cookie using a private `SECRET_KEY` (no default); staff access
 returns 503 if it is missing or shorter than 32 characters. Generate a random
@@ -787,8 +788,8 @@ create generated test credentials, and remove their schemas. They check roles,
 CSRF, sessions, revocation, bootstrap and the fixture guard. Run the full suite
 as well. Neither development nor old databases, private `.env`, source files,
 assessment engines or importer behavior are changed by authentication tests.
-Real CBMS access, staff account lifecycle, review permissions and deployment
-hardening remain separately scoped work.
+At that authentication checkpoint, real CBMS access, staff account lifecycle,
+review permissions and deployment hardening remained separately scoped work.
 
 ## 14. Phase 6B.4 Task 1: read-only active-batch loader
 
@@ -2327,18 +2328,47 @@ Review Queue or Household Record) is chosen in `templates/assessments/detail.htm
 on the page carries forward. After a note is saved the review page redirects to
 `#latest-note` and shows "Note saved." beside the new note.
 
-### Staff account creation and first-login behavior
+### Staff account lifecycle and temporary-password security
 
-`/administration/accounts` (admin only) calls `services/staff_account_management.create_staff_account()`.
-It trims the display name (1–120 characters), checks the username
-(`[a-z0-9][a-z0-9_.-]{2,63}`), generates a random initial password, stores only its scrypt
-hash through `repositories/staff_users.py`, and returns the password once for display.
-New accounts have role `lgu_staff` and `must_change_password = true`. While the flag is
-set, `protect_staff_routes` redirects every protected page except `/change-password`
-and `/logout` to the password page; `services/initial_password.py` checks the initial
-password, saves the new one, clears the flag and revokes older sessions. A duplicate
-username shows a message instead of an error. Listing, editing, deactivating and
-resetting accounts are not implemented.
+`/administration/accounts` lists LGU Staff accounts and `/administration/accounts/create`
+creates them. `services/staff_account_management.py` trims the display name
+(1–120 characters), validates the username (`[a-z0-9][a-z0-9_.-]{2,63}`), and
+generates a random temporary password. `repositories/staff_users.py` stores a
+Werkzeug scrypt login hash and a separate Fernet-encrypted copy in
+`temporary_password_encrypted`. The account is active, has role `lgu_staff`, and
+starts with `must_change_password = true`. The `cryptography` dependency is pinned
+in `requirements.txt`; install it with `python -m pip install -r requirements.txt`
+inside the project virtual environment.
+
+Generate a separate Fernet key with
+`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+and place it in Git-ignored `.env` as `STAFF_TEMP_PASSWORD_KEY`. Do not reuse
+`SECRET_KEY`. The app returns 503 for account creation, reveal, reset or
+reactivation if the key is missing or invalid. Keep the key private and available
+to every app instance. Changing or losing it makes existing encrypted pending
+copies unreadable; their login hashes do not change. Plan any rotation around
+pending accounts, since no automatic re-encryption exists. Never commit the key,
+temporary passwords, clipboard contents, screenshots or logs containing them.
+
+The reveal POST is administrator-only, CSRF-protected, and calls
+`reveal_temporary_password()`. Its repository query locks an active `lgu_staff`
+row with `must_change_password = true`; it also requires a non-null encrypted copy
+and verifies the decrypted value against the current login hash. A completed
+password setup, deactivated account, or account created before encrypted copies
+were supported cannot reveal a password. The response has `Cache-Control:
+no-store`, but a copied password remains in the administrator's clipboard until
+replaced; share it privately and clear the clipboard after use.
+
+While `must_change_password` is true, `protect_staff_routes` redirects protected
+pages except `/change-password` and `/logout` to password setup.
+`services/initial_password.py` verifies the temporary password, saves the
+staff-chosen password as a hash only, clears the encrypted copy and flag, and
+revokes earlier sessions. Deactivation clears the encrypted copy, invalidates
+sessions and preserves the staff row and review attribution. It is blocked while
+the account has active assigned reviews; reassign or close them first. Resetting
+an active account and reactivating an inactive one each generate a fresh temporary
+password, set the setup flag, and invalidate earlier sessions. Their POST routes
+remain administrator-only and CSRF-protected. Account editing is not implemented.
 
 ### Public information pages
 
@@ -2348,21 +2378,36 @@ content in `services/public_programs.py`, with `templates/public_*.html`,
 keep the fixture guard, query no database and read no CBMS records. They offer no
 forms, submissions or citizen accounts.
 
-### Migrations 0009 and 0010
+### Staff account migrations and Data Import compatibility
 
-Neither is applied automatically; startup never migrates. Both only add a column to
-`staff_users`, so existing accounts and rows are unchanged:
+Startup never applies migrations automatically. Check the target schema before
+applying each missing migration once; never rewrite or reapply one already used:
 
 | Migration | Change |
 |---|---|
 | `0009_staff_display_name.sql` | Nullable `display_name` (1–120 characters) so a person's name is stored apart from the unique login username. |
 | `0010_staff_password_change_required.sql` | `must_change_password boolean NOT NULL DEFAULT false`; accounts created by an administrator set it to true until first password setup. |
+| `0011_staff_temporary_password.sql` | Nullable encrypted copy with a check that it belongs only to an LGU Staff account awaiting password setup. Existing hashes cannot be decrypted or recovered. |
+| `0012_staff_account_deletion.sql` | Adds nullable `deleted_at`; retained unchanged because it was already applied in a local development database. Current deactivation uses `is_active` and does not read or write `deleted_at`. |
+
+The Data Import branch introduces `0013_import_validation_audit.sql`, which creates
+`import_validation_events` with `actor_id` referencing `staff_users.id`. Since
+deactivation retains staff rows, its audit attribution survives. Migration 0013
+does not depend on 0011 or 0012 and does not use `deleted_at`. For a fresh schema
+with both branches, apply missing migrations in numeric order through 0013.
+Where 0012 is already applied, leave it intact and check for `deleted_at` before
+any migration command. Integrate Staff Accounts before Data Import so the shared
+branch acquires 0011 and the retained 0012 before 0013; then update the Data Import
+branch against that tip and verify its tests. Do not run these commands against
+the development database during test verification; the tests use disposable
+schemas in `tanglaw_buhay_test`.
 
 ### Verification record
 
-Latest full regression: 582 tests passed at commit `a95575f`. After the terminology
-correction at `3778780` only 83 focused tests were run (staff reviews, Review Queue,
-review responsibility, SPISC integration, recommendation changes); the full suite has not
-been rerun. The integrated staff workflow was also checked separately with an isolated
-synthetic schema and a temporary server. Older counts quoted in earlier sections describe
-those checkpoints only. None of this replaces future verification with real pilot usage.
+On 2026-11-05 the Staff Accounts PR branch passed the full synthetic regression
+suite: 594 passed, 0 failures, 0 errors, 0 skips. A separate disposable-schema
+check applied 0012 and the Data Import branch's 0013 in both orders, inserted a
+synthetic import audit event, deactivated its actor, and confirmed the audit row
+still referenced the retained staff row. Both orders passed. `python -m pip check`
+reported no broken requirements. Earlier counts in this guide describe their
+own checkpoints. Synthetic verification does not replace future pilot usage.

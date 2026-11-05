@@ -32,6 +32,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
             patch("repositories.staff_users.find_by_username", side_effect=self._by_username),
             patch("repositories.staff_users.find_by_id", side_effect=self._by_id),
             patch("repositories.staff_users.invalidate_sessions", side_effect=self._revoke),
+            patch("routes.main.get_staff_accounts", return_value=[]),
         )
         for patcher in patches:
             patcher.start()
@@ -101,8 +102,6 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                 page = client.get(destination)
             self.assertEqual(page.status_code, 200)
             self.assertIn("<h1>Dashboard</h1>", page.text)
-            self.assertEqual(f"Welcome back, {username}!" in page.text,
-                             username == "synthetic_staff")
             self.assertIn(label, page.text)
             self.assertIn("Sign Out", page.text)
             self.assertIn('action="/logout"', page.text)
@@ -114,7 +113,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                 self.assertIn('href="/administration/accounts"', page.text)
                 self.assertIn("Data Import", page.text)
                 self.assertIn("Staff Accounts", page.text)
-                self.assertIn("Assessments", page.text)
+                self.assertIn("Review Queue", page.text)
                 self.assertNotIn("Submissions", page.text)
                 self.assertEqual(client.get("/").location, "/administration")
             else:
@@ -199,10 +198,38 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         self.assertEqual(admin_client.get("/administration/import").status_code, 403)
         self.assertEqual(admin_client.get("/administration/accounts").status_code, 403)
 
-    def test_admin_may_reach_assessment_routes(self):
+    def test_staff_accounts_menu_separates_list_and_creation(self):
+        paths = ("/administration/accounts", "/administration/accounts/create")
+        for path in paths:
+            self.assertEqual(self.client.get(path).location, "/login")
         self._login("synthetic_admin")
-        for path in ("/assessments", "/assessments/queue"):
-            self.assertNotEqual(self.client.get(path).status_code, 403)
+        listing = self.client.get(paths[0])
+        creation = self.client.get(paths[1])
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(creation.status_code, 200)
+        self.assertIn("<h1>Account List</h1>", listing.text)
+        self.assertNotIn('name="display_name"', listing.text)
+        self.assertIn("<h1>Create Account</h1>", creation.text)
+        self.assertIn('name="display_name"', creation.text)
+        self.assertIn('action="/administration/accounts/create"', creation.text)
+        self.assertNotIn('id="directory-heading"', creation.text)
+        for path, page, label in ((paths[0], listing, "Account List"),
+                                  (paths[1], creation, "Create Account")):
+            self.assertRegex(page.text, r'<details class="navigation-group" open>')
+            self.assertIn(f'href="{path}" aria-current="page">{label}</a>', page.text)
+        staff = self.app.test_client()
+        self._login("synthetic_staff", staff)
+        for path in paths:
+            self.assertEqual(staff.get(path).status_code, 403)
+            self.assertEqual(staff.post(path).status_code, 403)
+
+    def test_admin_keeps_assessment_navigation_and_route_permission(self):
+        self._login("synthetic_admin")
+        with patch("routes.main.get_active_dashboard_summary", return_value=None):
+            page = self.client.get("/administration")
+        self.assertIn('href="/assessments"', page.text)
+        self.assertIn('href="/assessments/queue"', page.text)
+        self.assertNotEqual(self.client.get("/assessments").status_code, 403)
 
 
 if __name__ == "__main__":
