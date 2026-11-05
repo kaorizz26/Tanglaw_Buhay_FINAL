@@ -13,6 +13,8 @@ class Config:
     DATABASE_URL = os.getenv("DATABASE_URL")
     SECRET_KEY = os.getenv("SECRET_KEY")
     STAFF_TEMP_PASSWORD_KEY = os.getenv("STAFF_TEMP_PASSWORD_KEY")
+    # Dedicated secret for keyed hashes of citizen activation and reset credentials.
+    CITIZEN_CREDENTIAL_KEY = os.getenv("CITIZEN_CREDENTIAL_KEY")
     SESSION_COOKIE_NAME = "tanglaw_staff_session"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
