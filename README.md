@@ -39,7 +39,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
 | Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. They need no account, read no CBMS records, and accept no submissions. |
 | MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
-| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review tables (migrations 0001–0010), and a validated backend importer used once for the 2022 batch. |
+| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), and a validated backend importer used once for the 2022 batch. |
 | Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
 
 ### Partial or Incomplete
@@ -160,6 +160,9 @@ python -m pip check
 ```
 
 Expected: the prompt shows `(.venv)` and pip reports no broken requirements.
+The pinned `cryptography` package in `requirements.txt` is required for the
+administrator's encrypted temporary-password copy. If installation fails, fix
+the environment and rerun the requirements command before creating staff accounts.
 In VS Code, choose **Python: Select Interpreter → .venv\Scripts\python.exe**.
 Activate the environment whenever you open a new terminal.
 
@@ -319,6 +322,13 @@ Migration 0012 is retained unchanged because it was already applied in one local
 development database. It only adds `deleted_at`; the current Deactivate action does
 not use that column. Teammates who have not applied 0012 do not need it for this
 feature. Do not reapply it where `deleted_at` already exists.
+The Data Import branch adds migration `0013_import_validation_audit.sql`. It creates
+an audit table whose actor references the retained `staff_users` row; it does not
+read `deleted_at` or depend on 0012. After the Data Import branch is integrated,
+apply 0013 once where its table is absent. If applying both migrations to a fresh
+database, use numeric order (0012, then 0013); check existing schema first and
+never reapply an already-applied migration. Integrate Staff Accounts first, then
+bring the Data Import branch onto that integration tip before merging it.
 
 After migrations 0009–0011 are applied, existing
 accounts keep their current passwords and have `must_change_password = false`. Accounts created through the administrator page
@@ -327,6 +337,15 @@ stored as a login hash and a separately encrypted retrievable copy. Set a privat
 `STAFF_TEMP_PASSWORD_KEY` as described below; changing or losing it makes pending
 copies unreadable. Password setup clears the encrypted copy. The empty test database does
 not need these migrations applied manually; the tests create disposable schemas.
+Only a signed-in System Administrator can request a reveal, and the request requires
+a CSRF token. The account must still be active and awaiting password setup; after
+setup or deactivation the retrievable copy is cleared. A reset or reactivation
+issues a new temporary password and requires setup again. Account pages use
+`Cache-Control: no-store`. Treat the displayed or copied password as a secret:
+share it privately, clear it from the clipboard after use, and keep screenshots,
+logs and messages containing it out of Git. Keep the encryption key private and
+available to every app instance; replacing or losing it makes existing pending
+copies unreadable even though their login hashes remain valid.
 
 ## 6. Configure your private `.env`
 
