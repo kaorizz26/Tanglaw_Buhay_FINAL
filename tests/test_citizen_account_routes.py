@@ -110,10 +110,12 @@ class AuthorizationTests(RouteTestCase):
     def test_anonymous_visitors_are_sent_to_sign_in_on_every_route_and_method(self):
         rules = [rule for rule in self.app.url_map.iter_rules()
                  if rule.endpoint.startswith("citizen_accounts.")]
-        self.assertEqual(len(rules), 2)
+        self.assertEqual(len(rules), 6)
         for rule in rules:
             path = re.sub(r"<[^>]+>", HOUSEHOLD_UUID, rule.rule)
             for method in ("get", "post"):
+                if method.upper() not in rule.methods:
+                    continue  # The history page only reads.
                 with self.subTest(path=path, method=method):
                     response = getattr(self.client, method)(path, data=FORM)
                     self.assertEqual((response.status_code, response.location), (302, "/login"))

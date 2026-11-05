@@ -1,0 +1,9 @@
+{# Summary of form mistakes. Needs: errors, button_label. #}
+{% if errors %}
+  <div class="account-alert" role="alert" id="form-errors">
+    <p><strong>Please correct the items below, then select {{ button_label }} again.</strong></p>
+    <ul>
+      {% for message in errors.values() %}<li>{{ message }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}

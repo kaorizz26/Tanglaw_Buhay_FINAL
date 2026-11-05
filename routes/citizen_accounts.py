@@ -13,8 +13,9 @@ from flask import (
 from services.assessment_queries import AssessmentQueryError
 from services.auth import check_csrf, csrf_token, lgu_staff_required
 from services.citizen_accounts import (
-    CitizenAccountError, CitizenAccountInputError, create_citizen_account,
-    get_household_account_page, resend_activation,
+    CitizenAccountError, CitizenAccountInputError, change_account_email,
+    create_citizen_account, deactivate_account, get_household_account_page,
+    reactivate_account, resend_activation,
 )
 
 citizen_accounts = Blueprint("citizen_accounts", __name__)
@@ -38,6 +39,13 @@ EMAIL_IN_USE_MESSAGE = (
     "This email address is already used by another Citizen Account. "
     "Check the address, or use a different one."
 )
+# Shown on the Assessment page when the account's status changed after a form was opened.
+STATE_CHANGED_MESSAGES = {
+    "account_missing": "This household has no Citizen Account yet.",
+    "not_deactivatable": "This account is already deactivated.",
+    "not_deactivated": "Only a Deactivated account can be reactivated.",
+    "deactivated": "Reactivate the account before changing its email address.",
+}
 
 
 def _staff_context():
@@ -66,10 +74,10 @@ def _use_form_number():
     return True
 
 
-def _load_page(household_uuid):
+def _load_page(household_uuid, **options):
     """Read the household and its account state, or stop with a clear error page."""
     try:
-        return get_household_account_page(str(household_uuid))
+        return get_household_account_page(str(household_uuid), **options)
     except AssessmentQueryError as failure:
         if str(failure) in ("household_assessment_missing", "household_identity_missing"):
             abort(404, description="This household assessment is unavailable in the selected batch.")
@@ -211,5 +219,135 @@ def resend(household_uuid):
     return render_template(
         "citizen_accounts/result.html", result=result, page=page,
         heading="Activation email resent",
+        assessment_url=_assessment_url(household_uuid), **_staff_context(),
+    )
+
+
+def _manageable_page(household_uuid, permission, blocked_message):
+    """Load the page and check the account allows this action.
+
+    Returns (page, None), or (page, redirect) when staff should go back to the
+    Assessment page with a message.
+    """
+    page = _load_page(household_uuid)
+    account = page["account"]
+    if account["state"] == "unavailable":
+        abort(503, description="Citizen accounts are unavailable. Please try again later.")
+    if account["state"] == "none":
+        return page, _redirect_to_assessment(
+            household_uuid, "This household has no Citizen Account yet.",
+        )
+    if not account[permission]:
+        return page, _redirect_to_assessment(household_uuid, blocked_message)
+    return page, None
+
+
+def _management_form(household_uuid, *, template, permission, blocked_message, fields,
+                     act, finish):
+    """Show a management form (GET) and save it (POST) for deactivate, reactivate and email change.
+
+    `act` runs the service call; `finish` builds the response after it succeeds.
+    """
+    if request.method == "POST":
+        check_csrf()
+        if not _use_form_number():
+            return _redirect_to_assessment(household_uuid, ALREADY_DONE_MESSAGE)
+    page, stop = _manageable_page(household_uuid, permission, blocked_message)
+    if stop:
+        return stop
+
+    def render_form(values, errors, status=200):
+        return render_template(
+            template, page=page, values=values, errors=errors,
+            form_number=_issue_form_number(),
+            assessment_url=_assessment_url(household_uuid), **_staff_context(),
+        ), status
+
+    if request.method == "GET":
+        return render_form({}, {})
+    batch_id, run_id = _context_ids()
+    values = {key: request.form.get(key, "") for key in fields}
+    try:
+        result = act(g.user["id"], str(household_uuid), batch_id, run_id, request.form)
+    except CitizenAccountInputError as invalid:
+        return render_form(values, invalid.errors, 400)
+    except CitizenAccountError as failure:
+        code = str(failure)
+        if code in STATE_CHANGED_MESSAGES:
+            return _redirect_to_assessment(household_uuid, STATE_CHANGED_MESSAGES[code])
+        if code == "email_in_use":
+            return render_form(values, {"email": EMAIL_IN_USE_MESSAGE}, 409)
+        _stop_for(failure)
+    return finish(result, page)
+
+
+def _show_result(heading):
+    """Build the page that shows the activation code once after an email was sent."""
+    def finish(result, page):
+        return render_template(
+            "citizen_accounts/result.html", result=result, page=page, heading=heading,
+            assessment_url=_assessment_url(page["household_uuid"]), **_staff_context(),
+        )
+    return finish
+
+
+@citizen_accounts.route(
+    "/citizen-accounts/household/<uuid:household_uuid>/deactivate", methods=["GET", "POST"],
+)
+@lgu_staff_required
+def deactivate(household_uuid):
+    """Confirm and deactivate the account."""
+    def finish(result, page):
+        return _redirect_to_assessment(
+            household_uuid, "The Citizen Account was deactivated. The representative is signed out.",
+        )
+    return _management_form(
+        household_uuid, template="citizen_accounts/deactivate.html",
+        permission="can_deactivate", blocked_message=STATE_CHANGED_MESSAGES["not_deactivatable"],
+        fields=("reason_note",), act=deactivate_account, finish=finish,
+    )
+
+
+@citizen_accounts.route(
+    "/citizen-accounts/household/<uuid:household_uuid>/reactivate", methods=["GET", "POST"],
+)
+@lgu_staff_required
+def reactivate(household_uuid):
+    """Confirm and reactivate a Deactivated account with a new activation email."""
+    return _management_form(
+        household_uuid, template="citizen_accounts/reactivate.html",
+        permission="can_reactivate", blocked_message=STATE_CHANGED_MESSAGES["not_deactivated"],
+        fields=("representative_verified", "privacy_consent_confirmed", "verification_note"),
+        act=reactivate_account, finish=_show_result("Citizen Account reactivated"),
+    )
+
+
+@citizen_accounts.route(
+    "/citizen-accounts/household/<uuid:household_uuid>/change-email", methods=["GET", "POST"],
+)
+@lgu_staff_required
+def change_email(household_uuid):
+    """Confirm and change the registered email, then require activation again."""
+    return _management_form(
+        household_uuid, template="citizen_accounts/change_email.html",
+        permission="can_change_email", blocked_message=STATE_CHANGED_MESSAGES["deactivated"],
+        fields=("email", "email_confirmation", "representative_verified",
+                "privacy_consent_confirmed", "verification_note"),
+        act=change_account_email, finish=_show_result("Email address changed"),
+    )
+
+
+@citizen_accounts.route("/citizen-accounts/household/<uuid:household_uuid>/history")
+@lgu_staff_required
+def history(household_uuid):
+    """Show the account's staff actions, newest first."""
+    page = _load_page(household_uuid, with_history=True)
+    state = page["account"]["state"]
+    if state == "unavailable":
+        abort(503, description="Citizen accounts are unavailable. Please try again later.")
+    if state == "none":
+        return _redirect_to_assessment(household_uuid, "This household has no Citizen Account yet.")
+    return render_template(
+        "citizen_accounts/history.html", page=page,
         assessment_url=_assessment_url(household_uuid), **_staff_context(),
     )

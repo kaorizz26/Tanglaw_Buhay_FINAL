@@ -12,7 +12,7 @@
   </div>
 
   {% for message in get_flashed_messages(category_filter=['citizen_account']) %}
-    <p class="account-notice" role="status">{{ message }}</p>
+    <p class="citizen-account-notice" role="status">{{ message }}</p>
   {% endfor %}
 
   {% if not account or account.state == 'unavailable' %}
@@ -51,8 +51,27 @@
       </ul>
       {% if can_manage %}
         <p class="account-hint">Resend Activation sends a new email and code. The old ones stop working.</p>
-        <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.resend', household_uuid=results.household_uuid) }}">Resend Activation</a>
       {% endif %}
+    {% elif account.state == 'deactivated' %}
+      <p class="citizen-account-text">This account is deactivated. The representative cannot sign in.</p>
+    {% endif %}
+    {% if can_manage %}
+      {% set household = results.household_uuid %}
+      <div class="account-actions">
+        {% if account.can_resend %}
+          <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.resend', household_uuid=household) }}">Resend Activation</a>
+        {% endif %}
+        {% if account.can_reactivate %}
+          <a class="account-button" href="{{ url_for('citizen_accounts.reactivate', household_uuid=household) }}">Reactivate Account</a>
+        {% endif %}
+        {% if account.can_change_email %}
+          <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.change_email', household_uuid=household) }}">Change Email</a>
+        {% endif %}
+        <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.history', household_uuid=household) }}">Account History</a>
+        {% if account.can_deactivate %}
+          <a class="account-button account-button-danger-outline" href="{{ url_for('citizen_accounts.deactivate', household_uuid=household) }}">Deactivate Account</a>
+        {% endif %}
+      </div>
     {% endif %}
   {% endif %}
 </section>

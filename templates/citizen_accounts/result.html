@@ -38,5 +38,15 @@
     </section>
   {% endif %}
 
+  {% if result.previous_email_notified is defined %}
+    <p class="citizen-account-notice" role="status">
+      {% if result.previous_email_notified %}
+        A short notice was sent to the previous email address.
+      {% else %}
+        The notice to the previous email address could not be sent. The change is saved.
+      {% endif %}
+    </p>
+  {% endif %}
+
   <p><a class="account-button" href="{{ assessment_url }}">Back to Household Assessment</a></p>
 {% endblock %}

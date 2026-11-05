@@ -1,0 +1,70 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Change Email Address{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>Change Email Address</h1>
+    <p class="account-lead">Use this when the representative has a new email address.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  {% set button_label = 'Change Email' %}
+  {% include 'citizen_accounts/_form_errors.html' %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('citizen_accounts.change_email', household_uuid=page.household_uuid) }}">
+    {% include 'citizen_accounts/_hidden_fields.html' %}
+
+    <section class="account-section" aria-labelledby="what-heading">
+      <h2 id="what-heading"><span class="account-step" aria-hidden="true">1</span> Check what will happen</h2>
+      <dl class="account-facts">
+        <div><dt>Representative</dt><dd>{{ page.account.name }}</dd></div>
+        <div><dt>Current email address</dt><dd>{{ page.account.email }}</dd></div>
+        <div><dt>Status</dt><dd>{{ page.account.status_label }}</dd></div>
+      </dl>
+      <ul class="account-checklist">
+        <li><strong>The representative is signed out immediately</strong> and the password is removed.</li>
+        <li>The account returns to <strong>Pending Activation</strong>. They must activate it again from the new address.</li>
+        <li>A new activation email is sent to the new address. A new six-digit code is shown to you once.</li>
+        <li>The old address receives a short notice that the email was changed.</li>
+      </ul>
+    </section>
+
+    <section class="account-section" aria-labelledby="new-email-heading">
+      <h2 id="new-email-heading"><span class="account-step" aria-hidden="true">2</span> Enter the new email address</h2>
+      <div class="account-field">
+        <label for="email">New email address</label>
+        <input id="email" name="email" type="email" maxlength="254" autocomplete="off"
+               autocapitalize="none" spellcheck="false" value="{{ values.email or '' }}"
+               {% if errors.email %}aria-invalid="true" aria-describedby="email-error"{% endif %} required>
+        {% if errors.email %}<p class="account-field-error" id="email-error">{{ errors.email }}</p>{% endif %}
+      </div>
+      <div class="account-field">
+        <label for="email_confirmation">Confirm new email address</label>
+        <input id="email_confirmation" name="email_confirmation" type="email" maxlength="254"
+               autocomplete="off" autocapitalize="none" spellcheck="false"
+               value="{{ values.email_confirmation or '' }}"
+               {% if errors.email_confirmation %}aria-invalid="true" aria-describedby="email_confirmation-hint email_confirmation-error"{% else %}aria-describedby="email_confirmation-hint"{% endif %} required>
+        <p class="account-hint" id="email_confirmation-hint">Read the address back to the representative, then type it again.</p>
+        {% if errors.email_confirmation %}<p class="account-field-error" id="email_confirmation-error">{{ errors.email_confirmation }}</p>{% endif %}
+      </div>
+    </section>
+
+    <section class="account-section" aria-labelledby="confirm-heading">
+      <h2 id="confirm-heading"><span class="account-step" aria-hidden="true">3</span> Confirm and change the email</h2>
+      {% set consent_text = 'The representative agreed to change the account email and to receive emails at the new address, and confirmed I read it back correctly.' %}
+      {% include 'citizen_accounts/_confirmation_fields.html' %}
+      <div class="account-actions">
+        <button class="account-button" type="submit">Change Email</button>
+        <a class="account-button account-button-secondary" href="{{ assessment_url }}">Cancel</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}

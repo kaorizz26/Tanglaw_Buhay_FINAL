@@ -1,0 +1,27 @@
+{# Two confirmations and a note. Needs: values, errors, consent_text. #}
+<p class="account-instruction">Tick both boxes only after you have done each of these.</p>
+
+<div class="account-check">
+  <input id="representative_verified" name="representative_verified" type="checkbox"
+         {% if values.representative_verified == 'on' %}checked{% endif %}
+         {% if errors.representative_verified %}aria-invalid="true" aria-describedby="representative_verified-error"{% endif %}>
+  <label for="representative_verified">I spoke with the household representative and confirmed they can act for this household.</label>
+</div>
+{% if errors.representative_verified %}<p class="account-field-error" id="representative_verified-error">{{ errors.representative_verified }}</p>{% endif %}
+
+<div class="account-check">
+  <input id="privacy_consent_confirmed" name="privacy_consent_confirmed" type="checkbox"
+         {% if values.privacy_consent_confirmed == 'on' %}checked{% endif %}
+         {% if errors.privacy_consent_confirmed %}aria-invalid="true" aria-describedby="privacy_consent_confirmed-error"{% endif %}>
+  <label for="privacy_consent_confirmed">{{ consent_text }}</label>
+</div>
+{% if errors.privacy_consent_confirmed %}<p class="account-field-error" id="privacy_consent_confirmed-error">{{ errors.privacy_consent_confirmed }}</p>{% endif %}
+
+<div class="account-field">
+  <label for="verification_note">How did you confirm the representative's identity or authority?</label>
+  <textarea id="verification_note" name="verification_note" rows="3" maxlength="500"
+            {% if errors.verification_note %}aria-invalid="true" aria-describedby="verification_note-hint verification_note-error"{% else %}aria-describedby="verification_note-hint"{% endif %}
+            required>{{ values.verification_note or '' }}</textarea>
+  <p class="account-hint" id="verification_note-hint">Example: “Checked Maria Cruz's valid ID. She is the household head listed in this record.” Write at least 10 characters. Do not write passwords or codes.</p>
+  {% if errors.verification_note %}<p class="account-field-error" id="verification_note-error">{{ errors.verification_note }}</p>{% endif %}
+</div>

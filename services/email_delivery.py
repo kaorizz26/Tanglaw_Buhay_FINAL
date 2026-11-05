@@ -200,6 +200,23 @@ def send_password_reset_email(to_address, token):
     send_email(to_address, "Reset your Tanglaw-Buhay password", body)
 
 
+def send_email_changed_notice(to_address):
+    """Tell the previous address its account email was changed.
+
+    The notice has no link, code or password, and does not name the new address.
+    """
+    body = (
+        "Hello,\n\n"
+        "The email address of your Tanglaw-Buhay Citizen Portal account was changed "
+        "by LGU staff, and you have been signed out. This address will no longer "
+        "receive messages for the account.\n\n"
+        "If you asked for this change, no action is needed.\n"
+        "If you did not, please contact the LGU office as soon as possible.\n\n"
+        "Tanglaw-Buhay\n"
+    )
+    send_email(to_address, "Your Tanglaw-Buhay account email was changed", body)
+
+
 def send_password_changed_email(to_address):
     """Tell the citizen their password was just changed. The email has no link."""
     body = (
