@@ -10,6 +10,8 @@ from psycopg.pq import TransactionStatus
 from db import get_connection
 from repositories import dataset_batches as repository
 from services.data_loader import EXCEL_FILES, REFERENCE_FILES
+from services.import_sources import ADMIN_UPLOAD_SOURCE
+from services.survey_years import is_supported_survey_year
 
 
 class ActiveBatchError(RuntimeError):
@@ -29,16 +31,19 @@ def _batch_metadata(batches, *, require_active=True):
     filenames.update(REFERENCE_FILES)
     columns = batch.get("source_columns")
     provenance = batch.get("source_provenance")
+    declared = provenance.get("declared") if isinstance(provenance, dict) else None
     if (
         type(batch.get("id")) is not int or batch["id"] <= 0
-        or type(batch.get("survey_year")) is not int or batch["survey_year"] != 2022
+        or not is_supported_survey_year(batch.get("survey_year"))
         or batch.get("municipality") != "Pozorrubio"
         or batch.get("is_active") is not require_active
         or batch.get("validation_status") != "validated"
         or not isinstance(columns, dict) or set(columns) != set(filenames)
         or not isinstance(provenance, dict)
-        or not isinstance(provenance.get("declared"), dict)
-        or not provenance["declared"]
+        or not isinstance(declared, dict)
+        or not declared
+        or (declared.get("source") == ADMIN_UPLOAD_SOURCE
+            and declared.get("survey_year") != batch["survey_year"])
         or not isinstance(provenance.get("files"), dict)
         or set(provenance["files"]) != set(filenames)
     ):

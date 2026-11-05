@@ -13,6 +13,7 @@ from scripts.verify_active_batch_assessments import (
 )
 from services.active_batch_loader import ActiveBatchError, load_inactive_batch
 from services.assessments import combine_assessments
+from services.import_sources import ADMIN_UPLOAD_SOURCE, ADMIN_UPLOAD_SOURCES
 from services.subsidy_screening import screen_households
 from services.vulnerability.scoring import assess_households
 
@@ -47,9 +48,10 @@ def list_import_batches(connection_factory=get_connection):
                        LEFT JOIN assessment_runs r ON r.batch_id = b.id
                        LEFT JOIN assessment_run_selections s ON s.batch_id = b.id
                        WHERE b.validation_status = 'validated'
-                         AND b.source_provenance -> 'declared' ->> 'source' =
-                             'administrator_uploaded_2022_compatible_csv'
+                         AND b.source_provenance -> 'declared' ->> 'source'
+                             IN (%s, %s)
                        GROUP BY b.id ORDER BY b.id DESC""",
+                    ADMIN_UPLOAD_SOURCES,
                 ).fetchall()
     except (psycopg.Error, RuntimeError):
         raise AssessmentPreparationError("batch_list_unavailable") from None
@@ -69,7 +71,7 @@ def _require_preparable(connection, batch_id, actor_id, source_provenance):
         (actor_id,),
     ).fetchone()
     batch = connection.execute(
-        """SELECT is_active, validation_status, source_provenance
+        """SELECT is_active, validation_status, source_provenance, survey_year
            FROM dataset_batches WHERE id = %s FOR UPDATE""",
         (batch_id,),
     ).fetchone()
@@ -77,11 +79,13 @@ def _require_preparable(connection, batch_id, actor_id, source_provenance):
         "SELECT 1 FROM assessment_runs WHERE batch_id = %s LIMIT 1",
         (batch_id,),
     ).fetchone()
+    declared = source_provenance.get("declared", {})
     if (actor != ("system_administrator", True) or batch is None
             or batch[0] or batch[1] != "validated"
             or batch[2] != source_provenance or existing
-            or source_provenance.get("declared", {}).get("source") !=
-               "administrator_uploaded_2022_compatible_csv"):
+            or declared.get("source") not in ADMIN_UPLOAD_SOURCES
+            or (declared.get("source") == ADMIN_UPLOAD_SOURCE
+                and declared.get("survey_year") != batch[3])):
         raise AssessmentPreparationError("batch_not_preparable")
 
 

@@ -59,6 +59,7 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                     "0003_assessment_persistence.sql",
                     "0004_assessment_run_selection.sql",
                     "0013_import_validation_audit.sql",
+                    "0015_multi_year_import.sql",
                 ):
                     connection.execute((ROOT / "migrations" / name).read_text())
                 cls.actor_id = connection.execute(
@@ -115,15 +116,17 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             import_validation_events.record_attempt(
                 connection, self.actor_id, "passed", self.batch_id, version,
                 {"household": {"bytes": 42, "sha256": "b" * 64}}, 0, 1,
+                survey_year=2024,
             )
             event = connection.execute(
-                """SELECT outcome, file_metadata, error_count, warning_count
+                """SELECT outcome, survey_year, file_metadata, error_count, warning_count
                    FROM import_validation_events WHERE outcome = 'passed'
                    ORDER BY id DESC LIMIT 1""",
             ).fetchone()
             self.assertEqual(event[0], "passed")
-            self.assertEqual(event[1]["household"]["bytes"], 42)
-            self.assertEqual(event[2:], (0, 1))
+            self.assertEqual(event[1], 2024)
+            self.assertEqual(event[2]["household"]["bytes"], 42)
+            self.assertEqual(event[3:], (0, 1))
             connection.execute(
                 """UPDATE import_validation_events
                    SET attempted_at = CURRENT_TIMESTAMP - INTERVAL '91 days'
@@ -133,6 +136,23 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             self.assertEqual(connection.execute(
                 "SELECT count(*) FROM import_validation_events WHERE outcome = 'passed'",
             ).fetchone()[0], 0)
+
+    def test_multi_year_migration_keeps_lower_boundary(self):
+        with psycopg.connect(self.url) as connection:
+            with connection.transaction(force_rollback=True):
+                later = connection.execute(
+                    """INSERT INTO dataset_batches
+                       (survey_year, municipality, source_columns, source_provenance)
+                       VALUES (2024, 'Pozorrubio', '{}'::jsonb, '{}'::jsonb)
+                       RETURNING survey_year""",
+                ).fetchone()[0]
+                self.assertEqual(later, 2024)
+                with self.assertRaises(psycopg.errors.CheckViolation), connection.transaction():
+                    connection.execute(
+                        """INSERT INTO dataset_batches
+                           (survey_year, municipality, source_columns, source_provenance)
+                           VALUES (2021, 'Pozorrubio', '{}'::jsonb, '{}'::jsonb)""",
+                    )
 
     def test_staging_preserves_active_batch_and_rolls_back_failures(self):
         datasets, references = synthetic_csv_frames()
@@ -151,11 +171,12 @@ class ImportValidationDatabaseTests(unittest.TestCase):
         with psycopg.connect(self.url) as connection:
             with connection.transaction():
                 staged = stage_validated_snapshot(
-                    connection, datasets, references, provenance,
+                    connection, datasets, references, provenance, 2024,
                 )
                 import_validation_events.record_attempt(
                     connection, self.actor_id, "staged", self.batch_id,
                     "v1", {}, 0, 0, staged,
+                    survey_year=2024,
                 )
             state = connection.execute(
                 """SELECT id, validation_status, is_active
@@ -177,7 +198,9 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                         sql.Identifier(table)), (staged,),
                 ).fetchone()[0], len(references[name]))
             with self.assertRaises(DuplicateImportBundle), connection.transaction():
-                stage_validated_snapshot(connection, datasets, references, provenance)
+                stage_validated_snapshot(
+                    connection, datasets, references, provenance, 2024,
+                )
             failure_provenance = {
                 **provenance,
                 "declared": {**provenance["declared"], "bundle_sha256": "c" * 64},
@@ -187,6 +210,7 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError), connection.transaction():
                     stage_validated_snapshot(
                         connection, datasets, references, failure_provenance,
+                        2024,
                     )
             self.assertEqual(connection.execute(
                 "SELECT count(*) FROM dataset_batches",
@@ -220,7 +244,7 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             })
             with app.app_context():
                 result = validate_admin_upload(
-                    uploads, self.actor_id, store_inactive=True,
+                    uploads, self.actor_id, 2024, store_inactive=True,
                     authorization_confirmed=True,
                 )
             self.assertEqual(list((root / "staging").iterdir()), [])
@@ -229,17 +253,17 @@ class ImportValidationDatabaseTests(unittest.TestCase):
         self.assertIsNotNone(result["batch_id"])
         with psycopg.connect(self.url) as connection:
             state = connection.execute(
-                """SELECT validation_status, is_active FROM dataset_batches
+                """SELECT survey_year, validation_status, is_active FROM dataset_batches
                    WHERE id = %s""", (result["batch_id"],),
             ).fetchone()
-            self.assertEqual(state, ("validated", False))
+            self.assertEqual(state, (2024, "validated", False))
             self.assertEqual(connection.execute(
                 "SELECT id FROM dataset_batches WHERE is_active",
             ).fetchone()[0], self.batch_id)
             self.assertEqual(connection.execute(
-                """SELECT outcome FROM import_validation_events
+                """SELECT outcome, survey_year FROM import_validation_events
                    WHERE batch_id = %s""", (result["batch_id"],),
-            ).fetchone()[0], "staged")
+            ).fetchone(), ("staged", 2024))
 
     def test_failed_upload_does_not_create_or_activate_a_batch(self):
         datasets, references = synthetic_csv_frames()
@@ -266,7 +290,7 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                 ).fetchone()[0]
             with app.app_context():
                 result = validate_admin_upload(
-                    uploads, self.actor_id, store_inactive=True,
+                    uploads, self.actor_id, 2024, store_inactive=True,
                     authorization_confirmed=True,
                 )
             self.assertEqual(list((root / "staging").iterdir()), [])
@@ -294,7 +318,8 @@ class ImportValidationDatabaseTests(unittest.TestCase):
         def stage(bundle_hash):
             provenance = {
                 "declared": {
-                    "source": "administrator_uploaded_2022_compatible_csv",
+                    "source": "administrator_uploaded_compatible_csv",
+                    "survey_year": 2024,
                     "bundle_sha256": bundle_hash,
                     "reference_version": "synthetic-reference-v1",
                 },
@@ -302,7 +327,7 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             }
             with psycopg.connect(self.url) as connection:
                 return stage_validated_snapshot(
-                    connection, datasets, references, provenance,
+                    connection, datasets, references, provenance, 2024,
                 )
 
         prepared_batch = stage("d" * 64)

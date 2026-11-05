@@ -12,7 +12,7 @@
       <span aria-current="page">Data Import</span>
     </nav>
     <h1>Data Import</h1>
-    <p>Check a 2022 Pozorrubio CBMS bundle before it is prepared for use.</p>
+    <p>Check a Pozorrubio CBMS bundle before it is prepared for use.</p>
     <a href="{{ url_for('main.import_batches') }}">View stored batches and prepare assessments →</a>
     <a href="{{ url_for('main.import_activation') }}">View active dataset and prepared batches →</a>
   </header>
@@ -23,6 +23,14 @@
     {% if error %}<p class="import-error" role="alert">{{ error }}</p>{% endif %}
     <form method="post" action="{{ url_for('main.data_import') }}" enctype="multipart/form-data" class="import-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="import-year-field">
+        <label for="survey-year">Survey year</label>
+        <input id="survey-year" name="survey_year" type="number"
+               min="{{ minimum_survey_year }}" max="{{ maximum_survey_year }}"
+               value="{{ survey_year_value }}" inputmode="numeric"
+               aria-describedby="survey-year-help" required>
+        <p id="survey-year-help">Enter the official year for this CBMS survey. The files do not contain a reliable survey-year field.</p>
+      </div>
       <div class="import-fields">
         <div class="import-field">
           <label for="household-csv">Households <span>household.csv</span></label>
@@ -43,7 +51,7 @@
       </div>
       <label class="import-confirmation">
         <input name="authorized_source" type="checkbox" value="yes">
-        <span>I confirm these are authorized 2022 Pozorrubio CBMS files. Required when storing a batch.</span>
+        <span>I confirm these are authorized Pozorrubio CBMS files for the survey year entered above. Required when storing a batch.</span>
       </label>
       <div class="import-form-footer">
         <p>All four files together must be under 256 MiB. Validation and storage may take a few minutes.</p>
@@ -59,9 +67,9 @@
     <section class="import-card import-results" aria-labelledby="result-heading" aria-live="polite">
       <h2 id="result-heading">Validation result</h2>
       {% if batch_id %}
-        <p class="import-status import-status-pass">Stored as inactive batch {{ batch_id }}. Assessments have not been run. The current dataset is unchanged.</p>
+        <p class="import-status import-status-pass">Stored survey year {{ survey_year_value }} as inactive batch {{ batch_id }}. Assessments have not been run. The current dataset is unchanged.</p>
       {% elif report.passed %}
-        <p class="import-status import-status-pass">The files passed validation. No dataset has been added or activated.</p>
+        <p class="import-status import-status-pass">The survey year {{ survey_year_value }} files passed validation. No dataset has been added or activated.</p>
       {% else %}
         <p class="import-status import-status-fail">The files need correction before they can be prepared. The current dataset is unchanged.</p>
       {% endif %}

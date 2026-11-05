@@ -86,7 +86,7 @@ class BatchActivationDatabaseTests(unittest.TestCase):
         return psycopg.connect(self.url)
 
     def _batch(self, connection, *, active):
-        source = "controlled_2022_pilot" if active else "administrator_uploaded_2022_compatible_csv"
+        source = "controlled_2022_pilot" if active else "administrator_uploaded_compatible_csv"
         batch_id = connection.execute(
             """INSERT INTO dataset_batches
                (survey_year, municipality, source_columns, source_provenance,

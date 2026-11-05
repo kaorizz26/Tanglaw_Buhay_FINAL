@@ -19,6 +19,9 @@ from services.import_validation_presentation import present_report
 from services.import_assessment_preparation import (
     AssessmentPreparationError, list_import_batches, prepare_import_batch,
 )
+from services.survey_years import (
+    MIN_SURVEY_YEAR, latest_survey_year, parse_survey_year,
+)
 from services.batch_activation import (
     BatchActivationError, activate_prepared_batch, activation_overview,
 )
@@ -91,23 +94,35 @@ def data_import():
     report = None
     error = None
     batch_id = None
+    survey_year_value = ""
     status = 200
     if request.method == "POST":
         request.max_content_length = current_app.config["IMPORT_MAX_CONTENT_LENGTH"]
         try:
             check_csrf()
+            survey_year_value = request.form.get("survey_year", "")
             action = request.form.get("action", "check")
             if action not in ("check", "store"):
                 abort(400, description="Choose a valid data import action.")
-            result = validate_admin_upload(
-                request.files, g.user["id"], store_inactive=action == "store",
-                authorization_confirmed=request.form.get("authorized_source") == "yes",
-            )
-            report = result["report"]
-            error = result["error"]
-            batch_id = result.get("batch_id")
-            if error or (report and not report["passed"]):
+            try:
+                survey_year = parse_survey_year(survey_year_value)
+            except ValueError:
+                error = (
+                    f"Choose a survey year from {MIN_SURVEY_YEAR} "
+                    f"through {latest_survey_year()}."
+                )
                 status = 400
+            else:
+                result = validate_admin_upload(
+                    request.files, g.user["id"], survey_year,
+                    store_inactive=action == "store",
+                    authorization_confirmed=request.form.get("authorized_source") == "yes",
+                )
+                report = result["report"]
+                error = result["error"]
+                batch_id = result.get("batch_id")
+                if error or (report and not report["passed"]):
+                    status = 400
         except RequestEntityTooLarge:
             try:
                 record_oversized_attempt(g.user["id"])
@@ -119,7 +134,9 @@ def data_import():
             abort(503, description="Data validation is unavailable. Please try again.")
     return render_template(
         "staff/data_import.html", report=present_report(report), error=error,
-        batch_id=batch_id,
+        batch_id=batch_id, survey_year_value=survey_year_value,
+        minimum_survey_year=MIN_SURVEY_YEAR,
+        maximum_survey_year=latest_survey_year(),
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), status

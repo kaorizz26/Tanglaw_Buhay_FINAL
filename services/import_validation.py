@@ -14,7 +14,9 @@ from repositories import import_validation_events
 from services.cbms_import import DuplicateImportBundle, stage_validated_snapshot
 from services.cbms_preflight import load_csv_bundle
 from services.data_loader import EXCEL_FILES
+from services.import_sources import ADMIN_UPLOAD_SOURCE
 from services.import_references import load_import_references
+from services.survey_years import is_supported_survey_year, latest_survey_year
 
 
 UPLOAD_BYTES = 256 * 1024 * 1024
@@ -105,7 +107,7 @@ def _save_files(files, root):
 
 
 def _snapshot_provenance(datasets, references, metadata, actor_id,
-                         reference_batch_id, reference_version):
+                         reference_batch_id, reference_version, survey_year):
     """Bind stored rows to the exact source bytes and approved reference version."""
     file_details = {}
     for name, frame in {**datasets, **references}.items():
@@ -120,11 +122,12 @@ def _snapshot_provenance(datasets, references, metadata, actor_id,
         }
     source_identity = "|".join(
         f"{name}:{metadata[name]['sha256']}" for name in EXCEL_FILES
-    ) + f"|references:{reference_version}"
+    ) + f"|references:{reference_version}|survey_year:{survey_year}"
     bundle_sha256 = sha256(source_identity.encode("ascii")).hexdigest()
     return {
         "declared": {
-            "source": "administrator_uploaded_2022_compatible_csv",
+            "source": ADMIN_UPLOAD_SOURCE,
+            "survey_year": survey_year,
             "authorized_by_staff_id": actor_id,
             "reference_batch_id": reference_batch_id,
             "reference_version": reference_version,
@@ -134,15 +137,17 @@ def _snapshot_provenance(datasets, references, metadata, actor_id,
     }
 
 
-def validate_admin_upload(files, actor_id, *, store_inactive=False,
+def validate_admin_upload(files, actor_id, survey_year, *, store_inactive=False,
                           authorization_confirmed=False,
                           connection_factory=get_connection):
     """Preflight four CSVs; optionally store a passing snapshot as inactive."""
-    result = {"report": None, "error": None, "batch_id": None}
+    result = {"report": None, "error": None, "batch_id": None,
+              "survey_year": survey_year if is_supported_survey_year(survey_year) else None}
     metadata = {}
     reference_batch_id = None
     reference_version = None
     outcome = "rejected"
+    audit_year = result["survey_year"]
     try:
         with connection_factory() as connection:
             locked = connection.execute(
@@ -154,10 +159,15 @@ def validate_admin_upload(files, actor_id, *, store_inactive=False,
                     raise ImportUploadError(
                         "Another data validation is in progress. Try again later.",
                     )
+                if audit_year is None:
+                    raise ImportUploadError(
+                        f"Choose a survey year from 2022 through {latest_survey_year()}.",
+                    )
                 _check_files(files)
                 if store_inactive and not authorization_confirmed:
                     raise ImportUploadError(
-                        "Confirm that these files are authorized 2022 Pozorrubio CBMS data.",
+                        "Confirm that these are authorized Pozorrubio CBMS files "
+                        "for the survey year entered.",
                     )
                 root = _staging_root()
                 _cleanup_stale(root)
@@ -182,17 +192,18 @@ def validate_admin_upload(files, actor_id, *, store_inactive=False,
                 if outcome == "passed" and store_inactive:
                     provenance = _snapshot_provenance(
                         datasets, references, metadata, actor_id,
-                        reference_batch_id, reference_version,
+                        reference_batch_id, reference_version, survey_year,
                     )
                     try:
                         with connection.transaction():
                             batch_id = stage_validated_snapshot(
-                                connection, datasets, references, provenance,
+                                connection, datasets, references, provenance, survey_year,
                             )
                             import_validation_events.record_attempt(
                                 connection, actor_id, "staged", reference_batch_id,
                                 reference_version, metadata, 0,
                                 len(result["report"]["warnings"]), batch_id,
+                                survey_year=survey_year,
                             )
                             import_validation_events.purge_expired_attempts(connection)
                     except DuplicateImportBundle:
@@ -208,6 +219,7 @@ def validate_admin_upload(files, actor_id, *, store_inactive=False,
                                     reference_batch_id, reference_version,
                                     metadata, 1,
                                     len(result["report"]["warnings"]),
+                                    survey_year=audit_year,
                                 )
                                 import_validation_events.purge_expired_attempts(connection)
                         except (psycopg.Error, RuntimeError):
@@ -226,6 +238,7 @@ def validate_admin_upload(files, actor_id, *, store_inactive=False,
                 import_validation_events.record_attempt(
                     connection, actor_id, outcome, reference_batch_id,
                     reference_version, metadata, errors, warnings,
+                    survey_year=audit_year,
                 )
                 import_validation_events.purge_expired_attempts(connection)
     except (psycopg.Error, OSError, RuntimeError, ValueError, KeyError):
@@ -239,6 +252,7 @@ def record_oversized_attempt(actor_id, *, connection_factory=get_connection):
         with connection_factory() as connection, connection.transaction():
             import_validation_events.record_attempt(
                 connection, actor_id, "rejected", None, None, {}, 1, 0,
+                survey_year=None,
             )
             import_validation_events.purge_expired_attempts(connection)
     except (psycopg.Error, RuntimeError):

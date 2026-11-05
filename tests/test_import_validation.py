@@ -83,7 +83,8 @@ class ImportValidationTests(unittest.TestCase):
                 with patch("services.import_validation.import_validation_events.record_attempt") as audit:
                     with patch("services.import_validation.import_validation_events.purge_expired_attempts"):
                         result = validate_admin_upload(
-                            self._files(), 7, connection_factory=FakeConnection,
+                            self._files(), 7, 2024,
+                            connection_factory=FakeConnection,
                         )
         self.assertTrue(result["report"]["passed"], result)
         self.assertIsNone(result["error"])
@@ -104,7 +105,7 @@ class ImportValidationTests(unittest.TestCase):
                     with patch("services.import_validation.import_validation_events.record_attempt") as audit:
                         with patch("services.import_validation.import_validation_events.purge_expired_attempts"):
                             result = validate_admin_upload(
-                                self._files(), 7, store_inactive=True,
+                                self._files(), 7, 2024, store_inactive=True,
                                 authorization_confirmed=True,
                                 connection_factory=FakeConnection,
                             )
@@ -126,7 +127,7 @@ class ImportValidationTests(unittest.TestCase):
                         with patch("services.import_validation.import_validation_events.purge_expired_attempts"):
                             with self.assertRaises(ImportValidationUnavailable) as error:
                                 validate_admin_upload(
-                                    self._files(), 7, store_inactive=True,
+                                    self._files(), 7, 2024, store_inactive=True,
                                     authorization_confirmed=True,
                                     connection_factory=FakeConnection,
                                 )
@@ -141,7 +142,7 @@ class ImportValidationTests(unittest.TestCase):
                 with patch("services.import_validation.import_validation_events.record_attempt") as audit:
                     with patch("services.import_validation.import_validation_events.purge_expired_attempts"):
                         result = validate_admin_upload(
-                            files, 7, connection_factory=FakeConnection,
+                            files, 7, 2024, connection_factory=FakeConnection,
                         )
         self.assertIsNone(result["report"])
         self.assertEqual(audit.call_args.args[2], "rejected")
@@ -152,7 +153,7 @@ class ImportValidationTests(unittest.TestCase):
             with patch("services.import_validation.import_validation_events.record_attempt") as audit:
                 with patch("services.import_validation.import_validation_events.purge_expired_attempts"):
                     result = validate_admin_upload(
-                        self._files(), 7,
+                        self._files(), 7, 2024,
                         connection_factory=lambda: FakeConnection(locked=False),
                     )
         self.assertIsNone(result["report"])
@@ -222,18 +223,25 @@ class ImportRouteTests(unittest.TestCase):
             self.assertIn(f"{name}.csv".encode(), response.data)
         for filename in REFERENCE_FILES.values():
             self.assertNotIn(filename.encode(), response.data)
+        self.assertIn(b'name="survey_year"', response.data)
         self.role = "lgu_staff"
         self.assertEqual(self.client.get("/administration/import").status_code, 403)
 
-    def test_post_has_csrf_and_never_imports_data(self):
+    def test_post_requires_supported_year_and_never_imports_data(self):
         with self.client.session_transaction() as session:
             session["csrf_token"] = "synthetic-csrf"
         self.assertEqual(self.client.post("/administration/import").status_code, 400)
         report = {"passed": True, "datasets": {}, "errors": [], "warnings": []}
+        with patch("routes.main.validate_admin_upload") as validate:
+            response = self.client.post("/administration/import", data={
+                "csrf_token": "synthetic-csrf", "survey_year": "2035",
+            })
+            self.assertEqual(response.status_code, 400)
+            validate.assert_not_called()
         with patch("routes.main.validate_admin_upload", return_value={
                 "report": report, "error": None}) as validate:
             response = self.client.post("/administration/import", data={
-                "csrf_token": "synthetic-csrf",
+                "csrf_token": "synthetic-csrf", "survey_year": "2024",
             })
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"No dataset has been added or activated", response.data)
@@ -247,10 +255,11 @@ class ImportRouteTests(unittest.TestCase):
                 "report": report, "error": None, "batch_id": 8}) as validate:
             response = self.client.post("/administration/import", data={
                 "csrf_token": "synthetic-csrf", "action": "store",
-                "authorized_source": "yes",
+                "authorized_source": "yes", "survey_year": "2024",
             })
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Stored as inactive batch 8", response.data)
+        self.assertIn(b"Stored survey year 2024 as inactive batch 8", response.data)
+        self.assertEqual(validate.call_args.args[2], 2024)
         self.assertTrue(validate.call_args.kwargs["store_inactive"])
         self.assertTrue(validate.call_args.kwargs["authorization_confirmed"])
 

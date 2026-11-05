@@ -119,7 +119,7 @@ class ActiveBatchLoaderTests(unittest.TestCase):
 
     def test_invalid_or_ambiguous_active_metadata_is_rejected(self):
         changes = (
-            {"id": True}, {"survey_year": 2023}, {"survey_year": True},
+            {"id": True}, {"survey_year": 2021}, {"survey_year": True},
             {"municipality": "PRIVATE_VALUE"}, {"is_active": False},
             {"validation_status": "pending"}, {"source_columns": None},
             {"source_columns": {}}, {"source_provenance": {}},
@@ -131,6 +131,11 @@ class ActiveBatchLoaderTests(unittest.TestCase):
                     self._load(batches=[batch])
         with self.assertRaisesRegex(ActiveBatchError, "^invalid_active_batch_metadata$"):
             self._load(batches=[self.batch, self.batch])
+
+    def test_supported_later_year_metadata_is_accepted(self):
+        self.batch["survey_year"] = 2024
+        _, _, metadata = self._load()
+        self.assertEqual(metadata["survey_year"], 2024)
 
     def test_invalid_columns_and_file_provenance_fail_safely(self):
         for field, value in (("columns", ["uuid", "uuid"]), ("columns", ["uuid", None]),

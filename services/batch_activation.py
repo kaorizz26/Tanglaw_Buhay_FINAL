@@ -4,6 +4,7 @@ import psycopg
 
 from db import get_connection
 from repositories import batch_activation_events, dataset_batches
+from services.import_sources import ADMIN_UPLOAD_SOURCES
 
 
 class BatchActivationError(RuntimeError):
@@ -91,7 +92,7 @@ def activate_prepared_batch(target_batch_id, actor_id, *, expected_active_batch_
                 connection, target_batch_id,
             )
             action = (
-                "activate" if source == "administrator_uploaded_2022_compatible_csv"
+                "activate" if source in ADMIN_UPLOAD_SOURCES
                 and not previously_active else "switch_back"
             )
             dataset_batches.switch_prepared_batch(

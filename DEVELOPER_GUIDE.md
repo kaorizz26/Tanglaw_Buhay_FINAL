@@ -677,6 +677,9 @@ embedded in the runner.
 development source guard. The form accepts only `household.csv`,
 `section_a_e_indiv.csv`, `section_l02_to_l41.csv` and
 `section_l11_to_l14.csv`. The other three reference CSVs are not uploaded.
+The administrator must declare a four-digit survey year from 2022 through the
+current Philippine year because the source files contain no reliable batch-year
+field. The year is stored and audited; it is never inferred from household answers.
 Validation reads their stored, validated snapshot from the documented 2022
 pilot batch `1`, checks its metadata and ordered row counts, then runs the
 existing preflight with those references. The administrator can check files
@@ -730,8 +733,15 @@ the existing attributed workflow. The active pointer and a metadata-only event
 in `batch_activation_events` commit together; source rows, findings, and review
 history are not rewritten. A previously active batch can be selected again.
 Migration `0014_batch_activation_audit.sql` must be applied once after 0013
-before the activation page is used. It was not applied to the local development
-database by this task. Activation events are retained with batch/review history.
+before the activation page is used. Activation events are retained with
+batch/review history. Migration `0015_multi_year_import.sql` replaces the
+2022-only batch constraint with a 2022 lower boundary and adds the declared year
+to validation audit events. Application validation supplies the current-year
+upper boundary. Later-year batches reuse the approved reference snapshot under
+the explicit schema/code compatibility assumption. When no verified age-reference
+date is available, current SPISC age progression keeps conservative year-only
+bounds; it does not invent an interview date. Cross-year household matching is
+outside this workflow.
 
 ## 13. Phase 6B.3 Task 1: staff authentication
 
