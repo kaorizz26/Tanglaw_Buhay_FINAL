@@ -13,7 +13,7 @@
     <a class="skip-link" href="#main-content">Skip to main content</a>
 
     <div class="staff-layout">
-      <aside class="staff-sidebar" aria-label="Staff portal">
+      <aside class="staff-sidebar" aria-label="{{ 'Admin portal' if g.user['role'] == 'system_administrator' else 'Staff portal' }}">
         <div class="sidebar-heading">
           <div class="portal-branding">
             <div class="brand-marks">
@@ -35,7 +35,7 @@
               >
             </div>
             <p class="portal-name">TANGLAW-BUHAY</p>
-            <p class="portal-label">Staff portal</p>
+            <p class="portal-label">{{ 'Admin portal' if g.user['role'] == 'system_administrator' else 'Staff portal' }}</p>
             <p class="municipality-name">Municipality of Pozorrubio</p>
           </div>
           <button
@@ -65,6 +65,9 @@
               ('Submissions', 'submissions')
             ] %}
             {% for label, icon in navigation_items %}
+              {% if loop.first %}<li class="navigation-section">Workspace</li>{% endif %}
+              {% if icon == 'database' %}<li class="navigation-section">Administration</li>{% endif %}
+              {% if icon == 'submissions' %}<li class="navigation-section">Planned</li>{% endif %}
               <li>
                 {% if icon == 'dashboard' %}
                   {% set dashboard_endpoint = 'main.administration' if is_admin else 'main.index' %}
@@ -125,7 +128,6 @@
               </li>
             {% endfor %}
           </ul>
-          <p class="navigation-note">Other modules are planned.</p>
         </nav>
 
         <div class="staff-account">

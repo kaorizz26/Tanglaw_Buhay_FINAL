@@ -8,12 +8,12 @@
 
 {% block content %}
   {% set barangay_arg = (summary.barangay or None) if summary else None %}
-  <header class="page-header dashboard-header">
-    <div class="dashboard-intro">
+  <header class="page-header portal-hero dashboard-header">
+    <div class="portal-hero-content">
       <div>
         <h1>Dashboard</h1>
         {% if show_reviews %}<p class="dashboard-welcome">Welcome back, {{ welcome_name }}!</p>{% endif %}
-        <p class="dashboard-subtitle">
+        <p class="portal-hero-subtitle">
           {% if show_reviews %}Your subsidy reviews and household statistics for {% else %}Household statistics for {% endif %}Pozorrubio
         </p>
       </div>
@@ -63,24 +63,39 @@
 
     <section class="dashboard-metrics" aria-label="Assessment summary">
       <div class="dashboard-metric dashboard-metric-total">
-        <p class="dashboard-metric-label">Assessed Households</p>
+        <span class="dashboard-metric-heading">
+          <span class="dashboard-metric-marker dashboard-metric-marker-total" aria-hidden="true"></span>
+          <p class="dashboard-metric-label">Assessed Households</p>
+        </span>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority['all']) }}</p>
         <p class="dashboard-metric-caption">Households evaluated by the system</p>
       </div>
-        <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary', barangay=barangay_arg) }}">
-        <p class="dashboard-metric-label">Primary Priority</p>
+      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary', barangay=barangay_arg) }}">
+        <span class="dashboard-metric-heading">
+          <span class="dashboard-metric-marker dashboard-metric-marker-primary" aria-hidden="true"></span>
+          <p class="dashboard-metric-label">Primary Priority</p>
+        </span>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.primary) }}</p>
         <p class="dashboard-metric-caption">Higher vulnerability score with a program flagged for review</p>
+        <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
       </a>
-        <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary', barangay=barangay_arg) }}">
-        <p class="dashboard-metric-label">Secondary Priority</p>
+      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary', barangay=barangay_arg) }}">
+        <span class="dashboard-metric-heading">
+          <span class="dashboard-metric-marker dashboard-metric-marker-secondary" aria-hidden="true"></span>
+          <p class="dashboard-metric-label">Secondary Priority</p>
+        </span>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.secondary) }}</p>
         <p class="dashboard-metric-caption">Moderate vulnerability score with a program flagged for review</p>
+        <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
       </a>
-        <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown', barangay=barangay_arg) }}">
-        <p class="dashboard-metric-label">Households with Undetermined Results</p>
+      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown', barangay=barangay_arg) }}">
+        <span class="dashboard-metric-heading">
+          <span class="dashboard-metric-marker dashboard-metric-marker-unknown" aria-hidden="true"></span>
+          <p class="dashboard-metric-label">Households with Undetermined Results</p>
+        </span>
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.findings.needs_attention) }}</p>
         <p class="dashboard-metric-caption">Some survey information was missing or unclear</p>
+        <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
       </a>
     </section>
 
@@ -98,10 +113,11 @@
         <div class="dashboard-bars">
           {% for code, field in [('4Ps', 'four_ps'), ('SLP', 'slp'), ('SPISC', 'spisc'), ('TUPAD', 'tupad')] %}
             {% set count = summary.findings[field] %}
+            {% set percent = (count / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 %}
               <a class="dashboard-bar-row" href="{{ url_for('assessments.prioritization', program=code, barangay=barangay_arg) }}">
               <span class="dashboard-bar-label">{{ code }}</span>
-              <span class="dashboard-bar-value">{{ '{:,}'.format(count) }}</span>
-              <span class="dashboard-track"><span class="dashboard-fill dashboard-fill-program" style="width: {{ (count / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 }}%"></span></span>
+              <span class="dashboard-bar-value"><strong>{{ '{:,}'.format(count) }}</strong><span>{{ percent }}%</span></span>
+              <span class="dashboard-track"><span class="dashboard-fill dashboard-fill-program" style="width: {{ percent }}%"></span></span>
             </a>
           {% endfor %}
         </div>
