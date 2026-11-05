@@ -77,6 +77,33 @@ def list_requests_for_account(connection, account_id):
     )
 
 
+def list_latest_files_for_account(connection, account_id):
+    """Return the newest uploaded file of each of this citizen's requests."""
+    return _fetch_all(
+        connection,
+        """SELECT DISTINCT ON (f.request_id) f.request_id, f.id, f.version_number,
+                  f.display_name, f.size_bytes, f.uploaded_at
+           FROM document_files f JOIN document_requests r ON r.id = f.request_id
+           WHERE r.account_id = %s ORDER BY f.request_id, f.version_number DESC""",
+        (account_id,),
+    )
+
+
+def list_latest_staff_messages_for_account(connection, account_id):
+    """Return the newest correction or cancellation reason of each of this citizen's requests.
+
+    Only the reason staff wrote for the citizen is returned; no staff name or id.
+    """
+    return _fetch_all(
+        connection,
+        """SELECT DISTINCT ON (e.request_id) e.request_id, e.action, e.note
+           FROM document_request_events e JOIN document_requests r ON r.id = e.request_id
+           WHERE r.account_id = %s AND e.action IN ('correction_requested', 'cancelled')
+           ORDER BY e.request_id, e.created_at DESC, e.id DESC""",
+        (account_id,),
+    )
+
+
 def change_status(connection, request_id, new_status):
     """Move a request to its next status and return it.
 

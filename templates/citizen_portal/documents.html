@@ -1,0 +1,46 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}My Documents{% endblock %}
+{% block navigation %}{% set current = 'documents' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  <h1 class="portal-page-title" id="documents-heading">My Documents</h1>
+  {% if notice %}
+    <p class="portal-notice portal-notice-{{ notice[0] }}" role="{{ 'status' if notice[0] == 'success' else 'alert' }}">{{ notice[1] }}</p>
+  {% endif %}
+
+  {% if not documents %}
+    <section class="portal-card">
+      <p class="portal-lead">The LGU office has not asked you for any documents.</p>
+      <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.home') }}">Back to Home</a>
+    </section>
+  {% else %}
+    <ul class="portal-document-list" aria-labelledby="documents-heading">
+      {% for document in documents %}
+        <li class="portal-card portal-document portal-document-{{ document.status }}">
+          <div class="portal-document-head">
+            <h2>{{ document.title }}</h2>
+            <span class="portal-status portal-status-{{ document.status }}">{{ document.status_label }}</span>
+          </div>
+          {% if document.instructions %}
+            <p class="portal-document-instructions">{{ document.instructions }}</p>
+          {% endif %}
+          {% if document.reason %}
+            <p class="portal-document-reason">
+              <strong>Message from the LGU office:</strong> {{ document.reason }}
+            </p>
+          {% endif %}
+          <p class="portal-document-next">{{ document.next_step }}</p>
+          {% if document.latest_file %}
+            <p class="portal-document-file">
+              Your file: <strong>{{ document.latest_file.display_name }}</strong>
+              <span>uploaded {{ document.latest_file.uploaded_at|pht_date }}</span>
+              <a href="{{ url_for('citizen_documents.download', file_id=document.latest_file.id) }}">Download my file</a>
+            </p>
+          {% endif %}
+          {% if document.can_upload %}
+            <a class="portal-button" href="{{ url_for('citizen_documents.upload', request_id=document.id) }}">{{ document.upload_label }}<span class="portal-visually-hidden"> for {{ document.title }}</span></a>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}

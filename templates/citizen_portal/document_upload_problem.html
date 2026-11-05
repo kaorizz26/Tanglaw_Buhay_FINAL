@@ -1,0 +1,10 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}File Too Large{% endblock %}
+{% block navigation %}{% set current = 'documents' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  <section class="portal-card" aria-labelledby="problem-heading">
+    <h1 id="problem-heading">We could not upload your file</h1>
+    <p class="portal-notice portal-notice-error" role="alert">{{ message }}</p>
+    <a class="portal-button" href="{{ url_for('citizen_documents.index') }}">Back to My Documents</a>
+  </section>
+{% endblock %}

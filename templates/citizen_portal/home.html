@@ -11,6 +11,16 @@
     <p class="portal-help">You will be signed out automatically after 2 hours.</p>
   </section>
 
+  {% if documents_to_upload %}
+    <section class="portal-card portal-documents-alert" aria-labelledby="documents-alert-heading">
+      <h2 id="documents-alert-heading">
+        {{ documents_to_upload }} document{{ '' if documents_to_upload == 1 else 's' }} to upload
+      </h2>
+      <p class="portal-lead">The LGU office asked for {{ 'a document' if documents_to_upload == 1 else 'documents' }} from you.</p>
+      <a class="portal-button" href="{{ url_for('citizen_documents.index') }}">Open My Documents</a>
+    </section>
+  {% endif %}
+
   <section class="portal-card portal-programs" aria-labelledby="programs-heading">
     <h2 id="programs-heading">Explore Subsidy Programs</h2>
     <p class="portal-lead">Read about the programs offered in your community. This is general information only.</p>

@@ -11,6 +11,7 @@ from services import citizen_sessions as sessions
 from services.citizen_password_reset import (
     ResetLinkError, request_password_reset, reset_link_is_usable, reset_password,
 )
+from services.citizen_documents import DocumentAccessError, count_needing_action, list_my_documents
 from services.public_programs import PUBLIC_PROGRAMS
 from services.citizen_authentication import (
     ActivationLinkError, CitizenFormError, PortalUnavailable, SignInError,
@@ -151,12 +152,23 @@ def reset(token):
     return redirect(url_for("citizen_portal.login", reset=1), code=303)
 
 
+def _documents_to_upload(account_id):
+    """Count the documents waiting for an upload; None hides the count if it cannot be read."""
+    try:
+        return count_needing_action(list_my_documents(account_id))
+    except DocumentAccessError:
+        return None
+
+
 @citizen_portal.get("/")
 @sessions.citizen_required
 def home():
     """Welcome page: the account holder's own name and email, and links to the public
     program information pages. No household assessment or eligibility is shown."""
-    return _render("home.html", account=g.citizen, programs=PUBLIC_PROGRAMS)
+    return _render(
+        "home.html", account=g.citizen, programs=PUBLIC_PROGRAMS,
+        documents_to_upload=_documents_to_upload(g.citizen["id"]),
+    )
 
 
 @citizen_portal.route("/change-password", methods=["GET", "POST"])

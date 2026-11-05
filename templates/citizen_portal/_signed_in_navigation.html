@@ -1,6 +1,7 @@
 {# Shown on pages for a signed-in citizen: where to go and how to sign out. #}
 <nav class="portal-nav" aria-label="Citizen Portal">
   <a href="{{ url_for('citizen_portal.home') }}"{% if current == 'home' %} aria-current="page"{% endif %}>Home</a>
+  <a href="{{ url_for('citizen_documents.index') }}"{% if current == 'documents' %} aria-current="page"{% endif %}>My Documents</a>
   <a href="{{ url_for('citizen_portal.change_password') }}"{% if current == 'password' %} aria-current="page"{% endif %}>Change Password</a>
   <form method="post" action="{{ url_for('citizen_portal.logout') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

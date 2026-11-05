@@ -93,7 +93,7 @@ def protect_staff_routes():
                             "public.index", "public.program"):
         return None
     # The Citizen Portal has its own sign-in and session; staff sessions never apply there.
-    if request.endpoint.startswith("citizen_portal."):
+    if request.endpoint.startswith(("citizen_portal.", "citizen_documents.")):
         return None
     if not authentication_configured():
         abort(503, description="Staff authentication is unavailable.")
