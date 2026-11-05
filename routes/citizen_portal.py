@@ -8,6 +8,7 @@ from flask import Blueprint, abort, g, redirect, render_template, request, url_f
 import psycopg
 
 from services import citizen_sessions as sessions
+from services.public_programs import PUBLIC_PROGRAMS
 from services.citizen_authentication import (
     ActivationLinkError, CitizenFormError, PortalUnavailable, SignInError,
     activate_account, activation_link_is_usable, change_password as change_citizen_password,
@@ -108,8 +109,9 @@ def login():
 @citizen_portal.get("/")
 @sessions.citizen_required
 def home():
-    """Welcome page. It shows only the account holder's own name and email address."""
-    return _render("home.html", account=g.citizen)
+    """Welcome page: the account holder's own name and email, and links to the public
+    program information pages. No household assessment or eligibility is shown."""
+    return _render("home.html", account=g.citizen, programs=PUBLIC_PROGRAMS)
 
 
 @citizen_portal.route("/change-password", methods=["GET", "POST"])

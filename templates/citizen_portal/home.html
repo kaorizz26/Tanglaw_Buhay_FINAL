@@ -8,7 +8,21 @@
     <dl class="portal-facts">
       <div><dt>Signed in as</dt><dd>{{ account.email }}</dd></div>
     </dl>
-    <p class="portal-help">More services will be added here soon. You will be signed out automatically after 2 hours.</p>
-    <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.change_password') }}">Change Password</a>
+    <p class="portal-help">You will be signed out automatically after 2 hours.</p>
+  </section>
+
+  <section class="portal-card portal-programs" aria-labelledby="programs-heading">
+    <h2 id="programs-heading">Explore Subsidy Programs</h2>
+    <p class="portal-lead">Read about the programs offered in your community. This is general information only.</p>
+    <ul class="portal-program-list">
+      {% for slug, program in programs.items() %}
+        <li>
+          <a href="{{ url_for('public.program', program_slug=slug) }}">
+            <strong>{{ program.code }}</strong>
+            <span>{{ program.name }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
   </section>
 {% endblock %}

@@ -179,7 +179,8 @@ def _check_password_and_count(connection_factory, email, password):
     with connection_factory() as connection:
         with connection.transaction():
             citizen_accounts.clear_expired_lock(connection, email)
-            login = citizen_accounts.find_by_email(connection, email)
+            # The lock makes simultaneous attempts wait their turn, so the count is exact.
+            login = citizen_accounts.find_by_email(connection, email, lock=True)
             usable = login is not None and login["status"] == "active" and login["password_hash"]
             password_ok = check_password_hash(login["password_hash"] if usable else _DUMMY_HASH, password)
             if not usable:
@@ -225,7 +226,7 @@ def _replace_password(connection_factory, account, current_password, new_hash):
     """Returns ("changed", account), ("wrong_password", None) or ("locked", None)."""
     with connection_factory() as connection:
         with connection.transaction():
-            login = citizen_accounts.find_by_email(connection, account["email"])
+            login = citizen_accounts.find_by_email(connection, account["email"], lock=True)
             if (login is None or login["id"] != account["id"] or login["status"] != "active"
                     or login["session_version"] != account["session_version"]
                     or login["locked_until"] is not None):

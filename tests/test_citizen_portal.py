@@ -17,12 +17,14 @@ import psycopg
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.types.json import Jsonb
+from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash
 
 from app import create_app
 from repositories import citizen_accounts
 from services import citizen_authentication as authentication
 from services.citizen_credentials import new_activation_credentials
+from services.public_programs import PUBLIC_PROGRAMS
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -224,7 +226,7 @@ class ActivationTests(PortalTestCase):
                 except authentication.CitizenFormError:
                     return "wrong_code"
 
-        with ThreadPoolExecutor(max_workers=10) as pool:
+        with ThreadPoolExecutor(max_workers=4) as pool:  # few workers: scrypt uses much memory
             outcomes = list(pool.map(attempt, range(10)))
         self.assertEqual(outcomes.count("wrong_code"), 4)
         self.assertEqual(outcomes.count("cancelled"), 1)
@@ -456,6 +458,105 @@ class ChangePasswordTests(PortalTestCase):
             "new_password": NEW_PASSWORD, "confirm_password": NEW_PASSWORD})
         self.assertEqual(response.status_code, 400)
         self.assertTrue(check_password_hash(self.row(account_id)[4], PASSWORD))
+
+
+class ConcurrencyTests(PortalTestCase):
+    """Simultaneous attempts must not get more than five tries. Four workers keep
+    memory use low, because every password check needs about 32 MB."""
+
+    WORKERS = 4
+
+    def run_in_parallel(self, work, attempts=12):
+        def one(_):
+            with self.app.app_context():
+                try:
+                    work()
+                except (authentication.SignInError, authentication.CitizenFormError):
+                    pass
+        with ThreadPoolExecutor(max_workers=self.WORKERS) as pool:
+            list(pool.map(one, range(attempts)))
+
+    def test_simultaneous_wrong_passwords_are_counted_exactly_and_lock_the_account(self):
+        account_id = self.make_active()
+        self.run_in_parallel(lambda: authentication.sign_in(EMAIL, "wrong password!!"))
+        _, count, locked_until, *_ = self.row(account_id)
+        self.assertEqual(count, 5)
+        self.assertIsNotNone(locked_until)
+
+    def test_simultaneous_attempts_cannot_extend_an_existing_lock(self):
+        account_id = self.make_active()
+        self.db.execute("UPDATE citizen_accounts SET failed_login_count = 5,"
+                        " locked_until = now() + interval '10 minutes'")
+        before = self.row(account_id)[2]
+        self.run_in_parallel(lambda: authentication.sign_in(EMAIL, "wrong password!!"), 8)
+        _, count, after, *_ = self.row(account_id)
+        self.assertEqual((count, after), (5, before))
+
+    def test_simultaneous_wrong_current_passwords_cannot_exceed_five_tries(self):
+        account_id = self.make_active()
+        with self.app.app_context():
+            account = authentication.sign_in(EMAIL, PASSWORD)
+        _, _, _, version_before, _ = self.row(account_id)
+        self.run_in_parallel(lambda: authentication.change_password(
+            account, "not my password!", NEW_PASSWORD, NEW_PASSWORD))
+        _, count, locked_until, version_after, stored = self.row(account_id)
+        self.assertEqual(count, 5)
+        self.assertIsNotNone(locked_until)
+        self.assertEqual(version_after, version_before + 1)   # signed out once, everywhere
+        self.assertTrue(check_password_hash(stored, PASSWORD))  # password never changed
+
+
+class UnavailableServiceTests(unittest.TestCase):
+    """A portal without a configured database shows a clear message, not a server error."""
+
+    def setUp(self):
+        self.app = create_app({
+            "TESTING": True, "SECRET_KEY": SECRET, "CITIZEN_CREDENTIAL_KEY": CREDENTIAL_KEY,
+            "SESSION_COOKIE_SECURE": False, "DATABASE_URL": None,
+        })
+        self.client = self.app.test_client()
+
+    def test_a_signed_in_cookie_with_no_database_gets_a_503_message(self):
+        cookie = URLSafeTimedSerializer(SECRET, salt="tanglaw-citizen-session").dumps(
+            {"csrf": "x", "account_id": 1, "session_version": 1})
+        self.client.set_cookie(COOKIE, cookie, path="/portal")
+        response = self.client.get("/portal/")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("unavailable", response.get_data(as_text=True))
+
+    def test_signing_in_with_no_database_gets_a_503_message(self):
+        page = self.client.get("/portal/login").get_data(as_text=True)
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
+        response = self.client.post("/portal/login", data={
+            "csrf_token": token, "email": EMAIL, "password": PASSWORD})
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("unavailable", response.get_data(as_text=True))
+
+
+class PublicPortalNavigationTests(PortalTestCase):
+    def test_public_pages_link_to_the_portal(self):
+        for path in ("/public", "/public/programs/4ps"):
+            with self.subTest(path=path):
+                self.assertIn('href="/portal/"', self.text(self.client.get(path)))
+
+    def test_visitors_who_are_not_signed_in_reach_sign_in_and_citizens_reach_home(self):
+        response = self.client.get("/portal/")
+        self.assertIn("/portal/login", response.location)
+        self.make_active()
+        self.sign_in()
+        self.assertEqual(self.client.get("/portal/").status_code, 200)
+
+    def test_home_links_to_each_existing_public_program_page_and_nothing_private(self):
+        self.make_active()
+        self.sign_in()
+        home = self.text(self.client.get("/portal/"))
+        self.assertIn("Explore Subsidy Programs", home)
+        for slug, program in PUBLIC_PROGRAMS.items():
+            self.assertIn(f'href="/public/programs/{slug}"', home)
+            self.assertIn(program["name"], home)
+            self.assertEqual(self.client.get(f"/public/programs/{slug}").status_code, 200)
+        for private in ("eligib", "approved", "assessment", "priority", "score", "h-1"):
+            self.assertNotIn(private, home.lower())
 
 
 if __name__ == "__main__":

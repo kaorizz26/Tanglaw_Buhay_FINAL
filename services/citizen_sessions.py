@@ -79,7 +79,8 @@ def load_session():
     if payload is not None and "account_id" in payload:
         try:
             g.citizen = _account_for(payload)
-        except psycopg.Error:
+        except (psycopg.Error, RuntimeError):
+            # RuntimeError means the database is not configured at all.
             abort(503, description="The Citizen Portal is unavailable. Please try again later.")
         if g.citizen is None:
             payload = None  # Revoked or expired account session: start over.

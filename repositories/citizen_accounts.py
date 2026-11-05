@@ -48,11 +48,16 @@ def find_by_household(connection, batch_id, household_uuid):
     )
 
 
-def find_by_email(connection, email):
-    """Return the login record, including its password hash, or None."""
+def find_by_email(connection, email, *, lock=False):
+    """Return the login record, including its password hash, or None.
+
+    lock=True holds the account row until the transaction ends, so simultaneous
+    sign-in attempts are counted one at a time.
+    """
     return _fetch_one(
         connection,
-        f"SELECT {ACCOUNT_COLUMNS}, password_hash FROM citizen_accounts WHERE email = %s",
+        f"SELECT {ACCOUNT_COLUMNS}, password_hash FROM citizen_accounts WHERE email = %s"
+        + (" FOR UPDATE" if lock else ""),
         (email,),
     )
 
@@ -140,7 +145,7 @@ def record_failed_login(connection, account_id, max_failures, lock_minutes):
         connection,
         """UPDATE citizen_accounts
            SET failed_login_count = failed_login_count + 1,
-               locked_until = CASE WHEN failed_login_count + 1 >= %s
+               locked_until = CASE WHEN locked_until IS NULL AND failed_login_count + 1 >= %s
                    THEN CURRENT_TIMESTAMP + make_interval(mins => %s)
                    ELSE locked_until END
            WHERE id = %s

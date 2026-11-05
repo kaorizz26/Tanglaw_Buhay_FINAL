@@ -132,6 +132,46 @@
   margin-top: 16px;
 }
 
+.portal-programs {
+  margin-top: 20px;
+}
+
+.portal-programs h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  color: var(--navy);
+}
+
+.portal-program-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.portal-program-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--gold);
+  border-radius: 6px;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.portal-program-list a:hover {
+  background: var(--surface-muted);
+}
+
+.portal-program-list span {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
 .portal-card p + .portal-button {
   margin-top: 16px;
 }
