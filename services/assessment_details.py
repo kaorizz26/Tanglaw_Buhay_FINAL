@@ -2,6 +2,7 @@
 
 from fractions import Fraction
 from math import isclose
+import re
 
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
 from services.assessment_evidence_view import (
@@ -78,6 +79,18 @@ def _indicator(name, mpi, source, reference):
     }
 
 
+def format_contact_number(raw_value):
+    """Show a recorded 11-digit mobile number as 0912 345 6789, else "Not recorded".
+
+    Anything that is not exactly 09 followed by nine digits is treated as not
+    recorded, so a malformed value is never shown as if it were a usable number.
+    """
+    number = raw_value.strip() if isinstance(raw_value, str) else ""
+    if not re.fullmatch(r"09[0-9]{9}", number):
+        return "Not recorded"
+    return f"{number[:4]} {number[4:7]} {number[7:]}"
+
+
 def prepare_assessment_detail(source, *, assessment_date=None):
     """Preserve stored metrics and flags; sum their approved weights for display.
 
@@ -125,6 +138,7 @@ def prepare_assessment_detail(source, *, assessment_date=None):
         "household_reference_id": _household_reference_id(identity["source_row_number"]),
         "head_name": _head_name(identity),
         "barangay": _source_text(identity["barangay"]) or "Not recorded",
+        "contact_number": format_contact_number(source.get("contact_number")),
         "mpi": mpi, "determined_count": 16 - mpi["unknown_indicator_count"],
         "priority_display": priority_display(derive_subsidy_priority(
             mpi["vulnerability_score"],

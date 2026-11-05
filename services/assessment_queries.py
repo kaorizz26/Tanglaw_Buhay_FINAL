@@ -366,6 +366,9 @@ def get_active_assessment_detail(
         result = {
             "context": context, "findings": findings, "identity": identities[0],
             "household": household,
+            "contact_number": assessment_evidence.find_household_contact_number(
+                connection, context["batch_id"], household_uuid,
+            ),
             "members": assessment_evidence.list_member_sources(
                 connection, context["batch_id"], household_uuid,
             ),
