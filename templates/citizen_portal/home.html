@@ -1,0 +1,14 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Home{% endblock %}
+{% block navigation %}{% set current = 'home' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  <section class="portal-card" aria-labelledby="home-heading">
+    <h1 id="home-heading">Welcome, {{ account.representative_name }}</h1>
+    <p class="portal-lead">You are signed in to the Tanglaw-Buhay Citizen Portal.</p>
+    <dl class="portal-facts">
+      <div><dt>Signed in as</dt><dd>{{ account.email }}</dd></div>
+    </dl>
+    <p class="portal-help">More services will be added here soon. You will be signed out automatically after 2 hours.</p>
+    <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.change_password') }}">Change Password</a>
+  </section>
+{% endblock %}

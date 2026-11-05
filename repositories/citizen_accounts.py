@@ -113,6 +113,27 @@ def deactivate(connection, account_id):
     )
 
 
+def clear_expired_lock(connection, email):
+    """Reset the failure count of an account whose 15-minute lock has ended.
+
+    Without this, the first mistake after a lock ended would lock the account again.
+    """
+    connection.execute(
+        """UPDATE citizen_accounts SET failed_login_count = 0, locked_until = NULL
+           WHERE email = %s AND locked_until IS NOT NULL
+             AND locked_until <= CURRENT_TIMESTAMP""",
+        (email,),
+    )
+
+
+def end_sessions(connection, account_id):
+    """Sign the citizen out everywhere by invalidating every session cookie."""
+    connection.execute(
+        "UPDATE citizen_accounts SET session_version = session_version + 1 WHERE id = %s",
+        (account_id,),
+    )
+
+
 def record_failed_login(connection, account_id, max_failures, lock_minutes):
     """Count a failed sign-in and lock the account when the limit is reached."""
     return _fetch_one(

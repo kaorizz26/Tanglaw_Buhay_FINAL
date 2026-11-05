@@ -1,0 +1,16 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Link Cannot Be Used{% endblock %}
+{% block content %}
+  <section class="portal-card" aria-labelledby="problem-heading">
+    {% if cancelled %}
+      <h1 id="problem-heading">This activation link has been cancelled</h1>
+      <p class="portal-lead">The wrong code was entered too many times, so this link no longer works.</p>
+    {% else %}
+      <h1 id="problem-heading">This activation link cannot be used</h1>
+      <p class="portal-lead">The link may have expired (links last 48 hours), already been used, or been replaced by a newer one.</p>
+    {% endif %}
+    <p><strong>What to do next:</strong> Contact the LGU office and ask LGU Staff to send you a new activation email.</p>
+    <p>If you have already activated your account, you can sign in.</p>
+    <a class="portal-button" href="{{ url_for('citizen_portal.login') }}">Go to Sign In</a>
+  </section>
+{% endblock %}

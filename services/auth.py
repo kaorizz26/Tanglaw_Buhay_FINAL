@@ -92,6 +92,9 @@ def protect_staff_routes():
     if request.endpoint in (None, "static", "main.test_route",
                             "public.index", "public.program"):
         return None
+    # The Citizen Portal has its own sign-in and session; staff sessions never apply there.
+    if request.endpoint.startswith("citizen_portal."):
+        return None
     if not authentication_configured():
         abort(503, description="Staff authentication is unavailable.")
     try:

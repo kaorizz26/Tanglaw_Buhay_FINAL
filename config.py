@@ -33,4 +33,7 @@ class Config:
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true").lower() != "false"
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     SESSION_REFRESH_EACH_REQUEST = False
+    # Citizen Portal sessions use their own cookie; the lifetime is fixed from sign-in.
+    CITIZEN_SESSION_COOKIE_NAME = "tanglaw_citizen_session"
+    CITIZEN_SESSION_LIFETIME = timedelta(hours=2)
     MAX_CONTENT_LENGTH = 1024 * 1024

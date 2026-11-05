@@ -9,6 +9,7 @@ from commands import register_commands
 from routes.assessments import assessments
 from routes.auth import auth
 from routes.citizen_accounts import citizen_accounts
+from routes.citizen_portal import citizen_portal
 from routes.households import households
 from routes.main import main
 from routes.public import public
@@ -54,6 +55,7 @@ def create_app(test_config=None):
     app.register_blueprint(households)
     app.register_blueprint(assessments)
     app.register_blueprint(citizen_accounts)
+    app.register_blueprint(citizen_portal)
     app.before_request(protect_staff_routes)
     register_commands(app)
     app.add_template_filter(pht_datetime)
