@@ -2359,3 +2359,31 @@ synthetic import audit event, deactivated its actor, and confirmed the audit row
 still referenced the retained staff row. Both orders passed. `python -m pip check`
 reported no broken requirements. Earlier counts in this guide describe their
 own checkpoints. Synthetic verification does not replace future pilot usage.
+
+## Household contact-number sync (one-time)
+
+The household source CSV gained a supplemental `contact_number` column (11-digit
+mobile numbers, kept as text so leading zeros survive). It is a synthetic field
+added after the original import, not an original PSA survey answer. Existing
+PostgreSQL batches do not contain it, and replacing the CSV does not update them.
+
+`scripts/sync_household_contact_numbers.py` adds only that key to
+`households.responses` of the active validated 2022 Pozorrubio batch, in one
+transaction, without a reimport or any engine run. It also inserts the column at
+its CSV position in `dataset_batches.source_columns` (the active-batch loader
+requires every row's keys to equal that list), records the new household CSV
+SHA-256, and adds a `supplemental_fields` note to `source_provenance`. It refuses
+to run when the CSV and batch differ in any UUID, row position or existing value,
+when `contact_number` already exists, or when the batch is not unique and active.
+Before commit it re-reads every household and verifies that source tables,
+assessment runs/results/selection, Staff Reviews and staff accounts are unchanged.
+
+Dry-run is the default and writes nothing. A write needs `--execute`, the typed
+`--confirm` phrase and an existing `--backup-file` (a `pg_dump -Fc` kept outside
+the repository). The script only connects to a loopback `tanglaw_buhay_dev`.
+A batch imported later from the new CSV already includes `contact_number`;
+a batch imported from the old CSV does not, so the Citizen Accounts work must
+treat a missing contact number as "no recorded number".
+
+Rollback after commit: remove the key (`responses - 'contact_number'`), restore the
+saved `source_columns` and `source_provenance`, or restore the backup.
