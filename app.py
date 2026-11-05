@@ -12,7 +12,9 @@ from routes.households import households
 from routes.main import main
 from routes.public import public
 from services.auth import protect_staff_routes
-from services.assessment_request_logging import protect_assessment_access_logs
+from services.assessment_request_logging import (
+    protect_assessment_access_logs, protect_portal_token_logs,
+)
 
 
 PHILIPPINE_TIME = ZoneInfo("Asia/Manila")
@@ -38,6 +40,7 @@ def pht_date(value):
 def create_app(test_config=None):
     app = Flask(__name__)
     protect_assessment_access_logs()
+    protect_portal_token_logs()
     app.config.from_object(Config)
     if test_config:
         app.config.update(test_config)
