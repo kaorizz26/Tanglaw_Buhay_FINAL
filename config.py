@@ -26,6 +26,9 @@ class Config:
     SMTP_FROM = os.getenv("SMTP_FROM")
     # Optional comma-separated addresses; when set, no other recipient receives mail.
     SMTP_ALLOWED_RECIPIENTS = os.getenv("SMTP_ALLOWED_RECIPIENTS")
+    # Digital Dropbox: private folder for uploaded documents. It must be outside the
+    # project and static/, and is backed up together with the database.
+    DOCUMENT_STORAGE_DIR = os.getenv("DOCUMENT_STORAGE_DIR")
     SESSION_COOKIE_NAME = "tanglaw_staff_session"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
