@@ -12,7 +12,7 @@
 .citizen-account-panel h2,
 .account-section h2,
 .account-household h2 {
-  margin: 0;
+  margin: 0 0 10px;
   font-size: 1.125rem;
 }
 
@@ -106,15 +106,78 @@
   margin: 6px 0 8px;
 }
 
+/* Same look as the Back button on the Household Assessment page. */
 .account-back {
-  display: inline-block;
-  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--navy);
+  font-weight: 600;
+  text-decoration: none;
 }
 
+.account-back:hover {
+  background: var(--surface-muted);
+  text-decoration: none;
+}
+
+.account-instruction {
+  margin: 6px 0 14px;
+  color: var(--text-muted);
+}
+
+.account-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+  font-size: 0.9375rem;
+  vertical-align: middle;
+}
+
+/* The notice staff read aloud: set apart from the instructions around it. */
 .account-script {
-  padding: 12px 16px;
-  border-left: 4px solid var(--gold);
+  max-width: 70ch;
+  padding: 14px 18px;
+  border: 1px solid var(--gold-border);
+  border-left: 5px solid var(--gold);
+  border-radius: 6px;
   background: var(--notice);
+}
+
+.account-script p {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.account-script .account-script-label {
+  margin-bottom: 6px;
+  color: var(--gold-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.account-next {
+  max-width: 70ch;
+  margin: 0 0 4px;
+  color: var(--text-muted);
 }
 
 .account-field {
@@ -140,6 +203,13 @@
 
 .account-field [aria-invalid="true"] {
   border-color: #b00020;
+}
+
+.account-field input:focus-visible,
+.account-field textarea:focus-visible,
+.account-check input:focus-visible {
+  outline: 3px solid #167eb5;
+  outline-offset: 2px;
 }
 
 .account-hint {
@@ -172,26 +242,57 @@
 .account-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
+/* Same size, shape and type as the Staff Accounts buttons. */
 .account-button {
-  display: inline-block;
-  padding: 11px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
   border: 1px solid var(--navy);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--navy);
   color: #fff;
-  font-weight: 700;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
 }
 
+.account-button:hover {
+  background: var(--navy-active);
+  text-decoration: none;
+}
+
 .account-button-secondary {
+  border-color: #aab9c2;
   background: var(--surface);
   color: var(--navy);
+}
+
+.account-button-secondary:hover {
+  background: #e5ecf1;
+}
+
+.account-subheading {
+  margin: 18px 0 6px;
+  font-size: 1rem;
+}
+
+.account-steps {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.account-warning-line {
+  max-width: 70ch;
+  margin: 0 0 4px;
 }
 
 .account-code-label {
@@ -214,6 +315,10 @@
 }
 
 @media (max-width: 700px) {
+  .account-actions .account-button {
+    width: 100%;
+  }
+
   .citizen-account-panel,
   .account-section,
   .account-household {

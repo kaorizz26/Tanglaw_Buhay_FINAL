@@ -167,15 +167,14 @@ class CreateFormTests(RouteTestCase):
         self.assertIn("HH-0008", text)
         self.assertIn("0912 345 6789", text)
         for sentence in (
-            "I spoke with the household representative and confirmed that they can act for this household.",
-            "The representative agreed to create a Citizen Portal account, and to let Tanglaw-Buhay "
-            "send account messages to the email address above. I read the address back and they "
-            "confirmed it is correct.",
-            "Briefly describe how you confirmed the representative",
+            "I spoke with the household representative and confirmed they can act for this household.",
+            "The representative agreed to create this account and to receive emails at the address "
+            "above, and confirmed I read it back correctly.",
+            "How did you confirm the representative's identity or authority?",
             "Tanglaw-Buhay will keep your name and email address to create and run your online "
             "account. It will use your email address to send account messages, such as your "
             "activation link and password reset links.",
-            "Create Account and Send Activation Email",
+            "Create Account",
             "Creating an account does not start a Staff Review",
         ):
             self.assertIn(sentence, text)
@@ -236,7 +235,8 @@ class CreateSubmissionTests(RouteTestCase):
         self.assertIn("482 913", text)
         self.assertIn("This code is shown only once.", text)
         self.assertIn("citizen@example.com", text)
-        self.assertIn("accepted by the mail server", text)
+        self.assertIn("The activation email was sent to", text)
+        self.assertIn("48 hours", text)
         self.assertNotIn(SECRET_LINK_PART, text)
         self.assertNotIn("token", text.lower())
         self.assertNotRegex(text, r"https?://")
@@ -255,7 +255,7 @@ class CreateSubmissionTests(RouteTestCase):
         }
         text = self.main_text(self.submit(CREATE))
         self.assertIn("The activation email was not sent", text)
-        self.assertIn("The email server could not be reached in time.", text)
+        self.assertIn("no activation code is shown", text)
         self.assertIn("Resend Activation", text)
         self.assertNotIn("Activation code", text)
         # No six-digit code (the contact number has a different grouping).
@@ -272,7 +272,7 @@ class CreateSubmissionTests(RouteTestCase):
         response = self.submit(CREATE)
         text = self.text(response)
         self.assertEqual(response.status_code, 400)
-        self.assertIn("Please fix the following", text)
+        self.assertIn("Please correct the items below", text)
         for message in errors.values():
             self.assertIn(message, text)
         self.assertIn('aria-invalid="true"', response.get_data(as_text=True))
@@ -321,7 +321,7 @@ class ResendTests(RouteTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("The previous link and code will stop working immediately.", text)
         self.assertIn("citizen@example.com", text)
-        self.assertIn("Resend Activation Email", text)
+        self.assertIn("Resend Email", text)
         self.mocks["resend"].assert_not_called()
 
     def test_resend_shows_the_new_code_once_and_no_link(self):
@@ -464,10 +464,10 @@ class AssessmentPanelTests(RouteTestCase):
     def test_no_account_offers_create_to_lgu_staff_only(self):
         staff = self.panel(None)
         self.assertIn("Citizen Account", staff)
-        self.assertIn("This household has no Citizen Account.", staff)
+        self.assertIn("Create an account to give this household's representative access to the Citizen Portal.", staff)
         self.assertIn(f'href="{CREATE}"', staff)
         admin = self.panel(None, "system_administrator")
-        self.assertIn("This household has no Citizen Account.", admin)
+        self.assertIn("Create an account to give this household's representative access to the Citizen Portal.", admin)
         self.assertNotIn(CREATE, admin)
 
     def test_pending_account_shows_status_email_state_and_resend(self):
@@ -475,7 +475,7 @@ class AssessmentPanelTests(RouteTestCase):
         self.assertIn("Pending Activation", text)
         self.assertIn("Synthetic Citizen", text)
         self.assertIn("citizen@example.com", text)
-        self.assertIn("Activation email accepted by the mail server on", text)
+        self.assertIn("Activation email sent on", text)
         self.assertIn("The activation link and code are valid until", text)
         self.assertIn(f'href="{RESEND}"', text)
         self.assertNotIn(CREATE, text)
@@ -483,8 +483,8 @@ class AssessmentPanelTests(RouteTestCase):
 
     def test_pending_problems_are_visible_to_staff(self):
         text = self.panel(account_row(email_accepted_at=None, link_valid=False, expires_at=NOW))
-        self.assertIn("Activation email was not sent.", text)
-        self.assertIn("no longer valid", text)
+        self.assertIn("The activation email was not sent.", text)
+        self.assertIn("have expired", text)
         self.assertIn(RESEND, text)
 
     def test_active_and_deactivated_accounts_have_no_resend_or_create(self):
@@ -519,8 +519,10 @@ class AssessmentPanelTests(RouteTestCase):
                                  self.panel(account_row(), query=query))
 
     def test_creating_an_account_does_not_start_a_staff_review(self):
-        text = self.panel(None)
-        self.assertIn("It does not start a Staff Review.", text)
+        # The create form explains this; the panel only links to it.
+        self.sign_in()
+        self.assertIn("Creating an account does not start a Staff Review",
+                      self.text(self.client.get(CREATE)))
         self.assertNotIn("reviews/", CREATE)
 
 

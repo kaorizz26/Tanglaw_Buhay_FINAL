@@ -1,6 +1,8 @@
 {% extends 'staff/layout.html' %}
 
-{% block title %}{{ heading }}{% endblock %}
+{# A failed email must not be titled as a success. #}
+{% set page_heading = heading if result.email_sent else 'Activation email not sent' %}
+{% block title %}{{ page_heading }}{% endblock %}
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
@@ -8,23 +10,31 @@
 
 {% block content %}
   <header class="page-header account-header">
-    <h1>{{ heading }}</h1>
+    <h1>{{ page_heading }}</h1>
   </header>
 
   {% include 'citizen_accounts/_household_summary.html' %}
 
   {% if result.email_sent %}
     <section class="account-section account-success" aria-labelledby="code-heading">
-      <h2 id="code-heading">Give the activation code to the representative</h2>
-      <p>An activation email was accepted by the mail server for <strong>{{ result.email }}</strong>. It contains a link, but not the code.</p>
+      <h2 id="code-heading">Give this activation code to the representative</h2>
+      <p>The activation email was sent to <strong>{{ result.email }}</strong>. It contains a link, but not the code.</p>
       <p class="account-code-label">Activation code</p>
       <p class="account-code" aria-label="Activation code: {{ result.activation_code.replace(' ', ', ') }}">{{ result.activation_code }}</p>
-      <p><strong>This code is shown only once.</strong> Give it to the representative separately, for example by phone. They enter it after opening the link in the email. The link and the code both stop working after {{ result.valid_hours }} hours, and can be used once.</p>
+      <p class="account-warning-line"><strong>This code is shown only once.</strong> Give it to the representative in person or by phone. Do not send it by email or text message.</p>
+
+      <h3 class="account-subheading">What happens next</h3>
+      <ol class="account-steps">
+        <li>The representative opens the link in the email.</li>
+        <li>They enter the activation code above.</li>
+        <li>The link and code expire after {{ result.valid_hours }} hours and can be used once.</li>
+      </ol>
     </section>
   {% else %}
     <section class="account-section account-warning" role="alert" aria-labelledby="failed-heading">
-      <h2 id="failed-heading">The activation email was not sent</h2>
-      <p>{{ result.email_problem }} The account is saved as Pending Activation. Open the Household Assessment and choose <strong>Resend Activation</strong> to try again. A new code is created each time, so no code is shown now.</p>
+      <h2 id="failed-heading">What to do next</h2>
+      <p>The activation email was not sent. The account is saved as Pending Activation, and no activation code is shown.</p>
+      <p>Return to the Household Assessment and choose <strong>Resend Activation</strong> to try again. If this keeps happening, tell your system administrator.</p>
     </section>
   {% endif %}
 

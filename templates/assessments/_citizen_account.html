@@ -6,6 +6,8 @@
     <h2 id="citizen-account-heading">Citizen Account</h2>
     {% if account and account.state in ('pending_activation', 'active', 'deactivated') %}
       <span class="account-status account-status-{{ account.state }}">{{ account.status_label }}</span>
+    {% elif account and account.state == 'none' %}
+      <span class="account-status">Not created</span>
     {% endif %}
   </div>
 
@@ -14,9 +16,9 @@
   {% endfor %}
 
   {% if not account or account.state == 'unavailable' %}
-    <p class="citizen-account-text">Citizen Account information is unavailable right now.</p>
+    <p class="citizen-account-text">Citizen Account information is unavailable right now. Please try again later.</p>
   {% elif account.state == 'none' %}
-    <p class="citizen-account-text">This household has no Citizen Account. Creating one lets the representative sign in to the Citizen Portal. It does not start a Staff Review.</p>
+    <p class="citizen-account-text">Create an account to give this household's representative access to the Citizen Portal.</p>
     {% if can_manage %}
       <a class="account-button" href="{{ url_for('citizen_accounts.create', household_uuid=results.household_uuid) }}">Create Citizen Account</a>
     {% endif %}
@@ -30,23 +32,25 @@
       {% endif %}
     </dl>
     {% if account.state == 'pending_activation' %}
+      <p class="citizen-account-text">Waiting for the representative to activate the account.</p>
       <ul class="account-checklist">
         <li>
           {% if account.email_accepted_at %}
-            Activation email accepted by the mail server on {{ account.email_accepted_at|pht_datetime }}.
+            Activation email sent on {{ account.email_accepted_at|pht_datetime }}.
           {% else %}
-            Activation email was not sent. Choose Resend Activation to try again.
+            The activation email was not sent. Choose Resend Activation to try again.
           {% endif %}
         </li>
         <li>
           {% if account.link_valid %}
             The activation link and code are valid until {{ account.expires_at|pht_datetime }}.
           {% else %}
-            The activation link and code are no longer valid. Choose Resend Activation.
+            The activation link and code have expired. Choose Resend Activation.
           {% endif %}
         </li>
       </ul>
       {% if can_manage %}
+        <p class="account-hint">Resend Activation sends a new email and code. The old ones stop working.</p>
         <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.resend', household_uuid=results.household_uuid) }}">Resend Activation</a>
       {% endif %}
     {% endif %}
