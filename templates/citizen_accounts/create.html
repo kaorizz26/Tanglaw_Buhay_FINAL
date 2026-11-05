@@ -1,0 +1,99 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Create Citizen Account{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>Create Citizen Account</h1>
+    <p class="account-lead">Give the household representative online access to the Citizen Portal. Creating an account does not start a Staff Review or request any documents.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  {% if errors %}
+    <div class="account-alert" role="alert" id="form-errors">
+      <p><strong>Please fix the following before continuing:</strong></p>
+      <ul>
+        {% for message in errors.values() %}<li>{{ message }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('citizen_accounts.create', household_uuid=page.household_uuid) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="form_number" value="{{ form_number }}">
+    <input type="hidden" name="batch_id" value="{{ page.batch_id }}">
+    <input type="hidden" name="run_id" value="{{ page.run_id }}">
+
+    <section class="account-section" aria-labelledby="representative-heading">
+      <h2 id="representative-heading">Representative</h2>
+      <p class="account-script"><strong>Read to the representative:</strong> “Tanglaw-Buhay will keep your name and email address to create and run your online account. It will use your email address to send account messages, such as your activation link and password reset links.”</p>
+
+      <div class="account-field">
+        <label for="representative_name">Representative's full name</label>
+        <input id="representative_name" name="representative_name" type="text" maxlength="120"
+               autocomplete="off" value="{{ values.representative_name or '' }}"
+               {% if errors.representative_name %}aria-invalid="true" aria-describedby="representative_name-error"{% endif %} required>
+        {% if errors.representative_name %}<p class="account-field-error" id="representative_name-error">{{ errors.representative_name }}</p>{% endif %}
+      </div>
+
+      <div class="account-field">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" maxlength="254" autocomplete="off"
+               autocapitalize="none" spellcheck="false" value="{{ values.email or '' }}"
+               {% if errors.email %}aria-invalid="true" aria-describedby="email-error"{% endif %} required>
+        {% if errors.email %}<p class="account-field-error" id="email-error">{{ errors.email }}</p>{% endif %}
+      </div>
+
+      <div class="account-field">
+        <label for="email_confirmation">Confirm email address</label>
+        <input id="email_confirmation" name="email_confirmation" type="email" maxlength="254"
+               autocomplete="off" autocapitalize="none" spellcheck="false"
+               value="{{ values.email_confirmation or '' }}"
+               {% if errors.email_confirmation %}aria-invalid="true" aria-describedby="email_confirmation-hint email_confirmation-error"{% else %}aria-describedby="email_confirmation-hint"{% endif %} required>
+        <p class="account-hint" id="email_confirmation-hint">Read the address back to the representative and type it again.</p>
+        {% if errors.email_confirmation %}<p class="account-field-error" id="email_confirmation-error">{{ errors.email_confirmation }}</p>{% endif %}
+      </div>
+    </section>
+
+    <section class="account-section" aria-labelledby="confirm-heading">
+      <h2 id="confirm-heading">Confirm before creating the account</h2>
+
+      <div class="account-check">
+        <input id="representative_verified" name="representative_verified" type="checkbox"
+               {% if values.representative_verified == 'on' %}checked{% endif %}
+               {% if errors.representative_verified %}aria-invalid="true" aria-describedby="representative_verified-error"{% endif %}>
+        <label for="representative_verified">I spoke with the household representative and confirmed that they can act for this household.</label>
+      </div>
+      {% if errors.representative_verified %}<p class="account-field-error" id="representative_verified-error">{{ errors.representative_verified }}</p>{% endif %}
+
+      <div class="account-check">
+        <input id="privacy_consent_confirmed" name="privacy_consent_confirmed" type="checkbox"
+               {% if values.privacy_consent_confirmed == 'on' %}checked{% endif %}
+               {% if errors.privacy_consent_confirmed %}aria-invalid="true" aria-describedby="privacy_consent_confirmed-error"{% endif %}>
+        <label for="privacy_consent_confirmed">The representative agreed to create a Citizen Portal account, and to let Tanglaw-Buhay send account messages to the email address above. I read the address back and they confirmed it is correct.</label>
+      </div>
+      {% if errors.privacy_consent_confirmed %}<p class="account-field-error" id="privacy_consent_confirmed-error">{{ errors.privacy_consent_confirmed }}</p>{% endif %}
+
+      <div class="account-field">
+        <label for="verification_note">Verification note</label>
+        <textarea id="verification_note" name="verification_note" rows="3" maxlength="500"
+                  {% if errors.verification_note %}aria-invalid="true" aria-describedby="verification_note-hint verification_note-error"{% else %}aria-describedby="verification_note-hint"{% endif %}
+                  required>{{ values.verification_note or '' }}</textarea>
+        <p class="account-hint" id="verification_note-hint">Briefly describe how you confirmed the representative, such as what they confirmed and when you spoke (10 to 500 characters). Do not write passwords or codes here.</p>
+        {% if errors.verification_note %}<p class="account-field-error" id="verification_note-error">{{ errors.verification_note }}</p>{% endif %}
+      </div>
+    </section>
+
+    <div class="account-actions">
+      <button class="account-button" type="submit">Create Account and Send Activation Email</button>
+      <a class="account-cancel" href="{{ assessment_url }}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

@@ -119,6 +119,19 @@ def admin_required(view):
     return guarded
 
 
+def lgu_staff_required(view):
+    """Server-side guard for actions that only LGU Staff may perform, not administrators."""
+
+    @wraps(view)
+    def guarded(*args, **kwargs):
+        if getattr(g, "user", None) is None:
+            return redirect(url_for("auth.login"))
+        if g.user["role"] != STAFF_ROLE:
+            abort(403)
+        return view(*args, **kwargs)
+    return guarded
+
+
 def create_initial_admin(username, password):
     """Validate bootstrap inputs and transactionally store only a salted hash."""
     username = username.strip().lower()

@@ -2387,3 +2387,29 @@ treat a missing contact number as "no recorded number".
 
 Rollback after commit: remove the key (`responses - 'contact_number'`), restore the
 saved `source_columns` and `source_provenance`, or restore the backup.
+
+## Citizen Accounts: staff side (Tasks 2A–2C)
+
+Migration `0014_citizen_accounts.sql` adds `citizen_accounts`, `citizen_account_tokens`
+and the append-only `citizen_account_events`. It must be applied explicitly and is not
+applied automatically. Until it is, the Assessment page shows "Citizen Account
+information is unavailable right now" and the account pages return 503.
+
+- An account belongs to one household record in one survey batch (`UNIQUE (batch_id,
+  household_uuid)`) and one email (`UNIQUE (email)`). Matching the same real household
+  across survey years is deliberately deferred; the composite household reference is kept.
+- Only LGU Staff can create accounts or resend activation (`lgu_staff_required`);
+  administrators receive 403. The acting staff member comes from the session.
+- The activation link and six-digit code are stored only as keyed hashes
+  (`CITIZEN_CREDENTIAL_KEY`). The link is emailed after the account transaction commits
+  and is never returned to a route or template. Staff see the code once, and only when
+  the mail server accepted the email. "Accepted" does not mean delivered to the inbox.
+- Staff verification in the capstone prototype is simulated because the contact numbers
+  are synthetic. The form wording states what staff confirm and does not claim an
+  identity check. A real deployment needs an ID-based check and approved privacy wording.
+- Create and Resend forms carry a one-time form number kept in the session. It prevents
+  ordinary duplicate submissions (browser refresh, double click) from repeating an action
+  or revealing a second code. Because the numbers are in the signed session cookie, this
+  is not a server-side guarantee against someone replaying an older copy of the cookie.
+- Real email is configured only through environment settings (see `.env.example`) and
+  checked with `scripts/check_email_settings.py`. Automated tests mock SMTP.

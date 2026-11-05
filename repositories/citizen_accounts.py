@@ -245,3 +245,35 @@ def mark_email_accepted(connection, token_id):
         "UPDATE citizen_account_tokens SET email_accepted_at = CURRENT_TIMESTAMP WHERE id = %s",
         (token_id,),
     )
+
+
+def active_lgu_staff_exists(connection, staff_id):
+    """Recheck, while holding the row, that the acting account is an active LGU Staff member."""
+    return connection.execute(
+        """SELECT id FROM staff_users
+           WHERE id = %s AND is_active AND role = 'lgu_staff' FOR SHARE""",
+        (staff_id,),
+    ).fetchone() is not None
+
+
+def find_panel(connection, batch_id, household_uuid):
+    """Return what the Assessment page shows about a household's account, or None.
+
+    It joins the newest activation link so staff can see whether the email was
+    accepted by the mail server and whether the link and code are still usable.
+    """
+    return _fetch_one(
+        connection,
+        """SELECT a.id, a.representative_name, a.email, a.status, a.created_at,
+                  a.activated_at, t.email_accepted_at, t.expires_at,
+                  COALESCE(t.used_at IS NULL AND t.revoked_at IS NULL
+                           AND t.expires_at > CURRENT_TIMESTAMP, false) AS link_valid
+           FROM citizen_accounts a
+           LEFT JOIN LATERAL (
+               SELECT * FROM citizen_account_tokens
+               WHERE account_id = a.id AND purpose = 'activation'
+               ORDER BY created_at DESC, id DESC LIMIT 1
+           ) t ON true
+           WHERE a.batch_id = %s AND a.household_uuid = %s""",
+        (batch_id, household_uuid),
+    )
