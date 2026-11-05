@@ -8,6 +8,9 @@
     {% if activated %}
       <p class="portal-notice portal-notice-success" role="status">Your account is ready. Sign in with the password you just chose.</p>
     {% endif %}
+    {% if password_reset %}
+      <p class="portal-notice portal-notice-success" role="status">Your password has been changed. Sign in with your new password.</p>
+    {% endif %}
     {% if error %}
       <p class="portal-notice portal-notice-error" id="login-error" role="alert">{{ error }}</p>
     {% endif %}
@@ -28,6 +31,8 @@
       </div>
       <button class="portal-button" type="submit">Sign In</button>
     </form>
+
+    <p class="portal-help"><a href="{{ url_for('citizen_portal.forgot_password') }}">Forgot your password?</a></p>
 
     <p class="portal-help">After 5 wrong passwords, your account is locked for 15 minutes.</p>
     <p class="portal-help">Have not activated your account yet? Open the link in the email from your LGU, then enter the 6-digit code LGU Staff gave you.</p>

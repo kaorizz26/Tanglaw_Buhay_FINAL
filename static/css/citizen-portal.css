@@ -132,6 +132,24 @@
   margin-top: 16px;
 }
 
+.portal-help + .portal-actions {
+  margin-top: 16px;
+}
+
+.portal-steps {
+  margin: 0 0 8px;
+  padding-left: 22px;
+}
+
+.portal-steps li {
+  margin-bottom: 6px;
+}
+
+.portal-help a {
+  color: var(--navy);
+  font-weight: 600;
+}
+
 .portal-programs {
   margin-top: 20px;
 }

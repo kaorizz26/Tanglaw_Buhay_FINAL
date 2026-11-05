@@ -275,9 +275,18 @@ class MessageTests(DeliveryTestCase):
         self.assertNotIn("1 hours", body)
         self.assertIn("once", body)
 
+    def test_password_changed_email_has_no_link_and_tells_the_citizen_what_to_do(self):
+        delivery.send_password_changed_email(RECIPIENT)
+        message = self.sent_message()
+        body = message.get_content()
+        self.assertEqual(message["Subject"], "Your Tanglaw-Buhay password was changed")
+        self.assertNotIn("http", body)
+        self.assertIn("contact the LGU office", body)
+
     def test_emails_contain_no_survey_assessment_or_subsidy_information(self):
         delivery.send_activation_email(RECIPIENT, TOKEN)
         delivery.send_password_reset_email(RECIPIENT, TOKEN)
+        delivery.send_password_changed_email(RECIPIENT)
         forbidden = ("household", "assessment", "cbms", "subsidy", "4ps", "slp", "spisc",
                      "tupad", "mpi", "score", "rank", "poverty", "eligib", "document")
         for call in self.server.send_message.call_args_list:

@@ -51,7 +51,7 @@ class PortalUnavailable(Exception):
     """The database or a required secret is not available."""
 
 
-def _looks_like_token(token):
+def looks_like_token(token):
     low, high = TOKEN_PATTERN_LENGTH
     return (isinstance(token, str) and low <= len(token) <= high
             and all(c.isalnum() or c in "-_" for c in token) and token.isascii())
@@ -75,7 +75,7 @@ def check_new_password(password, confirmation, email, current_password=None):
 
 def activation_link_is_usable(token, *, connection_factory=get_connection):
     """True if the emailed link can still be used (checked without counting an attempt)."""
-    if not _looks_like_token(token):
+    if not looks_like_token(token):
         return False
     try:
         with connection_factory() as connection:
@@ -94,7 +94,7 @@ def activate_account(token, code, password, confirmation, *,
     Raises ActivationLinkError when the link is unusable and CitizenFormError for
     mistakes the citizen can correct.
     """
-    if not _looks_like_token(token):
+    if not looks_like_token(token):
         raise ActivationLinkError("invalid")
     if clean_activation_code(code) is None:
         raise CitizenFormError("Enter the 6-digit code that LGU Staff gave you.")

@@ -8,6 +8,9 @@ from flask import Blueprint, abort, g, redirect, render_template, request, url_f
 import psycopg
 
 from services import citizen_sessions as sessions
+from services.citizen_password_reset import (
+    ResetLinkError, request_password_reset, reset_link_is_usable, reset_password,
+)
 from services.public_programs import PUBLIC_PROGRAMS
 from services.citizen_authentication import (
     ActivationLinkError, CitizenFormError, PortalUnavailable, SignInError,
@@ -102,8 +105,50 @@ def login():
             return redirect(url_for("citizen_portal.home"), code=303)
     return _render(
         "login.html", 401 if error else 200, error=error,
-        activated=request.args.get("activated") == "1", email=request.form.get("email", ""),
+        activated=request.args.get("activated") == "1",
+        password_reset=request.args.get("reset") == "1", email=request.form.get("email", ""),
     )
+
+
+# ---- Forgot password ------------------------------------------------------------
+
+@citizen_portal.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """Ask for a reset link. The answer is the same whether or not the email has an account."""
+    if g.citizen is not None:
+        return redirect(url_for("citizen_portal.change_password"))
+    if request.method == "POST":
+        sessions.check_csrf()
+        try:
+            request_password_reset(request.form.get("email", ""))
+        except PortalUnavailable:
+            abort(503, description=UNAVAILABLE)
+        # Redirect so that refreshing the page does not send another request.
+        return redirect(url_for("citizen_portal.forgot_password", sent=1), code=303)
+    if request.args.get("sent") == "1":
+        return _render("forgot_password_sent.html")
+    return _render("forgot_password.html")
+
+
+@citizen_portal.route("/reset/<token>", methods=["GET", "POST"])
+def reset(token):
+    """Choose a new password from the emailed link. Only the POST uses the link up."""
+    try:
+        if request.method == "GET":
+            if not reset_link_is_usable(token):
+                raise ResetLinkError
+            return _render("reset_password.html", error=None)
+        sessions.check_csrf()
+        reset_password(
+            token, request.form.get("new_password", ""), request.form.get("confirm_password", ""),
+        )
+    except ResetLinkError:
+        return _render("reset_problem.html", 410)
+    except CitizenFormError as problem:
+        return _render("reset_password.html", 400, error=str(problem))
+    except PortalUnavailable:
+        abort(503, description=UNAVAILABLE)
+    return redirect(url_for("citizen_portal.login", reset=1), code=303)
 
 
 @citizen_portal.get("/")

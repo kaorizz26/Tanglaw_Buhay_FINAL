@@ -195,6 +195,19 @@ def list_events(connection, account_id):
         ).fetchall()
 
 
+def count_recent_tokens(connection, account_id, purpose, window):
+    """Count the links of one purpose created within `window` (a timedelta).
+
+    Cancelled and used links are counted too, so a new request cannot reset the limit.
+    """
+    return connection.execute(
+        """SELECT count(*) FROM citizen_account_tokens
+           WHERE account_id = %s AND purpose = %s
+             AND created_at > CURRENT_TIMESTAMP - %s""",
+        (account_id, purpose, window),
+    ).fetchone()[0]
+
+
 def revoke_open_tokens(connection, account_id, purpose=None):
     """Cancel the account's unused links (all, or one purpose); return how many."""
     return connection.execute(
