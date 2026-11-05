@@ -165,6 +165,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         with patch.object(repository, "find_household_assessment", return_value=source["findings"]) as finding, \
                 patch.object(service.dataset_batches, "find_household_identities", return_value=[source["identity"]]) as identity, \
                 patch.object(assessment_evidence, "find_household_sources", return_value=source["household"]) as household, \
+                patch.object(assessment_evidence, "find_household_contact_number", return_value="09123456789") as contact, \
                 patch.object(assessment_evidence, "list_member_sources", return_value=source["members"]) as members, \
                 patch.object(assessment_evidence, "list_evidence_references", return_value=source["references"]) as references:
             result = service.get_active_assessment_detail(HOUSEHOLD_UUID, connection_factory=self.factory)
@@ -172,6 +173,8 @@ class AssessmentQueryServiceTests(unittest.TestCase):
             finding.assert_called_once_with(self.connection, 17, HOUSEHOLD_UUID)
             identity.assert_called_once_with(self.connection, 9, [HOUSEHOLD_UUID])
             household.assert_called_once_with(self.connection, 9, HOUSEHOLD_UUID)
+            contact.assert_called_once_with(self.connection, 9, HOUSEHOLD_UUID)
+            self.assertEqual(result["contact_number"], "09123456789")
             members.assert_called_once_with(self.connection, 9, HOUSEHOLD_UUID)
             references.assert_called_once_with(self.connection, 9)
             self.factory.assert_called_once()
@@ -191,6 +194,7 @@ class AssessmentQueryServiceTests(unittest.TestCase):
         with patch.object(repository, "find_household_assessment", return_value=source["findings"]), \
                 patch.object(service.dataset_batches, "find_household_identities", return_value=[source["identity"]]), \
                 patch.object(assessment_evidence, "find_household_sources", return_value=source["household"]), \
+                patch.object(assessment_evidence, "find_household_contact_number", return_value=None), \
                 patch.object(assessment_evidence, "list_member_sources", return_value=source["members"]), \
                 patch.object(assessment_evidence, "list_evidence_references", return_value=source["references"]), \
                 patch.object(service.staff_reviews, "list_history", return_value=[]) as reviews:

@@ -42,6 +42,20 @@ def find_household_sources(connection, batch_id, household_uuid):
     return row[0] if row else None
 
 
+def find_household_contact_number(connection, batch_id, household_uuid):
+    """Read one household's recorded contact number as text, or None if absent.
+
+    The batch and UUID both scope the lookup. The value is never used in a list,
+    filter or URL; callers only show it to authorized staff on one household page.
+    """
+    row = connection.execute(
+        "SELECT responses ->> 'contact_number' FROM households "
+        "WHERE batch_id = %s AND uuid = %s",
+        (batch_id, household_uuid),
+    ).fetchone()
+    return row[0] if row else None
+
+
 def list_member_sources(connection, batch_id, household_uuid):
     """Join only this household's roster and corresponding Section L member lines."""
     with connection.cursor(row_factory=dict_row) as cursor:

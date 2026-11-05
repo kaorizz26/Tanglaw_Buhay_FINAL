@@ -100,6 +100,10 @@
   text-align: right;
 }
 
+.household-records div + div {
+  margin-top: 10px;
+}
+
 .household-records dt,
 .household-uuid dt {
   color: var(--text-muted);
