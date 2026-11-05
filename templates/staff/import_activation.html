@@ -1,0 +1,72 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Active Dataset{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/data-import.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header import-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('main.data_import') }}">Data Import</a>
+      <span aria-current="page">Active Dataset</span>
+    </nav>
+    <h1>Active Dataset</h1>
+    <p>Choose which prepared CBMS batch staff will see. Previous batches and reviews remain stored.</p>
+  </header>
+
+  {% for message in get_flashed_messages() %}
+    <p class="import-status-pass" role="status">{{ message }}</p>
+  {% endfor %}
+  {% if error %}<p class="import-error" role="alert">{{ error }}</p>{% endif %}
+
+  <section class="import-card" aria-labelledby="current-batch-heading">
+    <h2 id="current-batch-heading">Currently active</h2>
+    <p class="import-active-summary">
+      Batch {{ overview.active.id }} · Survey year {{ overview.active.survey_year }} ·
+      {{ overview.active.households }} households · Completed Run {{ overview.active.run_id }}
+    </p>
+    {% if overview.in_progress_reviews %}
+      <p class="import-review-warning">
+        {{ overview.in_progress_reviews }} staff review{{ '' if overview.in_progress_reviews == 1 else 's' }} {{ 'is' if overview.in_progress_reviews == 1 else 'are' }} still In Review.
+        Staff must finish or cancel {{ 'it' if overview.in_progress_reviews == 1 else 'them' }} before this batch can be changed.
+        <a href="{{ url_for('assessments.queue', status='in-review') }}">View Review Queue</a>
+      </p>
+    {% else %}
+      <p>No staff reviews are currently In Review for this batch.</p>
+    {% endif %}
+  </section>
+
+  <section class="import-card" aria-labelledby="prepared-batches-heading">
+    <h2 id="prepared-batches-heading">Other prepared batches</h2>
+    {% if overview.candidates %}
+      <ul class="import-batch-list">
+        {% for batch in overview.candidates %}
+          <li class="import-batch">
+            <div>
+              <h3>Batch {{ batch.id }} · {{ batch.survey_year }}</h3>
+              <p>{{ batch.households }} households · Completed Run {{ batch.run_id }} designated</p>
+            </div>
+            {% if not overview.in_progress_reviews %}
+              <form method="post" action="{{ url_for('main.import_activation') }}" class="import-switch-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="target_batch_id" value="{{ batch.id }}">
+                <input type="hidden" name="expected_active_batch_id" value="{{ overview.active.id }}">
+                <input type="hidden" name="expected_active_run_id" value="{{ overview.active.run_id }}">
+                <input type="hidden" name="expected_target_run_id" value="{{ batch.run_id }}">
+                <label class="import-confirmation">
+                  <input type="checkbox" name="confirm_switch" value="yes" required>
+                  <span>I confirm staff should now see Batch {{ batch.id }}. The current batch and its reviews will remain stored.</span>
+                </label>
+                <button type="submit" class="import-action-button">Switch to Batch {{ batch.id }}</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No other prepared batches are available. <a href="{{ url_for('main.import_batches') }}">View stored batches</a></p>
+    {% endif %}
+  </section>
+{% endblock %}

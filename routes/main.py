@@ -19,6 +19,9 @@ from services.import_validation_presentation import present_report
 from services.import_assessment_preparation import (
     AssessmentPreparationError, list_import_batches, prepare_import_batch,
 )
+from services.batch_activation import (
+    BatchActivationError, activate_prepared_batch, activation_overview,
+)
 from services.staff_account_management import (
     StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
     deactivate_staff_account, get_staff_account_for_recovery,
@@ -156,6 +159,69 @@ def import_batches():
         abort(503, description="Import batches are unavailable. Please try again.")
     return render_template(
         "staff/import_batches.html", batches=batches, error=error, prepared=prepared,
+        role_label="System Administrator", staff_username=g.user["username"],
+        csrf_token=csrf_token(),
+    ), status
+
+
+@main.route("/administration/import/activation", methods=["GET", "POST"])
+@admin_required
+def import_activation():
+    """Switch to a prepared batch only after fresh review and run checks."""
+    require_fixture_source()
+    error = None
+    status = 200
+    if request.method == "POST":
+        check_csrf()
+        fields = (
+            "target_batch_id", "expected_active_batch_id",
+            "expected_active_run_id", "expected_target_run_id",
+        )
+        values = [request.form.get(name, "") for name in fields]
+        if (request.form.get("confirm_switch") != "yes"
+                or any(not value.isascii() or not value.isdecimal()
+                       or len(value) > 18 for value in values)):
+            error = "Select a prepared batch and confirm the switch."
+            status = 400
+        else:
+            try:
+                result = activate_prepared_batch(
+                    int(values[0]), g.user["id"],
+                    expected_active_batch_id=int(values[1]),
+                    expected_active_run_id=int(values[2]),
+                    expected_target_run_id=int(values[3]),
+                )
+            except BatchActivationError as exc:
+                if str(exc) == "unfinished_reviews":
+                    error = (
+                        f"{exc.review_count} staff review"
+                        f"{' is' if exc.review_count == 1 else 's are'} still In Review. "
+                        "Finish or cancel them before switching batches."
+                    )
+                    status = 409
+                elif str(exc) in (
+                        "selection_changed", "batch_not_ready", "batch_not_switchable"):
+                    error = "The selected batch changed or is not ready. Reload and review it again."
+                    status = 409
+                elif str(exc) == "unauthorized":
+                    abort(403)
+                elif str(exc) == "invalid_switch_request":
+                    error = "Select a valid prepared batch."
+                    status = 400
+                else:
+                    abort(503, description="Batch switching is unavailable. Please try again.")
+            else:
+                flash(
+                    f"Batch {result['target_batch_id']} is now active. "
+                    f"Batch {result['previous_batch_id']} and its review history remain stored.",
+                )
+                return redirect(url_for("main.import_activation"))
+    try:
+        overview = activation_overview()
+    except BatchActivationError:
+        abort(503, description="Prepared batches are unavailable. Please try again.")
+    return render_template(
+        "staff/import_activation.html", overview=overview, error=error,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), status

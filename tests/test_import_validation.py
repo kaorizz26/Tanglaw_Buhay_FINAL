@@ -21,6 +21,7 @@ from services.import_validation import (
     ImportValidationUnavailable, STAGING_MARKER, _cleanup_stale,
     validate_admin_upload,
 )
+from services.batch_activation import BatchActivationError
 
 
 class FakeConnection:
@@ -290,3 +291,73 @@ class ImportRouteTests(unittest.TestCase):
                 })
                 self.assertEqual(response.status_code, 200)
                 prepare.assert_called_once_with(8, 7)
+
+    def test_activation_page_requires_admin_confirmation_and_fresh_context(self):
+        overview = {
+            "active": {"id": 1, "survey_year": 2022,
+                       "households": 2, "run_id": 3},
+            "candidates": [{"id": 8, "survey_year": 2022,
+                            "households": 2, "run_id": 4}],
+            "in_progress_reviews": 0,
+        }
+        with patch("routes.main.activation_overview", return_value=overview):
+            response = self.client.get("/administration/import/activation")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"Switch to Batch 8", response.data)
+            self.role = "lgu_staff"
+            self.assertEqual(self.client.get(
+                "/administration/import/activation").status_code, 403)
+            self.role = "system_administrator"
+            with self.client.session_transaction() as session:
+                session["csrf_token"] = "synthetic-csrf"
+            fields = {
+                "csrf_token": "synthetic-csrf",
+                "target_batch_id": "8", "expected_active_batch_id": "1",
+                "expected_active_run_id": "3", "expected_target_run_id": "4",
+            }
+            with patch("routes.main.activate_prepared_batch") as switch:
+                self.assertEqual(self.client.post(
+                    "/administration/import/activation", data=fields,
+                ).status_code, 400)
+                switch.assert_not_called()
+                switch.return_value = {
+                    "target_batch_id": 8, "previous_batch_id": 1,
+                }
+                response = self.client.post(
+                    "/administration/import/activation",
+                    data={**fields, "confirm_switch": "yes"},
+                )
+                self.assertEqual(response.status_code, 302)
+                switch.assert_called_once_with(
+                    8, 7, expected_active_batch_id=1,
+                    expected_active_run_id=3, expected_target_run_id=4,
+                )
+
+    def test_activation_page_shows_unfinished_review_guard(self):
+        overview = {
+            "active": {"id": 1, "survey_year": 2022,
+                       "households": 2, "run_id": 3},
+            "candidates": [{"id": 8, "survey_year": 2022,
+                            "households": 2, "run_id": 4}],
+            "in_progress_reviews": 1,
+        }
+        with patch("routes.main.activation_overview", return_value=overview):
+            response = self.client.get("/administration/import/activation")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"1 staff review is still In Review", response.data)
+            self.assertNotIn(b"Switch to Batch 8", response.data)
+            with self.client.session_transaction() as session:
+                session["csrf_token"] = "synthetic-csrf"
+            with patch("routes.main.activate_prepared_batch",
+                       side_effect=BatchActivationError(
+                           "unfinished_reviews", review_count=1)):
+                response = self.client.post(
+                    "/administration/import/activation", data={
+                        "csrf_token": "synthetic-csrf", "target_batch_id": "8",
+                        "expected_active_batch_id": "1",
+                        "expected_active_run_id": "3", "expected_target_run_id": "4",
+                        "confirm_switch": "yes",
+                    },
+                )
+                self.assertEqual(response.status_code, 409)
+                self.assertIn(b"Finish or cancel them", response.data)

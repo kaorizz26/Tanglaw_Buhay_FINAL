@@ -286,3 +286,91 @@ def activate_batch(connection, batch_id):
     ).rowcount
     if changed != 1:
         raise RuntimeError("The pending batch could not be activated.")
+
+
+def list_batches_with_completed_selections(connection):
+    """List validated batches with a designated completed run for admin switching."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT b.id, b.survey_year, b.is_active,
+                      r.id AS run_id, r.expected_household_count AS households
+               FROM dataset_batches b
+               JOIN assessment_run_selections s ON s.batch_id = b.id
+               JOIN assessment_runs r ON r.id = s.run_id AND r.batch_id = b.id
+               WHERE b.validation_status = 'validated' AND r.status = 'completed'
+                 AND r.completed_at IS NOT NULL
+               ORDER BY b.is_active DESC, b.id DESC""",
+        ).fetchall()
+
+
+def lock_switch_batches(connection, target_batch_id):
+    """Serialize switches and lock outgoing context before counting open reviews."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        current = cursor.execute(
+            """SELECT id, validation_status, is_active FROM dataset_batches
+               WHERE is_active FOR UPDATE""",
+        ).fetchall()
+        target = cursor.execute(
+            """SELECT id, validation_status, is_active, source_provenance
+               FROM dataset_batches WHERE id = %s FOR UPDATE""",
+            (target_batch_id,),
+        ).fetchone()
+    return current, target
+
+
+def lock_designated_completed_run(connection, batch_id):
+    """Keep a selected completed run stable during a batch switch."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT r.id AS run_id, r.expected_household_count AS households,
+                      r.completed_at
+               FROM assessment_run_selections s
+               JOIN assessment_runs r ON r.id = s.run_id AND r.batch_id = s.batch_id
+               WHERE s.batch_id = %s AND r.status = 'completed'
+                 AND r.completed_at IS NOT NULL
+               FOR SHARE OF s, r""",
+            (batch_id,),
+        ).fetchone()
+
+
+def count_completed_run_coverage(connection, batch_id, run_id):
+    """Recheck source and stored household coverage before switching."""
+    return connection.execute(
+        """SELECT (SELECT count(*) FROM households WHERE batch_id = %s),
+                  (SELECT count(*) FROM household_assessments
+                   WHERE batch_id = %s AND run_id = %s)""",
+        (batch_id, batch_id, run_id),
+    ).fetchone()
+
+
+def count_in_progress_reviews(connection, batch_id):
+    """Count unfinished staff work on the outgoing batch only."""
+    return connection.execute(
+        """SELECT count(*) FROM staff_reviews
+           WHERE batch_id = %s AND status = 'In Review'""",
+        (batch_id,),
+    ).fetchone()[0]
+
+
+def switch_prepared_batch(connection, previous_batch_id, target_batch_id,
+                          target_run_id):
+    """Move only the active pointer after the service has checked both contexts."""
+    previous = connection.execute(
+        """UPDATE dataset_batches SET is_active = false
+           WHERE id = %s AND is_active AND validation_status = 'validated'""",
+        (previous_batch_id,),
+    ).rowcount
+    target = connection.execute(
+        """UPDATE dataset_batches b SET is_active = true
+           WHERE b.id = %s AND NOT b.is_active
+             AND b.validation_status = 'validated'
+             AND EXISTS (
+               SELECT 1 FROM assessment_run_selections s
+               JOIN assessment_runs r ON r.id = s.run_id AND r.batch_id = s.batch_id
+               WHERE s.batch_id = b.id AND r.id = %s
+                 AND r.status = 'completed' AND r.completed_at IS NOT NULL
+             )""",
+        (target_batch_id, target_run_id),
+    ).rowcount
+    if previous != 1 or target != 1:
+        raise RuntimeError("batch_switch_rejected")

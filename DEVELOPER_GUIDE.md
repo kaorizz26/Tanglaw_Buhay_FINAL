@@ -721,7 +721,17 @@ batch, older runs, original responses and staff reviews untouched. Calculation
 provenance records the administrator ID, source/reference version and engine
 file hashes. The page runs synchronously; deployments should allow a request
 long enough for the full batch or add a durable job worker before production use.
-Activation and switch-back still need separate audited controls.
+`GET/POST /administration/import/activation` lists the active batch and other
+validated batches with designated completed runs. A System Administrator must
+explicitly confirm a switch. The service rechecks both runs' household coverage,
+the administrator, and the outgoing batch's `In Review` count in the transaction.
+Any unfinished review blocks the switch until staff finish or cancel it through
+the existing attributed workflow. The active pointer and a metadata-only event
+in `batch_activation_events` commit together; source rows, findings, and review
+history are not rewritten. A previously active batch can be selected again.
+Migration `0014_batch_activation_audit.sql` must be applied once after 0013
+before the activation page is used. It was not applied to the local development
+database by this task. Activation events are retained with batch/review history.
 
 ## 13. Phase 6B.3 Task 1: staff authentication
 

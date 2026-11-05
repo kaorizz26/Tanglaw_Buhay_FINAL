@@ -39,7 +39,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
 | Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. They need no account, read no CBMS records, and accept no submissions. |
 | MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
-| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), an import audit migration (0013, not yet applied locally), and a validated backend importer used once for the 2022 batch. |
+| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), import and activation audit migrations (0013–0014, not yet applied locally), and a validated backend importer used once for the 2022 batch. |
 | Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
 
 ### Partial or Incomplete
@@ -47,7 +47,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Module | Current state |
 | --- | --- |
 | Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, and administrator password reset are implemented. Account editing is not implemented. |
-| Data Import interface | Administrators can validate four 2022-compatible CSVs, store a passing bundle as inactive, and prepare its assessments. Migration 0013 is required before upload use. Activation and switch-back are not implemented. |
+| Data Import interface | Administrators can validate four 2022-compatible CSVs, store a passing bundle as inactive, prepare its assessments, and explicitly switch to a prepared batch or back to a previous one. Migrations 0013 and 0014 are required before use. End-to-end pilot verification remains. |
 | Assessment-run management | Administrators can prepare and designate a completed run for a staged inactive import. The current 2022 Run 3 and its history remain unchanged. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
 
@@ -327,7 +327,10 @@ an audit table whose actor references the retained `staff_users` row; it does no
 read `deleted_at` or depend on 0012. After the Data Import branch is integrated,
 apply 0013 once where its table is absent. If applying both migrations to a fresh
 database, use numeric order (0012, then 0013); check existing schema first and
-never reapply an already-applied migration. The Data Import branch includes the
+never reapply an already-applied migration. Migration 0014 adds the batch-switch
+audit table; apply it once after 0013, checking first whether it already exists.
+Neither import migration was applied to the local development database here.
+The Data Import branch includes the
 Staff Accounts integration tip; recheck both branches before the final merge.
 
 After migrations 0009–0011 are applied, existing
