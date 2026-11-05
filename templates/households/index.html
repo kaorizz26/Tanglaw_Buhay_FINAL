@@ -7,10 +7,17 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header records-header">
-    <div class="page-heading">
-      <h1>Household Records</h1>
-      <p>Find recorded household and member information for {{ results.context.municipality }}.</p>
+  <header class="page-header portal-hero records-header">
+    <div class="portal-hero-content">
+      <div>
+        <h1>Household Records</h1>
+        <p class="portal-hero-subtitle">Find recorded household and member information for {{ results.context.municipality }}.</p>
+      </div>
+      {% if results.filters.parameters %}
+        <a class="portal-hero-action" href="{{ url_for('households.index') }}">
+          Show all records <span aria-hidden="true">→</span>
+        </a>
+      {% endif %}
     </div>
   </header>
 
@@ -18,7 +25,10 @@
     <form class="records-filters" method="get" action="{{ url_for('households.index') }}" role="search">
       <div class="records-field records-search">
         <label for="record-search">Household ID or household head</label>
-        <input id="record-search" name="q" type="search" value="{{ results.filters.search }}" maxlength="200" placeholder="e.g. HH-00001 or a name">
+        <div class="records-search-control">
+          <span class="records-search-icon" aria-hidden="true"></span>
+          <input id="record-search" name="q" type="search" value="{{ results.filters.search }}" maxlength="200" placeholder="e.g. HH-00001 or a name">
+        </div>
       </div>
       <div class="records-field records-barangay">
         <label for="record-barangay">Barangay</label>
@@ -42,6 +52,27 @@
         {% endif %}
       </div>
     </form>
+
+    {% if results.filters.parameters %}
+      <div class="records-active-filters" aria-label="Applied filters">
+        <p>Applied filters</p>
+        <ul>
+          {% if results.filters.search %}
+            <li>
+              <span>Search: {{ results.filters.search }}</span>
+              <a href="{{ url_for('households.index', barangay=results.filters.barangay or None) }}" aria-label="Remove search filter">×</a>
+            </li>
+          {% endif %}
+          {% if results.filters.barangay %}
+            <li>
+              <span>Barangay: {{ results.filters.barangay }}</span>
+              <a href="{{ url_for('households.index', q=results.filters.search or None) }}" aria-label="Remove barangay filter">×</a>
+            </li>
+          {% endif %}
+        </ul>
+        <a class="records-clear-all" href="{{ url_for('households.index') }}">Clear all</a>
+      </div>
+    {% endif %}
 
     {# The total comes from the query; with a search or barangay it counts matches only. #}
     <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}recorded{% endif %} households</p>
@@ -74,6 +105,7 @@
       </div>
     {% else %}
       <div class="records-empty" role="status">
+        <span class="records-empty-icon" aria-hidden="true"></span>
         <h3>No households found</h3>
         <p>Try another household ID, name, or barangay.</p>
         <a href="{{ url_for('households.index') }}">Show all households</a>

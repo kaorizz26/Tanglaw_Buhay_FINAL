@@ -8,14 +8,21 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header accounts-header">
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href="{{ url_for('main.staff_accounts') }}">Staff Accounts</a>
-      <span aria-hidden="true">/</span>
-      <span aria-current="page">{{ 'Create Account' if show_create else 'Account List' }}</span>
-    </nav>
-    <h1>{{ 'Create Account' if show_create else 'Account List' }}</h1>
-    <p>{{ 'Create a login for an LGU staff member.' if show_create else 'View staff accounts and help new staff complete their password setup.' }}</p>
+  <header class="page-header portal-hero accounts-header">
+    <div class="portal-hero-content">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="{{ url_for('main.staff_accounts') }}">Staff Accounts</a>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{{ 'Create Account' if show_create else 'Account List' }}</span>
+        </nav>
+        <h1>{{ 'Create Account' if show_create else 'Account List' }}</h1>
+        <p class="portal-hero-subtitle">{{ 'Create a login for an LGU staff member.' if show_create else 'View staff accounts and help new staff complete their password setup.' }}</p>
+      </div>
+      <a class="portal-hero-action" href="{{ url_for('main.staff_accounts') if show_create else url_for('main.staff_account_create') }}">
+        {{ 'View account list' if show_create else 'Create staff account' }} <span aria-hidden="true">→</span>
+      </a>
+    </div>
   </header>
 
   {% if error %}
@@ -71,21 +78,60 @@
         </div>
       </dl>
       <p class="accounts-password-note">Share this privately. You can reveal it again while password setup is pending. It becomes unavailable after the staff member sets their own password.</p>
-      <a class="accounts-button" href="{{ url_for('main.staff_accounts') }}">Hide password and return to accounts</a>
-      <a class="accounts-next-link" href="{{ url_for('main.staff_account_create') }}">Create another account</a>
+      <div class="accounts-created-actions">
+        <a class="accounts-button" href="{{ url_for('main.staff_accounts') }}">Return to account list</a>
+        <a class="accounts-secondary-link" href="{{ url_for('main.staff_account_create') }}">Create another account</a>
+      </div>
     </section>
   {% endif %}
 
   {% if not show_create %}
+  {% set status_counts = namespace(ready=0, pending=0, inactive=0) %}
+  {% for account in accounts %}
+    {% if not account.is_active %}
+      {% set status_counts.inactive = status_counts.inactive + 1 %}
+    {% elif account.must_change_password %}
+      {% set status_counts.pending = status_counts.pending + 1 %}
+    {% else %}
+      {% set status_counts.ready = status_counts.ready + 1 %}
+    {% endif %}
+  {% endfor %}
+  <section class="accounts-summary" aria-label="Account status summary">
+    <article class="accounts-summary-card accounts-summary-ready">
+      <div>
+        <span class="accounts-summary-marker" aria-hidden="true"></span>
+        <h2>Ready</h2>
+      </div>
+      <p class="accounts-summary-value">{{ status_counts.ready }}</p>
+      <p>Staff can sign in with their own password.</p>
+    </article>
+    <article class="accounts-summary-card accounts-summary-pending">
+      <div>
+        <span class="accounts-summary-marker" aria-hidden="true"></span>
+        <h2>Pending setup</h2>
+      </div>
+      <p class="accounts-summary-value">{{ status_counts.pending }}</p>
+      <p>Staff still need to set their own password.</p>
+    </article>
+    <article class="accounts-summary-card accounts-summary-inactive">
+      <div>
+        <span class="accounts-summary-marker" aria-hidden="true"></span>
+        <h2>Inactive</h2>
+      </div>
+      <p class="accounts-summary-value">{{ status_counts.inactive }}</p>
+      <p>Account access is currently disabled.</p>
+    </article>
+  </section>
+
   <section class="accounts-card accounts-directory" aria-labelledby="directory-heading">
     <div class="accounts-directory-header">
       <div>
-        <h2 id="directory-heading">Staff accounts <span class="accounts-count">{{ accounts|length }}</span></h2>
+        <h2 id="directory-heading">All staff accounts <span class="accounts-count">{{ accounts|length }}</span></h2>
         <p>Pending password setup means the staff member still needs to choose their own password.</p>
       </div>
-      <a class="accounts-button" href="{{ url_for('main.staff_account_create') }}">Create Staff Account</a>
     </div>
     {% if accounts %}
+      <p class="table-scroll-hint">Scroll sideways to see account status and actions.</p>
       <div class="accounts-table-scroll" role="region" aria-labelledby="directory-heading" tabindex="0">
         <table class="accounts-table">
           <caption class="visually-hidden">LGU Staff accounts, newest first. Creation dates are in Philippine time.</caption>
@@ -145,7 +191,11 @@
         </table>
       </div>
     {% else %}
-      <p class="accounts-empty">No staff accounts yet. Choose Create Staff Account to add the first one.</p>
+      <div class="accounts-empty">
+        <span class="accounts-empty-icon" aria-hidden="true">+</span>
+        <h3>No staff accounts yet</h3>
+        <p>Create the first LGU Staff login using the button at the top of this page.</p>
+      </div>
     {% endif %}
   </section>
   {% endif %}
@@ -155,6 +205,14 @@
       <p class="accounts-kicker">New staff login</p>
       <h2 id="create-heading">Create staff account</h2>
       <p>Enter the staff member's name and choose a unique username. The account will have LGU Staff access.</p>
+
+      <div class="accounts-access-notice" role="note" aria-labelledby="account-access-notice-heading">
+        <span class="accounts-access-notice-icon" aria-hidden="true">!</span>
+        <div>
+          <h3 id="account-access-notice-heading">Account access notice</h3>
+          <p>Create an account only for a verified LGU staff member who needs access to protected household and assessment records. Share the temporary password privately; the staff member must replace it after their first sign-in.</p>
+        </div>
+      </div>
 
       <form class="accounts-form" method="post" action="{{ url_for('main.staff_account_create') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -1,5 +1,26 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Request unavailable · Tanglaw-Buhay</title></head>
-<body><main><h1>Request unavailable</h1><p>{{ error.description }}</p><a href="{{ url_for('auth.login') }}">Staff sign in</a></main></body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Request unavailable · Tanglaw-Buhay</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body class="auth-page">
+  <a class="skip-link" href="#error-title">Skip to message</a>
+  <main class="login-layout">
+    {% include 'auth/_identity_panel.html' %}
+    <section class="login-area" aria-labelledby="error-title">
+      <div class="login-content auth-message-card">
+        <span class="auth-message-icon" aria-hidden="true">!</span>
+        <p class="login-eyebrow">Tanglaw-Buhay Staff Access</p>
+        <h1 id="error-title">Request unavailable</h1>
+        <p class="supporting-text">{{ error.description }}</p>
+        <p class="auth-message-help">Return to sign in and try again. If the problem continues, contact your system administrator.</p>
+        <a class="primary-link" href="{{ url_for('auth.login') }}">Return to staff sign in <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </main>
+</body>
 </html>

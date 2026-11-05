@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header records-header">
+  <header class="page-header records-header record-detail-header">
     <div class="context-bar">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="{{ list_url }}">Household Records</a>
@@ -23,7 +23,11 @@
       <div>
         <p class="records-kicker">Household record</p>
         <h1>{{ record.head_name }}</h1>
-        <p>Household ID {{ record.reference_id }} · {{ record.barangay }} · Municipality of {{ record.context.municipality }}</p>
+        <dl class="record-identity">
+          <div><dt>Household ID</dt><dd>{{ record.reference_id }}</dd></div>
+          <div><dt>Barangay</dt><dd>{{ record.barangay }}</dd></div>
+          <div><dt>Municipality</dt><dd>{{ record.context.municipality }}</dd></div>
+        </dl>
       </div>
       <div class="record-detail-actions">
         <a class="record-back" href="{{ list_url }}">← Back to Records</a>
@@ -42,10 +46,10 @@
     <h2 id="composition-heading">Household Composition</h2>
     <p class="record-section-note">Ages as recorded in the {{ record.context.survey_year }} survey.</p>
     <dl class="composition-counts">
-      <div><dt>Household members</dt><dd>{{ composition.total }}</dd></div>
-      <div><dt>Children (0–17)</dt><dd>{{ composition.children }}</dd></div>
-      <div><dt>Adults (18–59)</dt><dd>{{ composition.adults }}</dd></div>
-      <div><dt>Older adults (60+)</dt><dd>{{ composition.older_adults }}</dd></div>
+      <div class="composition-total"><dt>Household members</dt><dd>{{ composition.total }}</dd></div>
+      <div class="composition-children"><dt>Children (0–17)</dt><dd>{{ composition.children }}</dd></div>
+      <div class="composition-adults"><dt>Adults (18–59)</dt><dd>{{ composition.adults }}</dd></div>
+      <div class="composition-older"><dt>Older adults (60+)</dt><dd>{{ composition.older_adults }}</dd></div>
       {# Shown only when needed, so the groups visibly add up to the total. #}
       {% if composition.unclear_age %}
         <div class="composition-unclear"><dt>Age not recorded or unclear</dt><dd>{{ composition.unclear_age }}</dd></div>
@@ -61,7 +65,7 @@
           {% for cell in group.cells %}
             <div>
               <dt>{{ cell.label }}</dt>
-              <dd>{{ cell.value }}</dd>
+              <dd{% if cell.value in ('Not recorded', 'Meaning unclear') %} class="record-answer-uncertain"{% endif %}>{{ cell.value }}</dd>
             </div>
           {% endfor %}
         </dl>
@@ -75,6 +79,7 @@
       <span>{{ composition.total }} {% if composition.total == 1 %}member{% else %}members{% endif %}</span>
     </div>
     {% if record.members %}
+      <p class="roster-scroll-hint">Scroll sideways to see all recorded member information.</p>
       <div class="roster-scroll" role="region" aria-labelledby="record-members-heading" tabindex="0">
         <table class="roster-table">
           <caption class="visually-hidden">Household members in roster order, with answers recorded in the {{ record.context.survey_year }} survey.</caption>
@@ -93,7 +98,7 @@
                 <td class="roster-number">{{ member.line_number }}</td>
                 <th scope="row">{{ member.name }}</th>
                 {% for answer in member.answers %}
-                  <td>{{ answer }}</td>
+                  <td{% if answer in ('—', 'Age unclear', 'Meaning unclear') %} class="roster-answer-uncertain"{% endif %}>{{ answer }}</td>
                 {% endfor %}
               </tr>
             {% endfor %}
