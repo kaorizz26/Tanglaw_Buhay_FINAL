@@ -133,38 +133,47 @@ def format_activation_code(code):
     return f"{code[:3]} {code[3:]}"
 
 
-def get_household_account_page(household_uuid, *, with_history=False,
-                               connection_factory=get_connection):
-    """Read the household details and account state for the create and resend pages.
+def read_household_header(connection, context, household_uuid):
+    """Read what staff pages show about a household: who and where it is.
 
-    The returned batch and run IDs are posted back with the form so a change of
-    the selected survey batch between viewing and saving is noticed. with_history
-    adds the account's staff actions, newest first, for the Account History page.
+    Raises AssessmentQueryError if the household has no stored assessment in the
+    selected survey run. The batch and run IDs are included so forms can post them
+    back, and a change of the selected batch between viewing and saving is noticed.
     """
-    with _read_context(connection_factory) as (connection, context):
-        if not assessment_runs.household_has_assessment(
-                connection, context["run_id"], household_uuid):
-            raise AssessmentQueryError("household_assessment_missing")
-        identities = dataset_batches.find_household_identities(
-            connection, context["batch_id"], [household_uuid],
-        )
-        if len(identities) != 1:
-            raise AssessmentQueryError("household_identity_missing")
-        row = citizen_accounts.find_panel(connection, context["batch_id"], household_uuid)
-        contact = assessment_evidence.find_household_contact_number(
-            connection, context["batch_id"], household_uuid,
-        )
-        events = (citizen_accounts.list_events(connection, row["id"])
-                  if with_history and row else [])
+    if not assessment_runs.household_has_assessment(
+            connection, context["run_id"], household_uuid):
+        raise AssessmentQueryError("household_assessment_missing")
+    identities = dataset_batches.find_household_identities(
+        connection, context["batch_id"], [household_uuid],
+    )
+    if len(identities) != 1:
+        raise AssessmentQueryError("household_identity_missing")
+    contact = assessment_evidence.find_household_contact_number(
+        connection, context["batch_id"], household_uuid,
+    )
     identity = identities[0]
-    page = {
+    return {
         "batch_id": context["batch_id"], "run_id": context["run_id"],
         "household_uuid": household_uuid, "contact_number": format_contact_number(contact),
         "reference_id": _household_reference_id(identity["source_row_number"]),
         "head_name": _head_name(identity),
         "barangay": _source_text(identity["barangay"]) or "Not recorded",
-        "account": present_account_panel(row),
     }
+
+
+def get_household_account_page(household_uuid, *, with_history=False,
+                               connection_factory=get_connection):
+    """Read the household details and account state for the create and resend pages.
+
+    with_history adds the account's staff actions, newest first, for the Account
+    History page.
+    """
+    with _read_context(connection_factory) as (connection, context):
+        page = read_household_header(connection, context, household_uuid)
+        row = citizen_accounts.find_panel(connection, context["batch_id"], household_uuid)
+        events = (citizen_accounts.list_events(connection, row["id"])
+                  if with_history and row else [])
+    page["account"] = present_account_panel(row)
     if with_history:
         page["history"] = present_history(events)
     return page
@@ -184,7 +193,7 @@ def _issue_activation_credentials(connection, account_id):
     return token["id"], credentials
 
 
-def _check_actor_and_context(connection, staff_id, batch_id, run_id, household_uuid):
+def check_actor_and_context(connection, staff_id, batch_id, run_id, household_uuid):
     """Confirm the survey selection is unchanged, the actor is active LGU Staff and the
     household has a stored assessment in that selection."""
     if not staff_reviews.lock_selected_context(connection, batch_id, run_id):
@@ -195,7 +204,7 @@ def _check_actor_and_context(connection, staff_id, batch_id, run_id, household_u
         raise CitizenAccountError("household_missing")
 
 
-def _check_request_values(staff_id, household_uuid, batch_id, run_id):
+def check_request_values(staff_id, household_uuid, batch_id, run_id):
     """Reject malformed identifiers before any database work."""
     if (not isinstance(household_uuid, str) or not household_uuid.strip()
             or len(household_uuid) > 128 or "\x00" in household_uuid
@@ -204,9 +213,9 @@ def _check_request_values(staff_id, household_uuid, batch_id, run_id):
         raise CitizenAccountError("invalid_request")
 
 
-def _lock_household_account(connection, staff_id, batch_id, run_id, household_uuid):
+def lock_household_account(connection, staff_id, batch_id, run_id, household_uuid):
     """Run the actor and context checks, then return the household's account, locked."""
-    _check_actor_and_context(connection, staff_id, batch_id, run_id, household_uuid)
+    check_actor_and_context(connection, staff_id, batch_id, run_id, household_uuid)
     existing = citizen_accounts.find_by_household(connection, batch_id, household_uuid)
     if existing is None:
         raise CitizenAccountError("account_missing")
@@ -249,13 +258,13 @@ def create_citizen_account(staff_id, household_uuid, batch_id, run_id, form, *,
     Raises CitizenAccountInputError for form mistakes and CitizenAccountError with
     a fixed code otherwise. Nothing is created if any database step fails.
     """
-    _check_request_values(staff_id, household_uuid, batch_id, run_id)
+    check_request_values(staff_id, household_uuid, batch_id, run_id)
     values = validate_creation_form(form)
     try:
         with connection_factory() as connection:
             try:
                 with connection.transaction():
-                    _check_actor_and_context(
+                    check_actor_and_context(
                         connection, staff_id, batch_id, run_id, household_uuid,
                     )
                     account = citizen_accounts.insert_account(
@@ -291,11 +300,11 @@ def resend_activation(staff_id, household_uuid, batch_id, run_id, *,
 
     The old link and code stop working at once, even if the new email fails.
     """
-    _check_request_values(staff_id, household_uuid, batch_id, run_id)
+    check_request_values(staff_id, household_uuid, batch_id, run_id)
     try:
         with connection_factory() as connection:
             with connection.transaction():
-                account = _lock_household_account(
+                account = lock_household_account(
                     connection, staff_id, batch_id, run_id, household_uuid,
                 )
                 if account["status"] != "pending_activation":
@@ -318,12 +327,12 @@ def deactivate_account(staff_id, household_uuid, batch_id, run_id, form, *,
 
     Nothing is emailed. The account stays linked to its household and email.
     """
-    _check_request_values(staff_id, household_uuid, batch_id, run_id)
+    check_request_values(staff_id, household_uuid, batch_id, run_id)
     values = validate_deactivation_form(form)
     try:
         with connection_factory() as connection:
             with connection.transaction():
-                account = _lock_household_account(
+                account = lock_household_account(
                     connection, staff_id, batch_id, run_id, household_uuid,
                 )
                 if account["status"] == "deactivated":
@@ -345,12 +354,12 @@ def reactivate_account(staff_id, household_uuid, batch_id, run_id, form, *,
 
     The old password is removed, so the citizen must activate again with a new code.
     """
-    _check_request_values(staff_id, household_uuid, batch_id, run_id)
+    check_request_values(staff_id, household_uuid, batch_id, run_id)
     values = validate_reactivation_form(form)
     try:
         with connection_factory() as connection:
             with connection.transaction():
-                account = _lock_household_account(
+                account = lock_household_account(
                     connection, staff_id, batch_id, run_id, household_uuid,
                 )
                 if account["status"] != "deactivated":
@@ -386,13 +395,13 @@ def change_account_email(staff_id, household_uuid, batch_id, run_id, form, *,
     Sessions, the old password and every open link end at once. The new address
     gets the activation link; the old address gets a notice that does not name it.
     """
-    _check_request_values(staff_id, household_uuid, batch_id, run_id)
+    check_request_values(staff_id, household_uuid, batch_id, run_id)
     values = validate_email_change_form(form)
     try:
         with connection_factory() as connection:
             try:
                 with connection.transaction():
-                    account = _lock_household_account(
+                    account = lock_household_account(
                         connection, staff_id, batch_id, run_id, household_uuid,
                     )
                     if account["status"] == "deactivated":

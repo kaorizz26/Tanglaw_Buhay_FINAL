@@ -1,4 +1,4 @@
-/* Citizen Account section and staff forms (create, resend, manage, history, result). */
+/* Citizen Account section, Document Requests and staff forms (create, resend, manage, history, result). */
 .citizen-account-panel,
 .account-section,
 .account-household {
@@ -397,5 +397,108 @@
 
   .account-code {
     font-size: 1.75rem;
+  }
+}
+
+/* Document Requests: request list, status badges and the multi-row request form. */
+.document-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.document-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.document-item:first-child {
+  border-top: 0;
+}
+
+.document-item-main {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.document-title {
+  margin-right: 10px;
+  overflow-wrap: anywhere;
+}
+
+.document-next-step {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.document-status-requested,
+.document-status-needs_correction {
+  border-color: var(--gold-border);
+  background: var(--notice);
+  color: var(--gold-text);
+}
+
+.document-status-submitted {
+  border-color: #9fb6c6;
+  background: #e8f0f6;
+  color: var(--navy);
+}
+
+.document-status-accepted {
+  border-color: #9cc7a8;
+  background: #edf7f0;
+  color: #1f5a31;
+}
+
+.document-status-cancelled {
+  border-color: #d9a3a3;
+  background: #fbefef;
+  color: #8a1f1f;
+}
+
+.document-instructions {
+  max-width: 70ch;
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.document-row {
+  margin: 0 0 16px;
+  padding: 14px 16px 2px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--gold);
+  border-radius: 8px;
+}
+
+.document-row-number {
+  padding: 0 6px;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.document-optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.document-add-row {
+  margin-bottom: 8px;
+}
+
+.document-add-row:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .document-item .account-button {
+    width: 100%;
   }
 }

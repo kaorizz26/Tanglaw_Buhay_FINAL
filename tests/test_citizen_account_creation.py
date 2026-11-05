@@ -460,7 +460,8 @@ class AccountCreationTests(unittest.TestCase):
 
     def test_missing_account_tables_never_break_the_assessment_snapshot(self):
         self.connection.execute(
-            "DROP TABLE citizen_account_events, citizen_account_tokens, citizen_accounts")
+            "DROP TABLE document_request_events, document_files, document_requests,"
+            " citizen_account_events, citizen_account_tokens, citizen_accounts")
         detail = self.detail()
         self.assertEqual(detail["citizen_account"], PANEL_UNAVAILABLE)
         self.assertEqual(detail["identity"]["source_row_number"], 1)

@@ -1,0 +1,56 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Document Request{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set document = page.request %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>{{ document.title }}</h1>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  <section class="account-section" aria-labelledby="request-heading">
+    <div class="citizen-account-heading">
+      <h2 id="request-heading">Request</h2>
+      <span class="account-status document-status document-status-{{ document.status }}">{{ document.status_label }}</span>
+    </div>
+    <p class="citizen-account-text">{{ document.next_step }}</p>
+    <dl class="account-facts">
+      <div><dt>Requested from</dt><dd>{{ page.representative_name }}</dd></div>
+      <div><dt>Requested on</dt><dd>{{ document.created_at|pht_datetime }}</dd></div>
+      <div><dt>Last updated</dt><dd>{{ document.updated_at|pht_datetime }}</dd></div>
+    </dl>
+    {% if document.instructions %}
+      <h3 class="account-subheading">Instructions given to the representative</h3>
+      <p class="document-instructions">{{ document.instructions }}</p>
+    {% endif %}
+    <div class="account-actions">
+      {% if document.can_cancel %}
+        <a class="account-button account-button-danger-outline" href="{{ url_for('document_requests.cancel', request_id=document.id) }}">Cancel Request</a>
+      {% endif %}
+      <a class="account-button account-button-secondary" href="{{ assessment_url }}">Back to Household Assessment</a>
+    </div>
+  </section>
+
+  <section class="account-section" aria-labelledby="history-heading">
+    <h2 id="history-heading">History</h2>
+    <ol class="account-history">
+      {% for entry in page.history %}
+        <li class="account-history-item">
+          <div class="account-history-top">
+            <strong class="account-history-action">{{ entry.action_label }}</strong>
+            <span class="account-history-date">{{ entry.created_at|pht_datetime }}</span>
+          </div>
+          <p class="account-history-staff">By {{ entry.actor_name }}</p>
+          {% if entry.note %}<p class="account-history-note">{{ entry.note }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endblock %}

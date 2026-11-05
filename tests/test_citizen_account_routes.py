@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 from app import create_app
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
 from routes import citizen_accounts as routes
+from routes import staff_forms
 from services import assessment_details as details
 from services import staff_reviews as review_service
 from services.citizen_account_panel import present_account_panel
@@ -93,7 +94,7 @@ class RouteTestCase(unittest.TestCase):
         self.form_count = getattr(self, "form_count", 0) + 1
         number = f"synthetic-form-{self.form_count}"
         with self.client.session_transaction() as session:
-            session[routes.FORM_NUMBERS_KEY] = session.get(routes.FORM_NUMBERS_KEY, []) + [number]
+            session[staff_forms.FORM_NUMBERS_KEY] = session.get(staff_forms.FORM_NUMBERS_KEY, []) + [number]
         return self.client.post(path, data={**(FORM if data is None else data),
                                             "form_number": number})
 
@@ -380,10 +381,10 @@ class RepeatedSubmissionTests(RouteTestCase):
         self.assertEqual(len({first, second, third}), 3)
 
     def test_only_the_most_recent_numbers_are_remembered(self):
-        for _ in range(routes.MAX_REMEMBERED_FORMS + 5):
+        for _ in range(staff_forms.MAX_REMEMBERED_FORMS + 5):
             self.client.get(CREATE)
         with self.client.session_transaction() as session:
-            self.assertEqual(len(session[routes.FORM_NUMBERS_KEY]), routes.MAX_REMEMBERED_FORMS)
+            self.assertEqual(len(session[staff_forms.FORM_NUMBERS_KEY]), staff_forms.MAX_REMEMBERED_FORMS)
 
     def test_refreshing_a_created_account_does_not_repeat_it_or_show_the_code_again(self):
         number = self.number_in(self.client.get(CREATE))
@@ -394,7 +395,7 @@ class RepeatedSubmissionTests(RouteTestCase):
         self.assertEqual((again.status_code, again.location), (303, ASSESSMENT))
         self.assertNotIn("482 913", self.text(again))
         self.assertEqual(self.mocks["create"].call_count, 1)
-        self.assertEqual(self.flashed(), {"citizen_account": routes.ALREADY_DONE_MESSAGE})
+        self.assertEqual(self.flashed(), {"citizen_account": staff_forms.ALREADY_DONE_MESSAGE})
 
     def test_refreshing_a_resend_does_not_replace_the_code_just_shown(self):
         self.page = household_page(account_row())

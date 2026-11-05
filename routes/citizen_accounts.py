@@ -4,14 +4,13 @@ Only LGU Staff may use these pages. The activation link is emailed by the
 service and never appears here; staff see only the six-digit code, once.
 """
 
-from secrets import token_urlsafe
+from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
-from flask import (
-    Blueprint, abort, flash, g, redirect, render_template, request, session, url_for,
+from routes.staff_forms import (
+    ALREADY_DONE_MESSAGE, context_ids, issue_form_number, staff_context, use_form_number,
 )
-
 from services.assessment_queries import AssessmentQueryError
-from services.auth import check_csrf, csrf_token, lgu_staff_required
+from services.auth import check_csrf, lgu_staff_required
 from services.citizen_accounts import (
     CitizenAccountError, CitizenAccountInputError, change_account_email,
     create_citizen_account, deactivate_account, get_household_account_page,
@@ -23,17 +22,6 @@ citizen_accounts = Blueprint("citizen_accounts", __name__)
 FORM_FIELDS = (
     "representative_name", "email", "email_confirmation", "representative_verified",
     "privacy_consent_confirmed", "verification_note",
-)
-# Each form carries a one-time number. A repeated POST (a browser refresh or a double
-# click) finds it already used and changes nothing, so a resend cannot silently
-# replace the code the staff member has just read. The numbers live in the signed
-# session cookie, so this prevents ordinary duplicate submissions only; it is not a
-# server-side guarantee against someone replaying an older copy of the cookie.
-FORM_NUMBERS_KEY = "citizen_account_form_numbers"
-MAX_REMEMBERED_FORMS = 10
-ALREADY_DONE_MESSAGE = (
-    "This request was already completed, so nothing was changed. Activation codes are "
-    "shown only once; choose Resend Activation if a new code is needed."
 )
 EMAIL_IN_USE_MESSAGE = (
     "This email address is already used by another Citizen Account. "
@@ -48,32 +36,6 @@ STATE_CHANGED_MESSAGES = {
 }
 
 
-def _staff_context():
-    return {
-        "role_label": "LGU Staff", "staff_username": g.user["username"],
-        "csrf_token": csrf_token(),
-    }
-
-
-def _issue_form_number():
-    """Create a one-time number for a form and remember it in the staff member's session."""
-    number = token_urlsafe(16)
-    remembered = session.get(FORM_NUMBERS_KEY, [])[-(MAX_REMEMBERED_FORMS - 1):]
-    session[FORM_NUMBERS_KEY] = remembered + [number]
-    return number
-
-
-def _use_form_number():
-    """Accept the submitted form number once; any repeat or unknown number returns False."""
-    remembered = session.get(FORM_NUMBERS_KEY, [])
-    submitted = request.form.get("form_number", "")
-    if submitted not in remembered:
-        return False
-    remembered.remove(submitted)
-    session[FORM_NUMBERS_KEY] = remembered
-    return True
-
-
 def _load_page(household_uuid, **options):
     """Read the household and its account state, or stop with a clear error page."""
     try:
@@ -82,18 +44,6 @@ def _load_page(household_uuid, **options):
         if str(failure) in ("household_assessment_missing", "household_identity_missing"):
             abort(404, description="This household assessment is unavailable in the selected batch.")
         abort(503, description="Citizen accounts are unavailable. Please try again later.")
-
-
-def _context_ids():
-    """Read the batch and run the page was built from, as hidden numeric fields."""
-    ids = []
-    for key in ("batch_id", "run_id"):
-        values = request.form.getlist(key)
-        if len(values) != 1 or not values[0].isascii() or not values[0].isdecimal() \
-                or len(values[0]) > 18:
-            abort(400, description="The form expired. Return to the Assessment page and try again.")
-        ids.append(int(values[0]))
-    return ids
 
 
 def _stop_for(failure):
@@ -127,8 +77,8 @@ def _redirect_to_assessment(household_uuid, message):
 def _render_form(page, household_uuid, values, errors, status=200):
     return render_template(
         "citizen_accounts/create.html", page=page, values=values, errors=errors,
-        form_number=_issue_form_number(),
-        assessment_url=_assessment_url(household_uuid), **_staff_context(),
+        form_number=issue_form_number(),
+        assessment_url=_assessment_url(household_uuid), **staff_context(),
     ), status
 
 
@@ -140,7 +90,7 @@ def create(household_uuid):
     """Show the Create Citizen Account form and save it."""
     if request.method == "POST":
         check_csrf()
-        if not _use_form_number():
+        if not use_form_number():
             return _redirect_to_assessment(household_uuid, ALREADY_DONE_MESSAGE)
     page = _load_page(household_uuid)
     state = page["account"]["state"]
@@ -152,7 +102,7 @@ def create(household_uuid):
         )
     if request.method == "GET":
         return _render_form(page, household_uuid, {}, {})
-    batch_id, run_id = _context_ids()
+    batch_id, run_id = context_ids()
     values = {key: request.form.get(key, "") for key in FORM_FIELDS}
     try:
         result = create_citizen_account(
@@ -173,7 +123,7 @@ def create(household_uuid):
     return render_template(
         "citizen_accounts/result.html", result=result, page=page,
         heading="Citizen Account created",
-        assessment_url=_assessment_url(household_uuid), **_staff_context(),
+        assessment_url=_assessment_url(household_uuid), **staff_context(),
     )
 
 
@@ -185,7 +135,7 @@ def resend(household_uuid):
     """Confirm and send a new activation link and code, replacing the old pair."""
     if request.method == "POST":
         check_csrf()
-        if not _use_form_number():
+        if not use_form_number():
             return _redirect_to_assessment(household_uuid, ALREADY_DONE_MESSAGE)
     page = _load_page(household_uuid)
     account = page["account"]
@@ -199,10 +149,10 @@ def resend(household_uuid):
         )
     if request.method == "GET":
         return render_template(
-            "citizen_accounts/resend.html", page=page, form_number=_issue_form_number(),
-            assessment_url=_assessment_url(household_uuid), **_staff_context(),
+            "citizen_accounts/resend.html", page=page, form_number=issue_form_number(),
+            assessment_url=_assessment_url(household_uuid), **staff_context(),
         )
-    batch_id, run_id = _context_ids()
+    batch_id, run_id = context_ids()
     try:
         result = resend_activation(g.user["id"], str(household_uuid), batch_id, run_id)
     except CitizenAccountError as failure:
@@ -219,7 +169,7 @@ def resend(household_uuid):
     return render_template(
         "citizen_accounts/result.html", result=result, page=page,
         heading="Activation email resent",
-        assessment_url=_assessment_url(household_uuid), **_staff_context(),
+        assessment_url=_assessment_url(household_uuid), **staff_context(),
     )
 
 
@@ -250,7 +200,7 @@ def _management_form(household_uuid, *, template, permission, blocked_message, f
     """
     if request.method == "POST":
         check_csrf()
-        if not _use_form_number():
+        if not use_form_number():
             return _redirect_to_assessment(household_uuid, ALREADY_DONE_MESSAGE)
     page, stop = _manageable_page(household_uuid, permission, blocked_message)
     if stop:
@@ -259,13 +209,13 @@ def _management_form(household_uuid, *, template, permission, blocked_message, f
     def render_form(values, errors, status=200):
         return render_template(
             template, page=page, values=values, errors=errors,
-            form_number=_issue_form_number(),
-            assessment_url=_assessment_url(household_uuid), **_staff_context(),
+            form_number=issue_form_number(),
+            assessment_url=_assessment_url(household_uuid), **staff_context(),
         ), status
 
     if request.method == "GET":
         return render_form({}, {})
-    batch_id, run_id = _context_ids()
+    batch_id, run_id = context_ids()
     values = {key: request.form.get(key, "") for key in fields}
     try:
         result = act(g.user["id"], str(household_uuid), batch_id, run_id, request.form)
@@ -286,7 +236,7 @@ def _show_result(heading):
     def finish(result, page):
         return render_template(
             "citizen_accounts/result.html", result=result, page=page, heading=heading,
-            assessment_url=_assessment_url(page["household_uuid"]), **_staff_context(),
+            assessment_url=_assessment_url(page["household_uuid"]), **staff_context(),
         )
     return finish
 
@@ -349,5 +299,5 @@ def history(household_uuid):
         return _redirect_to_assessment(household_uuid, "This household has no Citizen Account yet.")
     return render_template(
         "citizen_accounts/history.html", page=page,
-        assessment_url=_assessment_url(household_uuid), **_staff_context(),
+        assessment_url=_assessment_url(household_uuid), **staff_context(),
     )
