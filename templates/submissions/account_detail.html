@@ -1,0 +1,26 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Citizen Account{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  {# The shared household summary and account sections read their values from "page" and "results". #}
+  {% set page = results %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ list_url }}"><span aria-hidden="true">←</span> Back to Citizen Accounts</a>
+    <h1>Citizen Account</h1>
+    <p class="account-lead">Manage this household's representative account and the documents requested from them.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+  {% include 'assessments/_citizen_account.html' %}
+  {% include 'assessments/_document_requests.html' %}
+
+  <p class="account-actions">
+    <a class="account-button account-button-secondary" href="{{ assessment_url }}">Open Household Assessment</a>
+    <a class="account-button account-button-secondary" href="{{ list_url }}">Back to Citizen Accounts</a>
+  </p>
+{% endblock %}

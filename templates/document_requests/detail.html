@@ -9,6 +9,9 @@
 {% block content %}
   {% set document = page.request %}
   <header class="page-header account-header">
+    {% if list_url %}
+      <a class="account-back" href="{{ list_url }}"><span aria-hidden="true">←</span> Back to Document Requests</a>
+    {% endif %}
     <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
     <h1>{{ document.title }}</h1>
   </header>

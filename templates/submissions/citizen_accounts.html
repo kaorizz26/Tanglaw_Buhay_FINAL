@@ -1,0 +1,72 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Citizen Accounts{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/household-records.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/submissions.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set list_endpoint = 'submissions.citizen_accounts' %}
+  <header class="page-header records-header">
+    <div class="page-heading">
+      <h1>Citizen Accounts</h1>
+      <p>Household representatives who have a Citizen Portal account. Accounts are created from a household's Assessment page.</p>
+    </div>
+  </header>
+
+  <section class="records-panel" aria-label="Citizen accounts">
+    {% set search_label = 'Household ID or representative' %}
+    {% set search_hint = 'e.g. HH-00001 or a name' %}
+    {% include 'submissions/_filters.html' %}
+
+    <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}registered{% endif %} {{ 'account' if results.total == 1 else 'accounts' }}</p>
+
+    {% if results['items'] %}
+      <div class="records-table-scroll" role="region" aria-label="Citizen accounts table" tabindex="0">
+        <table class="records-table">
+          <caption class="visually-hidden">Citizen Accounts, newest first.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Household ID</th>
+              <th scope="col">Representative</th>
+              <th scope="col">Barangay</th>
+              <th scope="col">Account Status</th>
+              <th scope="col" class="records-action">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in results['items'] %}
+              <tr>
+                <td class="records-id" data-label="Household ID">{{ item.household_id }}</td>
+                <td data-label="Representative">{{ item.representative }}</td>
+                <td data-label="Barangay">{{ item.barangay }}</td>
+                <td data-label="Account Status"><span class="account-status account-status-{{ item.status }}">{{ item.status_label }}</span></td>
+                <td class="records-action" data-label="Action">
+                  <a class="records-row-link" href="{{ url_for('submissions.account_detail', household_uuid=item.household_uuid, page=results.page, **results.filters.parameters) }}">View<span class="visually-hidden"> account of {{ item.representative }}</span></a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% elif results.filters.parameters %}
+      <div class="records-empty" role="status">
+        <h3>No accounts match your search</h3>
+        <p>Try another household ID, name, status or barangay.</p>
+        <a href="{{ url_for(list_endpoint) }}">Show all accounts</a>
+      </div>
+    {% else %}
+      <div class="records-empty" role="status">
+        <h3>No Citizen Accounts yet</h3>
+        <p>Open a household's Assessment page and choose Create Citizen Account. New accounts appear here automatically.</p>
+        <a href="{{ url_for('assessments.prioritization') }}">Go to Household Prioritization</a>
+      </div>
+    {% endif %}
+
+    {% set noun = 'accounts' %}
+    {% include 'submissions/_pagination.html' %}
+  </section>
+{% endblock %}

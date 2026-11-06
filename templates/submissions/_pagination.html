@@ -1,0 +1,19 @@
+{# Page controls for a Submissions list. Needs: results, list_endpoint, noun (for example "requests"). #}
+{% if results.page_count > 1 %}
+  <nav class="records-pagination" aria-label="Pages of {{ noun }}">
+    <p class="records-range">Showing <strong>{{ '{:,}'.format(results.range_start) }}–{{ '{:,}'.format(results.range_end) }}</strong> of {{ '{:,}'.format(results.total) }} {{ noun }}</p>
+    <div class="records-page-controls">
+      {% if results.page > 1 %}
+        <a href="{{ url_for(list_endpoint, page=results.page - 1, **results.filters.parameters) }}">← Previous</a>
+      {% else %}
+        <span aria-disabled="true">← Previous</span>
+      {% endif %}
+      <p>Page {{ results.page }} of {{ results.page_count }}</p>
+      {% if results.page < results.page_count %}
+        <a href="{{ url_for(list_endpoint, page=results.page + 1, **results.filters.parameters) }}">Next →</a>
+      {% else %}
+        <span aria-disabled="true">Next →</span>
+      {% endif %}
+    </div>
+  </nav>
+{% endif %}

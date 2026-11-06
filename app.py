@@ -15,6 +15,7 @@ from routes.document_requests import document_requests
 from routes.households import households
 from routes.main import main
 from routes.public import public
+from routes.submissions import submissions
 from services.auth import protect_staff_routes
 from services.assessment_request_logging import (
     protect_assessment_access_logs, protect_portal_token_logs,
@@ -60,6 +61,7 @@ def create_app(test_config=None):
     app.register_blueprint(document_requests)
     app.register_blueprint(citizen_portal)
     app.register_blueprint(citizen_documents)
+    app.register_blueprint(submissions)
     app.before_request(protect_staff_routes)
     register_commands(app)
     app.add_template_filter(pht_datetime)

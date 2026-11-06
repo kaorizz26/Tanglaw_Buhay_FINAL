@@ -12,6 +12,7 @@ from routes.staff_forms import context_ids, issue_form_number, staff_context, us
 from services.assessment_queries import AssessmentQueryError
 from services.auth import check_csrf, lgu_staff_required
 from services.citizen_accounts import CitizenAccountError, get_household_account_page
+from services.submissions import InvalidDirectoryFilters, parse_return
 from services.document_reviews import accept_document, open_file_for_staff, request_correction
 from services.document_requests import (
     MAX_DOCUMENTS_PER_FORM, DocumentRequestInputError, cancel_document_request,
@@ -138,9 +139,16 @@ def create(household_uuid):
 @lgu_staff_required
 def detail(request_id):
     """Show one request: its status, what to do next and its history."""
+    try:
+        returned = parse_return(request.args)
+    except InvalidDirectoryFilters:
+        abort(400, description="The link back to the list is not valid.")
+    # Opened from the Document Requests list: offer a way back with the same search.
+    list_url = (url_for("submissions.document_requests", page=returned[0], **returned[1].parameters)
+                if returned else None)
     page = _load_request_page(request_id)
     return render_template(
-        "document_requests/detail.html", page=page,
+        "document_requests/detail.html", page=page, list_url=list_url,
         assessment_url=_assessment_url(page["household_uuid"]), **staff_context(),
     )
 
