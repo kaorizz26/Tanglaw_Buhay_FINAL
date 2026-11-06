@@ -1,0 +1,53 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Household Progression{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/progression.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header progression-header">
+    <div class="page-heading">
+      <h1>Household Progression</h1>
+      <p>Find a household across available survey years.</p>
+    </div>
+  </header>
+
+  <section class="progression-panel" aria-labelledby="progression-search-heading">
+    <h2 id="progression-search-heading">Find a household</h2>
+    <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-search" role="search">
+      <div>
+        <label for="progression-query">Household UUID</label>
+        <input id="progression-query" name="q" type="search" minlength="4" maxlength="36"
+               pattern="[0-9a-fA-F-]{4,36}" value="{{ results.query }}"
+               placeholder="Enter at least four UUID characters">
+      </div>
+      <button type="submit">Search history</button>
+    </form>
+    {% if results.query %}
+      {% if results.matches %}
+        <div class="progression-table-scroll" role="region" aria-label="Historical household matches" tabindex="0">
+          <table class="progression-table">
+            <thead><tr><th scope="col">Household UUID</th><th scope="col">Survey years found</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+              {% for match in results.matches %}
+                <tr>
+                  <td class="progression-uuid">{{ match.household_uuid }}</td>
+                  <td>{{ match.years | join(', ') }}</td>
+                  <td><a href="{{ url_for('assessments.progression_detail', household_uuid=match.household_uuid) }}">View history</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if results.matches | length == 25 %}<p class="progression-note">Showing the first 25 matches. Enter more UUID characters to narrow the search.</p>{% endif %}
+      {% else %}
+        <p role="status">No household assessments match this UUID.</p>
+      {% endif %}
+    {% endif %}
+    {% if not results.batches %}
+      <p role="status">No completed historical assessments are available yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

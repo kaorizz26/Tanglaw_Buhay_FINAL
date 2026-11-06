@@ -84,6 +84,7 @@
                   </a>
                 {% elif icon == 'assessments' %}
                   {% set queue_active = request.endpoint == 'assessments.queue' or queue_return_url %}
+                  {% set progression_active = request.endpoint in ('assessments.progression_index', 'assessments.progression_detail') %}
                   <details class="navigation-group" {% if request.blueprint == 'assessments' %}open{% endif %}>
                     <summary class="navigation-item">
                       <img src="{{ url_for('static', filename='icons/' ~ icon ~ '.svg') }}" alt="" width="20" height="20">
@@ -91,13 +92,14 @@
                       <span class="navigation-chevron" aria-hidden="true">›</span>
                     </summary>
                     <ul class="navigation-children">
-                      <li><a class="navigation-item{% if not queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if not queue_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
+                      <li><a class="navigation-item{% if not queue_active and not progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if not queue_active and not progression_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
                       <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>Review Queue</a></li>
+                      <li><a class="navigation-item{% if progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.progression_index') }}" {% if progression_active %}aria-current="page"{% endif %}>Household Progression</a></li>
                     </ul>
                   </details>
                 {% elif icon == 'database' %}
-                  <a class="navigation-item{% if request.endpoint == 'main.data_import' %} navigation-item-active{% endif %}"
-                     href="{{ url_for('main.data_import') }}" {% if request.endpoint == 'main.data_import' %}aria-current="page"{% endif %}>
+                  <a class="navigation-item{% if request.endpoint in ('main.data_import', 'main.import_batches', 'main.import_activation') %} navigation-item-active{% endif %}"
+                     href="{{ url_for('main.data_import') }}" {% if request.endpoint in ('main.data_import', 'main.import_batches', 'main.import_activation') %}aria-current="page"{% endif %}>
                     <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="20" height="20">
                     <span>{{ label }}</span>
                   </a>

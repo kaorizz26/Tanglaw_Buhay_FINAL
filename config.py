@@ -21,3 +21,8 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     SESSION_REFRESH_EACH_REQUEST = False
     MAX_CONTENT_LENGTH = 1024 * 1024
+    IMPORT_MAX_CONTENT_LENGTH = 256 * 1024 * 1024
+    IMPORT_STAGING_BYTES = 1024 * 1024 * 1024
+    IMPORT_STAGING_DIR = os.getenv("IMPORT_STAGING_DIR")
+    # The documented 2022 pilot batch provides the approved reference snapshot.
+    IMPORT_REFERENCE_BATCH_ID = 1

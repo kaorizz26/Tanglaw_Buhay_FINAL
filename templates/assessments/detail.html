@@ -46,6 +46,7 @@
               <dt>Household UUID</dt>
               <dd class="detail-record-id">{{ results.household_uuid }}</dd>
             </dl>
+            <a class="context-navigation" href="{{ url_for('assessments.progression_detail', household_uuid=results.household_uuid) }}">View household progression →</a>
           {% endif %}
         </div>
         <dl class="household-records">

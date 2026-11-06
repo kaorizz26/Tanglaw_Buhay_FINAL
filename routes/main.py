@@ -5,12 +5,27 @@ from flask import (
     request, url_for,
 )
 import psycopg
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from services.auth import ADMIN_ROLE, admin_required, check_csrf, csrf_token
 from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError, get_active_dashboard_summary
 from services.dashboard_patterns import select_area
 from services.review_queue import get_dashboard_reviews
+from services.import_validation import (
+    ImportValidationUnavailable, record_oversized_attempt, validate_admin_upload,
+)
+from services.import_validation_presentation import present_report
+from services.import_assessment_preparation import (
+    AssessmentPreparationError, list_import_batches, prepare_import_batch,
+)
+from services.survey_years import (
+    MIN_SURVEY_YEAR, latest_survey_year, parse_survey_year,
+    supported_survey_years,
+)
+from services.batch_activation import (
+    BatchActivationError, activate_prepared_batch, activation_overview,
+)
 from services.staff_account_management import (
     StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
     deactivate_staff_account, get_staff_account_for_recovery,
@@ -66,25 +81,167 @@ def index():
     return render_dashboard("LGU Staff", with_reviews=True)
 
 
-def render_admin_page(title, description=None):
-    require_fixture_source()
-    return render_template(
-        "staff/administration.html", page_title=title, description=description,
-        role_label="System Administrator", staff_username=g.user["username"],
-        csrf_token=csrf_token(),
-    )
-
-
 @main.get("/administration")
 @admin_required
 def administration():
     return render_dashboard("System Administrator", with_reviews=False)
 
 
-@main.get("/administration/import")
+@main.route("/administration/import", methods=["GET", "POST"])
 @admin_required
 def data_import():
-    return render_admin_page("Data Import", "Data import tools will appear here.")
+    """Validate four historical CSV sources without changing a dataset batch."""
+    require_fixture_source()
+    report = None
+    error = None
+    batch_id = None
+    survey_year_value = ""
+    status = 200
+    if request.method == "POST":
+        request.max_content_length = current_app.config["IMPORT_MAX_CONTENT_LENGTH"]
+        try:
+            check_csrf()
+            survey_year_value = request.form.get("survey_year", "")
+            action = request.form.get("action", "check")
+            if action not in ("check", "store"):
+                abort(400, description="Choose a valid data import action.")
+            try:
+                survey_year = parse_survey_year(survey_year_value)
+            except ValueError:
+                error = (
+                    f"Choose a supported survey year: every two years from "
+                    f"{MIN_SURVEY_YEAR} through {latest_survey_year()}."
+                )
+                status = 400
+            else:
+                result = validate_admin_upload(
+                    request.files, g.user["id"], survey_year,
+                    store_inactive=action == "store",
+                    authorization_confirmed=request.form.get("authorized_source") == "yes",
+                )
+                report = result["report"]
+                error = result["error"]
+                batch_id = result.get("batch_id")
+                if error or (report and not report["passed"]):
+                    status = 400
+        except RequestEntityTooLarge:
+            try:
+                record_oversized_attempt(g.user["id"])
+            except ImportValidationUnavailable:
+                abort(503, description="Data validation is unavailable. Please try again.")
+            error = "The four files exceed the 256 MiB upload limit."
+            status = 413
+        except ImportValidationUnavailable:
+            abort(503, description="Data validation is unavailable. Please try again.")
+    return render_template(
+        "staff/data_import.html", report=present_report(report), error=error,
+        batch_id=batch_id, survey_year_value=survey_year_value,
+        survey_year_options=supported_survey_years(),
+        role_label="System Administrator", staff_username=g.user["username"],
+        csrf_token=csrf_token(),
+    ), status
+
+
+@main.route("/administration/import/batches", methods=["GET", "POST"])
+@admin_required
+def import_batches():
+    """Prepare a validated inactive import without changing the active batch."""
+    require_fixture_source()
+    error = None
+    prepared = None
+    status = 200
+    if request.method == "POST":
+        check_csrf()
+        selected = request.form.get("batch_id", "")
+        if (not selected.isdecimal() or len(selected) > 18
+                or request.form.get("confirm_prepare") != "yes"):
+            error = "Select an inactive batch and confirm preparation."
+            status = 400
+        else:
+            try:
+                prepared = prepare_import_batch(int(selected), g.user["id"])
+            except AssessmentPreparationError as exc:
+                if str(exc) == "preparation_in_progress":
+                    error = "An assessment preparation is already in progress. Try again later."
+                    status = 409
+                elif str(exc) == "batch_not_preparable":
+                    error = "This batch is no longer available for preparation. Reload the page."
+                    status = 409
+                else:
+                    error = "Assessment preparation could not be completed. The current dataset is unchanged."
+                    status = 503
+    try:
+        batches = list_import_batches()
+    except AssessmentPreparationError:
+        abort(503, description="Import batches are unavailable. Please try again.")
+    return render_template(
+        "staff/import_batches.html", batches=batches, error=error, prepared=prepared,
+        role_label="System Administrator", staff_username=g.user["username"],
+        csrf_token=csrf_token(),
+    ), status
+
+
+@main.route("/administration/import/activation", methods=["GET", "POST"])
+@admin_required
+def import_activation():
+    """Switch to a prepared batch only after fresh review and run checks."""
+    require_fixture_source()
+    error = None
+    status = 200
+    if request.method == "POST":
+        check_csrf()
+        fields = (
+            "target_batch_id", "expected_active_batch_id",
+            "expected_active_run_id", "expected_target_run_id",
+        )
+        values = [request.form.get(name, "") for name in fields]
+        if (request.form.get("confirm_switch") != "yes"
+                or any(not value.isascii() or not value.isdecimal()
+                       or len(value) > 18 for value in values)):
+            error = "Select a prepared batch and confirm the switch."
+            status = 400
+        else:
+            try:
+                result = activate_prepared_batch(
+                    int(values[0]), g.user["id"],
+                    expected_active_batch_id=int(values[1]),
+                    expected_active_run_id=int(values[2]),
+                    expected_target_run_id=int(values[3]),
+                )
+            except BatchActivationError as exc:
+                if str(exc) == "unfinished_reviews":
+                    error = (
+                        f"{exc.review_count} staff review"
+                        f"{' is' if exc.review_count == 1 else 's are'} still In Review. "
+                        "Finish or cancel them before switching batches."
+                    )
+                    status = 409
+                elif str(exc) in (
+                        "selection_changed", "batch_not_ready", "batch_not_switchable"):
+                    error = "The selected batch changed or is not ready. Reload and review it again."
+                    status = 409
+                elif str(exc) == "unauthorized":
+                    abort(403)
+                elif str(exc) == "invalid_switch_request":
+                    error = "Select a valid prepared batch."
+                    status = 400
+                else:
+                    abort(503, description="Batch switching is unavailable. Please try again.")
+            else:
+                flash(
+                    f"Batch {result['target_batch_id']} is now active. "
+                    f"Batch {result['previous_batch_id']} and its review history remain stored.",
+                )
+                return redirect(url_for("main.import_activation"))
+    try:
+        overview = activation_overview()
+    except BatchActivationError:
+        abort(503, description="Prepared batches are unavailable. Please try again.")
+    return render_template(
+        "staff/import_activation.html", overview=overview, error=error,
+        role_label="System Administrator", staff_username=g.user["username"],
+        csrf_token=csrf_token(),
+    ), status
 
 
 @main.route("/administration/accounts", methods=["GET", "POST"])

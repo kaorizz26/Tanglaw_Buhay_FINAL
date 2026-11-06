@@ -671,6 +671,79 @@ it in Git does not authorize another import. Private `.env`, CSVs and database
 contents remain outside Git. No credentials or source household records are
 embedded in the runner.
 
+### Administrator four-file validation and inactive storage
+
+`GET/POST /administration/import` is System Administrator-only and retains the
+development source guard. The form accepts only `household.csv`,
+`section_a_e_indiv.csv`, `section_l02_to_l41.csv` and
+`section_l11_to_l14.csv`. The other three reference CSVs are not uploaded.
+The administrator must select a year from the two-year survey cycle beginning
+in 2022 (2022, 2024, 2026, and so on), up to the current Philippine year,
+because the source files contain no reliable batch-year field. The year is
+stored and audited; it is never inferred from household answers.
+Validation reads their stored, validated snapshot from the documented 2022
+pilot batch `1`, checks its metadata and ordered row counts, then runs the
+existing preflight with those references. The administrator can check files
+without storage or confirm their authorized source and store a passing bundle.
+Preflight does not independently certify source authorization.
+
+The storage action reuses the same parsed frames. One transaction serializes
+imports, rejects an identical stored bundle, creates an inactive pending batch,
+stores all four original source CSVs plus three approved reference snapshots,
+verifies every table count, and marks the batch validated. A count or database
+failure rolls back the new batch. It never changes the active pointer, creates
+an assessment run, or alters existing source, findings, rankings or reviews.
+The one-time 2022 importer remains separate and unchanged.
+
+Only this route raises its request cap to 256 MiB; ordinary routes retain the
+1 MiB cap. One validation at a time uses a PostgreSQL advisory lock. The four
+files are copied to canonical names in a private temporary directory outside
+the application, bounded by a 1 GiB staging quota, and removed after each
+attempt. A later attempt removes abandoned staging directories older than 24
+hours. The preflight itself still parses CSVs in memory, so deployment must
+measure peak memory with the authorized bundle before enabling real uploads.
+
+Migration `0013_import_validation_audit.sql` must be applied explicitly before
+using the page. It records actor, time, pass/fail/rejection or successful
+staging, the trusted reference version, file sizes and hashes, and aggregate
+issue counts. It stores no source rows or full report. A successful staging
+event links to its batch and is retained with that batch. Standalone validation
+attempts older than 90 days are purged on later attempts or through
+`flask purge-import-validation-audit`; deployment should schedule that command
+to enforce the limit during inactivity. This migration adds only its audit
+table; it does not modify existing source, assessment or staff-review tables.
+An admin-only `/administration/import/batches` page lists staged batches and
+prepares one validated inactive batch on explicit confirmation. The preparation
+service reconstructs that batch from one read-only snapshot, runs the unchanged
+MPI and four screening engines, applies the existing complete-output verifier,
+and compares source-frame fingerprints. Under a preparation advisory lock it
+rechecks the administrator, batch identity, inactivity, source counts and absence
+of earlier runs. One transaction creates the run, stores all findings, completes
+it, compares every stored finding and rank with the calculated output, and
+designates the run. Failure rolls back all run writes and leaves the active
+batch, older runs, original responses and staff reviews untouched. Calculation
+provenance records the administrator ID, source/reference version and engine
+file hashes. The page runs synchronously; deployments should allow a request
+long enough for the full batch or add a durable job worker before production use.
+`GET/POST /administration/import/activation` lists the active batch and other
+validated batches with designated completed runs. A System Administrator must
+explicitly confirm a switch. The service rechecks both runs' household coverage,
+the administrator, and the outgoing batch's `In Review` count in the transaction.
+Any unfinished review blocks the switch until staff finish or cancel it through
+the existing attributed workflow. The active pointer and a metadata-only event
+in `batch_activation_events` commit together; source rows, findings, and review
+history are not rewritten. A previously active batch can be selected again.
+Migration `0014_batch_activation_audit.sql` must be applied once after 0013
+before the activation page is used. Activation events are retained with
+batch/review history. Migration `0015_multi_year_import.sql` replaces the
+2022-only batch constraint with a 2022 lower boundary and adds the declared year
+to validation audit events. Application validation supplies the current-year
+upper boundary. Later-year batches reuse the approved reference snapshot under
+the explicit schema/code compatibility assumption. When no verified age-reference
+date is available, current SPISC age progression keeps conservative year-only
+bounds; it does not invent an interview date. Cross-year household matching is
+outside this workflow.
+
 ## 13. Phase 6B.3 Task 1: staff authentication
 
 `0002_staff_authentication.sql` adds only `staff_users`, separate from CBMS
@@ -2360,7 +2433,7 @@ still referenced the retained staff row. Both orders passed. `python -m pip chec
 reported no broken requirements. Earlier counts in this guide describe their
 own checkpoints. Synthetic verification does not replace future pilot usage.
 
-## Household contact-number sync (one-time)
+### Household contact-number sync (one-time)
 
 The household source CSV gained a supplemental `contact_number` column (11-digit
 mobile numbers, kept as text so leading zeros survive). It is a synthetic field
@@ -2387,3 +2460,30 @@ treat a missing contact number as "no recorded number".
 
 Rollback after commit: remove the key (`responses - 'contact_number'`), restore the
 saved `source_columns` and `source_provenance`, or restore the backup.
+
+### Household Progression read-only comparison
+
+`/assessments/progression` searches household UUIDs in all validated batches with
+designated completed runs, including inactive batches. The detail route selects
+two different survey years and reads only the stored findings for those selected
+batch/run pairs. The project assumes household UUIDs persist across survey years.
+No cross-year person identity is inferred from roster line numbers. Multiple
+batches in one year require an explicit selection before comparison.
+
+The overall Improved/Worsened/Unchanged label requires both complete 16-indicator
+MPI assessments and matching MPI engine hashes plus identical stored MPI mapping
+rows. A later run that copied MPI from an earlier run resolves that earlier run's
+provenance. Missing provenance, unknown indicators, missing household assessments,
+or differing methods yield Insufficient Data. Individual indicator changes use
+stored flags, with missing or incompatible findings labeled Insufficient Data.
+Scores and findings are never rewritten. Priority uses the existing rule over each
+year's stored score and historical screening statuses; present-day SPISC age
+guidance, staff reviews, applications, approvals, and benefit receipt are not
+treated as survey progression data.
+
+The focused synthetic tests are in `tests/test_household_progression.py`, including
+an isolated PostgreSQL check for the same UUID across 2022/2024 and a 2022-only
+household. The full regression suite passed 633 tests before the final
+staff-facing dataset labels; the focused progression suite passed 12 tests
+afterward. Browser policy blocked a local-file visual viewport check, so
+visual review and an authorized later-year pilot remain open verification tasks.

@@ -7,6 +7,30 @@ import psycopg
 from db import get_connection
 from repositories import dataset_batches as repository
 from services.cbms_preflight import load_csv_bundle
+from services.survey_years import is_supported_survey_year
+
+
+class DuplicateImportBundle(RuntimeError):
+    """The same four-source and reference version is already stored."""
+
+
+def stage_validated_snapshot(connection, datasets, references, provenance, survey_year):
+    """Store a passing snapshot as validated and inactive; caller owns rollback."""
+    if not is_supported_survey_year(survey_year):
+        raise RuntimeError("invalid_import_survey_year")
+    repository.lock_dataset_imports(connection)
+    if repository.find_matching_bundle(
+            connection, provenance["declared"]["bundle_sha256"]):
+        raise DuplicateImportBundle("duplicate_import_bundle")
+    frames = {**datasets, **references}
+    columns = {name: list(frame.columns) for name, frame in frames.items()}
+    batch_id = repository.create_batch(
+        connection, survey_year, "Pozorrubio", columns, provenance,
+    )
+    repository.store_batch_records(connection, batch_id, datasets, references)
+    repository.verify_batch_counts(connection, batch_id, datasets, references)
+    repository.mark_batch_validated(connection, batch_id)
+    return batch_id
 
 
 def import_csv_bundle(
