@@ -130,16 +130,20 @@
 
     {% if report %}
       <section class="import-results-panel" aria-labelledby="result-heading" aria-live="polite">
+        {# A stopped import (for example a duplicate bundle) is never reported as passed. #}
+        {% set report_passed = report.passed and not error %}
         <div class="import-results-heading">
           <div>
             <p class="import-panel-kicker">Validation report</p>
             <h2 id="result-heading">File check results</h2>
           </div>
-          <span class="import-result-badge import-result-badge-{{ 'pass' if report.passed else 'fail' }}">{{ 'Passed' if report.passed else 'Needs attention' }}</span>
+          <span class="import-result-badge import-result-badge-{{ 'pass' if report_passed else 'fail' }}">{{ 'Passed' if report_passed else 'Needs attention' }}</span>
         </div>
         {% if batch_id %}
           <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>Stored survey year {{ survey_year_value }} as inactive batch {{ batch_id }}. Assessments have not been run and the active dataset is unchanged.</p></div>
-        {% elif report.passed %}
+        {% elif error %}
+          {# The error banner at the top of the page already explains why nothing was stored. #}
+        {% elif report_passed %}
           <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>The survey year {{ survey_year_value }} files passed validation. No dataset has been added or activated.</p></div>
         {% else %}
           <div class="import-page-alert import-page-alert-error"><span class="import-alert-icon" aria-hidden="true">!</span><p>Correct the issues below before preparing this dataset. The active dataset is unchanged.</p></div>

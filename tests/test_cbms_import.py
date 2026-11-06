@@ -17,7 +17,9 @@ from flask import Flask
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-from cbms_csv_fixtures import synthetic_csv_frames, write_csv_fixture
+from cbms_csv_fixtures import (
+    FIRST_HOUSEHOLD_ID, SECOND_HOUSEHOLD_ID, synthetic_csv_frames, write_csv_fixture,
+)
 from repositories import dataset_batches as repository
 from services.cbms_import import import_csv_bundle
 from services.cbms_preflight import load_csv_bundle
@@ -46,7 +48,7 @@ class ImportValidationTests(unittest.TestCase):
             factory.assert_not_called()
             self.assertFalse(result["imported"])
             self.assertEqual(result["error"], {"code": "preflight_failed"})
-            self.assertNotIn("DEV-0001", json.dumps(result))
+            self.assertNotIn(FIRST_HOUSEHOLD_ID, json.dumps(result))
 
     def test_invalid_metadata_does_not_read_files_or_connect(self):
         for change in (
@@ -131,7 +133,9 @@ class TransactionalImportTests(unittest.TestCase):
 
     def test_commit_preserves_all_values_columns_positions_and_provenance(self):
         for frame in self.datasets.values():
-            frame["uuid"] = frame["uuid"].replace({"DEV-0001": "00002", "DEV-0002": "00001"})
+            frame["uuid"] = frame["uuid"].replace({
+                FIRST_HOUSEHOLD_ID: SECOND_HOUSEHOLD_ID, SECOND_HOUSEHOLD_ID: FIRST_HOUSEHOLD_ID,
+            })
         for name, field in (
             ("section_a_e_indiv", "line_number"),
             ("section_l02_to_l41", "section_l_line_number"),
@@ -145,7 +149,7 @@ class TransactionalImportTests(unittest.TestCase):
         self.datasets["section_l02_to_l41"] = self.datasets["section_l02_to_l41"].iloc[1:]
         death = self.datasets["section_l11_to_l14"]
         row = dict.fromkeys(death.columns, "")
-        row["uuid"] = "00002"
+        row["uuid"] = SECOND_HOUSEHOLD_ID
         self.datasets["section_l11_to_l14"] = pd.DataFrame([row, row], columns=death.columns)
         write_csv_fixture(self.root, self.datasets, self.references)
         sources, references, report = load_csv_bundle(self.root)
@@ -169,7 +173,7 @@ class TransactionalImportTests(unittest.TestCase):
             self.assertEqual(columns[name], list(frame.columns))
             self.assertEqual(provenance["files"][name]["sha256"], frame.attrs["sha256"])
             self.assertEqual(provenance["files"][name]["records"], len(frame))
-        self.assertEqual(stored["household"][0][1]["uuid"], "00002")
+        self.assertEqual(stored["household"][0][1]["uuid"], SECOND_HOUSEHOLD_ID)
         self.assertEqual(stored["section_a_e_indiv"][0][1]["line_number"], "001")
 
     def test_failed_preflight_preserves_existing_active_batch(self):

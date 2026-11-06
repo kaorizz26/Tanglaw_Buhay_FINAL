@@ -26,6 +26,10 @@ ISSUE_LABELS = {
     "missing_join_columns": "Required household or member ID columns are missing.",
     "blank_join_keys": "Some household or member IDs are blank.",
     "duplicate_join_keys": "Some household or member IDs are repeated.",
+    "invalid_household_id_format": (
+        "Some household IDs are not in the required format. Use lowercase letters "
+        "and digits with hyphens, for example 123e4567-e89b-12d3-a456-426614174000."
+    ),
     "empty_household_dataset": "The household file has no records.",
     "empty_household_roster": "The member file has no records.",
     "missing_engine_columns": "Columns needed for assessment are missing.",

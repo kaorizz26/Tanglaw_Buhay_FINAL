@@ -1,7 +1,10 @@
 """Small, explicitly synthetic CSV bundles shared by preflight/import tests."""
 
 from services.data_loader import EXCEL_FILES, REFERENCE_FILES
-from services.development_data import development_sources
+from services.development_data import development_sources, synthetic_household_id
+
+FIRST_HOUSEHOLD_ID = synthetic_household_id(1)
+SECOND_HOUSEHOLD_ID = synthetic_household_id(2)
 
 
 def synthetic_csv_frames():

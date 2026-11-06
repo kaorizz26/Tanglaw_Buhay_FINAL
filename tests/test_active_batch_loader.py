@@ -8,7 +8,7 @@ import pandas as pd
 import psycopg
 from psycopg.pq import TransactionStatus
 
-from cbms_csv_fixtures import synthetic_csv_frames
+from cbms_csv_fixtures import FIRST_HOUSEHOLD_ID, SECOND_HOUSEHOLD_ID, synthetic_csv_frames
 from repositories import dataset_batches as repository
 from services.active_batch_loader import ActiveBatchError, load_active_batch
 from services.assessments import build_unified_assessments
@@ -23,7 +23,9 @@ class ActiveBatchLoaderTests(unittest.TestCase):
         self.sources = {name: frame.astype(str) for name, frame in sources.items()}
         self.references = {name: frame.astype(str) for name, frame in references.items()}
         for frame in self.sources.values():
-            frame["uuid"] = frame["uuid"].replace({"DEV-0001": "00002", "DEV-0002": "00001"})
+            frame["uuid"] = frame["uuid"].replace({
+                FIRST_HOUSEHOLD_ID: SECOND_HOUSEHOLD_ID, SECOND_HOUSEHOLD_ID: FIRST_HOUSEHOLD_ID,
+            })
         for name, field in (
             ("section_a_e_indiv", "line_number"),
             ("section_l02_to_l41", "section_l_line_number"),
@@ -87,7 +89,8 @@ class ActiveBatchLoaderTests(unittest.TestCase):
             actual = {**datasets, **references}[name]
             pd.testing.assert_frame_equal(actual, original.reset_index(drop=True), check_exact=True)
             self.assertTrue(all(dtype == object for dtype in actual.dtypes))
-        self.assertEqual(datasets["household"]["uuid"].tolist(), ["00002", "00001"])
+        self.assertEqual(datasets["household"]["uuid"].tolist(),
+                         [SECOND_HOUSEHOLD_ID, FIRST_HOUSEHOLD_ID])
         self.assertEqual(datasets["section_a_e_indiv"]["line_number"].iloc[0], "001")
         self.assertEqual(datasets["section_a_e_indiv"]["a01_middle_name"].iloc[:2].tolist(), ["", "NA"])
         self.assertEqual(datasets["section_a_e_indiv"]["a01_suffix"].iloc[:2].tolist(), ["0007", "0"])

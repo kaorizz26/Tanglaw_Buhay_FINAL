@@ -14,7 +14,7 @@ from flask import g
 from werkzeug.datastructures import FileStorage, MultiDict
 
 from app import create_app
-from cbms_csv_fixtures import synthetic_csv_frames, write_csv_fixture
+from cbms_csv_fixtures import FIRST_HOUSEHOLD_ID, synthetic_csv_frames, write_csv_fixture
 from services.cbms_preflight import load_csv_bundle, validate_csv_bundle
 from services.data_loader import EXCEL_FILES, REFERENCE_FILES
 from services.import_references import load_import_references
@@ -131,7 +131,7 @@ class ImportValidationTests(unittest.TestCase):
         metadata = audit.call_args.args[5]
         self.assertEqual(set(metadata), set(EXCEL_FILES))
         self.assertEqual(set(metadata["household"]), {"bytes", "sha256"})
-        self.assertNotIn("DEV-0001", str(audit.call_args))
+        self.assertNotIn(FIRST_HOUSEHOLD_ID, str(audit.call_args))
 
     def test_passing_bundle_can_be_stored_inactive(self):
         _, stored_references, _ = load_csv_bundle(self.root)
@@ -326,6 +326,22 @@ class ImportRouteTests(unittest.TestCase):
         self.assertEqual(validate.call_args.args[2], 2024)
         self.assertTrue(validate.call_args.kwargs["store_inactive"])
         self.assertTrue(validate.call_args.kwargs["authorization_confirmed"])
+
+    def test_duplicate_bundle_shows_error_without_success_notice(self):
+        with self.client.session_transaction() as session:
+            session["csrf_token"] = "synthetic-csrf"
+        report = {"passed": True, "datasets": {}, "errors": [], "warnings": []}
+        with patch("routes.main.validate_admin_upload", return_value={
+                "report": report, "error": "This exact bundle is already stored."}):
+            response = self.client.post("/administration/import", data={
+                "csrf_token": "synthetic-csrf", "action": "store",
+                "authorized_source": "yes", "survey_year": "2024",
+            })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"This exact bundle is already stored.", response.data)
+        self.assertNotIn(b"files passed validation", response.data)
+        self.assertNotIn(b"import-result-badge-pass", response.data)
+        self.assertNotIn(b"Correct the issues below", response.data)
 
     def test_oversized_request_gets_fixed_response_and_audit(self):
         with self.client.session_transaction() as session:

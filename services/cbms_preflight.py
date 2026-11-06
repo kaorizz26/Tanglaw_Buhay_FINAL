@@ -44,6 +44,9 @@ REQUIRED_ENGINE_COLUMNS = {
         "l38_availed_medical_treatment",
     ),
 }
+# Household IDs must already be lowercase, hyphenated UUIDs because the staff
+# pages open households by that exact text. IDs are rejected, never rewritten.
+CANONICAL_UUID_PATTERN = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 
 def validate_csv_bundle(data_dir: str | Path = DATA_DIR, *, reference_frames=None) -> dict:
@@ -163,6 +166,8 @@ def _check_sources(datasets, report):
             count = len(stats[field]) if field == "missing_key_columns" else stats.get(field, 0)
             if count:
                 _issue(report, "errors", name, code, count)
+        if "uuid" in frame:
+            _check_household_id_format(name, frame, report)
         if name == "household" and frame.empty:
             _issue(report, "errors", name, "empty_household_dataset")
         missing = sum(field not in frame for field in REQUIRED_ENGINE_COLUMNS.get(name, ()))
@@ -181,6 +186,15 @@ def _check_sources(datasets, report):
     members = datasets.get("section_a_e_indiv")
     if households is not None and not households.empty and members is not None and members.empty:
         _issue(report, "errors", "section_a_e_indiv", "empty_household_roster")
+
+
+def _check_household_id_format(name, frame, report):
+    """Count nonblank household IDs that are not canonical UUID text."""
+    ids = frame["uuid"]
+    canonical = ids.str.fullmatch(CANONICAL_UUID_PATTERN).fillna(False).astype(bool)
+    count = int((~canonical & ids.str.strip().ne("")).sum())
+    if count:
+        _issue(report, "errors", name, "invalid_household_id_format", count)
 
 
 def _integer_key(value):

@@ -20,10 +20,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app import create_app
 from commands import check_local_bootstrap_database
 from services.auth import admin_required, create_initial_admin
+from services.development_data import synthetic_household_id
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 TEST_URL = os.getenv("TANGLAW_TEST_DATABASE_URL")
+HOUSEHOLD_ID = synthetic_household_id(1)
 
 
 class AuthenticationConfigurationTests(unittest.TestCase):
@@ -174,6 +176,7 @@ class StaffAuthenticationTests(unittest.TestCase):
             role_label = "System Administrator" if username == "synthetic_admin" else "LGU Staff"
             self.assertIn(role_label, page.text)
             self.assertNotIn(self.password, page.text)
+            # Old bookmarks use retired, non-UUID household ids and must answer 410.
             for path in ("/households/DEV-0001",
                          "/assessments/DEV-0001?tab=mpi", "/assessments?view=queue"):
                 self.assertEqual(client.get(path).status_code, 410)
@@ -190,12 +193,12 @@ class StaffAuthenticationTests(unittest.TestCase):
     def test_anonymous_routes_are_protected_and_health_is_independent(self):
         for path in ("/", "/administration", "/administration/import",
                      "/administration/accounts", "/change-password",
-                     "/households", "/households/DEV-0001", "/assessments",
-                     "/assessments/DEV-0001", "/logout", "/synthetic-admin-check"):
+                     "/households", f"/households/{HOUSEHOLD_ID}", "/assessments",
+                     f"/assessments/{HOUSEHOLD_ID}", "/logout", "/synthetic-admin-check"):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 302)
             self.assertEqual(response.location, "/login")
-            self.assertNotIn("DEV-0001", response.text)
+            self.assertNotIn(HOUSEHOLD_ID, response.text)
         with patch("services.auth.get_connection", side_effect=AssertionError("No DB for health")):
             self.assertEqual(self.client.get("/test").get_json(),
                              {"status": "ok", "application": "Tanglaw-Buhay"})

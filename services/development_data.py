@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid5
 
 import pandas as pd
 
@@ -12,12 +13,17 @@ from services.vulnerability.housing import ASSET_FIELDS
 FIXTURE_METADATA = Path(__file__).resolve().parents[1] / "fixtures" / "development_metadata.json"
 
 
+def synthetic_household_id(number):
+    """Return the same valid, clearly fictional UUID for each synthetic household number."""
+    return str(uuid5(NAMESPACE_URL, f"tanglaw-buhay-synthetic-household-{number:04d}"))
+
+
 def development_sources():
     """Build sample records; calculated flags, scores and ranks are never stored."""
     households, members, health = [], [], []
     barangays = ("Sample Barangay North", "Sample Barangay Central", "Sample Barangay East", "Sample Barangay South")
     for number in range(1, 33):
-        uuid = f"DEV-{number:04d}"
+        uuid = synthetic_household_id(number)
         household = {
             "uuid": uuid, "barangay": barangays[(number - 1) % 4], "city_mun": "Pozorrubio",
             "q01_main_water": 3 if number % 3 == 0 else 1,
