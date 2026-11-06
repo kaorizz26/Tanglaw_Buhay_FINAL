@@ -1,0 +1,40 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Resend Activation{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>Resend Activation</h1>
+    <p class="account-lead">Use this if the representative did not receive the email, or the activation code has expired.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  <section class="account-section" aria-labelledby="resend-heading">
+    <h2 id="resend-heading">Send a new activation email to this address?</h2>
+    <dl class="account-facts">
+      <div><dt>Representative</dt><dd>{{ page.account.name }}</dd></div>
+      <div><dt>Email address</dt><dd>{{ page.account.email }}</dd></div>
+    </dl>
+    <ul class="account-checklist">
+      <li>A new link is emailed to the representative.</li>
+      <li>A new six-digit activation code is shown to you once.</li>
+      <li><strong>The previous link and code will stop working immediately.</strong></li>
+    </ul>
+    <form method="post" action="{{ url_for('citizen_accounts.resend', household_uuid=page.household_uuid) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="form_number" value="{{ form_number }}">
+      <input type="hidden" name="batch_id" value="{{ page.batch_id }}">
+      <input type="hidden" name="run_id" value="{{ page.run_id }}">
+      <div class="account-actions">
+        <button class="account-button" type="submit">Send New Activation Email</button>
+        <a class="account-button account-button-secondary" href="{{ assessment_url }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

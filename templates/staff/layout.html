@@ -116,6 +116,20 @@
                       <li><a class="navigation-item{% if request.endpoint == 'main.staff_account_create' %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_account_create') }}" {% if request.endpoint == 'main.staff_account_create' %}aria-current="page"{% endif %}>Create Account</a></li>
                     </ul>
                   </details>
+                {% elif icon == 'submissions' %}
+                  {% set requests_active = request.endpoint in ('submissions.document_requests', 'document_requests.detail', 'document_requests.accept', 'document_requests.correction', 'document_requests.cancel') %}
+                  {% set accounts_active = request.endpoint in ('submissions.citizen_accounts', 'submissions.account_detail') %}
+                  <details class="navigation-group" {% if requests_active or accounts_active %}open{% endif %}>
+                    <summary class="navigation-item">
+                      <img src="{{ url_for('static', filename='icons/submissions.svg') }}" alt="" width="20" height="20">
+                      <span>{{ label }}</span>
+                      <span class="navigation-chevron" aria-hidden="true">›</span>
+                    </summary>
+                    <ul class="navigation-children">
+                      <li><a class="navigation-item{% if requests_active %} navigation-item-active{% endif %}" href="{{ url_for('submissions.document_requests') }}" {% if requests_active %}aria-current="page"{% endif %}>Document Requests</a></li>
+                      <li><a class="navigation-item{% if accounts_active %} navigation-item-active{% endif %}" href="{{ url_for('submissions.citizen_accounts') }}" {% if accounts_active %}aria-current="page"{% endif %}>Citizen Accounts</a></li>
+                    </ul>
+                  </details>
                 {% else %}
                   <span class="navigation-item navigation-item-planned" aria-disabled="true">
                     <img

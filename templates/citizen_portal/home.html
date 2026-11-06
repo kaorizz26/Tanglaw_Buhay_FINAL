@@ -1,0 +1,46 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Home{% endblock %}
+{% block main_class %} portal-main-wide{% endblock %}
+{% block navigation %}{% set current = 'home' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  <section class="portal-welcome" aria-labelledby="home-heading">
+    <h1 id="home-heading">Welcome, {{ account.representative_name }}</h1>
+    <p class="portal-account-line">Signed in as <strong>{{ account.email }}</strong></p>
+    <p class="portal-session-note">For your security, you'll be signed out after 2 hours.</p>
+  </section>
+
+  {# documents_to_upload counts Upload Needed and Needs Correction; None means it could not be read. #}
+  <section class="portal-card portal-shortcut{% if documents_to_upload %} portal-shortcut-action{% endif %}" aria-labelledby="documents-heading">
+    <div>
+      <h2 id="documents-heading">My Documents</h2>
+      {% if documents_to_upload %}
+        <p class="portal-shortcut-status">{{ '1 document needs' if documents_to_upload == 1 else documents_to_upload ~ ' documents need' }} your attention.</p>
+        <p class="portal-lead">You may need to upload a document or send a corrected file.</p>
+      {% elif documents_to_upload == 0 %}
+        <p class="portal-shortcut-status">No documents need your attention right now.</p>
+        <p class="portal-lead">Documents the LGU office asks for will appear in My Documents.</p>
+      {% else %}
+        <p class="portal-lead">See the documents the LGU office has asked for.</p>
+      {% endif %}
+    </div>
+    <a class="portal-button{% if not documents_to_upload %} portal-button-secondary{% endif %}" href="{{ url_for('citizen_documents.index') }}">Open My Documents</a>
+  </section>
+
+  <section class="portal-card portal-programs" aria-labelledby="programs-heading">
+    <h2 id="programs-heading">Explore Subsidy Programs</h2>
+    <p class="portal-lead">General information about programs in your community. The LGU office decides who can receive help.</p>
+    <ul class="portal-program-list">
+      {% for slug, program in programs.items() %}
+        <li>
+          <a href="{{ url_for('public.program', program_slug=slug) }}">
+            <img src="{{ url_for('static', filename=program.icon) }}" alt="" width="48" height="48" loading="lazy">
+            <span class="portal-program-text">
+              <strong>{{ program.code }}</strong>
+              <span>{{ program.name }}</span>
+            </span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endblock %}

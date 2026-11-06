@@ -1,0 +1,40 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Preview Document{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set document = page.request %}
+  {% set file_url = url_for('document_requests.view_file', request_id=document.id, file_id=version.id) %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ url_for('document_requests.detail', request_id=document.id) }}"><span aria-hidden="true">←</span> Back to Document Request</a>
+    <h1>{{ document.title }}</h1>
+  </header>
+
+  <section class="account-section" aria-labelledby="preview-heading">
+    <h2 id="preview-heading">Preview</h2>
+    <dl class="account-facts">
+      <div><dt>File</dt><dd>{{ version.display_name }}</dd></div>
+      <div><dt>Version</dt><dd>{{ version.version_number }} ({{ 'latest file' if version.is_latest else 'earlier version' }})</dd></div>
+      <div><dt>Uploaded</dt><dd>{{ version.uploaded_at|pht_datetime }}</dd></div>
+    </dl>
+    <div class="account-actions">
+      <a class="account-button account-button-secondary" href="{{ url_for('document_requests.download_file', request_id=document.id, file_id=version.id) }}">Download<span class="visually-hidden"> {{ version.display_name }}</span></a>
+      {% if is_pdf %}
+        <a class="account-button account-button-secondary" href="{{ file_url }}" target="_blank" rel="noopener">Open in New Tab<span class="visually-hidden"> (opens a new tab)</span></a>
+      {% endif %}
+    </div>
+
+    <div class="document-preview">
+      {% if is_pdf %}
+        <iframe class="document-preview-pdf" src="{{ file_url }}" title="Preview of {{ version.display_name }}"></iframe>
+        <p class="document-preview-note">If the document does not appear, choose Open in New Tab or Download.</p>
+      {% else %}
+        <img class="document-preview-image" src="{{ file_url }}" alt="Preview of {{ version.display_name }}">
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

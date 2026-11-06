@@ -5,6 +5,8 @@ from math import isclose
 import re
 
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
+from services.citizen_account_panel import PANEL_UNAVAILABLE, present_account_panel
+from services.document_request_panel import present_document_requests
 from services.assessment_evidence_view import (
     DISPLAY_NAMES,
     prepare_evidence_view,
@@ -139,6 +141,9 @@ def prepare_assessment_detail(source, *, assessment_date=None):
         "head_name": _head_name(identity),
         "barangay": _source_text(identity["barangay"]) or "Not recorded",
         "contact_number": format_contact_number(source.get("contact_number")),
+        "citizen_account": present_account_panel(source.get("citizen_account", PANEL_UNAVAILABLE)),
+        "document_requests": present_document_requests(
+            source.get("document_requests", PANEL_UNAVAILABLE)),
         "mpi": mpi, "determined_count": 16 - mpi["unknown_indicator_count"],
         "priority_display": priority_display(derive_subsidy_priority(
             mpi["vulnerability_score"],

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessment-details.css') }}">
   <script src="{{ url_for('static', filename='js/assessment-details.js') }}" defer></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-reviews.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -88,6 +89,8 @@
   {% elif tab == 'reviews' %}
     {% include 'assessments/staff_reviews.html' %}
   {% else %}
+    {% include 'assessments/_citizen_account.html' %}
+    {% include 'assessments/_document_requests.html' %}
     {% include 'assessments/overview.html' %}
   {% endif %}
 {% endblock %}

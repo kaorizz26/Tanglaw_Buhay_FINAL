@@ -1,0 +1,32 @@
+{# One requested document. Expects `document` from services.citizen_documents.present_citizen_request. #}
+{# Staff instructions are hidden only when they just repeat the document title. #}
+{% set repeats_title = document.instructions and document.instructions | trim | lower == document.title | trim | lower %}
+<li class="portal-card portal-document portal-document-{{ document.status }}">
+  <div class="portal-document-head">
+    <h3>{{ document.title }}</h3>
+    <span class="portal-status portal-status-{{ document.status }}">{{ document.status_label }}</span>
+  </div>
+  {% if document.instructions and not repeats_title %}
+    <p class="portal-document-instructions">{{ document.instructions }}</p>
+  {% endif %}
+  {% include 'citizen_portal/_document_reason.html' %}
+  <p class="portal-document-next">{{ document.next_step }}</p>
+  {% if document.latest_file or document.can_upload %}
+    <div class="portal-document-footer">
+      {% if document.latest_file %}
+        <p class="portal-document-file">
+          <span class="portal-document-filename">{{ document.latest_file.display_name }}</span>
+          <span class="portal-document-date">Uploaded on {{ (document.latest_file.uploaded_at | pht_date).lstrip('0') }}</span>
+        </p>
+      {% endif %}
+      <div class="portal-document-actions">
+        {% if document.latest_file %}
+          <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_documents.download', file_id=document.latest_file.id) }}">Download File<span class="portal-visually-hidden"> for {{ document.title }}</span></a>
+        {% endif %}
+        {% if document.can_upload %}
+          <a class="portal-button" href="{{ url_for('citizen_documents.upload', request_id=document.id) }}">{{ document.upload_label }}<span class="portal-visually-hidden"> for {{ document.title }}</span></a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</li>

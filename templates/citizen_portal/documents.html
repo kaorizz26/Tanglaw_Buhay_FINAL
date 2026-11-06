@@ -1,0 +1,38 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}My Documents{% endblock %}
+{% block main_class %} portal-main-wide{% endblock %}
+{% block navigation %}{% set current = 'documents' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  <h1 class="portal-page-title">My Documents</h1>
+  {% if notice %}
+    <p class="portal-notice portal-notice-{{ notice[0] }}" role="{{ 'status' if notice[0] == 'success' else 'alert' }}">{{ notice[1] }}</p>
+  {% endif %}
+
+  {% if not documents %}
+    <section class="portal-card portal-empty" aria-labelledby="empty-heading">
+      <h2 id="empty-heading">No document requests yet.</h2>
+      <p class="portal-lead">When the LGU office requests a document, it will appear here.</p>
+      <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.home') }}">Back to Home</a>
+    </section>
+  {% else %}
+    {# can_upload is true for Upload Needed and Needs Correction: the two that need the citizen to act. #}
+    {% set needs_action = documents | selectattr('can_upload') | list %}
+    {% set other_documents = documents | rejectattr('can_upload') | list %}
+    {% if needs_action %}
+      <section class="portal-document-group" aria-labelledby="attention-heading">
+        <h2 class="portal-group-heading" id="attention-heading">Needs your attention <span class="portal-count">{{ needs_action | length }}</span></h2>
+        <ul class="portal-document-list">
+          {% for document in needs_action %}{% include 'citizen_portal/_document_card.html' %}{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+    {% if other_documents %}
+      <section class="portal-document-group" aria-labelledby="other-heading">
+        <h2 class="portal-group-heading" id="other-heading">{{ 'Other documents' if needs_action else 'Your documents' }}</h2>
+        <ul class="portal-document-list">
+          {% for document in other_documents %}{% include 'citizen_portal/_document_card.html' %}{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

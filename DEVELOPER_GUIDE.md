@@ -2487,3 +2487,68 @@ household. The full regression suite passed 633 tests before the final
 staff-facing dataset labels; the focused progression suite passed 12 tests
 afterward. Browser policy blocked a local-file visual viewport check, so
 visual review and an authorized later-year pilot remain open verification tasks.
+
+## Citizen Accounts: staff side (Tasks 2A–2C)
+
+Migration `0014_citizen_accounts.sql` adds `citizen_accounts`, `citizen_account_tokens`
+and the append-only `citizen_account_events`. It must be applied explicitly and is not
+applied automatically. Until it is, the Assessment page shows "Citizen Account
+information is unavailable right now" and the account pages return 503.
+
+- An account belongs to one household record in one survey batch (`UNIQUE (batch_id,
+  household_uuid)`) and one email (`UNIQUE (email)`). Matching the same real household
+  across survey years is deliberately deferred; the composite household reference is kept.
+- Only LGU Staff can create accounts or resend activation (`lgu_staff_required`);
+  administrators receive 403. The acting staff member comes from the session.
+- The activation link and six-digit code are stored only as keyed hashes
+  (`CITIZEN_CREDENTIAL_KEY`). The link is emailed after the account transaction commits
+  and is never returned to a route or template. Staff see the code once, and only when
+  the mail server accepted the email. "Accepted" does not mean delivered to the inbox.
+- Staff verification in the capstone prototype is simulated because the contact numbers
+  are synthetic. The form wording states what staff confirm and does not claim an
+  identity check. A real deployment needs an ID-based check and approved privacy wording.
+- Create and Resend forms carry a one-time form number kept in the session. It prevents
+  ordinary duplicate submissions (browser refresh, double click) from repeating an action
+  or revealing a second code. Because the numbers are in the signed session cookie, this
+  is not a server-side guarantee against someone replaying an older copy of the cookie.
+- Real email is configured only through environment settings (see `.env.example`) and
+  checked with `scripts/check_email_settings.py`. Automated tests mock SMTP.
+
+## Digital Dropbox: storage and data foundation (Task 3A)
+
+- Migration `0015_document_requests.sql` adds `document_requests`, `document_files` and
+  `document_request_events`. It depends on 0014 and `staff_users` only, and is independent of
+  0013. If branches merge, apply 0013, 0014, then 0015. **It has not been applied to any
+  persistent database; applying it needs separate approval and a backup first.**
+- A request belongs to a Citizen Account, so the household is always the account's household.
+  Each request has its own status (`requested`, `submitted`, `needs_correction`, `accepted`,
+  `cancelled`); several requests for one household are independent rows. The database allows
+  only these steps: requested to submitted or cancelled; submitted to accepted, needs
+  correction or cancelled; needs correction to submitted or cancelled. Accepted and cancelled
+  are final. Only the status can change, and requests are never deleted.
+- Every upload is a new `document_files` row (versions 1 to 10). File records and history
+  rows cannot be updated or deleted. Document tables have no link to assessments, subsidy
+  findings or Staff Reviews, so no document action can change them.
+- Uploaded files live in a private folder set by `DOCUMENT_STORAGE_DIR`: an existing absolute
+  folder outside the project and `static/`. Files get random names (`<32 hex>.pdf|jpg|png`);
+  the database stores only that name, and the citizen's file name is a cleaned display label.
+  Files are read only by an authorized route (Tasks 3C and 3D), never as static files.
+- `services/document_storage.py` checks every upload on the server: extension (PDF, JPG,
+  JPEG, PNG), the file's own opening bytes, at least 1 byte and at most 5 MB (the same 5 MB limit is also a database check). The type the
+  browser reports is ignored. Use `stored_upload` around the database insert (with the
+  connection block inside it) so a failed insert or commit removes the file.
+- **Privacy of the folder:** on Linux each file is created readable only by the app's
+  account. Windows ignores that setting, so the storage folder itself must be restricted
+  (Properties, Security) to the account that runs the application and to administrators.
+  The service also refuses a stored file that is a symbolic link or resolves outside the folder.
+- The global request limit stays 1 MB. The upload route (Task 3C) will raise it for itself only.
+- Citizen-facing lookups in `repositories/document_requests.py` filter on the citizen's
+  account in SQL, so another household's request or file is simply not found.
+- **Backups:** the database and the storage folder must be backed up together, at the same
+  time (for example, pause uploads or take the database dump first and then copy the folder).
+  Restore both from the same backup. A file without a record is an orphan that can be removed
+  after review; a record without a file means the backups were not taken together.
+- **Retention (to be decided by the LGU before real use):** versions and history are kept
+  indefinitely for the capstone and there is no delete feature. A real policy still needs to
+  say how long documents are kept after a request is accepted or cancelled, who may approve
+  disposal, how files and records are removed together, and how the disposal is recorded.

@@ -1,0 +1,13 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Link Cannot Be Used{% endblock %}
+{% block content %}
+  <section class="portal-card" aria-labelledby="problem-heading">
+    <h1 id="problem-heading">This reset link cannot be used</h1>
+    <p class="portal-lead">The link may have expired (links last 1 hour), already been used, or been replaced by a newer one.</p>
+    <p class="portal-next">Ask for a new reset link and use the newest email you receive.</p>
+    <div class="portal-actions">
+      <a class="portal-button" href="{{ url_for('citizen_portal.forgot_password') }}">Get a New Link</a>
+      <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.login') }}">Back to Sign In</a>
+    </div>
+  </section>
+{% endblock %}

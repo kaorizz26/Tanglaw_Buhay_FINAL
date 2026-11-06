@@ -1,0 +1,45 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Account History{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>Account History</h1>
+    <p class="account-lead">Staff actions on this Citizen Account, newest first.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  <section class="account-section" aria-labelledby="history-heading">
+    <div class="citizen-account-heading">
+      <h2 id="history-heading">Activity</h2>
+      <span class="account-status account-status-{{ page.account.state }}">{{ page.account.status_label }}</span>
+    </div>
+    {% if page.history %}
+      <ol class="account-history">
+        {% for entry in page.history %}
+          <li class="account-history-item">
+            <div class="account-history-top">
+              <strong class="account-history-action">{{ entry.action_label }}</strong>
+              <span class="account-history-date">{{ entry.created_at|pht_datetime }}</span>
+            </div>
+            <p class="account-history-staff">By {{ entry.staff_name }}</p>
+            <p class="account-history-note">{{ entry.note }}</p>
+            {% if entry.verified and entry.consent %}
+              <p class="account-history-confirmed">Representative verified and consent confirmed</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="citizen-account-text">No activity has been recorded yet.</p>
+    {% endif %}
+  </section>
+
+  <p><a class="account-button account-button-secondary" href="{{ assessment_url }}">Back to Household Assessment</a></p>
+{% endblock %}

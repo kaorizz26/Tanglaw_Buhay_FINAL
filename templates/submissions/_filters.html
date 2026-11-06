@@ -1,0 +1,31 @@
+{# Search and filter row for a Submissions list. Needs: results, list_endpoint, search_label, search_hint. #}
+<form class="records-filters submissions-filters" method="get" action="{{ url_for(list_endpoint) }}" role="search">
+  <div class="records-field records-search">
+    <label for="list-search">{{ search_label }}</label>
+    <input id="list-search" name="q" type="search" value="{{ results.filters.search }}" maxlength="200" placeholder="{{ search_hint }}">
+  </div>
+  <div class="records-field">
+    <label for="list-status">Status</label>
+    <select id="list-status" name="status">
+      <option value="">All statuses</option>
+      {% for value, label in results.statuses %}
+        <option value="{{ value }}" {% if results.filters.status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="records-field records-barangay">
+    <label for="list-barangay">Barangay</label>
+    <select id="list-barangay" name="barangay">
+      <option value="">All barangays</option>
+      {% for barangay in results.barangays %}
+        <option value="{{ barangay }}" {% if results.filters.barangay == barangay %}selected{% endif %}>{{ barangay }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="records-filter-actions">
+    <button type="submit">Apply Filters</button>
+    {% if results.filters.parameters %}
+      <a href="{{ url_for(list_endpoint) }}">Clear Filters</a>
+    {% endif %}
+  </div>
+</form>

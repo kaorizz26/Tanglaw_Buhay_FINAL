@@ -1,0 +1,54 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Cancel Document Request{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set document = page.request %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ url_for('document_requests.detail', request_id=document.id) }}"><span aria-hidden="true">←</span> Back to Request</a>
+    <h1>Cancel Document Request</h1>
+    <p class="account-lead">Use this if the document is no longer needed or was requested by mistake.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  {% set button_label = 'Cancel Request' %}
+  {% include 'citizen_accounts/_form_errors.html' %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('document_requests.cancel', request_id=document.id) }}">
+    {% include 'citizen_accounts/_hidden_fields.html' %}
+
+    <section class="account-section account-section-danger" aria-labelledby="cancel-heading">
+      <h2 id="cancel-heading">Cancel this request?</h2>
+      <dl class="account-facts">
+        <div><dt>Document</dt><dd>{{ document.title }}</dd></div>
+        <div><dt>Status</dt><dd>{{ document.status_label }}</dd></div>
+      </dl>
+      <h3 class="account-subheading">What will happen</h3>
+      <ul class="account-checklist">
+        <li>The representative is no longer asked for this document.</li>
+        <li><strong>The reason you write is shown to the representative.</strong></li>
+        <li>A cancelled request cannot be reopened. You can request the document again later.</li>
+      </ul>
+
+      <div class="account-field">
+        <label for="reason_note">Why is this request being cancelled?</label>
+        <textarea id="reason_note" name="reason_note" rows="3" maxlength="500"
+                  {% if errors.reason_note %}aria-invalid="true" aria-describedby="reason_note-hint reason_note-error"{% else %}aria-describedby="reason_note-hint"{% endif %}
+                  required>{{ reason }}</textarea>
+        <p class="account-hint" id="reason_note-hint">Write at least 10 characters. Do not include private details.</p>
+        {% if errors.reason_note %}<p class="account-field-error" id="reason_note-error">{{ errors.reason_note }}</p>{% endif %}
+      </div>
+
+      <div class="account-actions">
+        <button class="account-button account-button-danger" type="submit">Cancel Request</button>
+        <a class="account-button account-button-secondary" href="{{ url_for('document_requests.detail', request_id=document.id) }}">Keep Request</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}

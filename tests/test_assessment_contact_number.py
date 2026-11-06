@@ -134,8 +134,10 @@ class ContactNumberPageTests(unittest.TestCase):
             for path in (ROOT / folder).glob("*.py"):
                 if "find_household_contact_number" in path.read_text(encoding="utf-8"):
                     readers.append(f"{folder}/{path.name}")
+        # The Assessment page and the Create Citizen Account page each show one household.
         self.assertEqual(sorted(readers), [
             "repositories/assessment_evidence.py", "services/assessment_queries.py",
+            "services/citizen_accounts.py",
         ])
 
 

@@ -1,0 +1,39 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Activate Your Account{% endblock %}
+{% block content %}
+  <section class="portal-card" aria-labelledby="activate-heading">
+    <h1 id="activate-heading">Activate your account</h1>
+    <p class="portal-lead">Enter the 6-digit code that LGU Staff gave you, then choose a password.</p>
+
+    {% if error %}
+      <p class="portal-notice portal-notice-error" id="activate-error" role="alert">{{ error }}</p>
+    {% endif %}
+
+    {# No action: the form posts back to this clean address. The link token lives only in a signed cookie. #}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <div class="portal-field">
+        <label for="code">6-digit activation code</label>
+        <input id="code" name="code" type="text" inputmode="numeric" maxlength="7"
+               autocomplete="one-time-code" required autofocus aria-describedby="code-hint">
+        <p class="portal-hint" id="code-hint">LGU Staff gave you this code. It is not in the email.</p>
+      </div>
+      <div class="portal-field">
+        <label for="new_password">New password</label>
+        <input id="new_password" name="new_password" type="password" maxlength="1024"
+               autocomplete="new-password" required aria-describedby="password-hint">
+        <p class="portal-hint" id="password-hint">Use at least 12 characters. A short sentence you can remember works well.</p>
+      </div>
+      <div class="portal-field">
+        <label for="confirm_password">Type the new password again</label>
+        <input id="confirm_password" name="confirm_password" type="password" maxlength="1024"
+               autocomplete="new-password" required aria-describedby="after-hint">
+        <p class="portal-hint" id="after-hint">Next, you will sign in with your new password.</p>
+      </div>
+      <div class="portal-actions">
+        <button class="portal-button" type="submit">Activate Account</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}
