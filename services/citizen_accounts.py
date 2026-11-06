@@ -28,7 +28,7 @@ MAX_NAME_LENGTH = 120
 MAX_EMAIL_LENGTH = 254
 MIN_NOTE_LENGTH = 10
 MAX_NOTE_LENGTH = 500
-# PostgreSQL names these automatically from the table and columns in migration 0014.
+# PostgreSQL names these automatically from the table and columns in migration 0016.
 HOUSEHOLD_UNIQUE = "citizen_accounts_batch_id_household_uuid_key"
 EMAIL_UNIQUE = "citizen_accounts_email_key"
 RESEND_NOTE = "Activation email resent."

@@ -340,7 +340,7 @@ def _read_citizen_account(connection, batch_id, household_uuid):
 def _read_document_requests(connection, account_row):
     """Read the account's document requests without ever breaking the Assessment page.
 
-    Like the account read above, a missing table (migration 0015 not applied) makes the
+    Like the account read above, a missing table (migration 0017 not applied) makes the
     section say "unavailable" instead of failing the page.
     """
     if account_row is None or account_row == PANEL_UNAVAILABLE:

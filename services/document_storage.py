@@ -18,7 +18,7 @@ from flask import current_app
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 MAX_DISPLAY_NAME_LENGTH = 100
-# Must match the storage_key check in migration 0015.
+# Must match the storage_key check in migration 0017.
 STORAGE_KEY_PATTERN = re.compile(r"[0-9a-f]{32}\.(pdf|jpg|png)")
 
 # What each accepted file type must start with. The file's own bytes are checked

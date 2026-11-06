@@ -1,4 +1,4 @@
-"""Migration 0014 and the citizen accounts repository, in isolated test schemas."""
+"""Migration 0016 and the citizen accounts repository, in isolated test schemas."""
 
 from datetime import timedelta
 import os

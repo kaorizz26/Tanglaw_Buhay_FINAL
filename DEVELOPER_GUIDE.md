@@ -2423,6 +2423,24 @@ branch against that tip and verify its tests. Do not run these commands against
 the development database during test verification; the tests use disposable
 schemas in `tanglaw_buhay_test`.
 
+#### Migration ledger after integration
+
+Citizen Accounts and Document Requests were numbered 0014 and 0015 on the feature branch.
+Data Import already used 0013-0015, so they were renamed (file names only; the SQL is
+unchanged). The two sets do not depend on each other. Databases were checked read-only on
+2026-11-06; check the schema again before applying anything.
+
+| Migration | Origin | `tanglaw_buhay_dev` | `tanglaw_buhay_rehearsal_0015` |
+|---|---|---|---|
+| `0013_import_validation_audit.sql` | Data Import | not applied | not applied |
+| `0014_batch_activation_audit.sql` | Data Import | not applied | not applied |
+| `0015_multi_year_import.sql` | Data Import | not applied | not applied |
+| `0016_citizen_accounts.sql` (was 0014) | Citizen Accounts | applied as 0014 | applied as 0014 |
+| `0017_document_requests.sql` (was 0015) | Digital Dropbox | not applied | applied as 0015 |
+
+Never apply a migration whose tables already exist. Use `psql -1 -v ON_ERROR_STOP=1` so a
+mistaken re-run rolls back completely.
+
 ### Verification record
 
 On 2026-11-05 the Staff Accounts PR branch passed the full synthetic regression
@@ -2490,7 +2508,7 @@ visual review and an authorized later-year pilot remain open verification tasks.
 
 ## Citizen Accounts: staff side (Tasks 2A–2C)
 
-Migration `0014_citizen_accounts.sql` adds `citizen_accounts`, `citizen_account_tokens`
+Migration `0016_citizen_accounts.sql` (numbered 0014 before the merge with Data Import) adds `citizen_accounts`, `citizen_account_tokens`
 and the append-only `citizen_account_events`. It must be applied explicitly and is not
 applied automatically. Until it is, the Assessment page shows "Citizen Account
 information is unavailable right now" and the account pages return 503.
@@ -2516,9 +2534,10 @@ information is unavailable right now" and the account pages return 503.
 
 ## Digital Dropbox: storage and data foundation (Task 3A)
 
-- Migration `0015_document_requests.sql` adds `document_requests`, `document_files` and
-  `document_request_events`. It depends on 0014 and `staff_users` only, and is independent of
-  0013. If branches merge, apply 0013, 0014, then 0015. **It has not been applied to any
+- Migration `0017_document_requests.sql` (numbered 0015 before the merge with Data Import) adds
+  `document_requests`, `document_files` and `document_request_events`. It depends on 0016 and
+  `staff_users` only, and is independent of 0013-0015. Apply missing migrations in numeric
+  order; see the migration ledger above. **It has not been applied to any
   persistent database; applying it needs separate approval and a backup first.**
 - A request belongs to a Citizen Account, so the household is always the account's household.
   Each request has its own status (`requested`, `submitted`, `needs_correction`, `accepted`,

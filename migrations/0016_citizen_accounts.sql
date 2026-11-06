@@ -1,7 +1,11 @@
 -- Citizen Accounts: staff-created portal accounts, activation/password-reset
 -- credentials and an append-only history of staff actions.
 -- Apply once, explicitly, after migration 0002 (staff_users) and 0001 (households).
--- It does not depend on 0013 (Data Import) and changes no existing table.
+-- It does not depend on 0013-0015 (Data Import) and changes no existing table.
+-- Numbering: this file was 0014_citizen_accounts.sql on the feature branch. It was renumbered
+-- to 0016 when merged with Data Import, which already owns 0013-0015. The SQL is unchanged.
+-- Already applied (as 0014) to tanglaw_buhay_dev and tanglaw_buhay_rehearsal_0015: do not
+-- apply it again to either database.
 -- Cross-year household matching is deferred: an account belongs to one household
 -- record in one survey batch.
 

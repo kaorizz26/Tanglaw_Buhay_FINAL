@@ -1,6 +1,9 @@
 -- Digital Dropbox: document requests, uploaded file versions and an append-only history.
--- Apply once, explicitly, after migration 0014 (citizen accounts) and 0002 (staff_users).
--- It does not depend on 0013 (Data Import) and changes no existing table.
+-- Apply once, explicitly, after migration 0016 (citizen accounts) and 0002 (staff_users).
+-- It does not depend on 0013-0015 (Data Import) and changes no existing table.
+-- Numbering: this file was 0015_document_requests.sql on the feature branch. It was renumbered
+-- to 0017 when merged with Data Import. The SQL is unchanged.
+-- Already applied (as 0015) to tanglaw_buhay_rehearsal_0015: do not apply it again there.
 -- Document tables never reference assessments, subsidy findings or Staff Reviews, so no
 -- document action can change them. The file contents are NOT stored here: only a random
 -- storage key that points into the private storage folder (see DEVELOPER_GUIDE.md).
