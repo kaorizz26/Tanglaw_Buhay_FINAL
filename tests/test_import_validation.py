@@ -22,6 +22,26 @@ from services.import_validation import (
     validate_admin_upload,
 )
 from services.batch_activation import BatchActivationError
+from services.survey_years import (
+    is_supported_survey_year, latest_survey_year, parse_survey_year,
+    supported_survey_years,
+)
+
+
+class SurveyYearRulesTest(unittest.TestCase):
+    def test_supported_years_follow_two_year_cycle_from_2022(self):
+        years = supported_survey_years()
+
+        self.assertEqual(years[0], 2022)
+        self.assertEqual(years[-1], latest_survey_year())
+        self.assertTrue(all(year % 2 == 0 for year in years))
+        self.assertTrue(all(right - left == 2
+                            for left, right in zip(years, years[1:])))
+
+    def test_odd_year_is_rejected_by_shared_validation(self):
+        self.assertFalse(is_supported_survey_year(2023))
+        with self.assertRaisesRegex(ValueError, "invalid_survey_year"):
+            parse_survey_year("2023")
 
 
 class FakeConnection:
@@ -148,6 +168,21 @@ class ImportValidationTests(unittest.TestCase):
         self.assertEqual(audit.call_args.args[2], "rejected")
         references.assert_not_called()
 
+    def test_odd_survey_year_is_rejected_before_processing_sources(self):
+        with self.app.app_context():
+            with patch("services.import_validation.load_import_references") as references:
+                with patch("services.import_validation.import_validation_events.record_attempt") as audit:
+                    with patch("services.import_validation.import_validation_events.purge_expired_attempts"):
+                        result = validate_admin_upload(
+                            self._files(), 7, 2023,
+                            connection_factory=FakeConnection,
+                        )
+        self.assertIsNone(result["report"])
+        self.assertIn("every two years from 2022", result["error"])
+        self.assertIsNone(result["survey_year"])
+        self.assertEqual(audit.call_args.args[2], "rejected")
+        references.assert_not_called()
+
     def test_concurrent_validation_is_rejected_and_audited(self):
         with self.app.app_context():
             with patch("services.import_validation.import_validation_events.record_attempt") as audit:
@@ -224,6 +259,10 @@ class ImportRouteTests(unittest.TestCase):
         for filename in REFERENCE_FILES.values():
             self.assertNotIn(filename.encode(), response.data)
         self.assertIn(b'name="survey_year"', response.data)
+        self.assertIn(b'<select id="survey-year"', response.data)
+        self.assertIn(b'<option value="2022">2022</option>', response.data)
+        self.assertIn(b'<option value="2024">2024</option>', response.data)
+        self.assertNotIn(b'<option value="2023">', response.data)
         self.role = "lgu_staff"
         self.assertEqual(self.client.get("/administration/import").status_code, 403)
 
@@ -237,6 +276,13 @@ class ImportRouteTests(unittest.TestCase):
                 "csrf_token": "synthetic-csrf", "survey_year": "2035",
             })
             self.assertEqual(response.status_code, 400)
+            validate.assert_not_called()
+        with patch("routes.main.validate_admin_upload") as validate:
+            response = self.client.post("/administration/import", data={
+                "csrf_token": "synthetic-csrf", "survey_year": "2023",
+            })
+            self.assertEqual(response.status_code, 400)
+            self.assertIn(b"every two years from 2022", response.data)
             validate.assert_not_called()
         with patch("routes.main.validate_admin_upload", return_value={
                 "report": report, "error": None}) as validate:

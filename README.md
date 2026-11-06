@@ -47,7 +47,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Module | Current state |
 | --- | --- |
 | Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, and administrator password reset are implemented. Account editing is not implemented. |
-| Data Import interface | Administrators declare a survey year from 2022 through the current year, validate four structure-compatible CSVs, store a passing bundle as inactive, prepare its assessments, and explicitly switch to it or back to a previous batch. Migrations 0013–0015 are required before use. End-to-end pilot verification remains. |
+| Data Import interface | Administrators select a survey year from the two-year cycle beginning in 2022 (2022, 2024, 2026, and so on), validate four structure-compatible CSVs, store a passing bundle as inactive, prepare its assessments, and explicitly switch to it or back to a previous batch. Migrations 0013–0015 are required before use. End-to-end pilot verification remains. |
 | Assessment-run management | Administrators can prepare and designate a completed run for a staged inactive import. The current 2022 Run 3 and its history remain unchanged. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
 
@@ -59,7 +59,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Public submission integration | Depends on the citizen identity and security decisions above. |
 | Pilot verification | End-to-end verification with real LGU usage has not been done. Verification so far used synthetic data. |
 | Deployment and production hardening | The built-in Flask server is for local development only. |
-| Multi-year support and household progression | The database currently restricts source records to survey year 2022 and Pozorrubio; comparing periods also needs reliable household identity matching. |
+| Multi-year support and household progression | Later-year batches and a read-only historical comparison view are implemented under the approved stable-household-UUID assumption. Visual and authorized later-year pilot checks remain. |
 
 ### Latest Verified Test Results
 
@@ -72,13 +72,13 @@ administrator-only. Imported CBMS records are read-only for everyone.
 
 ### Future CBMS Data Support
 
-Tanglaw-Buhay is **not a one-time-use system**. Its database structure supports
-multiple CBMS dataset batches and multiple assessment runs, including preservation
-of historical results. The current database schema restricts source records to
-**survey year 2022 and Pozorrubio**. Supporting later survey years requires an approved schema change,
-even when the questionnaire structure stays the same. Changes to questionnaires
-may also require approved mapping and validation updates. The administrator-facing
-future-import and assessment-run workflows are **not yet implemented**.
+Tanglaw-Buhay supports multiple CBMS dataset batches and assessment runs while
+preserving historical results. Migration 0015 permits approved later survey years
+for Pozorrubio, and the administrator workflow validates, stores, prepares, and
+activates those batches explicitly. Questionnaire changes still require approved
+mapping and validation updates. Household Progression compares designated
+historical runs under the project's stable-UUID assumption; actual subsidy
+application and benefit histories are separate future data needs.
 
 ### Development Guidelines
 
@@ -330,8 +330,9 @@ database, use numeric order (0012, then 0013); check existing schema first and
 never reapply an already-applied migration. Migration 0014 adds the batch-switch
 audit table; apply it once after 0013, checking first whether it already exists.
 Migration 0015 permits later survey years and records the declared year in import
-audit events; apply it once after 0014. The application accepts only years from
-2022 through the current Philippine year and does not infer a year from the CSVs.
+audit events; apply it once after 0014. The application accepts only the
+two-year survey cycle beginning in 2022, up to the current Philippine year, and
+does not infer a year from the CSVs.
 The Data Import branch includes the
 Staff Accounts integration tip; recheck both branches before the final merge.
 

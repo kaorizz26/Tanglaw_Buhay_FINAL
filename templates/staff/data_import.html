@@ -7,94 +7,171 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header import-header">
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <span aria-current="page">Data Import</span>
-    </nav>
-    <h1>Data Import</h1>
-    <p>Check a Pozorrubio CBMS bundle before it is prepared for use.</p>
-    <a href="{{ url_for('main.import_batches') }}">View stored batches and prepare assessments →</a>
-    <a href="{{ url_for('main.import_activation') }}">View active dataset and prepared batches →</a>
-  </header>
+  <div class="import-upload-page">
+    <header class="page-header portal-hero import-upload-hero">
+      <div class="portal-hero-content">
+        <div>
+          <p class="import-hero-kicker">Administration</p>
+          <h1>Data Import</h1>
+          <p class="portal-hero-subtitle">Check and securely store a Pozorrubio CBMS dataset for a supported survey year.</p>
+        </div>
+        <a class="portal-hero-action" href="{{ url_for('main.import_batches') }}">
+          Manage stored batches <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </header>
 
-  <section class="import-card" aria-labelledby="upload-heading">
-    <h2 id="upload-heading">Select the four CBMS files</h2>
-    <p>Choose one CSV for each source below. The system supplies its codebook, indicator mapping and field definitions. You can check the files or store a passing bundle as an inactive dataset.</p>
-    {% if error %}<p class="import-error" role="alert">{{ error }}</p>{% endif %}
-    <form method="post" action="{{ url_for('main.data_import') }}" enctype="multipart/form-data" class="import-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="import-year-field">
-        <label for="survey-year">Survey year</label>
-        <input id="survey-year" name="survey_year" type="number"
-               min="{{ minimum_survey_year }}" max="{{ maximum_survey_year }}"
-               value="{{ survey_year_value }}" inputmode="numeric"
-               aria-describedby="survey-year-help" required>
-        <p id="survey-year-help">Enter the official year for this CBMS survey. The files do not contain a reliable survey-year field.</p>
-      </div>
-      <div class="import-fields">
-        <div class="import-field">
-          <label for="household-csv">Households <span>household.csv</span></label>
-          <input id="household-csv" name="household" type="file" accept=".csv,text/csv" required>
-        </div>
-        <div class="import-field">
-          <label for="members-csv">Household members <span>section_a_e_indiv.csv</span></label>
-          <input id="members-csv" name="section_a_e_indiv" type="file" accept=".csv,text/csv" required>
-        </div>
-        <div class="import-field">
-          <label for="health-csv">Member health records <span>section_l02_to_l41.csv</span></label>
-          <input id="health-csv" name="section_l02_to_l41" type="file" accept=".csv,text/csv" required>
-        </div>
-        <div class="import-field">
-          <label for="child-csv">Child death records <span>section_l11_to_l14.csv</span></label>
-          <input id="child-csv" name="section_l11_to_l14" type="file" accept=".csv,text/csv" required>
-        </div>
-      </div>
-      <label class="import-confirmation">
-        <input name="authorized_source" type="checkbox" value="yes">
-        <span>I confirm these are authorized Pozorrubio CBMS files for the survey year entered above. Required when storing a batch.</span>
-      </label>
-      <div class="import-form-footer">
-        <p>All four files together must be under 256 MiB. Validation and storage may take a few minutes.</p>
-        <div class="import-actions">
-          <button type="submit" name="action" value="check" class="import-secondary">Check files</button>
-          <button type="submit" name="action" value="store">Store passing bundle</button>
-        </div>
-      </div>
-    </form>
-  </section>
+    {% set current_import_step = 1 %}
+    {% include 'staff/_import_steps.html' %}
 
-  {% if report %}
-    <section class="import-card import-results" aria-labelledby="result-heading" aria-live="polite">
-      <h2 id="result-heading">Validation result</h2>
-      {% if batch_id %}
-        <p class="import-status import-status-pass">Stored survey year {{ survey_year_value }} as inactive batch {{ batch_id }}. Assessments have not been run. The current dataset is unchanged.</p>
-      {% elif report.passed %}
-        <p class="import-status import-status-pass">The survey year {{ survey_year_value }} files passed validation. No dataset has been added or activated.</p>
-      {% else %}
-        <p class="import-status import-status-fail">The files need correction before they can be prepared. The current dataset is unchanged.</p>
-      {% endif %}
-      <h3>Records checked</h3>
-      <ul class="import-counts">
-        {% for source in report.sources %}
-          <li><span>{{ source.name }}</span><strong>{{ source.records if source.records is not none else 'Could not read' }}</strong></li>
-        {% endfor %}
-      </ul>
-      {% if report.errors %}
-        <h3>Issues to fix</h3>
-        <ul class="import-issues">
-          {% for issue in report.errors %}
-            <li><strong>{{ issue.source }}:</strong> {{ issue.message }} <span>({{ issue.count }})</span></li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-      {% if report.warnings %}
-        <h3>Items to review</h3>
-        <ul class="import-issues">
-          {% for issue in report.warnings %}
-            <li><strong>{{ issue.source }}:</strong> {{ issue.message }} <span>({{ issue.count }})</span></li>
-          {% endfor %}
-        </ul>
-      {% endif %}
+    {% if error %}
+      <div class="import-page-alert import-page-alert-error" role="alert">
+        <span class="import-alert-icon" aria-hidden="true">!</span>
+        <div><strong>Import could not continue</strong><p>{{ error }}</p></div>
+      </div>
+    {% endif %}
+
+    <section class="import-upload-panel" aria-labelledby="upload-heading">
+      <div class="import-panel-heading">
+        <div>
+          <p class="import-panel-kicker">New import</p>
+          <h2 id="upload-heading">Upload CBMS source files</h2>
+          <p>Select the official survey year and the four required CSV files. The system supplies the approved codebook, indicator mapping and field definitions.</p>
+        </div>
+        <span class="import-required-count">4 CSV files required</span>
+      </div>
+
+      <div class="import-safety-note" role="note">
+        <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
+        <p><strong>Your active dataset will not change.</strong> A passing bundle is stored as inactive until its assessments are prepared and an administrator activates it.</p>
+      </div>
+
+      <form method="post" action="{{ url_for('main.data_import') }}" enctype="multipart/form-data" class="import-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <div class="import-form-section import-files-section">
+          <div class="import-files-heading">
+            <div class="import-section-heading">
+              <div><h3>CBMS files</h3><p>Select the survey year, then use the exact filenames shown below.</p></div>
+            </div>
+            <div class="import-year-field">
+              <label for="survey-year">Survey year</label>
+              <select id="survey-year" name="survey_year" required>
+                <option value="">Select a year</option>
+                {% for year in survey_year_options %}
+                  <option value="{{ year }}"{% if year|string == survey_year_value %} selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="import-fields">
+            <div class="import-field">
+              <div class="import-file-details">
+                <div class="import-file-heading">
+                  <label for="household-csv">Households</label>
+                  <span class="import-filename">household.csv</span>
+                </div>
+                <p class="import-file-description">Main household-level and dwelling records.</p>
+              </div>
+              <input id="household-csv" name="household" type="file" accept=".csv,text/csv" required>
+            </div>
+            <div class="import-field">
+              <div class="import-file-details">
+                <div class="import-file-heading">
+                  <label for="members-csv">Household members</label>
+                  <span class="import-filename">section_a_e_indiv.csv</span>
+                </div>
+                <p class="import-file-description">Individual member records from survey Sections A–E.</p>
+              </div>
+              <input id="members-csv" name="section_a_e_indiv" type="file" accept=".csv,text/csv" required>
+            </div>
+            <div class="import-field">
+              <div class="import-file-details">
+                <div class="import-file-heading">
+                  <label for="health-csv">Member health records</label>
+                  <span class="import-filename">section_l02_to_l41.csv</span>
+                </div>
+                <p class="import-file-description">Health responses from survey Sections L02–L41.</p>
+              </div>
+              <input id="health-csv" name="section_l02_to_l41" type="file" accept=".csv,text/csv" required>
+            </div>
+            <div class="import-field">
+              <div class="import-file-details">
+                <div class="import-file-heading">
+                  <label for="child-csv">Child death records</label>
+                  <span class="import-filename">section_l11_to_l14.csv</span>
+                </div>
+                <p class="import-file-description">Child mortality responses from survey Sections L11–L14.</p>
+              </div>
+              <input id="child-csv" name="section_l11_to_l14" type="file" accept=".csv,text/csv" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="import-confirmation-panel">
+          <label class="import-confirmation">
+            <input name="authorized_source" type="checkbox" value="yes">
+            <span><strong>Confirm the source before storing</strong>I confirm these are authorized Pozorrubio CBMS files for the survey year selected above. This is required only when storing a batch.</span>
+          </label>
+        </div>
+
+        <div class="import-form-footer">
+          <div class="import-limit-note">
+            <strong>Upload limit</strong>
+            <p>All four files together must be under 256 MiB. Checking and storage may take a few minutes.</p>
+          </div>
+          <div class="import-actions">
+            <button type="submit" name="action" value="check" class="import-secondary">Check files only</button>
+            <button type="submit" name="action" value="store">Check and store bundle</button>
+          </div>
+        </div>
+      </form>
     </section>
-  {% endif %}
+
+    {% if report %}
+      <section class="import-results-panel" aria-labelledby="result-heading" aria-live="polite">
+        <div class="import-results-heading">
+          <div>
+            <p class="import-panel-kicker">Validation report</p>
+            <h2 id="result-heading">File check results</h2>
+          </div>
+          <span class="import-result-badge import-result-badge-{{ 'pass' if report.passed else 'fail' }}">{{ 'Passed' if report.passed else 'Needs attention' }}</span>
+        </div>
+        {% if batch_id %}
+          <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>Stored survey year {{ survey_year_value }} as inactive batch {{ batch_id }}. Assessments have not been run and the active dataset is unchanged.</p></div>
+        {% elif report.passed %}
+          <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>The survey year {{ survey_year_value }} files passed validation. No dataset has been added or activated.</p></div>
+        {% else %}
+          <div class="import-page-alert import-page-alert-error"><span class="import-alert-icon" aria-hidden="true">!</span><p>Correct the issues below before preparing this dataset. The active dataset is unchanged.</p></div>
+        {% endif %}
+
+        <h3 class="import-results-subheading">Records checked</h3>
+        <ul class="import-counts">
+          {% for source in report.sources %}
+            <li><span>{{ source.name }}</span><strong>{{ source.records if source.records is not none else 'Could not read' }}</strong></li>
+          {% endfor %}
+        </ul>
+        {% if report.errors %}
+          <div class="import-issue-section import-issue-errors">
+            <h3>Issues to fix <span>{{ report.errors|length }}</span></h3>
+            <ul class="import-issues">
+              {% for issue in report.errors %}
+                <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+        {% if report.warnings %}
+          <div class="import-issue-section import-issue-warnings">
+            <h3>Items to review <span>{{ report.warnings|length }}</span></h3>
+            <ul class="import-issues">
+              {% for issue in report.warnings %}
+                <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+  </div>
 {% endblock %}

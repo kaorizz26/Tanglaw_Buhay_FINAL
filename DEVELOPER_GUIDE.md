@@ -677,9 +677,10 @@ embedded in the runner.
 development source guard. The form accepts only `household.csv`,
 `section_a_e_indiv.csv`, `section_l02_to_l41.csv` and
 `section_l11_to_l14.csv`. The other three reference CSVs are not uploaded.
-The administrator must declare a four-digit survey year from 2022 through the
-current Philippine year because the source files contain no reliable batch-year
-field. The year is stored and audited; it is never inferred from household answers.
+The administrator must select a year from the two-year survey cycle beginning
+in 2022 (2022, 2024, 2026, and so on), up to the current Philippine year,
+because the source files contain no reliable batch-year field. The year is
+stored and audited; it is never inferred from household answers.
 Validation reads their stored, validated snapshot from the documented 2022
 pilot batch `1`, checks its metadata and ordered row counts, then runs the
 existing preflight with those references. The administrator can check files
@@ -2431,3 +2432,30 @@ synthetic import audit event, deactivated its actor, and confirmed the audit row
 still referenced the retained staff row. Both orders passed. `python -m pip check`
 reported no broken requirements. Earlier counts in this guide describe their
 own checkpoints. Synthetic verification does not replace future pilot usage.
+
+### Household Progression read-only comparison
+
+`/assessments/progression` searches household UUIDs in all validated batches with
+designated completed runs, including inactive batches. The detail route selects
+two different survey years and reads only the stored findings for those selected
+batch/run pairs. The project assumes household UUIDs persist across survey years.
+No cross-year person identity is inferred from roster line numbers. Multiple
+batches in one year require an explicit selection before comparison.
+
+The overall Improved/Worsened/Unchanged label requires both complete 16-indicator
+MPI assessments and matching MPI engine hashes plus identical stored MPI mapping
+rows. A later run that copied MPI from an earlier run resolves that earlier run's
+provenance. Missing provenance, unknown indicators, missing household assessments,
+or differing methods yield Insufficient Data. Individual indicator changes use
+stored flags, with missing or incompatible findings labeled Insufficient Data.
+Scores and findings are never rewritten. Priority uses the existing rule over each
+year's stored score and historical screening statuses; present-day SPISC age
+guidance, staff reviews, applications, approvals, and benefit receipt are not
+treated as survey progression data.
+
+The focused synthetic tests are in `tests/test_household_progression.py`, including
+an isolated PostgreSQL check for the same UUID across 2022/2024 and a 2022-only
+household. The full regression suite passed 633 tests before the final
+staff-facing dataset labels; the focused progression suite passed 12 tests
+afterward. Browser policy blocked a local-file visual viewport check, so
+visual review and an authorized later-year pilot remain open verification tasks.

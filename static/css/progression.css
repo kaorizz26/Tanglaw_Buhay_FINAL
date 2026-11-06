@@ -1,0 +1,47 @@
+.progression-header { margin-bottom: 1.4rem; }
+.progression-header .page-heading p { margin: .35rem 0 0; }
+.progression-back { display: inline-block; margin-bottom: .7rem; color: #244b65; font-weight: 700; }
+.progression-uuid { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.progression-panel { margin: 0 0 1.25rem; padding: 1.3rem; background: #fff; border: 1px solid #d8e1e6; border-radius: 12px; }
+.progression-panel h2 { margin: 0 0 .8rem; font-size: 1.2rem; color: #173a53; }
+.progression-panel h3 { color: #173a53; }
+.progression-note, .progression-context { color: #52636d; font-size: .93rem; }
+.progression-search, .progression-period-form { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; }
+.progression-search > div, .progression-period-form > div { flex: 1 1 15rem; }
+.progression-search label, .progression-period-form label, .progression-filter label { display: block; margin-bottom: .35rem; font-weight: 700; }
+.progression-search input, .progression-period-form select, .progression-filter select { box-sizing: border-box; width: 100%; min-height: 2.7rem; padding: .55rem .7rem; border: 1px solid #9eafb9; border-radius: 7px; background: #fff; color: #19374b; }
+.progression-search button, .progression-period-form button { min-height: 2.7rem; padding: .55rem 1rem; border: 0; border-radius: 7px; background: #244b65; color: #fff; font-weight: 700; cursor: pointer; }
+.progression-search :is(input, button):focus-visible, .progression-period-form :is(select, button):focus-visible, .progression-filter select:focus-visible, .progression-table a:focus-visible { outline: 3px solid #b78d42; outline-offset: 2px; }
+.progression-score-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.progression-score-card { padding: 1rem; border: 1px solid #d8e1e6; border-radius: 9px; background: #f7fafb; }
+.progression-score-card h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+.progression-score-card p { margin: .35rem 0; }
+.progression-score { color: #173a53; font-size: 2rem; font-weight: 750; }
+.progression-score small { font-size: .9rem; }
+.progression-overall { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem; margin-top: 1rem; padding: .8rem 1rem; border-radius: 8px; background: #eef2f4; }
+.progression-improved { background: #e8f4ed; color: #145334; }
+.progression-worsened { background: #faecea; color: #8b2d28; }
+.progression-unchanged { background: #edf1f3; color: #394c56; }
+.progression-insufficient-data { background: #fff4dc; color: #6a4a12; }
+.progression-chart { display: flex; align-items: end; gap: 1.5rem; max-width: 100%; min-height: 13rem; overflow-x: auto; padding: .5rem 0; }
+.progression-chart-item { display: flex; flex-direction: column; align-items: center; flex: 0 0 5rem; gap: .2rem; }
+.progression-chart-track { display: flex; align-items: end; width: 3.25rem; height: 9rem; border-bottom: 2px solid #9eafb9; background: #eef2f4; }
+.progression-chart-track span { display: block; width: 100%; min-height: 2px; background: #244b65; }
+.progression-chart-item small { color: #52636d; }
+.progression-section-heading { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 1rem; }
+.progression-section-heading p { margin: -.3rem 0 .8rem; color: #52636d; }
+.progression-filter { min-width: 11rem; }
+.progression-counts { display: flex; flex-wrap: wrap; gap: .6rem; margin: .7rem 0; }
+.progression-counts span { padding: .4rem .65rem; border-radius: 6px; background: #eef2f4; }
+.progression-dimension { margin-top: 1.3rem; }
+.progression-dimension h3 { margin: 0 0 .6rem; font-size: 1.05rem; }
+.progression-table-scroll { max-width: 100%; overflow-x: auto; }
+.progression-table { width: 100%; min-width: 680px; border-collapse: collapse; text-align: left; }
+.progression-table th, .progression-table td { padding: .7rem; border-bottom: 1px solid #dfe6ea; vertical-align: top; }
+.progression-table thead th { background: #eef2f4; color: #173a53; }
+.progression-table tbody th { color: #173a53; }
+.progression-table a { color: #244b65; font-weight: 700; }
+.progression-condition { display: block; margin-top: .25rem; color: #455761; font-size: .9rem; line-height: 1.4; }
+.progression-badge { display: inline-block; padding: .3rem .55rem; border-radius: 5px; font-size: .87rem; font-weight: 700; white-space: nowrap; }
+.progression-table tr[hidden] { display: none; }
+@media (max-width: 700px) { .progression-score-grid { grid-template-columns: 1fr; } .progression-panel { padding: 1rem; } }

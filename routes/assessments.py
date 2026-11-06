@@ -10,6 +10,9 @@ from services.household_records import (
 )
 from services.prioritization import get_prioritization_page
 from services.assessment_details import detail_navigation, get_assessment_detail
+from services.household_progression import (
+    InvalidProgressionSelection, get_household_progression, search_households,
+)
 from services.staff_reviews import (
     StaffReviewError, get_staff_review_detail, start_staff_review,
     act_on_review, get_assignable_staff,
@@ -23,6 +26,49 @@ from routes.recommendation_changes import recommendation_form
 
 
 assessments = Blueprint("assessments", __name__)
+
+
+@assessments.get("/assessments/progression")
+def progression_index():
+    """Find UUIDs across all designated historical assessment batches."""
+    queries = request.args.getlist("q")
+    if len(queries) > 1:
+        abort(400, description="Choose one household search.")
+    try:
+        results = search_households(queries[0] if queries else "")
+    except InvalidProgressionSelection:
+        abort(400, description="Search using at least four UUID characters.")
+    except AssessmentQueryError:
+        abort(503, description="Household history is unavailable. Please try again later.")
+    return render_template(
+        "assessments/progression_index.html", results=results,
+        role_label="System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff",
+        staff_username=g.user["username"], csrf_token=csrf_token(),
+    )
+
+
+@assessments.get("/assessments/progression/<uuid:household_uuid>")
+def progression_detail(household_uuid):
+    """Compare one household's selected historical assessments read-only."""
+    allowed = {"earlier", "later"}
+    if any(key not in allowed or len(request.args.getlist(key)) != 1
+           for key in request.args):
+        abort(400, description="Choose valid comparison years.")
+    try:
+        results = get_household_progression(
+            str(household_uuid), request.args.get("earlier"), request.args.get("later"),
+        )
+    except InvalidProgressionSelection:
+        abort(400, description="Choose two available survey years in order.")
+    except AssessmentQueryError as error:
+        if str(error) == "household_progression_missing":
+            abort(404, description="No historical assessment was found for this household.")
+        abort(503, description="Household history is unavailable. Please try again later.")
+    return render_template(
+        "assessments/progression_detail.html", results=results,
+        role_label="System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff",
+        staff_username=g.user["username"], csrf_token=csrf_token(),
+    )
 
 
 def _assessment_navigation(arguments):

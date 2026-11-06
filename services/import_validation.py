@@ -161,7 +161,8 @@ def validate_admin_upload(files, actor_id, survey_year, *, store_inactive=False,
                     )
                 if audit_year is None:
                     raise ImportUploadError(
-                        f"Choose a survey year from 2022 through {latest_survey_year()}.",
+                        "Choose a supported survey year: every two years from "
+                        f"2022 through {latest_survey_year()}.",
                     )
                 _check_files(files)
                 if store_inactive and not authorization_confirmed:

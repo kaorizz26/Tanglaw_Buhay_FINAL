@@ -7,57 +7,135 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header import-header">
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href="{{ url_for('main.data_import') }}">Data Import</a>
-      <span aria-current="page">Prepare Assessments</span>
-    </nav>
-    <h1>Prepare Assessments</h1>
-    <p>Run the approved assessment methods for a stored, inactive CBMS batch.</p>
-    <a href="{{ url_for('main.import_activation') }}">View active dataset and prepared batches →</a>
-  </header>
+  <div class="import-batches-page">
+    <header class="page-header portal-hero import-batches-hero">
+      <div class="portal-hero-content">
+        <div>
+          <p class="import-hero-kicker">Data Import · Step 2 of 3</p>
+          <h1>Prepare Assessments</h1>
+          <p class="portal-hero-subtitle">Run and verify the approved assessment methods for a stored CBMS batch.</p>
+        </div>
+        <a class="portal-hero-action" href="{{ url_for('main.import_activation') }}">
+          View active dataset <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </header>
 
-  {% if error %}<p class="import-error" role="alert">{{ error }}</p>{% endif %}
-  {% if prepared %}
-    <p class="import-status-pass" role="status">
-      Batch {{ prepared.batch_id }} is prepared with completed Run {{ prepared.run_id }}.
-      {{ prepared.households }} households and {{ prepared.subsidy_findings }} subsidy findings were verified.
-      The current dataset is unchanged.
-    </p>
-  {% endif %}
+    {% set current_import_step = 2 %}
+    {% include 'staff/_import_steps.html' %}
 
-  <section class="import-card" aria-labelledby="batches-heading">
-    <h2 id="batches-heading">Stored batches</h2>
-    {% if batches %}
-      <ul class="import-batch-list">
-        {% for batch in batches %}
-          <li class="import-batch">
-            <div>
-              <h3>Batch {{ batch.id }} · {{ batch.survey_year }}</h3>
-              <p>{{ batch.households }} households ·
-                {% if batch.is_active %}Active dataset
-                {% elif batch.designated_run_id %}Prepared · Run {{ batch.designated_run_id }} designated
-                {% elif batch.run_count %}Assessment preparation needs attention
-                {% else %}Inactive · assessments not yet run{% endif %}
-              </p>
-            </div>
-            {% if not batch.is_active and not batch.run_count %}
-              <form method="post" action="{{ url_for('main.import_batches') }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <input type="hidden" name="batch_id" value="{{ batch.id }}">
-                <label class="import-confirmation">
-                  <input type="checkbox" name="confirm_prepare" value="yes" required>
-                  <span>Prepare assessments for Batch {{ batch.id }}</span>
-                </label>
-                <button type="submit" class="import-action-button">Run and verify assessments</button>
-              </form>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-      <p>Preparation may take several minutes. Keep this page open until the result appears.</p>
-    {% else %}
-      <p>No stored import batches are available yet.</p>
+    {% if error %}
+      <div class="import-page-alert import-page-alert-error" role="alert">
+        <span class="import-alert-icon" aria-hidden="true">!</span>
+        <div><strong>Assessment preparation could not continue</strong><p>{{ error }}</p></div>
+      </div>
     {% endif %}
-  </section>
+
+    {% if prepared %}
+      <div class="import-page-alert import-page-alert-success" role="status">
+        <span class="import-alert-icon" aria-hidden="true">✓</span>
+        <div>
+          <strong>Batch {{ prepared.batch_id }} is ready for activation</strong>
+          <p>Completed Run {{ prepared.run_id }} verified {{ prepared.households }} households and {{ prepared.subsidy_findings }} subsidy findings. The active dataset is unchanged.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    <section class="import-batch-panel" aria-labelledby="batches-heading">
+      <div class="import-batch-panel-heading">
+        <div>
+          <p class="import-panel-kicker">Stored data</p>
+          <h2 id="batches-heading">Stored batches</h2>
+          <p>Review each batch's assessment status. Only an inactive batch without an existing run can be prepared here.</p>
+        </div>
+        <span class="import-batch-count">{{ batches|length }} {{ 'batch' if batches|length == 1 else 'batches' }}</span>
+      </div>
+
+      <div class="import-safety-note import-preparation-note" role="note">
+        <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
+        <p><strong>Preparation does not activate a dataset.</strong> The system calculates, stores and verifies a completed assessment run. An administrator must activate it separately.</p>
+      </div>
+
+      {% if batches %}
+        <div class="import-batch-cards">
+          {% for batch in batches %}
+            {% if batch.is_active %}
+              {% set batch_state = 'active' %}
+              {% set batch_status = 'Active dataset' %}
+            {% elif batch.designated_run_id %}
+              {% set batch_state = 'prepared' %}
+              {% set batch_status = 'Prepared' %}
+            {% elif batch.run_count %}
+              {% set batch_state = 'attention' %}
+              {% set batch_status = 'Needs attention' %}
+            {% else %}
+              {% set batch_state = 'awaiting' %}
+              {% set batch_status = 'Ready to prepare' %}
+            {% endif %}
+
+            <article class="import-batch-card import-batch-{{ batch_state }}">
+              <div class="import-batch-card-main">
+                <div class="import-batch-card-heading">
+                  <div>
+                    <p class="import-batch-year">Survey year {{ batch.survey_year }}</p>
+                    <h3>Batch {{ batch.id }}</h3>
+                  </div>
+                  <span class="import-batch-status">{{ batch_status }}</span>
+                </div>
+
+                <dl class="import-batch-facts">
+                  <div><dt>Households</dt><dd>{{ batch.households }}</dd></div>
+                  <div>
+                    <dt>Assessment run</dt>
+                    <dd>
+                      {% if batch.designated_run_id %}Run {{ batch.designated_run_id }} designated
+                      {% elif batch.run_count %}{{ batch.run_count }} existing {{ 'run' if batch.run_count == 1 else 'runs' }}
+                      {% else %}Not yet run{% endif %}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {% if not batch.is_active and not batch.run_count %}
+                <div class="import-batch-action-panel">
+                  <div>
+                    <strong>Prepare this batch</strong>
+                    <p>This may take several minutes. Keep the page open until a result appears.</p>
+                  </div>
+                  <form method="post" action="{{ url_for('main.import_batches') }}" class="import-prepare-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="batch_id" value="{{ batch.id }}">
+                    <label class="import-prepare-confirmation">
+                      <input type="checkbox" name="confirm_prepare" value="yes" required>
+                      <span>Confirm Batch {{ batch.id }}</span>
+                    </label>
+                    <button type="submit" class="import-action-button">Run and verify assessments</button>
+                  </form>
+                </div>
+              {% elif not batch.is_active and batch.designated_run_id %}
+                <div class="import-batch-ready-panel">
+                  <p>This batch has a verified, designated assessment run.</p>
+                  <a href="{{ url_for('main.import_activation') }}">Review for activation <span aria-hidden="true">→</span></a>
+                </div>
+              {% elif not batch.is_active and batch.run_count %}
+                <div class="import-batch-attention-panel">
+                  <p>An assessment run exists, but no completed run is designated. This batch requires technical review before activation.</p>
+                </div>
+              {% else %}
+                <div class="import-batch-active-panel">
+                  <p>This is the dataset currently visible to staff.</p>
+                </div>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="import-batch-empty">
+          <h3>No stored batches yet</h3>
+          <p>Upload and store a passing CBMS bundle before preparing assessments.</p>
+          <a href="{{ url_for('main.data_import') }}">Start a new import <span aria-hidden="true">→</span></a>
+        </div>
+      {% endif %}
+    </section>
+  </div>
 {% endblock %}

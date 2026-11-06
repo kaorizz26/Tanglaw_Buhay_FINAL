@@ -119,7 +119,8 @@ class ActiveBatchLoaderTests(unittest.TestCase):
 
     def test_invalid_or_ambiguous_active_metadata_is_rejected(self):
         changes = (
-            {"id": True}, {"survey_year": 2021}, {"survey_year": True},
+            {"id": True}, {"survey_year": 2021}, {"survey_year": 2023},
+            {"survey_year": True},
             {"municipality": "PRIVATE_VALUE"}, {"is_active": False},
             {"validation_status": "pending"}, {"source_columns": None},
             {"source_columns": {}}, {"source_provenance": {}},

@@ -4,69 +4,165 @@
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/data-import.css') }}">
+  <script src="{{ url_for('static', filename='js/import-activation.js') }}" defer></script>
 {% endblock %}
 
 {% block content %}
-  <header class="page-header import-header">
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href="{{ url_for('main.data_import') }}">Data Import</a>
-      <span aria-current="page">Active Dataset</span>
-    </nav>
-    <h1>Active Dataset</h1>
-    <p>Choose which prepared CBMS batch staff will see. Previous batches and reviews remain stored.</p>
-  </header>
+  <div class="import-activation-page">
+    <header class="page-header portal-hero import-activation-hero">
+      <div class="portal-hero-content">
+        <div>
+          <p class="import-hero-kicker">Data Import · Step 3 of 3</p>
+          <h1>Activate Dataset</h1>
+          <p class="portal-hero-subtitle">Choose the prepared CBMS batch that staff should use.</p>
+        </div>
+        <a class="portal-hero-action" href="{{ url_for('main.import_batches') }}">
+          View stored batches <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </header>
 
-  {% for message in get_flashed_messages() %}
-    <p class="import-status-pass" role="status">{{ message }}</p>
-  {% endfor %}
-  {% if error %}<p class="import-error" role="alert">{{ error }}</p>{% endif %}
+    {% set current_import_step = 3 %}
+    {% include 'staff/_import_steps.html' %}
 
-  <section class="import-card" aria-labelledby="current-batch-heading">
-    <h2 id="current-batch-heading">Currently active</h2>
-    <p class="import-active-summary">
-      Batch {{ overview.active.id }} · Survey year {{ overview.active.survey_year }} ·
-      {{ overview.active.households }} households · Completed Run {{ overview.active.run_id }}
-    </p>
-    {% if overview.in_progress_reviews %}
-      <p class="import-review-warning">
-        {{ overview.in_progress_reviews }} staff review{{ '' if overview.in_progress_reviews == 1 else 's' }} {{ 'is' if overview.in_progress_reviews == 1 else 'are' }} still In Review.
-        Staff must finish or cancel {{ 'it' if overview.in_progress_reviews == 1 else 'them' }} before this batch can be changed.
-        <a href="{{ url_for('assessments.queue', status='in-review') }}">View Review Queue</a>
-      </p>
-    {% else %}
-      <p>No staff reviews are currently In Review for this batch.</p>
+    {% for message in get_flashed_messages() %}
+      <div class="import-page-alert import-page-alert-success" role="status">
+        <span class="import-alert-icon" aria-hidden="true">✓</span>
+        <div><strong>Dataset switched successfully</strong><p>{{ message }}</p></div>
+      </div>
+    {% endfor %}
+
+    {% if error %}
+      <div class="import-page-alert import-page-alert-error" role="alert">
+        <span class="import-alert-icon" aria-hidden="true">!</span>
+        <div><strong>Dataset switch could not continue</strong><p>{{ error }}</p></div>
+      </div>
     {% endif %}
-  </section>
 
-  <section class="import-card" aria-labelledby="prepared-batches-heading">
-    <h2 id="prepared-batches-heading">Other prepared batches</h2>
-    {% if overview.candidates %}
-      <ul class="import-batch-list">
-        {% for batch in overview.candidates %}
-          <li class="import-batch">
-            <div>
-              <h3>Batch {{ batch.id }} · {{ batch.survey_year }}</h3>
-              <p>{{ batch.households }} households · Completed Run {{ batch.run_id }} designated</p>
-            </div>
-            {% if not overview.in_progress_reviews %}
-              <form method="post" action="{{ url_for('main.import_activation') }}" class="import-switch-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <input type="hidden" name="target_batch_id" value="{{ batch.id }}">
-                <input type="hidden" name="expected_active_batch_id" value="{{ overview.active.id }}">
-                <input type="hidden" name="expected_active_run_id" value="{{ overview.active.run_id }}">
-                <input type="hidden" name="expected_target_run_id" value="{{ batch.run_id }}">
-                <label class="import-confirmation">
-                  <input type="checkbox" name="confirm_switch" value="yes" required>
-                  <span>I confirm staff should now see Batch {{ batch.id }}. The current batch and its reviews will remain stored.</span>
-                </label>
-                <button type="submit" class="import-action-button">Switch to Batch {{ batch.id }}</button>
-              </form>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p>No other prepared batches are available. <a href="{{ url_for('main.import_batches') }}">View stored batches</a></p>
-    {% endif %}
-  </section>
+    <section class="import-activation-panel import-current-dataset-panel" aria-labelledby="current-batch-heading">
+      <div class="import-activation-panel-heading">
+        <div>
+          <p class="import-panel-kicker">Current selection</p>
+          <h2 id="current-batch-heading">Currently active dataset</h2>
+          <p>This is the validated batch and designated assessment run currently visible to staff.</p>
+        </div>
+        <span class="import-active-badge">Active now</span>
+      </div>
+
+      <dl class="import-active-facts">
+        <div><dt>Batch</dt><dd>{{ overview.active.id }}</dd></div>
+        <div><dt>Survey year</dt><dd>{{ overview.active.survey_year }}</dd></div>
+        <div><dt>Households</dt><dd>{{ overview.active.households }}</dd></div>
+        <div><dt>Designated run</dt><dd>Run {{ overview.active.run_id }}</dd></div>
+      </dl>
+
+      {% if overview.in_progress_reviews %}
+        <div class="import-review-state import-review-state-warning">
+          <span class="import-review-state-icon" aria-hidden="true">!</span>
+          <div>
+            <strong>Batch switching is temporarily blocked</strong>
+            <p>{{ overview.in_progress_reviews }} staff review{{ '' if overview.in_progress_reviews == 1 else 's' }} {{ 'is' if overview.in_progress_reviews == 1 else 'are' }} still <strong>In Review</strong>. Staff must finish or cancel {{ 'it' if overview.in_progress_reviews == 1 else 'them' }} first.</p>
+          </div>
+          <a href="{{ url_for('assessments.queue', status='in-review') }}">Open Review Queue <span aria-hidden="true">→</span></a>
+        </div>
+      {% else %}
+        <div class="import-review-state import-review-state-clear">
+          <span class="import-review-state-icon" aria-hidden="true">✓</span>
+          <div><strong>Review queue is clear</strong><p>No staff reviews are currently In Review for this batch.</p></div>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="import-activation-panel" aria-labelledby="prepared-batches-heading">
+      <div class="import-activation-panel-heading">
+        <div>
+          <p class="import-panel-kicker">Available replacements</p>
+          <h2 id="prepared-batches-heading">Prepared batches</h2>
+          <p>Only batches with a completed, verified and designated assessment run appear here.</p>
+        </div>
+        <span class="import-candidate-count">{{ overview.candidates|length }} {{ 'batch' if overview.candidates|length == 1 else 'batches' }}</span>
+      </div>
+
+      <div class="import-safety-note import-activation-note" role="note">
+        <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
+        <p><strong>Switching preserves history.</strong> The current batch, its assessment results and all completed staff reviews remain stored after activation.</p>
+      </div>
+
+      {% if overview.candidates %}
+        <div class="import-candidate-list">
+          {% for batch in overview.candidates %}
+            <article class="import-candidate-card">
+              <div class="import-candidate-main">
+                <div class="import-candidate-heading">
+                  <div>
+                    <p class="import-batch-year">Survey year {{ batch.survey_year }}</p>
+                    <h3>Batch {{ batch.id }}</h3>
+                  </div>
+                  <span class="import-candidate-status">Ready to activate</span>
+                </div>
+
+                <dl class="import-candidate-facts">
+                  <div><dt>Households</dt><dd>{{ batch.households }}</dd></div>
+                  <div><dt>Assessment run</dt><dd>Run {{ batch.run_id }} designated</dd></div>
+                </dl>
+              </div>
+
+              {% if not overview.in_progress_reviews %}
+                <form method="post" action="{{ url_for('main.import_activation') }}" class="import-candidate-switch-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="target_batch_id" value="{{ batch.id }}">
+                  <input type="hidden" name="expected_active_batch_id" value="{{ overview.active.id }}">
+                  <input type="hidden" name="expected_active_run_id" value="{{ overview.active.run_id }}">
+                  <input type="hidden" name="expected_target_run_id" value="{{ batch.run_id }}">
+                  <label class="import-switch-confirmation">
+                    <input type="checkbox" name="confirm_switch" value="yes" required>
+                    <span><strong>Confirm this switch</strong>I confirm staff should now see Batch {{ batch.id }}. The current batch and its history will remain stored.</span>
+                  </label>
+                  <button type="submit" class="import-action-button">Switch to Batch {{ batch.id }}</button>
+                </form>
+              {% else %}
+                <div class="import-candidate-blocked">
+                  <p>Resolve the In Review items shown above before activating this batch.</p>
+                </div>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="import-activation-empty">
+          <h3>No prepared replacement batches</h3>
+          <p>Prepare an inactive stored batch before attempting to switch the active dataset.</p>
+          <a href="{{ url_for('main.import_batches') }}">View stored batches <span aria-hidden="true">→</span></a>
+        </div>
+      {% endif %}
+    </section>
+
+    <dialog class="import-switch-dialog" id="dataset-switch-dialog" aria-labelledby="dataset-switch-heading" aria-describedby="dataset-switch-description">
+      <div class="import-switch-dialog-header">
+        <p class="import-panel-kicker">Final confirmation</p>
+        <h2 id="dataset-switch-heading">Activate Batch <span data-switch-batch></span>?</h2>
+        <p id="dataset-switch-description">This changes the dataset staff use throughout the portal.</p>
+      </div>
+
+      <div class="import-switch-dialog-body">
+        <div class="import-switch-warning" role="note">
+          <span aria-hidden="true">!</span>
+          <p><strong>The active dataset will change immediately.</strong> Staff will begin using Batch <b data-switch-batch></b> and its designated assessment run.</p>
+        </div>
+
+        <h3>Before you continue, confirm that:</h3>
+        <ul class="import-switch-checklist">
+          <li>Every staff review still marked <strong>In Review</strong> has been completed or cancelled.</li>
+          <li>Batch <strong data-switch-batch></strong>, survey year <strong data-switch-year></strong>, is the dataset staff should now use.</li>
+          <li>The current batch, previous results and completed review history will remain stored.</li>
+        </ul>
+        <p class="import-switch-server-note">The system checks the review queue and selected runs again before switching.</p>
+      </div>
+
+      <div class="import-switch-dialog-actions">
+        <button type="button" class="import-dialog-cancel" data-switch-cancel>Go back</button>
+        <button type="button" class="import-dialog-confirm" data-switch-confirm>Yes, activate Batch <span data-switch-batch></span></button>
+      </div>
+    </dialog>
+  </div>
 {% endblock %}

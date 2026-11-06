@@ -13,7 +13,7 @@
     <a class="skip-link" href="#main-content">Skip to main content</a>
 
     <div class="staff-layout">
-      <aside class="staff-sidebar" aria-label="Staff portal">
+      <aside class="staff-sidebar" aria-label="{{ 'Admin portal' if g.user['role'] == 'system_administrator' else 'Staff portal' }}">
         <div class="sidebar-heading">
           <div class="portal-branding">
             <div class="brand-marks">
@@ -35,7 +35,7 @@
               >
             </div>
             <p class="portal-name">TANGLAW-BUHAY</p>
-            <p class="portal-label">Staff portal</p>
+            <p class="portal-label">{{ 'Admin portal' if g.user['role'] == 'system_administrator' else 'Staff portal' }}</p>
             <p class="municipality-name">Municipality of Pozorrubio</p>
           </div>
           <button
@@ -65,6 +65,9 @@
               ('Submissions', 'submissions')
             ] %}
             {% for label, icon in navigation_items %}
+              {% if loop.first %}<li class="navigation-section">Workspace</li>{% endif %}
+              {% if icon == 'database' %}<li class="navigation-section">Administration</li>{% endif %}
+              {% if icon == 'submissions' %}<li class="navigation-section">Planned</li>{% endif %}
               <li>
                 {% if icon == 'dashboard' %}
                   {% set dashboard_endpoint = 'main.administration' if is_admin else 'main.index' %}
@@ -81,6 +84,7 @@
                   </a>
                 {% elif icon == 'assessments' %}
                   {% set queue_active = request.endpoint == 'assessments.queue' or queue_return_url %}
+                  {% set progression_active = request.endpoint in ('assessments.progression_index', 'assessments.progression_detail') %}
                   <details class="navigation-group" {% if request.blueprint == 'assessments' %}open{% endif %}>
                     <summary class="navigation-item">
                       <img src="{{ url_for('static', filename='icons/' ~ icon ~ '.svg') }}" alt="" width="20" height="20">
@@ -88,8 +92,9 @@
                       <span class="navigation-chevron" aria-hidden="true">›</span>
                     </summary>
                     <ul class="navigation-children">
-                      <li><a class="navigation-item{% if not queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if not queue_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
+                      <li><a class="navigation-item{% if not queue_active and not progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if not queue_active and not progression_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
                       <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>Review Queue</a></li>
+                      <li><a class="navigation-item{% if progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.progression_index') }}" {% if progression_active %}aria-current="page"{% endif %}>Household Progression</a></li>
                     </ul>
                   </details>
                 {% elif icon == 'database' %}
@@ -125,7 +130,6 @@
               </li>
             {% endfor %}
           </ul>
-          <p class="navigation-note">Other modules are planned.</p>
         </nav>
 
         <div class="staff-account">
