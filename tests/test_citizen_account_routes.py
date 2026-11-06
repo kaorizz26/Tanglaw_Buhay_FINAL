@@ -324,7 +324,7 @@ class ResendTests(RouteTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("The previous link and code will stop working immediately.", text)
         self.assertIn("citizen@example.com", text)
-        self.assertIn("Resend Email", text)
+        self.assertIn("Send New Activation Email", text)
         self.mocks["resend"].assert_not_called()
 
     def test_resend_shows_the_new_code_once_and_no_link(self):

@@ -5,17 +5,21 @@ read the reset link token and check who would have been emailed.
 """
 
 from concurrent.futures import ThreadPoolExecutor
+import re
 import unittest
 from unittest.mock import patch
 
 from werkzeug.security import check_password_hash
 
+from routes import citizen_portal as citizen_routes
 from services import citizen_password_reset as reset_service
 from services.email_delivery import EmailDeliveryError
 
 import test_citizen_portal as portal
 
 FORGOT = "/portal/forgot-password"
+CLEAN_RESET_PATH = "/portal/reset"
+RESET_COOKIE = "tanglaw_citizen_reset"
 EMAIL, PASSWORD, NEW_PASSWORD = portal.EMAIL, portal.PASSWORD, portal.NEW_PASSWORD
 
 
@@ -37,8 +41,20 @@ class ResetTestCase(portal.PortalTestCase):
         """The link token that would have been emailed in the most recent request."""
         return self.reset_email.call_args.args[1]
 
+    def open_link(self, token, client=None):
+        """Open the emailed link, as the citizen does; a usable link redirects to the clean address."""
+        return (client or self.client).get(f"/portal/reset/{token}")
+
+    def view_form(self, token, client=None):
+        """Open the emailed link and follow it to the clean address; return the page shown."""
+        client = client or self.client
+        response = self.open_link(token, client)
+        return client.get(CLEAN_RESET_PATH) if response.status_code == 303 else response
+
     def submit(self, token, password=NEW_PASSWORD, confirm=None, client=None):
-        return self.post(f"/portal/reset/{token}", {
+        """Open the emailed link, then send the new password to the clean address."""
+        self.open_link(token, client)
+        return self.post(CLEAN_RESET_PATH, {
             "new_password": password, "confirm_password": password if confirm is None else confirm,
         }, client, form_page="/portal/login")
 
@@ -103,8 +119,8 @@ class RequestTests(ResetTestCase):
         self.ask()
         second = self.token_from_email()
         self.assertNotEqual(first, second)
-        self.assertEqual(self.client.get(f"/portal/reset/{first}").status_code, 410)
-        self.assertEqual(self.client.get(f"/portal/reset/{second}").status_code, 200)
+        self.assertEqual(self.view_form(first).status_code, 410)
+        self.assertEqual(self.view_form(second).status_code, 200)
         self.assertEqual(self.db.execute(
             "SELECT count(*) FROM citizen_account_tokens WHERE purpose = 'password_reset'"
             " AND code_hash IS NOT NULL").fetchone()[0], 0)
@@ -169,7 +185,8 @@ class ResetTests(ResetTestCase):
     def test_opening_the_link_does_not_use_it_up_and_never_prints_the_token(self):
         _, token = self.start_reset()
         for _ in range(3):
-            page = self.client.get(f"/portal/reset/{token}")
+            self.assertNotIn(token, self.open_link(token).location)
+            page = self.view_form(token)
             self.assertEqual(page.status_code, 200)
             self.assertNotIn(token, self.text(page))
         self.assertEqual(self.reset_tokens(), 1)
@@ -199,23 +216,23 @@ class ResetTests(ResetTestCase):
     def test_a_link_works_only_once(self):
         _, token = self.start_reset()
         self.assertEqual(self.submit(token).status_code, 303)
-        self.assertEqual(self.client.get(f"/portal/reset/{token}").status_code, 410)
+        self.assertEqual(self.view_form(token).status_code, 410)
         self.assertEqual(self.submit(token, password="yet another long one").status_code, 410)
         self.assertEqual(self.changed_email.call_count, 1)
 
     def test_unknown_expired_and_inactive_links_all_show_the_same_page(self):
         account_id, token = self.start_reset()
-        self.assertIn("cannot be used", self.text(self.client.get("/portal/reset/" + "x" * 43)))
+        self.assertIn("cannot be used", self.text(self.view_form("x" * 43)))
         self.db.execute("UPDATE citizen_account_tokens SET created_at = now() - interval '2 hours',"
                         " expires_at = now() - interval '1 hour'")
-        expired = self.client.get(f"/portal/reset/{token}")
+        expired = self.view_form(token)
         self.assertEqual(expired.status_code, 410)
         self.assertEqual(self.submit(token).status_code, 410)
         # A valid link for an account that was deactivated meanwhile also stops working.
         self.db.execute("UPDATE citizen_account_tokens SET created_at = now(),"
                         " expires_at = now() + interval '1 hour'")
         self.db.execute("UPDATE citizen_accounts SET status = 'deactivated'")
-        self.assertEqual(self.client.get(f"/portal/reset/{token}").status_code, 410)
+        self.assertEqual(self.view_form(token).status_code, 410)
         self.assertEqual(self.submit(token).status_code, 410)
 
     def test_password_mistakes_are_explained_and_do_not_use_up_the_link(self):
@@ -247,7 +264,8 @@ class ResetTests(ResetTestCase):
 
     def test_the_form_needs_a_valid_csrf_token_and_changes_nothing_without_it(self):
         account_id, token = self.start_reset()
-        response = self.client.post(f"/portal/reset/{token}", data={
+        self.open_link(token)
+        response = self.client.post(CLEAN_RESET_PATH, data={
             "csrf_token": "forged", "new_password": NEW_PASSWORD, "confirm_password": NEW_PASSWORD})
         self.assertEqual(response.status_code, 400)
         self.assertTrue(check_password_hash(self.row(account_id)[4], PASSWORD))
@@ -271,12 +289,124 @@ class ResetTests(ResetTestCase):
 
     def test_an_activation_link_cannot_be_used_as_a_reset_link(self):
         _, token, _ = self.make_pending(email="new@example.com", household="H-2")
-        self.assertEqual(self.client.get(f"/portal/reset/{token}").status_code, 410)
+        self.assertEqual(self.view_form(token).status_code, 410)
 
     def test_the_reset_page_closes_without_a_secret_key(self):
         _, token = self.start_reset()
         self.app.config["CITIZEN_CREDENTIAL_KEY"] = None
-        self.assertEqual(self.client.get(f"/portal/reset/{token}").status_code, 503)
+        self.assertEqual(self.view_form(token).status_code, 503)
+
+
+class ResetHandoffTests(ResetTestCase):
+    """The emailed link's token is moved into a short-lived signed cookie."""
+
+    def start_reset(self):
+        self.make_active()
+        self.ask()
+        return self.token_from_email()
+
+    def cookie_header(self, token):
+        headers = self.open_link(token).headers.getlist("Set-Cookie")
+        return next(header for header in headers if header.startswith(RESET_COOKIE))
+
+    def test_a_valid_link_redirects_to_the_clean_address_without_the_token(self):
+        token = self.start_reset()
+        response = self.open_link(token)
+        self.assertEqual(response.status_code, 303)
+        self.assertTrue(response.location.endswith(CLEAN_RESET_PATH))
+        self.assertNotIn(token, response.location)
+
+    def test_the_form_page_does_not_contain_the_token_or_a_form_action(self):
+        token = self.start_reset()
+        page = self.text(self.view_form(token))
+        self.assertIn("Choose a new password", page)
+        self.assertNotIn(token, page)
+        self.assertIsNone(re.search(r"<form[^>]*\baction=", page))
+
+    def test_the_cookie_is_http_only_lax_path_limited_and_lasts_15_minutes(self):
+        header = self.cookie_header(self.start_reset())
+        for expected in ("HttpOnly", "SameSite=Lax", "Path=/portal/reset", "Max-Age=900"):
+            self.assertIn(expected, header)
+        self.assertNotIn("Secure", header)  # this test app turns Secure off for plain HTTP
+
+    def test_the_cookie_is_secure_when_https_is_enabled(self):
+        token = self.start_reset()
+        self.app.config["SESSION_COOKIE_SECURE"] = True
+        self.assertIn("Secure", self.cookie_header(token))
+
+    def test_reset_responses_are_not_cached_and_send_no_referrer(self):
+        token = self.start_reset()
+        for response in (self.open_link(token), self.client.get(CLEAN_RESET_PATH)):
+            self.assertEqual(response.headers["Cache-Control"], "no-store")
+            self.assertEqual(response.headers["Referrer-Policy"], "no-referrer")
+
+    def test_a_made_up_or_unsigned_cookie_is_refused(self):
+        token = self.start_reset()
+        for value in ("forged-value", token):
+            with self.subTest(value=value[:6]):
+                self.client.set_cookie(RESET_COOKIE, value, path=CLEAN_RESET_PATH)
+                response = self.client.get(CLEAN_RESET_PATH)
+                self.assertEqual(response.status_code, 410)
+                self.assertIn("cannot be used", self.text(response))
+
+    def test_the_clean_address_without_a_link_is_refused(self):
+        self.assertEqual(self.client.get(CLEAN_RESET_PATH).status_code, 410)
+
+    def test_an_activation_cookie_cannot_stand_in_for_a_reset_cookie(self):
+        token = self.start_reset()
+        with self.app.app_context():
+            activation_value = citizen_routes._handoff_serializer(
+                citizen_routes.ACTIVATION_HANDOFF).dumps(token)
+        self.client.set_cookie(RESET_COOKIE, activation_value, path=CLEAN_RESET_PATH)
+        self.assertEqual(self.client.get(CLEAN_RESET_PATH).status_code, 410)
+
+    def test_an_expired_handoff_changes_nothing(self):
+        account_id = self.make_active()
+        self.ask()
+        token = self.token_from_email()
+        self.open_link(token)
+        with patch.object(citizen_routes, "HANDOFF_LIFETIME_SECONDS", -1):
+            self.assertEqual(self.client.get(CLEAN_RESET_PATH).status_code, 410)
+            posted = self.post(CLEAN_RESET_PATH, {
+                "new_password": NEW_PASSWORD, "confirm_password": NEW_PASSWORD})
+            self.assertEqual(posted.status_code, 410)
+        self.assertTrue(check_password_hash(self.row(account_id)[4], PASSWORD))
+        self.assertEqual(self.submit(token).status_code, 303)  # the link itself is still unused
+
+    def test_a_password_mistake_keeps_the_handoff_so_the_citizen_can_retry(self):
+        token = self.start_reset()
+        self.open_link(token)
+        first = self.post(CLEAN_RESET_PATH, {"new_password": "short", "confirm_password": "short"})
+        self.assertEqual(first.status_code, 400)
+        retry = self.post(CLEAN_RESET_PATH, {
+            "new_password": NEW_PASSWORD, "confirm_password": NEW_PASSWORD})
+        self.assertEqual(retry.status_code, 303)
+
+    def test_a_successful_reset_clears_the_cookie(self):
+        token = self.start_reset()
+        response = self.submit(token)
+        self.assertEqual(response.status_code, 303)
+        cleared = [h for h in response.headers.getlist("Set-Cookie") if h.startswith(RESET_COOKIE)]
+        self.assertTrue(cleared and "Max-Age=0" in cleared[0])
+        self.assertEqual(self.client.get(CLEAN_RESET_PATH).status_code, 410)
+
+    def test_an_unusable_link_sets_no_cookie_and_clears_an_old_one(self):
+        token = self.start_reset()
+        self.assertEqual(self.submit(token).status_code, 303)  # now used
+        response = self.open_link(token)
+        self.assertEqual(response.status_code, 410)
+        headers = [h for h in response.headers.getlist("Set-Cookie") if h.startswith(RESET_COOKIE)]
+        self.assertTrue(headers and all("Max-Age=0" in header for header in headers))
+        self.assertEqual(self.client.get(CLEAN_RESET_PATH).status_code, 410)
+
+    def test_the_handoff_does_not_use_the_link_up_or_touch_the_session(self):
+        token = self.start_reset()
+        self.open_link(token)
+        self.client.get(CLEAN_RESET_PATH)
+        self.assertEqual(self.reset_tokens(), 1)
+        self.assertEqual(self.db.execute(
+            "SELECT count(*) FROM citizen_account_tokens WHERE purpose = 'password_reset'"
+            " AND used_at IS NULL AND revoked_at IS NULL").fetchone()[0], 1)
 
 
 class SeparationTests(ResetTestCase):

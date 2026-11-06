@@ -4,6 +4,8 @@ These routes never use the LGU Staff session (g.user). Citizens have their own
 cookie and the helpers in services/citizen_sessions.py.
 """
 
+from typing import NamedTuple
+
 from flask import (
     Blueprint, abort, current_app, g, make_response, redirect, render_template, request, url_for,
 )
@@ -31,10 +33,24 @@ LOCKED_OUT = (
 )
 UNAVAILABLE = "The Citizen Portal is unavailable right now. Please try again later."
 
-# The emailed link's token is kept in a signed, short-lived cookie so it does not stay in the address bar.
-HANDOFF_COOKIE_NAME = "tanglaw_citizen_activation"
-HANDOFF_COOKIE_PATH = "/portal/activate"
-HANDOFF_SALT = "tanglaw-citizen-activation-handoff"
+
+class Handoff(NamedTuple):
+    """Where one kind of emailed link keeps its token after the redirect to a clean address."""
+
+    cookie_name: str
+    path: str
+    salt: str
+
+
+# An emailed link's token is kept in a signed, short-lived cookie so it does not stay in the
+# address bar. Each kind of link has its own cookie, path and signing salt, so one can never
+# be used in place of the other.
+ACTIVATION_HANDOFF = Handoff(
+    "tanglaw_citizen_activation", "/portal/activate", "tanglaw-citizen-activation-handoff",
+)
+RESET_HANDOFF = Handoff(
+    "tanglaw_citizen_reset", "/portal/reset", "tanglaw-citizen-reset-handoff",
+)
 HANDOFF_LIFETIME_SECONDS = 15 * 60
 
 
@@ -48,9 +64,9 @@ def prepare_citizen_session():
 
 @citizen_portal.after_request
 def finish_citizen_response(response):
-    """Write the session cookie if it changed, and keep activation pages out of referrers."""
+    """Write the session cookie if it changed, and keep link pages out of referrers and caches."""
     response.headers["Referrer-Policy"] = "no-referrer"
-    if request.path.startswith(HANDOFF_COOKIE_PATH):
+    if request.path.startswith((ACTIVATION_HANDOFF.path, RESET_HANDOFF.path)):
         response.headers["Cache-Control"] = "no-store"
     return sessions.save_cookie(response)
 
@@ -74,26 +90,41 @@ def _link_problem_page(error):
 
 # ---- Activation -----------------------------------------------------------------
 
-def _handoff_serializer():
-    """Signs the activation handoff with the app's secret key and its own purpose salt."""
-    return URLSafeTimedSerializer(current_app.secret_key, salt=HANDOFF_SALT)
+def _handoff_serializer(handoff):
+    """Signs the handoff with the app's secret key and the link kind's own purpose salt."""
+    return URLSafeTimedSerializer(current_app.secret_key, salt=handoff.salt)
 
 
-def _handoff_cookie_settings():
+def _handoff_cookie_settings(handoff):
     """Cookie options shared by setting and clearing the handoff cookie."""
     return {
-        "path": HANDOFF_COOKIE_PATH, "httponly": True, "samesite": "Lax",
+        "path": handoff.path, "httponly": True, "samesite": "Lax",
         "secure": current_app.config["SESSION_COOKIE_SECURE"],
     }
 
 
-def _read_handoff_token():
+def _save_handoff(response, handoff, token):
+    """Keep the emailed link's token in a short-lived signed cookie on this response."""
+    response.set_cookie(
+        handoff.cookie_name, _handoff_serializer(handoff).dumps(token),
+        max_age=HANDOFF_LIFETIME_SECONDS, **_handoff_cookie_settings(handoff),
+    )
+    return response
+
+
+def _clear_handoff(response, handoff):
+    """Remove the saved handoff from the browser."""
+    response.delete_cookie(handoff.cookie_name, **_handoff_cookie_settings(handoff))
+    return response
+
+
+def _read_handoff_token(handoff):
     """Return the link token saved by the emailed link, or None if missing, forged or expired."""
-    value = request.cookies.get(HANDOFF_COOKIE_NAME)
+    value = request.cookies.get(handoff.cookie_name)
     if not value:
         return None
     try:
-        token = _handoff_serializer().loads(value, max_age=HANDOFF_LIFETIME_SECONDS)
+        token = _handoff_serializer(handoff).loads(value, max_age=HANDOFF_LIFETIME_SECONDS)
     except BadSignature:  # Also covers expired signatures.
         return None
     return token if isinstance(token, str) else None
@@ -102,16 +133,13 @@ def _read_handoff_token():
 def _handoff_ended_page():
     """Tell the citizen to reopen the emailed link, since the saved handoff is gone."""
     response = make_response(_render("activation_problem.html", 410, handoff_ended=True))
-    response.delete_cookie(HANDOFF_COOKIE_NAME, **_handoff_cookie_settings())
-    return response
+    return _clear_handoff(response, ACTIVATION_HANDOFF)
 
 
 def _link_problem_response(problem):
     """The 'link cannot be used' page, also removing any saved handoff."""
     page, status = _link_problem_page(problem)
-    response = make_response(page, status)
-    response.delete_cookie(HANDOFF_COOKIE_NAME, **_handoff_cookie_settings())
-    return response
+    return _clear_handoff(make_response(page, status), ACTIVATION_HANDOFF)
 
 
 @citizen_portal.route("/activate/<token>")
@@ -123,17 +151,13 @@ def open_activation_link(token):
     except (PortalUnavailable, RuntimeError):
         abort(503, description=UNAVAILABLE)
     response = redirect(url_for("citizen_portal.activate"), code=303)
-    response.set_cookie(
-        HANDOFF_COOKIE_NAME, _handoff_serializer().dumps(token),
-        max_age=HANDOFF_LIFETIME_SECONDS, **_handoff_cookie_settings(),
-    )
-    return response
+    return _save_handoff(response, ACTIVATION_HANDOFF, token)
 
 
 @citizen_portal.route("/activate", methods=["GET", "POST"])
 def activate():
     """Let the representative enter the code from LGU Staff and choose a password."""
-    token = _read_handoff_token()
+    token = _read_handoff_token(ACTIVATION_HANDOFF)
     if token is None:
         return _handoff_ended_page()
     try:
@@ -153,8 +177,7 @@ def activate():
     except (PortalUnavailable, RuntimeError):
         abort(503, description=UNAVAILABLE)
     response = redirect(url_for("citizen_portal.login", activated=1), code=303)
-    response.delete_cookie(HANDOFF_COOKIE_NAME, **_handoff_cookie_settings())
-    return response
+    return _clear_handoff(response, ACTIVATION_HANDOFF)
 
 
 # ---- Sign-in, home, sign-out ----------------------------------------------------
@@ -203,9 +226,32 @@ def forgot_password():
     return _render("forgot_password.html")
 
 
-@citizen_portal.route("/reset/<token>", methods=["GET", "POST"])
-def reset(token):
-    """Choose a new password from the emailed link. Only the POST uses the link up."""
+def _reset_problem_response():
+    """The 'reset link cannot be used' page, also removing any saved handoff."""
+    return _clear_handoff(make_response(_render("reset_problem.html", 410)), RESET_HANDOFF)
+
+
+@citizen_portal.route("/reset/<token>")
+def open_reset_link(token):
+    """Check the emailed link, keep its token in a short-lived cookie and move to a clean address.
+
+    Looking at the link never uses it up; only saving a new password does.
+    """
+    try:
+        if not reset_link_is_usable(token):
+            return _reset_problem_response()
+    except PortalUnavailable:
+        abort(503, description=UNAVAILABLE)
+    response = redirect(url_for("citizen_portal.reset"), code=303)
+    return _save_handoff(response, RESET_HANDOFF, token)
+
+
+@citizen_portal.route("/reset", methods=["GET", "POST"])
+def reset():
+    """Choose a new password. Only the POST uses the link up."""
+    token = _read_handoff_token(RESET_HANDOFF)
+    if token is None:
+        return _reset_problem_response()
     try:
         if request.method == "GET":
             if not reset_link_is_usable(token):
@@ -216,12 +262,13 @@ def reset(token):
             token, request.form.get("new_password", ""), request.form.get("confirm_password", ""),
         )
     except ResetLinkError:
-        return _render("reset_problem.html", 410)
+        return _reset_problem_response()
     except CitizenFormError as problem:
         return _render("reset_password.html", 400, error=str(problem))
     except PortalUnavailable:
         abort(503, description=UNAVAILABLE)
-    return redirect(url_for("citizen_portal.login", reset=1), code=303)
+    response = redirect(url_for("citizen_portal.login", reset=1), code=303)
+    return _clear_handoff(response, RESET_HANDOFF)
 
 
 def _documents_to_upload(account_id):
