@@ -67,7 +67,6 @@
             {% for label, icon in navigation_items %}
               {% if loop.first %}<li class="navigation-section">Workspace</li>{% endif %}
               {% if icon == 'database' %}<li class="navigation-section">Administration</li>{% endif %}
-              {% if icon == 'submissions' %}<li class="navigation-section">Planned</li>{% endif %}
               <li>
                 {% if icon == 'dashboard' %}
                   {% set dashboard_endpoint = 'main.administration' if is_admin else 'main.index' %}
