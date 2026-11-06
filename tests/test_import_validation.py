@@ -4,6 +4,7 @@ from contextlib import nullcontext
 from io import BytesIO
 import os
 from pathlib import Path
+import re
 from secrets import token_urlsafe
 from tempfile import TemporaryDirectory
 import unittest
@@ -399,7 +400,9 @@ class ImportRouteTests(unittest.TestCase):
         with patch("routes.main.activation_overview", return_value=overview):
             response = self.client.get("/administration/import/activation")
             self.assertEqual(response.status_code, 200)
-            self.assertIn(b"1 staff review is still In Review", response.data)
+            # "In Review" is emphasised with <strong>, so compare the visible text.
+            visible_text = re.sub(rb"<[^>]+>", b"", response.data)
+            self.assertIn(b"1 staff review is still In Review", visible_text)
             self.assertNotIn(b"Switch to Batch 8", response.data)
             with self.client.session_transaction() as session:
                 session["csrf_token"] = "synthetic-csrf"
