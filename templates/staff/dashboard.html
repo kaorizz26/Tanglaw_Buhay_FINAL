@@ -23,6 +23,16 @@
     </div>
   </header>
 
+  {% if show_reviews or summary %}
+    <nav class="dashboard-section-nav" aria-label="Dashboard sections">
+      {% if show_reviews %}<a href="#reviews-heading">My Subsidy Reviews</a>{% endif %}
+      {% if summary %}
+        <a href="#statistics-heading">Historical household statistics</a>
+        <a href="#household-heading">Household Snapshot</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+
   {% if show_reviews %}
     {% include 'staff/_dashboard_reviews.html' %}
   {% endif %}

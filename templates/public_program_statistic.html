@@ -1,0 +1,178 @@
+<div class="program-statistics" data-statistics-tabs>
+    <p class="program-statistics__subtitle" data-i18n="programData.sectionSubtitle">Tingnan ang mga tantiyang batay sa pananaliksik at mga available na estadistika ng pamahalaan tungkol sa naaabot ng programa at mga taong pinaglilingkuran nito.</p>
+
+    <div class="program-statistics__geography" role="tablist" aria-label="Pumili ng saklaw ng lugar" data-i18n-aria-label="programData.geographyLabel">
+        <button id="{{ statistic_prefix }}-geography-pozorrubio-tab" type="button" role="tab" aria-selected="true" aria-controls="{{ statistic_prefix }}-geography-pozorrubio-panel" tabindex="0" data-statistics-tab="pozorrubio" data-i18n="programData.geography.pozorrubio">Pozorrubio</button>
+        <button id="{{ statistic_prefix }}-geography-pangasinan-tab" type="button" role="tab" aria-selected="false" aria-controls="{{ statistic_prefix }}-geography-pangasinan-panel" tabindex="-1" data-statistics-tab="pangasinan" data-i18n="programData.geography.pangasinan">Pangasinan</button>
+        <button id="{{ statistic_prefix }}-geography-region-tab" type="button" role="tab" aria-selected="false" aria-controls="{{ statistic_prefix }}-geography-region-panel" tabindex="-1" data-statistics-tab="region">Region I</button>
+        <button id="{{ statistic_prefix }}-geography-philippines-tab" type="button" role="tab" aria-selected="false" aria-controls="{{ statistic_prefix }}-geography-philippines-panel" tabindex="-1" data-statistics-tab="philippines" data-i18n="programData.geography.philippines">Pilipinas</button>
+    </div>
+
+    <div id="{{ statistic_prefix }}-geography-pozorrubio-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-geography-pozorrubio-tab" tabindex="0" data-statistics-panel="pozorrubio">
+{% if program.statistic.publication_status == "research_estimate" %}
+    <section class="program-estimate-dashboard" aria-labelledby="{{ statistic_prefix }}-estimate-title">
+        <header class="program-estimate-dashboard__header">
+            <div class="program-estimate-dashboard__heading">
+                <p class="program-estimate-dashboard__kicker" data-i18n="programData.estimateKicker">Tantiyang batay sa pananaliksik</p>
+                <h3 id="{{ statistic_prefix }}-estimate-title" data-i18n="programData.dashboardTitle">Tantiya para sa Pozorrubio</h3>
+                <p data-i18n="{{ statistic_prefix }}.data.estimateDescription">Tinatayang tala para sa programang ito batay sa available na CBMS data.</p>
+            </div>
+            <div class="program-estimate-dashboard__program" aria-hidden="true">
+                <img src="{{ url_for('static', filename=program.icon) }}" alt="" loading="lazy">
+                <span>{{ program.code }}</span>
+            </div>
+        </header>
+
+        <dl class="program-estimate-metrics" aria-label="Buod ng tantiya" data-i18n-aria-label="programData.metricsLabel">
+            <div class="program-estimate-metric program-estimate-metric--total">
+                <dt data-i18n="programData.totalLabel">Tinatayang kabuuan</dt>
+                <dd>
+                    <strong>{{ "{:,}".format(program.statistic.value) }}</strong>
+                    <span data-i18n="{{ statistic_prefix }}.data.estimateUnit">tinatayang tala</span>
+                </dd>
+            </div>
+            {% for priority in program.statistic.priority_breakdown %}
+                <div class="program-estimate-metric program-estimate-metric--{{ priority.key|replace('_', '-') }}">
+                    <dt>
+                        <span data-i18n="programData.priority.{{ priority.key }}">{{ priority.key|replace('_', ' ')|title }}</span>
+                        <small>{{ priority.percentage }}%</small>
+                    </dt>
+                    <dd>
+                        <strong>{{ "{:,}".format(priority.value) }}</strong>
+                        <span data-i18n="programData.unit.{{ program.statistic.unit }}">{% if program.statistic.unit == "households" %}Mga sambahayan{% else %}Mga indibidwal{% endif %}</span>
+                    </dd>
+                </div>
+            {% endfor %}
+        </dl>
+
+        <div class="program-estimate-dashboard__notice">
+            <span aria-hidden="true">i</span>
+            <p data-i18n="programData.estimateNotice">Ang mga estadistikang ito ay mga tantiyang batay sa pananaliksik mula sa CBMS data na ibinigay ng Pamahalaang Bayan ng Pozorrubio, Pangasinan. Hindi ito opisyal na tala ng pagpapatala, kwalipikasyon, pag-apruba, o pagtanggap ng benepisyo.</p>
+        </div>
+
+        <div class="program-estimate-dashboard__analysis">
+            <figure class="program-estimate-chart" aria-labelledby="{{ statistic_prefix }}-chart-title" aria-describedby="{{ statistic_prefix }}-chart-description">
+                <figcaption>
+                    <h4 id="{{ statistic_prefix }}-chart-title" data-i18n="programData.chartTitle">Tinatayang paghahati ayon sa prayoridad</h4>
+                    <p id="{{ statistic_prefix }}-chart-description" data-i18n="programData.chartDescription">Ipinapakita nito ang parehong 60% / 35% / 5% na palagay ng proyekto, hindi isang beripikadong distribusyon ng mga benepisyaryo.</p>
+                </figcaption>
+                <div class="program-estimate-chart__bar" aria-hidden="true">
+                    {% for priority in program.statistic.priority_breakdown %}
+                        <span class="program-estimate-chart__segment program-estimate-chart__segment--{{ priority.key|replace('_', '-') }}" style="--priority-share: {{ priority.percentage }}%"></span>
+                    {% endfor %}
+                </div>
+                <ul class="program-estimate-chart__legend">
+                    {% for priority in program.statistic.priority_breakdown %}
+                        <li>
+                            <span class="program-estimate-chart__key program-estimate-chart__key--{{ priority.key|replace('_', '-') }}" aria-hidden="true"></span>
+                            <span data-i18n="programData.priority.{{ priority.key }}">{{ priority.key|replace('_', ' ')|title }}</span>
+                            <strong>{{ "{:,}".format(priority.value) }} <small>({{ priority.percentage }}%)</small></strong>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </figure>
+
+            <section class="program-estimate-about" aria-labelledby="{{ statistic_prefix }}-about-data-title">
+                <h4 id="{{ statistic_prefix }}-about-data-title" data-i18n="programData.aboutTitle">Tungkol sa datos na ito</h4>
+                <dl>
+                    <div>
+                        <dt data-i18n="programData.coverageLabel">Saklaw</dt>
+                        <dd data-i18n="programData.coverageValue">Pozorrubio, Pangasinan</dd>
+                    </div>
+                    <div>
+                        <dt data-i18n="programData.unitLabel">Binibilang na yunit</dt>
+                        <dd data-i18n="programData.unit.{{ program.statistic.unit }}">{% if program.statistic.unit == "households" %}Mga sambahayan{% else %}Mga indibidwal{% endif %}</dd>
+                    </div>
+                    <div>
+                        <dt data-i18n="programData.statusLabel">Katayuan ng datos</dt>
+                        <dd data-i18n="programData.statusValue">Tantiyang batay sa pananaliksik</dd>
+                    </div>
+                    <div>
+                        <dt data-i18n="programData.sourceLabel">Pinagmulan</dt>
+                        <dd data-i18n="programData.sourceValue">CBMS data na ibinigay ng Pamahalaang Bayan ng Pozorrubio</dd>
+                    </div>
+                    <div>
+                        <dt data-i18n="programData.reportingPeriodLabel">Panahon ng ulat</dt>
+                        <dd data-i18n="programData.unconfirmedValue">Hindi pa nakukumpirma</dd>
+                    </div>
+                    <div>
+                        <dt data-i18n="programData.cutoffLabel">Cutoff date</dt>
+                        <dd data-i18n="programData.unconfirmedValue">Hindi pa nakukumpirma</dd>
+                    </div>
+                </dl>
+                <p class="program-estimate-about__limitation" data-i18n="programData.estimateLimitation">Ang 60%/35%/5% na paghahati ay palagay ng proyekto. Kinukumpirma pa ang reference year at cutoff date ng CBMS data.</p>
+            </section>
+        </div>
+    </section>
+{% elif program.statistic.publication_status == "verified" %}
+    <div class="program-statistic-card">
+        <div class="program-statistic-card__summary">
+            <p data-i18n="programData.year">Tala noong Disyembre 31, 2022</p>
+            <strong>{{ "{:,}".format(program.statistic.value) }}</strong>
+            <span data-i18n="{{ statistic_prefix }}.data.unit">aktibong sambahayang benepisyaryo</span>
+            <div class="program-statistic-card__program">
+                <img src="{{ url_for('static', filename=program.icon) }}" alt="" loading="lazy">
+                <span>{{ program.code }}</span>
+            </div>
+        </div>
+
+        <div class="program-statistic-card__details">
+            <p class="program-statistic-card__kicker" data-i18n="programData.kicker">Opisyal na makasaysayang estadistika</p>
+            <h3 data-i18n="programData.contextTitle">Ano ang ipinapakita ng bilang?</h3>
+            <p class="program-statistic-card__description" data-i18n="{{ statistic_prefix }}.data.description">Noong Disyembre 31, 2022, may 1,833 aktibong sambahayang benepisyaryo ng 4Ps sa Pozorrubio.</p>
+
+            <div class="program-statistic-card__note">
+                <span aria-hidden="true">i</span>
+                <p data-i18n="programData.note">Ang bilang ay makasaysayang sanggunian lamang at hindi nagpapatunay ng kasalukuyang kwalipikasyon, pag-apruba, o pagtanggap ng benepisyo.</p>
+            </div>
+
+            <p class="program-statistic-card__source">
+                <span data-i18n="{{ statistic_prefix }}.data.source">Pinagmulan: DSWD 4Ps Fourth Quarter Report on Program Coverage, 2022.</span>
+                <a href="{{ program.statistic.source_url }}" data-i18n="programData.sourceLink">Buksan ang opisyal na ulat</a>
+            </p>
+        </div>
+    </div>
+{% else %}
+    <div class="program-statistic-pending" role="status" aria-labelledby="{{ statistic_prefix }}-pending-statistic-title">
+        <span class="program-statistic-pending__icon" aria-hidden="true">i</span>
+        <div>
+            <h3 id="{{ statistic_prefix }}-pending-statistic-title" data-i18n="programData.pendingTitle">Sinusuri pa ang lokal na estadistika</h3>
+            <p data-i18n="programData.pendingBody">Inihahanda at sinusuri pa ang opisyal na lokal na estadistika para sa programang ito. Hindi muna nagpapakita ng bilang hangga't hindi nakukumpirma ang pinagmulan at panahon ng tala.</p>
+        </div>
+    </div>
+{% endif %}
+    </div>
+
+    <div id="{{ statistic_prefix }}-geography-pangasinan-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-geography-pangasinan-tab" tabindex="0" data-statistics-panel="pangasinan" hidden>
+        <div class="program-statistics-empty">
+            <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
+            <div>
+                <h3 data-i18n="programData.empty.pangasinanTitle">Wala pang handang estadistika para sa Pangasinan</h3>
+                <p data-i18n="programData.empty.body">Hindi pa available ang beripikadong estadistika ng programa para sa saklaw na ito. Hindi kami awtomatikong gumagamit ng datos mula sa ibang lugar bilang kapalit.</p>
+                <button type="button" data-statistics-show="pozorrubio" data-i18n="programData.empty.action">Tingnan ang tantiya sa Pozorrubio</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="{{ statistic_prefix }}-geography-region-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-geography-region-tab" tabindex="0" data-statistics-panel="region" hidden>
+        <div class="program-statistics-empty">
+            <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
+            <div>
+                <h3 data-i18n="programData.empty.regionTitle">Wala pang handang estadistika para sa Region I</h3>
+                <p data-i18n="programData.empty.body">Hindi pa available ang beripikadong estadistika ng programa para sa saklaw na ito. Hindi kami awtomatikong gumagamit ng datos mula sa ibang lugar bilang kapalit.</p>
+                <button type="button" data-statistics-show="pozorrubio" data-i18n="programData.empty.action">Tingnan ang tantiya sa Pozorrubio</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="{{ statistic_prefix }}-geography-philippines-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-geography-philippines-tab" tabindex="0" data-statistics-panel="philippines" hidden>
+        <div class="program-statistics-empty">
+            <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
+            <div>
+                <h3 data-i18n="programData.empty.philippinesTitle">Wala pang handang pambansang estadistika</h3>
+                <p data-i18n="programData.empty.body">Hindi pa available ang beripikadong estadistika ng programa para sa saklaw na ito. Hindi kami awtomatikong gumagamit ng datos mula sa ibang lugar bilang kapalit.</p>
+                <button type="button" data-statistics-show="pozorrubio" data-i18n="programData.empty.action">Tingnan ang tantiya sa Pozorrubio</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -94,6 +94,11 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments?completeness=unknown"', response.text)
         self.assertIn('href="/assessments?program=4Ps"', response.text)
         self.assertIn('href="/assessments/queue"', response.text)
+        section_nav = response.text.split('class="dashboard-section-nav"', 1)[1].split(
+            "</nav>", 1
+        )[0]
+        for target in ("#reviews-heading", "#statistics-heading", "#household-heading"):
+            self.assertIn(f'href="{target}"', section_nav)
         self.assertNotIn("household_uuid", response.text)
         self.assertNotIn("Synthetic Household", response.text)
         self.assertNotIn("Single parent", response.text)

@@ -26,6 +26,47 @@
             "program.spisc.cardDescription": "Tulong pinansyal para sa mga kwalipikadong nakatatandang mamamayang nangangailangan.",
             "program.slp.cardDescription": "Tulong sa kabuhayan sa pamamagitan ng pagsasanay at pagbuo ng mapagkakakitaang gawain.",
             "program.tupad.cardDescription": "Pansamantalang hanapbuhay para sa mga manggagawang kapos, nawalan, o nawalan ng pagkakataong magtrabaho.",
+            "programData.year": "Tala noong Disyembre 31, 2022",
+            "programData.kicker": "Opisyal na makasaysayang estadistika",
+            "programData.contextTitle": "Ano ang ipinapakita ng bilang?",
+            "programData.note": "Ang bilang ay makasaysayang sanggunian lamang at hindi nagpapatunay ng kasalukuyang kwalipikasyon, pag-apruba, o pagtanggap ng benepisyo.",
+            "programData.sourceLink": "Buksan ang opisyal na ulat",
+            "programData.pendingTitle": "Sinusuri pa ang lokal na estadistika",
+            "programData.pendingBody": "Inihahanda at sinusuri pa ang opisyal na lokal na estadistika para sa programang ito. Hindi muna nagpapakita ng bilang hangga't hindi nakukumpirma ang pinagmulan at panahon ng tala.",
+            "programData.estimateKicker": "Tantiyang batay sa pananaliksik",
+            "programData.dashboardTitle": "Tantiya para sa Pozorrubio",
+            "programData.metricsLabel": "Buod ng tantiya",
+            "programData.totalLabel": "Tinatayang kabuuan",
+            "programData.chartTitle": "Tinatayang paghahati ayon sa prayoridad",
+            "programData.chartDescription": "Ipinapakita nito ang parehong 60% / 35% / 5% na palagay ng proyekto, hindi isang beripikadong distribusyon ng mga benepisyaryo.",
+            "programData.priority.primary": "Pangunahing prayoridad",
+            "programData.priority.secondary": "Pangalawang prayoridad",
+            "programData.priority.no_priority": "Walang prayoridad",
+            "programData.unit.households": "Mga sambahayan",
+            "programData.unit.individuals": "Mga indibidwal",
+            "programData.aboutTitle": "Tungkol sa datos na ito",
+            "programData.coverageLabel": "Saklaw",
+            "programData.coverageValue": "Pozorrubio, Pangasinan",
+            "programData.unitLabel": "Binibilang na yunit",
+            "programData.statusLabel": "Katayuan ng datos",
+            "programData.statusValue": "Tantiyang batay sa pananaliksik",
+            "programData.sourceLabel": "Pinagmulan",
+            "programData.sourceValue": "CBMS data na ibinigay ng Pamahalaang Bayan ng Pozorrubio",
+            "programData.reportingPeriodLabel": "Panahon ng ulat",
+            "programData.cutoffLabel": "Cutoff date",
+            "programData.unconfirmedValue": "Hindi pa nakukumpirma",
+            "programData.estimateNotice": "Ang mga estadistikang ito ay mga tantiyang batay sa pananaliksik mula sa CBMS data na ibinigay ng Pamahalaang Bayan ng Pozorrubio, Pangasinan. Hindi ito opisyal na tala ng pagpapatala, kwalipikasyon, pag-apruba, o pagtanggap ng benepisyo.",
+            "programData.estimateLimitation": "Ang 60%/35%/5% na paghahati ay palagay ng proyekto. Kinukumpirma pa ang reference year at cutoff date ng CBMS data.",
+            "programData.sectionSubtitle": "Tingnan ang mga tantiyang batay sa pananaliksik at mga available na estadistika ng pamahalaan tungkol sa naaabot ng programa at mga taong pinaglilingkuran nito.",
+            "programData.geographyLabel": "Pumili ng saklaw ng lugar",
+            "programData.geography.pozorrubio": "Pozorrubio",
+            "programData.geography.pangasinan": "Pangasinan",
+            "programData.geography.philippines": "Pilipinas",
+            "programData.empty.pangasinanTitle": "Wala pang handang estadistika para sa Pangasinan",
+            "programData.empty.regionTitle": "Wala pang handang estadistika para sa Region I",
+            "programData.empty.philippinesTitle": "Wala pang handang pambansang estadistika",
+            "programData.empty.body": "Hindi pa available ang beripikadong estadistika ng programa para sa saklaw na ito. Hindi kami awtomatikong gumagamit ng datos mula sa ibang lugar bilang kapalit.",
+            "programData.empty.action": "Tingnan ang tantiya sa Pozorrubio",
             "how.eyebrow": "Simple at malinaw",
             "how.title": "Paano Gamitin ang Tanglaw-Buhay",
             "how.subtitle": "Tatlong hakbang upang makita ang impormasyong kailangan mo.",
@@ -61,14 +102,14 @@
             "program.slp.purpose": "Ang SLP ay tumutulong sa pagpapaunlad ng kasanayan at mga oportunidad sa kabuhayan sa pamamagitan ng angkop na paghahanda, pagsasanay, at suporta. Ang uri ng tulong ay nakabatay sa assessment at kasalukuyang programa ng tanggapan.",
             "program.tupad.summary": "Alamin ang layunin ng pansamantalang programang pangkabuhayan para sa mga manggagawang nangangailangan.",
             "program.tupad.purpose": "Ang TUPAD ay isang community-based na pansamantalang employment program para sa mga kwalipikadong manggagawang kapos, nawalan, o seasonal ang trabaho. Ang pagpili at mga susunod na hakbang ay pinangangasiwaan ng awtorisadong tanggapan.",
-            "fourps.back": "Bumalik sa mga Programa",
+            "fourps.back": "Bumalik",
             "fourps.title": "4Ps – Pantawid Pamilyang Pilipino Program",
             "fourps.subtitle": "Tulong-pinansyal para sa kalusugan at pag-aaral ng iyong mga anak.",
             "fourps.tabsLabel": "Mga seksyon ng programa",
             "fourps.tab.about": "Tungkol Dito",
             "fourps.tab.documents": "Mga Kailangang Papeles",
             "fourps.tab.process": "Paano mag-apply",
-            "fourps.tab.data": "Datos sa Pozorrubio",
+            "fourps.tab.data": "Estadistika at Demograpiko",
             "fourps.step1.label": "Hakbang 1: Alamin ang Programa",
             "fourps.step1.description": "Ang 4Ps ay pambansang tulong mula sa gobyerno (RA 11310) para sa kalusugan at edukasyon ng mga bata mula 0 hanggang 18 taong gulang.",
             "fourps.audience.title": "Para kanino ito?",
@@ -99,10 +140,13 @@
             "fourps.process.4.body": "Magpa-interview sa MSWDO officer para sa pagpapatunay ng datos.",
             "fourps.process.5.title": "Pag-apruba",
             "fourps.process.5.body": "Hintayin ang opisyal na abiso at orientation para sa payout card.",
-            "fourps.step4.label": "Hakbang 4: Mga Datos at Benepisyaryo",
-            "fourps.step4.heading": "Talaan ng mga benepisyaryo sa ating bayan",
-            "fourps.data.placeholderLabel": "Nakalaang espasyo para sa datos",
-            "fourps.data.placeholder": "Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.",
+            "fourps.step4.label": "Hakbang 4: Estadistika at Demograpiko",
+            "fourps.step4.heading": "Estadistika at Demograpiko ng 4Ps",
+            "fourps.data.unit": "aktibong sambahayang benepisyaryo",
+            "fourps.data.description": "Noong Disyembre 31, 2022, may 1,833 aktibong sambahayang benepisyaryo ng 4Ps sa Pozorrubio.",
+            "fourps.data.source": "Pinagmulan: DSWD 4Ps Fourth Quarter Report on Program Coverage, 2022.",
+            "fourps.data.estimateUnit": "tinatayang sambahayan",
+            "fourps.data.estimateDescription": "Tinatayang 1,833 sambahayan ang tumugma sa pamantayan ng proyekto para sa 4Ps. Hindi nito kinukumpirma ang aktuwal na pagpapatala sa 4Ps.",
             "fourps.related.label": "Mga Susunod na Maaaring Alamin",
             "fourps.related.title": "Iba pang Programa ng Gobyerno",
             "fourps.related.body": "Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.",
@@ -115,14 +159,14 @@
             "fourps.question.title": "May karagdagang katanungan?",
             "fourps.question.body": "Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.",
             "fourps.question.action": "Bisitahin ang MSWDO",
-            "spisc.back": "Bumalik sa mga Programa",
+            "spisc.back": "Bumalik",
             "spisc.title": "SPISC – Social Pension for Indigent Senior Citizens",
             "spisc.subtitle": "Buwanang tulong pinansyal para sa mga nakatatandang kapos sa buhay.",
             "spisc.tabsLabel": "Mga seksyon ng programa",
             "spisc.tab.about": "Tungkol dito",
             "spisc.tab.documents": "Mga Kailangang Papeles",
             "spisc.tab.process": "Paano mag-apply",
-            "spisc.tab.data": "Datos sa Pozorrubio",
+            "spisc.tab.data": "Estadistika at Demograpiko",
             "spisc.step1.label": "Hakbang 1: Alamin ang Programa",
             "spisc.step1.description": "Ang SPISC (RA 9994 at RA 11916) ay nagbibigay ng buwanang stipend sa mga indigent senior citizen upang makatulong sa pang-araw-araw na pagkain at gamot.",
             "spisc.audience.title": "Para kanino ito?",
@@ -148,10 +192,10 @@
             "spisc.process.4.body": "Magpa-interview sa MSWDO Social Worker para sa assessment.",
             "spisc.process.5.title": "Pag-apruba",
             "spisc.process.5.body": "Hintayin ang opisyal na abiso ng pagiging kabilang sa quarterly payout list.",
-            "spisc.step4.label": "Hakbang 4: Mga Datos at Benepisyaryo",
-            "spisc.step4.heading": "Talaan ng mga benepisyaryo sa ating bayan",
-            "spisc.data.placeholderLabel": "Nakalaang espasyo para sa datos",
-            "spisc.data.placeholder": "Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.",
+            "spisc.step4.label": "Hakbang 4: Estadistika at Demograpiko",
+            "spisc.step4.heading": "Estadistika at Demograpiko ng SPISC",
+            "spisc.data.estimateUnit": "tinatayang indibidwal",
+            "spisc.data.estimateDescription": "Tinatayang 2,450 indibidwal ang tumugma sa pamantayan ng proyekto para sa SPISC. Hindi nito kinukumpirma ang aktuwal na pagpapatala o pagtanggap ng pensiyon.",
             "spisc.related.label": "Mga Susunod na Maaaring Alamin",
             "spisc.related.title": "Iba pang Programa ng Gobyerno",
             "spisc.related.body": "Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.",
@@ -164,14 +208,14 @@
             "spisc.question.title": "May karagdagang katanungan?",
             "spisc.question.body": "Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.",
             "spisc.question.action": "Bumisita sa MSWDO",
-            "slp.back": "Bumalik sa mga Programa",
+            "slp.back": "Bumalik",
             "slp.title": "SLP – Sustainable Livelihood Program",
             "slp.subtitle": "Tulong sa puhunan sa negosyo at pag-aaral para sa bagong trabaho.",
             "slp.tabsLabel": "Mga seksyon ng programa",
             "slp.tab.about": "Tungkol dito",
             "slp.tab.documents": "Mga Kailangang Papeles",
             "slp.tab.process": "Paano mag-apply",
-            "slp.tab.data": "Datos sa Pozorrubio",
+            "slp.tab.data": "Estadistika at Demograpiko",
             "slp.step1.label": "Hakbang 1: Alamin ang Programa",
             "slp.step1.description": "Ang SLP ay programa ng DSWD na nagbibigay ng pondo, kapabilidad, at oportunidad para sa microenterprise development o paghahanap ng trabaho.",
             "slp.audience.title": "Para kanino ito?",
@@ -202,10 +246,10 @@
             "slp.process.4.body": "Isumite ang application form at kaugnay na papeles.",
             "slp.process.5.title": "Pag-apruba at Pondo",
             "slp.process.5.body": "Tanggapin ang kapital o magsimula sa vocational skills training.",
-            "slp.step4.label": "Hakbang 4: Mga Datos at Benepisyaryo",
-            "slp.step4.heading": "Talaan ng mga benepisyaryo sa ating bayan",
-            "slp.data.placeholderLabel": "Nakalaang espasyo para sa datos",
-            "slp.data.placeholder": "Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.",
+            "slp.step4.label": "Hakbang 4: Estadistika at Demograpiko",
+            "slp.step4.heading": "Estadistika at Demograpiko ng SLP",
+            "slp.data.estimateUnit": "tinatayang sambahayan",
+            "slp.data.estimateDescription": "Tinatayang 176 sambahayan ang maaaring mangailangan ng suportang pangkabuhayan. Hindi nito kinukumpirma ang aktuwal na pagtanggap sa SLP o ang program track.",
             "slp.related.label": "Mga Susunod na Maaaring Alamin",
             "slp.related.title": "Iba pang Programa ng Gobyerno",
             "slp.related.body": "Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.",
@@ -218,14 +262,14 @@
             "slp.question.title": "May karagdagang katanungan?",
             "slp.question.body": "Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.",
             "slp.question.action": "Bisitahin ang MSWDO",
-            "tupad.back": "Bumalik sa mga Programa",
+            "tupad.back": "Bumalik",
             "tupad.title": "TUPAD – Tulong Panghanapbuhay sa Ating Disadvantaged/Displaced Workers",
             "tupad.subtitle": "Panandaliang trabaho at sahod para sa mga nawalan ng pangkabuhayan.",
             "tupad.tabsLabel": "Mga seksyon ng programa",
             "tupad.tab.about": "Tungkol dito",
             "tupad.tab.documents": "Mga Kailangang Papeles",
             "tupad.tab.process": "Paano mag-apply",
-            "tupad.tab.data": "Datos sa Pozorrubio",
+            "tupad.tab.data": "Estadistika at Demograpiko",
             "tupad.step1.label": "Hakbang 1: Alamin ang Programa",
             "tupad.step1.description": "Ang TUPAD ng DOLE ay nagbibigay ng panandaliang pampublikong trabaho (10–90 araw) para sa mga disadvantaged, displaced, o seasonal workers.",
             "tupad.audience.title": "Para kanino ito?",
@@ -255,10 +299,10 @@
             "tupad.process.4.body": "Kumpletuhin ang mga araw ng community service project.",
             "tupad.process.5.title": "Pagtanggap ng Sahod",
             "tupad.process.5.body": "Tanggapin ang sahod sa pamamagitan ng opisyal na payout procedure.",
-            "tupad.step4.label": "Hakbang 4: Mga Datos at Benepisyaryo",
-            "tupad.step4.heading": "Talaan ng mga benepisyaryo sa ating bayan",
-            "tupad.data.placeholderLabel": "Nakalaang espasyo para sa datos",
-            "tupad.data.placeholder": "Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.",
+            "tupad.step4.label": "Hakbang 4: Estadistika at Demograpiko",
+            "tupad.step4.heading": "Estadistika at Demograpiko ng TUPAD",
+            "tupad.data.estimateUnit": "tinatayang indibidwal",
+            "tupad.data.estimateDescription": "Tinatayang 1,258 indibidwal ang maaaring mangailangan ng pansamantalang suportang panghanapbuhay. Hindi nito kinukumpirma ang aktuwal na paglahok sa TUPAD.",
             "tupad.related.label": "Mga Susunod na Maaaring Alamin",
             "tupad.related.title": "Iba pang Programa ng Gobyerno",
             "tupad.related.body": "Tuklasin ang iba pang mga programang maaaring makatulong sa iyong pamilya.",
@@ -296,6 +340,47 @@
             "program.spisc.cardDescription": "Financial assistance for qualified older persons who need social support.",
             "program.slp.cardDescription": "Livelihood support through training and the development of income-generating activities.",
             "program.tupad.cardDescription": "Temporary work for underemployed, displaced, or seasonal workers who qualify.",
+            "programData.year": "Record as of December 31, 2022",
+            "programData.kicker": "Official historical statistic",
+            "programData.contextTitle": "What does this figure show?",
+            "programData.note": "This figure is for historical reference only and does not confirm current eligibility, approval, or receipt of benefits.",
+            "programData.sourceLink": "Open the official report",
+            "programData.pendingTitle": "Local statistic under verification",
+            "programData.pendingBody": "The official local statistic for this program is still being prepared and verified. No figure is shown until its source and reporting period are confirmed.",
+            "programData.estimateKicker": "Research-based estimate",
+            "programData.dashboardTitle": "Pozorrubio estimate",
+            "programData.metricsLabel": "Estimate summary",
+            "programData.totalLabel": "Estimated total",
+            "programData.chartTitle": "Estimated priority distribution",
+            "programData.chartDescription": "This shows the same 60% / 35% / 5% project assumption, not a verified distribution of program beneficiaries.",
+            "programData.priority.primary": "Primary priority",
+            "programData.priority.secondary": "Secondary priority",
+            "programData.priority.no_priority": "No priority",
+            "programData.unit.households": "Households",
+            "programData.unit.individuals": "Individuals",
+            "programData.aboutTitle": "About this data",
+            "programData.coverageLabel": "Coverage",
+            "programData.coverageValue": "Pozorrubio, Pangasinan",
+            "programData.unitLabel": "Unit counted",
+            "programData.statusLabel": "Data status",
+            "programData.statusValue": "Research-based estimate",
+            "programData.sourceLabel": "Source",
+            "programData.sourceValue": "CBMS data provided by the Municipal Government of Pozorrubio",
+            "programData.reportingPeriodLabel": "Reporting period",
+            "programData.cutoffLabel": "Cutoff date",
+            "programData.unconfirmedValue": "Not yet confirmed",
+            "programData.estimateNotice": "These statistics are research-based estimates derived from CBMS data provided by the Municipal Government of Pozorrubio, Pangasinan. They are not official records of enrolment, eligibility, approval, or benefit receipt.",
+            "programData.estimateLimitation": "The 60%/35%/5% distribution is a project assumption. The CBMS reference year and cutoff date are still being confirmed.",
+            "programData.sectionSubtitle": "Explore research-based estimates and available government statistics about the program's reach and the people it serves.",
+            "programData.geographyLabel": "Select a geographical scope",
+            "programData.geography.pozorrubio": "Pozorrubio",
+            "programData.geography.pangasinan": "Pangasinan",
+            "programData.geography.philippines": "Philippines",
+            "programData.empty.pangasinanTitle": "Statistics for Pangasinan are not ready yet",
+            "programData.empty.regionTitle": "Statistics for Region I are not ready yet",
+            "programData.empty.philippinesTitle": "National statistics are not ready yet",
+            "programData.empty.body": "Verified program statistics for this scope are not yet available. We do not automatically substitute figures from another geographical area.",
+            "programData.empty.action": "View the Pozorrubio estimate",
             "how.eyebrow": "Simple and clear",
             "how.title": "How to Use Tanglaw-Buhay",
             "how.subtitle": "Three steps to find the information you need.",
@@ -331,14 +416,14 @@
             "program.slp.purpose": "SLP helps develop skills and livelihood opportunities through appropriate preparation, training, and support. The form of assistance depends on the office's assessment and current program arrangements.",
             "program.tupad.summary": "Learn about the temporary livelihood program for workers who need short-term support.",
             "program.tupad.purpose": "TUPAD is a community-based temporary employment program for qualified underemployed, displaced, or seasonal workers. Selection and next steps are managed by the authorized office.",
-            "fourps.back": "Back to Programs",
+            "fourps.back": "Back",
             "fourps.title": "4Ps – Pantawid Pamilyang Pilipino Program",
             "fourps.subtitle": "Financial assistance for your children's health and education.",
             "fourps.tabsLabel": "Program sections",
             "fourps.tab.about": "About the Program",
             "fourps.tab.documents": "Required Documents",
             "fourps.tab.process": "How to Apply",
-            "fourps.tab.data": "Pozorrubio Data",
+            "fourps.tab.data": "Statistics & Demographics",
             "fourps.step1.label": "Step 1: Learn About the Program",
             "fourps.step1.description": "4Ps is a national government assistance program under RA 11310 that supports the health and education of children from birth through 18 years old.",
             "fourps.audience.title": "Who is it for?",
@@ -369,10 +454,13 @@
             "fourps.process.4.body": "Attend an interview with an MSWDO officer so your information can be validated.",
             "fourps.process.5.title": "Approval",
             "fourps.process.5.body": "Wait for the official notice and orientation about the payout card.",
-            "fourps.step4.label": "Step 4: Data and Beneficiaries",
-            "fourps.step4.heading": "Beneficiary records in our municipality",
-            "fourps.data.placeholderLabel": "Reserved area for local data",
-            "fourps.data.placeholder": "Data for this section will be prepared in a future phase.",
+            "fourps.step4.label": "Step 4: Statistics & Demographics",
+            "fourps.step4.heading": "4Ps Statistics & Demographics",
+            "fourps.data.unit": "active beneficiary households",
+            "fourps.data.description": "As of December 31, 2022, Pozorrubio had 1,833 active 4Ps beneficiary households.",
+            "fourps.data.source": "Source: DSWD 4Ps Fourth Quarter Report on Program Coverage, 2022.",
+            "fourps.data.estimateUnit": "estimated households",
+            "fourps.data.estimateDescription": "An estimated 1,833 households matched the project's 4Ps criteria. This does not confirm actual 4Ps enrolment.",
             "fourps.related.label": "Explore Next",
             "fourps.related.title": "Other Government Programs",
             "fourps.related.body": "Explore other programs that may help your family.",
@@ -385,14 +473,14 @@
             "fourps.question.title": "Have another question?",
             "fourps.question.body": "Our MSWDO staff can answer your questions.",
             "fourps.question.action": "Visit the MSWDO",
-            "spisc.back": "Back to Programs",
+            "spisc.back": "Back",
             "spisc.title": "SPISC – Social Pension for Indigent Senior Citizens",
             "spisc.subtitle": "Monthly financial assistance for older people living with limited means.",
             "spisc.tabsLabel": "Program sections",
             "spisc.tab.about": "About the Program",
             "spisc.tab.documents": "Required Documents",
             "spisc.tab.process": "How to Apply",
-            "spisc.tab.data": "Pozorrubio Data",
+            "spisc.tab.data": "Statistics & Demographics",
             "spisc.step1.label": "Step 1: Learn About the Program",
             "spisc.step1.description": "SPISC, under RA 9994 and RA 11916, provides a monthly stipend to indigent senior citizens to help with everyday food and medicine expenses.",
             "spisc.audience.title": "Who is it for?",
@@ -418,10 +506,10 @@
             "spisc.process.4.body": "Attend an assessment interview with an MSWDO social worker.",
             "spisc.process.5.title": "Approval",
             "spisc.process.5.body": "Wait for the official notice confirming inclusion in the quarterly payout list.",
-            "spisc.step4.label": "Step 4: Data and Beneficiaries",
-            "spisc.step4.heading": "Beneficiary records in our municipality",
-            "spisc.data.placeholderLabel": "Reserved area for local data",
-            "spisc.data.placeholder": "Data for this section will be prepared in a future phase.",
+            "spisc.step4.label": "Step 4: Statistics & Demographics",
+            "spisc.step4.heading": "SPISC Statistics & Demographics",
+            "spisc.data.estimateUnit": "estimated individuals",
+            "spisc.data.estimateDescription": "An estimated 2,450 individuals matched the project's SPISC criteria. This does not confirm actual enrolment or pension receipt.",
             "spisc.related.label": "Explore Next",
             "spisc.related.title": "Other Government Programs",
             "spisc.related.body": "Explore other programs that may help your family.",
@@ -434,14 +522,14 @@
             "spisc.question.title": "Have another question?",
             "spisc.question.body": "Our MSWDO staff can answer your questions.",
             "spisc.question.action": "Visit the MSWDO",
-            "slp.back": "Back to Programs",
+            "slp.back": "Back",
             "slp.title": "SLP – Sustainable Livelihood Program",
             "slp.subtitle": "Business capital and training support for new employment.",
             "slp.tabsLabel": "Program sections",
             "slp.tab.about": "About the Program",
             "slp.tab.documents": "Required Documents",
             "slp.tab.process": "How to Apply",
-            "slp.tab.data": "Pozorrubio Data",
+            "slp.tab.data": "Statistics & Demographics",
             "slp.step1.label": "Step 1: Learn About the Program",
             "slp.step1.description": "SLP is a DSWD program that provides funding, capability-building, and opportunities for microenterprise development or employment.",
             "slp.audience.title": "Who is it for?",
@@ -472,10 +560,10 @@
             "slp.process.4.body": "Submit the application form and supporting documents.",
             "slp.process.5.title": "Approval and Funding",
             "slp.process.5.body": "Receive the capital assistance or begin vocational skills training.",
-            "slp.step4.label": "Step 4: Data and Beneficiaries",
-            "slp.step4.heading": "Beneficiary records in our municipality",
-            "slp.data.placeholderLabel": "Reserved area for local data",
-            "slp.data.placeholder": "Data for this section will be prepared in a future phase.",
+            "slp.step4.label": "Step 4: Statistics & Demographics",
+            "slp.step4.heading": "SLP Statistics & Demographics",
+            "slp.data.estimateUnit": "estimated households",
+            "slp.data.estimateDescription": "An estimated 176 households may need livelihood support. This does not confirm actual SLP participation or a program track.",
             "slp.related.label": "Explore Next",
             "slp.related.title": "Other Government Programs",
             "slp.related.body": "Explore other programs that may help your family.",
@@ -488,14 +576,14 @@
             "slp.question.title": "Have another question?",
             "slp.question.body": "Our MSWDO staff can answer your questions.",
             "slp.question.action": "Visit the MSWDO",
-            "tupad.back": "Back to Programs",
+            "tupad.back": "Back",
             "tupad.title": "TUPAD – Tulong Panghanapbuhay sa Ating Disadvantaged/Displaced Workers",
             "tupad.subtitle": "Temporary work and wages for people who have lost their livelihood.",
             "tupad.tabsLabel": "Program sections",
             "tupad.tab.about": "About the Program",
             "tupad.tab.documents": "Required Documents",
             "tupad.tab.process": "How to Apply",
-            "tupad.tab.data": "Pozorrubio Data",
+            "tupad.tab.data": "Statistics & Demographics",
             "tupad.step1.label": "Step 1: Learn About the Program",
             "tupad.step1.description": "DOLE's TUPAD program provides temporary public employment lasting 10–90 days for disadvantaged, displaced, or seasonal workers.",
             "tupad.audience.title": "Who is it for?",
@@ -525,10 +613,10 @@
             "tupad.process.4.body": "Complete the required days of the community service project.",
             "tupad.process.5.title": "Receive the Wage",
             "tupad.process.5.body": "Receive the wage through the official payout procedure.",
-            "tupad.step4.label": "Step 4: Data and Beneficiaries",
-            "tupad.step4.heading": "Beneficiary records in our municipality",
-            "tupad.data.placeholderLabel": "Reserved area for local data",
-            "tupad.data.placeholder": "Data for this section will be prepared in a future phase.",
+            "tupad.step4.label": "Step 4: Statistics & Demographics",
+            "tupad.step4.heading": "TUPAD Statistics & Demographics",
+            "tupad.data.estimateUnit": "estimated individuals",
+            "tupad.data.estimateDescription": "An estimated 1,258 individuals may need temporary employment support. This does not confirm actual TUPAD participation.",
             "tupad.related.label": "Explore Next",
             "tupad.related.title": "Other Government Programs",
             "tupad.related.body": "Explore other programs that may help your family.",
@@ -600,6 +688,68 @@
     });
 
     applyLanguage(storedLanguage(), false);
+
+    document.querySelectorAll("[data-statistics-tabs]").forEach(function (container) {
+        const tabs = Array.from(container.querySelectorAll("[data-statistics-tab]"));
+        const panels = Array.from(container.querySelectorAll("[data-statistics-panel]"));
+
+        function showGeography(geography, focusTab) {
+            const selectedTab = tabs.find(function (tab) {
+                return tab.dataset.statisticsTab === geography;
+            });
+
+            if (!selectedTab) {
+                return;
+            }
+
+            tabs.forEach(function (tab) {
+                const isSelected = tab === selectedTab;
+                tab.setAttribute("aria-selected", String(isSelected));
+                tab.setAttribute("tabindex", isSelected ? "0" : "-1");
+            });
+
+            panels.forEach(function (panel) {
+                panel.hidden = panel.dataset.statisticsPanel !== geography;
+            });
+
+            if (focusTab) {
+                selectedTab.focus();
+            }
+        }
+
+        tabs.forEach(function (tab, index) {
+            tab.addEventListener("click", function () {
+                showGeography(tab.dataset.statisticsTab, false);
+            });
+
+            tab.addEventListener("keydown", function (event) {
+                let nextIndex;
+
+                if (event.key === "ArrowRight") {
+                    nextIndex = (index + 1) % tabs.length;
+                } else if (event.key === "ArrowLeft") {
+                    nextIndex = (index - 1 + tabs.length) % tabs.length;
+                } else if (event.key === "Home") {
+                    nextIndex = 0;
+                } else if (event.key === "End") {
+                    nextIndex = tabs.length - 1;
+                } else {
+                    return;
+                }
+
+                event.preventDefault();
+                showGeography(tabs[nextIndex].dataset.statisticsTab, true);
+            });
+        });
+
+        container.querySelectorAll("[data-statistics-show]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                showGeography(button.dataset.statisticsShow, true);
+            });
+        });
+
+        showGeography("pozorrubio", false);
+    });
 
     const fourpsTabs = Array.from(document.querySelectorAll("[data-fourps-tab]"));
 

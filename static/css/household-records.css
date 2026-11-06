@@ -72,16 +72,24 @@
 .records-pagination a, .records-page-controls > span { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 7px; font-weight: 700; text-decoration: none; }
 .records-pagination a:hover { border-color: #aebfc8; background: var(--surface-muted); }
 .records-page-controls > span { background: var(--surface-muted); color: #7c8d98; }
-.record-detail-header { padding: 22px 24px 24px; border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: 14px; background: var(--surface); box-shadow: 0 10px 28px rgb(16 42 63 / 6%); }
-.record-detail-header .context-bar { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.record-detail-header { padding: 24px 28px 28px; border: 1px solid #25465b; border-left: 4px solid var(--gold); border-radius: 16px; background: radial-gradient(circle at 90% 15%, rgb(217 191 137 / 23%), transparent 28%), linear-gradient(115deg, #102b3f 0%, #1d475d 100%); box-shadow: 0 18px 38px rgb(16 42 63 / 13%); }
+.record-detail-header .context-bar { position: relative; z-index: 1; padding-bottom: 14px; border-bottom: 1px solid rgb(255 255 255 / 18%); color: #d9e5ea; }
+.record-detail-header .breadcrumb a, .record-detail-header .breadcrumb [aria-current] { color: #fff; }
+.record-detail-header .dataset-reference img { filter: brightness(0) invert(1); opacity: .8; }
+.record-detail-header .records-kicker { color: #e7d4ad; }
+.record-detail-header h1 { color: #fff; }
 .record-detail-heading { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 24px; }
 .record-detail-heading h1 { overflow-wrap: anywhere; }
 .record-identity { display: flex; flex-wrap: wrap; gap: 10px 0; margin-top: 14px; }
-.record-identity > div { min-width: 140px; padding: 0 20px; border-left: 1px solid var(--border); }
+.record-identity > div { min-width: 140px; padding: 0 20px; border-left: 1px solid rgb(255 255 255 / 18%); }
 .record-identity > div:first-child { padding-left: 0; border-left: 0; }
-.record-identity dt { color: var(--text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.record-identity dd { margin: 4px 0 0; font-size: .875rem; font-weight: 700; overflow-wrap: anywhere; }
+.record-identity dt { color: #c5d5de; font-size: .6875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.record-identity dd { margin: 4px 0 0; color: #fff; font-size: .875rem; font-weight: 700; overflow-wrap: anywhere; }
 .record-detail-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.record-detail-header .record-back { border-color: rgb(255 255 255 / 42%); background: rgb(255 255 255 / 7%); color: #fff; }
+.record-detail-header .record-back:hover { border-color: #fff; background: rgb(255 255 255 / 14%); color: #fff; }
+.record-detail-header .record-assessment { border: 1px solid #e7d4ad; background: #e7d4ad; color: #183446; box-shadow: 0 5px 16px rgb(0 0 0 / 14%); }
+.record-detail-header .record-assessment:hover { background: #f3e4c4; color: #183446; }
 .record-section { margin-bottom: 20px; padding: 22px 24px; }
 .record-section > h2, .record-section-heading h2 { display: inline-flex; align-items: center; gap: 10px; }
 .record-section > h2::before, .record-section-heading h2::before { content: ""; flex: 0 0 auto; width: 4px; height: 19px; border-radius: 99px; background: var(--gold); }
