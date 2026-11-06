@@ -76,6 +76,7 @@ def load_email_settings():
         or bool(username) != bool(password)
     ):
         raise EmailDeliveryError("not_configured")
+    recipient_policy()  # An unclear recipient policy also keeps email closed.
     return EmailSettings(host, int(port_text), security, username, password, sender)
 
 
@@ -103,14 +104,31 @@ def build_password_reset_link(token):
     return public_base_url() + PASSWORD_RESET_PATH + quote(token, safe="")
 
 
+def recipient_policy():
+    """Return (mode, allowed addresses); raise not_configured unless the policy is clear.
+
+    SMTP_RECIPIENT_MODE is 'allowlist' (the default) or exactly 'any'. It fails closed:
+    an allowlist must be present and made of valid addresses, and 'any' may not be
+    combined with a list, because the two settings would contradict each other.
+    """
+    mode = _setting("SMTP_RECIPIENT_MODE") or "allowlist"
+    entries = [item.strip().lower() for item in _setting("SMTP_ALLOWED_RECIPIENTS").split(",")
+               if item.strip()]
+    if mode == "any" and not entries:
+        return mode, set()
+    if mode == "allowlist" and entries and all(ADDRESS_PATTERN.fullmatch(item) for item in entries):
+        return mode, set(entries)
+    raise EmailDeliveryError("not_configured")
+
+
 def check_recipient(address):
     """Return the lowercase address if it is valid and permitted, else raise."""
     text = address.strip() if isinstance(address, str) else ""
-    if len(text) > 254 or not ADDRESS_PATTERN.fullmatch(text) or "," in text:
+    if (len(text) > 254 or not text.isascii() or not ADDRESS_PATTERN.fullmatch(text)
+            or "," in text):
         raise EmailDeliveryError("invalid_recipient")
-    allowed = {item.strip().lower() for item in _setting("SMTP_ALLOWED_RECIPIENTS").split(",")}
-    allowed.discard("")
-    if allowed and text.lower() not in allowed:
+    mode, allowed = recipient_policy()
+    if mode == "allowlist" and text.lower() not in allowed:
         raise EmailDeliveryError("recipient_not_allowed")
     return text.lower()
 

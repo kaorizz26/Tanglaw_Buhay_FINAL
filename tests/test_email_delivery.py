@@ -27,7 +27,7 @@ def base_config(**changes):
     settings = {
         "SMTP_HOST": "smtp.example.org", "SMTP_PORT": "587", "SMTP_SECURITY": "starttls",
         "SMTP_USERNAME": "sender@example.org", "SMTP_PASSWORD": PASSWORD,
-        "SMTP_FROM": SENDER, "SMTP_ALLOWED_RECIPIENTS": "",
+        "SMTP_FROM": SENDER, "SMTP_RECIPIENT_MODE": "any", "SMTP_ALLOWED_RECIPIENTS": "",
         "PUBLIC_BASE_URL": "https://portal.example.org",
     }
     settings.update(changes)
@@ -106,7 +106,8 @@ class RecipientTests(DeliveryTestCase):
         self.smtp.assert_not_called()
 
     def test_the_allowed_list_limits_who_can_receive_email(self):
-        self.configure(SMTP_ALLOWED_RECIPIENTS=" Tester@Example.com , other@example.com ")
+        self.configure(SMTP_RECIPIENT_MODE="allowlist",
+                       SMTP_ALLOWED_RECIPIENTS=" Tester@Example.com , other@example.com ")
         delivery.send_email("tester@example.com", "S", "B")
         delivery.send_email("OTHER@example.com", "S", "B")
         self.assertEqual(self.server.send_message.call_count, 2)
@@ -116,9 +117,44 @@ class RecipientTests(DeliveryTestCase):
                          "recipient_not_allowed")
         self.smtp.assert_not_called()
 
-    def test_without_an_allowed_list_any_valid_address_is_accepted(self):
-        delivery.send_email(RECIPIENT, "S", "B")
-        self.server.send_message.assert_called_once()
+    def test_the_default_mode_is_the_allowed_list(self):
+        self.configure(SMTP_RECIPIENT_MODE="", SMTP_ALLOWED_RECIPIENTS="only@example.com")
+        self.assertEqual(delivery.recipient_policy(), ("allowlist", {"only@example.com"}))
+        self.assertEqual(self.error_code(delivery.send_email, RECIPIENT, "S", "B"),
+                         "recipient_not_allowed")
+        self.smtp.assert_not_called()
+
+    def test_any_mode_accepts_valid_addresses_from_every_provider(self):
+        for address in ("person@gmail.com", "person@yahoo.com", "person@outlook.com",
+                        "Person.Name+tag@hotmail.com", "person@mail.example.ph"):
+            with self.subTest(address=address):
+                self.smtp.reset_mock()
+                delivery.send_email(address, "S", "B")
+                self.assertEqual(self.server.send_message.call_args.args[0]["To"], address.lower())
+        for address in ("not-an-address", "a b@gmail.com", "persón@gmail.com"):
+            with self.subTest(address=address):
+                self.assertEqual(self.error_code(delivery.send_email, address, "S", "B"),
+                                 "invalid_recipient")
+
+    def test_unclear_recipient_settings_keep_email_closed(self):
+        """Missing, invalid or contradictory recipient settings never send anything."""
+        for label, change in (
+            ("allowlist without a list", {"SMTP_RECIPIENT_MODE": "allowlist", "SMTP_ALLOWED_RECIPIENTS": ""}),
+            ("nothing set at all", {"SMTP_RECIPIENT_MODE": "", "SMTP_ALLOWED_RECIPIENTS": ""}),
+            ("blank list entries only", {"SMTP_RECIPIENT_MODE": "allowlist", "SMTP_ALLOWED_RECIPIENTS": " , ,"}),
+            ("invalid list entry", {"SMTP_RECIPIENT_MODE": "allowlist",
+                                    "SMTP_ALLOWED_RECIPIENTS": "good@example.com, not-an-address"}),
+            ("any combined with a list", {"SMTP_RECIPIENT_MODE": "any", "SMTP_ALLOWED_RECIPIENTS": "a@example.com"}),
+            ("unknown mode", {"SMTP_RECIPIENT_MODE": "all", "SMTP_ALLOWED_RECIPIENTS": ""}),
+            ("wrong capitalisation", {"SMTP_RECIPIENT_MODE": "Any", "SMTP_ALLOWED_RECIPIENTS": ""}),
+            ("a list is not a mode", {"SMTP_RECIPIENT_MODE": "a@example.com", "SMTP_ALLOWED_RECIPIENTS": ""}),
+        ):
+            with self.subTest(label):
+                self.configure(**change)
+                self.assertEqual(self.error_code(delivery.send_email, RECIPIENT, "S", "B"),
+                                 "not_configured")
+                self.assertEqual(self.error_code(delivery.load_email_settings), "not_configured")
+        self.smtp.assert_not_called()
 
 
 class SendTests(DeliveryTestCase):
@@ -388,9 +424,19 @@ class CheckScriptTests(unittest.TestCase):
     def test_the_allowed_list_applies_to_the_test_message(self):
         code, result = self.run_script(
             "--send-to", RECIPIENT, "--confirm", "SEND-TEST-EMAIL",
-            SMTP_ALLOWED_RECIPIENTS="someone.else@example.com")
+            SMTP_RECIPIENT_MODE="allowlist", SMTP_ALLOWED_RECIPIENTS="someone.else@example.com")
         self.assertEqual((code, result["error"]), (1, "recipient_not_allowed"))
         self.smtp.assert_not_called()
+
+    def test_the_summary_shows_the_recipient_mode_without_any_address(self):
+        code, result = self.run_script(
+            SMTP_RECIPIENT_MODE="allowlist", SMTP_ALLOWED_RECIPIENTS="someone.else@example.com")
+        self.assertEqual((code, result["settings"]["recipient_mode"],
+                          result["settings"]["allowed_recipient_count"]), (0, "allowlist", 1))
+        self.assertNotIn("someone.else", json.dumps(result))
+        code, result = self.run_script()
+        self.assertEqual((result["settings"]["recipient_mode"],
+                          result["settings"]["allowed_recipient_count"]), ("any", 0))
 
     def test_bad_settings_print_only_a_fixed_code(self):
         code, result = self.run_script(SMTP_HOST="")

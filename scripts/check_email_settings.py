@@ -6,8 +6,8 @@ Without options it only validates the settings in .env and prints a summary
     python scripts/check_email_settings.py --send-to you@example.com \
         --confirm SEND-TEST-EMAIL
 
-The message contains no account link. If SMTP_ALLOWED_RECIPIENTS is set, only
-addresses on that list can receive it.
+The message contains no account link. In 'allowlist' mode only addresses on
+SMTP_ALLOWED_RECIPIENTS can receive it; in 'any' mode any valid address can.
 """
 
 import argparse
@@ -42,11 +42,12 @@ def summarize_settings():
     """Validate the settings and describe them without revealing any secret."""
     settings = email_delivery.load_email_settings()
     email_delivery.public_base_url()
-    allowed = [item for item in (Config.SMTP_ALLOWED_RECIPIENTS or "").split(",") if item.strip()]
+    mode, allowed = email_delivery.recipient_policy()
     return {
         "smtp_host": settings.host, "smtp_port": settings.port,
         "security": settings.security, "signs_in": bool(settings.username),
         "sender_domain": settings.sender.rsplit("@", 1)[-1].rstrip("> "),
+        "recipient_mode": mode,
         "allowed_recipient_count": len(allowed),
         "public_base_url_valid": True,
     }

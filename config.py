@@ -24,7 +24,9 @@ class Config:
     SMTP_USERNAME = os.getenv("SMTP_USERNAME")
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
     SMTP_FROM = os.getenv("SMTP_FROM")
-    # Optional comma-separated addresses; when set, no other recipient receives mail.
+    # Who may receive mail: 'allowlist' (default; needs the list below) or exactly 'any'.
+    SMTP_RECIPIENT_MODE = os.getenv("SMTP_RECIPIENT_MODE")
+    # Comma-separated addresses for 'allowlist' mode; must be empty in 'any' mode.
     SMTP_ALLOWED_RECIPIENTS = os.getenv("SMTP_ALLOWED_RECIPIENTS")
     # Digital Dropbox: private folder for uploaded documents. It must be outside the
     # project and static/, and is backed up together with the database.

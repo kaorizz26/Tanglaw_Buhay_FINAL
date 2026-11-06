@@ -27,6 +27,17 @@ EMAIL_IN_USE_MESSAGE = (
     "This email address is already used by another Citizen Account. "
     "Check the address, or use a different one."
 )
+# Shown on the Assessment page when an email limit stops an action; nothing was saved.
+EMAIL_LIMIT_MESSAGES = {
+    "account_email_limit": (
+        "Too many activation emails were requested for this account today. "
+        "Nothing was changed. Please try again tomorrow."
+    ),
+    "daily_email_limit": (
+        "The daily limit for citizen emails has been reached. "
+        "Nothing was changed. Please try again tomorrow."
+    ),
+}
 # Shown on the Assessment page when the account's status changed after a form was opened.
 STATE_CHANGED_MESSAGES = {
     "account_missing": "This household has no Citizen Account yet.",
@@ -111,6 +122,8 @@ def create(household_uuid):
     except CitizenAccountInputError as invalid:
         return _render_form(page, household_uuid, values, invalid.errors, 400)
     except CitizenAccountError as failure:
+        if str(failure) in EMAIL_LIMIT_MESSAGES:
+            return _redirect_to_assessment(household_uuid, EMAIL_LIMIT_MESSAGES[str(failure)])
         if str(failure) == "household_has_account":
             return _redirect_to_assessment(
                 household_uuid, "This household already has a Citizen Account.",
@@ -156,6 +169,8 @@ def resend(household_uuid):
     try:
         result = resend_activation(g.user["id"], str(household_uuid), batch_id, run_id)
     except CitizenAccountError as failure:
+        if str(failure) in EMAIL_LIMIT_MESSAGES:
+            return _redirect_to_assessment(household_uuid, EMAIL_LIMIT_MESSAGES[str(failure)])
         if str(failure) == "not_pending":
             return _redirect_to_assessment(
                 household_uuid,
@@ -223,6 +238,8 @@ def _management_form(household_uuid, *, template, permission, blocked_message, f
         return render_form(values, invalid.errors, 400)
     except CitizenAccountError as failure:
         code = str(failure)
+        if code in EMAIL_LIMIT_MESSAGES:
+            return _redirect_to_assessment(household_uuid, EMAIL_LIMIT_MESSAGES[code])
         if code in STATE_CHANGED_MESSAGES:
             return _redirect_to_assessment(household_uuid, STATE_CHANGED_MESSAGES[code])
         if code == "email_in_use":

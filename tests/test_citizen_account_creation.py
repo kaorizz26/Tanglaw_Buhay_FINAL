@@ -17,6 +17,7 @@ from psycopg.types.json import Jsonb
 from repositories import citizen_accounts as repository
 from services import assessment_queries
 from services import citizen_accounts as service
+from services import email_limits
 from services.assessment_queries import AssessmentQueryError
 from services.citizen_account_panel import PANEL_UNAVAILABLE, present_account_panel
 from services.citizen_credentials import activation_code_matches, hash_token
@@ -283,12 +284,14 @@ class AccountCreationTests(unittest.TestCase):
     def test_every_email_failure_gives_staff_a_fixed_message_and_a_way_to_resend(self):
         self.send.side_effect = EmailDeliveryError("not_configured")
         self.create()
-        for code, message in service.ERROR_MESSAGES.items():
-            with self.subTest(code=code):
-                self.send.side_effect = EmailDeliveryError(code)
-                result = self.resend()
-                self.assertEqual((result["email_sent"], result["email_problem"]), (False, message))
-                self.assertIsNone(result["activation_code"])
+        # This test sends more resends than the daily per-account limit allows; the limit has its own tests.
+        with patch.object(email_limits, "MAX_ACTIVATION_EMAILS_PER_ACCOUNT", 100):
+            for code, message in service.ERROR_MESSAGES.items():
+                with self.subTest(code=code):
+                    self.send.side_effect = EmailDeliveryError(code)
+                    result = self.resend()
+                    self.assertEqual((result["email_sent"], result["email_problem"]), (False, message))
+                    self.assertIsNone(result["activation_code"])
 
     def test_a_failure_while_recording_acceptance_does_not_hide_the_sent_email(self):
         with patch.object(service.citizen_accounts, "mark_email_accepted",

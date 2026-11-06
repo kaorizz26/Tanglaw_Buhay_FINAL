@@ -17,6 +17,7 @@ from services.citizen_account_panel import present_account_panel, present_histor
 from services.citizen_credentials import (
     ACTIVATION_LIFETIME, new_activation_credentials,
 )
+from services import email_limits
 from services.email_delivery import (
     ERROR_MESSAGES, EmailDeliveryError, send_activation_email, send_email_changed_notice,
 )
@@ -182,8 +183,13 @@ def get_household_account_page(household_uuid, *, with_history=False,
 def _issue_activation_credentials(connection, account_id):
     """Replace any open activation pair with a new one; return (token id, credentials).
 
-    Only hashes are stored. The caller emails the link after the commit.
+    Only hashes are stored. The caller emails the link after the commit. Creating an
+    account, resending, reactivating and changing the email all come through here, so
+    one check applies the per-account and daily email limits to every one of them.
     """
+    limit_code = email_limits.activation_email_problem(connection, account_id)
+    if limit_code:
+        raise CitizenAccountError(limit_code)
     credentials = new_activation_credentials()
     citizen_accounts.revoke_open_tokens(connection, account_id, "activation")
     token = citizen_accounts.insert_token(

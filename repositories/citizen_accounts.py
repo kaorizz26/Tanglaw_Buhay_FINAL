@@ -208,6 +208,27 @@ def count_recent_tokens(connection, account_id, purpose, window):
     ).fetchone()[0]
 
 
+def count_all_recent_tokens(connection, window):
+    """Count every link of every account and purpose created within `window`."""
+    return connection.execute(
+        "SELECT count(*) FROM citizen_account_tokens WHERE created_at > CURRENT_TIMESTAMP - %s",
+        (window,),
+    ).fetchone()[0]
+
+
+# Any fixed number works, as long as only the daily email limit uses it.
+EMAIL_BUDGET_LOCK_KEY = 7240601
+
+
+def lock_email_budget(connection):
+    """Make other transactions wait here until this one ends, so the daily count stays exact.
+
+    The lock is released automatically at commit or rollback. Call it inside the same
+    transaction that then counts and inserts the link.
+    """
+    connection.execute("SELECT pg_advisory_xact_lock(%s)", (EMAIL_BUDGET_LOCK_KEY,))
+
+
 def revoke_open_tokens(connection, account_id, purpose=None):
     """Cancel the account's unused links (all, or one purpose); return how many."""
     return connection.execute(

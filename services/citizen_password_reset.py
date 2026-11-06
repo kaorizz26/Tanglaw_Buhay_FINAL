@@ -18,6 +18,7 @@ from services.citizen_authentication import (
 from services.citizen_credentials import (
     PASSWORD_RESET_LIFETIME, hash_token, new_reset_credentials,
 )
+from services import email_limits
 from services.email_delivery import (
     EmailDeliveryError, send_password_changed_email, send_password_reset_email,
 )
@@ -72,6 +73,8 @@ def _save_reset_link(connection_factory, email, token_hash):
             )
             if recent >= MAX_RESET_REQUESTS:
                 return False
+            if not email_limits.daily_budget_left(connection):
+                return False  # Same silent answer as any other no-send, so nothing is revealed.
             citizen_accounts.revoke_open_tokens(connection, account["id"], PURPOSE)
             citizen_accounts.insert_token(
                 connection, account["id"], PURPOSE, token_hash, None, PASSWORD_RESET_LIFETIME,
