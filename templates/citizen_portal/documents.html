@@ -1,46 +1,38 @@
 {% extends 'citizen_portal/base.html' %}
 {% block title %}My Documents{% endblock %}
+{% block main_class %} portal-main-wide{% endblock %}
 {% block navigation %}{% set current = 'documents' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
 {% block content %}
-  <h1 class="portal-page-title" id="documents-heading">My Documents</h1>
+  <h1 class="portal-page-title">My Documents</h1>
   {% if notice %}
     <p class="portal-notice portal-notice-{{ notice[0] }}" role="{{ 'status' if notice[0] == 'success' else 'alert' }}">{{ notice[1] }}</p>
   {% endif %}
 
   {% if not documents %}
-    <section class="portal-card">
-      <p class="portal-lead">The LGU office has not asked you for any documents.</p>
+    <section class="portal-card portal-empty" aria-labelledby="empty-heading">
+      <h2 id="empty-heading">No document requests yet.</h2>
+      <p class="portal-lead">When the LGU office requests a document, it will appear here.</p>
       <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.home') }}">Back to Home</a>
     </section>
   {% else %}
-    <ul class="portal-document-list" aria-labelledby="documents-heading">
-      {% for document in documents %}
-        <li class="portal-card portal-document portal-document-{{ document.status }}">
-          <div class="portal-document-head">
-            <h2>{{ document.title }}</h2>
-            <span class="portal-status portal-status-{{ document.status }}">{{ document.status_label }}</span>
-          </div>
-          {% if document.instructions %}
-            <p class="portal-document-instructions">{{ document.instructions }}</p>
-          {% endif %}
-          {% if document.reason %}
-            <p class="portal-document-reason">
-              <strong>Message from the LGU office:</strong> {{ document.reason }}
-            </p>
-          {% endif %}
-          <p class="portal-document-next">{{ document.next_step }}</p>
-          {% if document.latest_file %}
-            <p class="portal-document-file">
-              Your file: <strong>{{ document.latest_file.display_name }}</strong>
-              <span>uploaded {{ document.latest_file.uploaded_at|pht_date }}</span>
-              <a href="{{ url_for('citizen_documents.download', file_id=document.latest_file.id) }}">Download my file</a>
-            </p>
-          {% endif %}
-          {% if document.can_upload %}
-            <a class="portal-button" href="{{ url_for('citizen_documents.upload', request_id=document.id) }}">{{ document.upload_label }}<span class="portal-visually-hidden"> for {{ document.title }}</span></a>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
+    {# can_upload is true for Upload Needed and Needs Correction: the two that need the citizen to act. #}
+    {% set needs_action = documents | selectattr('can_upload') | list %}
+    {% set other_documents = documents | rejectattr('can_upload') | list %}
+    {% if needs_action %}
+      <section class="portal-document-group" aria-labelledby="attention-heading">
+        <h2 class="portal-group-heading" id="attention-heading">Needs your attention <span class="portal-count">{{ needs_action | length }}</span></h2>
+        <ul class="portal-document-list">
+          {% for document in needs_action %}{% include 'citizen_portal/_document_card.html' %}{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+    {% if other_documents %}
+      <section class="portal-document-group" aria-labelledby="other-heading">
+        <h2 class="portal-group-heading" id="other-heading">{{ 'Other documents' if needs_action else 'Your documents' }}</h2>
+        <ul class="portal-document-list">
+          {% for document in other_documents %}{% include 'citizen_portal/_document_card.html' %}{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
   {% endif %}
 {% endblock %}

@@ -17,7 +17,7 @@
         <label for="code">6-digit activation code</label>
         <input id="code" name="code" type="text" inputmode="numeric" maxlength="7"
                autocomplete="one-time-code" required autofocus aria-describedby="code-hint">
-        <p class="portal-hint" id="code-hint">The code was given to you by LGU Staff. It is not in the email.</p>
+        <p class="portal-hint" id="code-hint">LGU Staff gave you this code. It is not in the email.</p>
       </div>
       <div class="portal-field">
         <label for="new_password">New password</label>
@@ -28,10 +28,12 @@
       <div class="portal-field">
         <label for="confirm_password">Type the new password again</label>
         <input id="confirm_password" name="confirm_password" type="password" maxlength="1024"
-               autocomplete="new-password" required>
+               autocomplete="new-password" required aria-describedby="after-hint">
+        <p class="portal-hint" id="after-hint">Next, you will sign in with your new password.</p>
       </div>
-      <button class="portal-button" type="submit">Activate Account</button>
-      <p class="portal-help">Selecting <strong>Activate Account</strong> saves your password. You will then sign in.</p>
+      <div class="portal-actions">
+        <button class="portal-button" type="submit">Activate Account</button>
+      </div>
     </form>
   </section>
 {% endblock %}

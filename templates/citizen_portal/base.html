@@ -18,7 +18,7 @@
       {% block navigation %}{% endblock %}
     </div>
   </header>
-  <main class="portal-main" id="portal-main">
+  <main class="portal-main{% block main_class %}{% endblock %}" id="portal-main">
     {% block content %}{% endblock %}
   </main>
 </body>

@@ -2,13 +2,13 @@
 {% block title %}Upload {{ document.title }}{% endblock %}
 {% block navigation %}{% set current = 'documents' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
 {% block content %}
-  <a class="portal-back" href="{{ url_for('citizen_documents.index') }}">&larr; Back to My Documents</a>
+  {# Staff instructions are hidden only when they just repeat the document title. #}
+  {% set repeats_title = document.instructions and document.instructions | trim | lower == document.title | trim | lower %}
   <section class="portal-card" aria-labelledby="upload-heading">
+    <a class="portal-back" href="{{ url_for('citizen_documents.index') }}"><span aria-hidden="true">&larr;</span> Back to My Documents</a>
     <h1 id="upload-heading">{{ document.title }}</h1>
-    {% if document.instructions %}<p class="portal-lead">{{ document.instructions }}</p>{% endif %}
-    {% if document.reason %}
-      <p class="portal-document-reason"><strong>Message from the LGU office:</strong> {{ document.reason }}</p>
-    {% endif %}
+    {% if document.instructions and not repeats_title %}<p class="portal-lead">{{ document.instructions }}</p>{% endif %}
+    {% include 'citizen_portal/_document_reason.html' %}
 
     {% if error %}
       <p class="portal-notice portal-notice-error" id="upload-error" role="alert">{{ error }}</p>
@@ -24,7 +24,6 @@
       </div>
       <div class="portal-actions">
         <button class="portal-button" type="submit" data-upload-button>{{ document.upload_label }}</button>
-        <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_documents.index') }}">Cancel</a>
       </div>
     </form>
   </section>

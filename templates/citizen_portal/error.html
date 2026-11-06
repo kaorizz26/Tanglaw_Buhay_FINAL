@@ -4,6 +4,8 @@
   <section class="portal-card" aria-labelledby="error-heading">
     <h1 id="error-heading">Something went wrong</h1>
     <p class="portal-lead">{{ message }}</p>
-    <a class="portal-button" href="{{ url_for('citizen_portal.login') }}">Go to Sign In</a>
+    <div class="portal-actions">
+      <a class="portal-button" href="{{ url_for('citizen_portal.login') }}">Go to Sign In</a>
+    </div>
   </section>
 {% endblock %}

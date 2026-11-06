@@ -14,16 +14,17 @@ from services import document_storage as storage
 # Requests the citizen can upload to, and the most files one request may hold.
 UPLOADABLE_STATUSES = ("requested", "needs_correction")
 MAX_VERSIONS = 10
+MAX_UPLOAD_MB = storage.DEFAULT_MAX_BYTES // (1024 * 1024)
 
 STATUS_LABELS = {
     "requested": "Upload Needed", "submitted": "Waiting for Review",
     "needs_correction": "Needs Correction", "accepted": "Accepted", "cancelled": "Cancelled",
 }
 NEXT_STEPS = {
-    "requested": "Please upload this document.",
+    "requested": f"Please upload this document. Use a PDF, JPG or PNG file up to {MAX_UPLOAD_MB} MB.",
     "submitted": "We received your file. The LGU office will review it. You do not need to do anything now.",
     "needs_correction": "Please upload a corrected file.",
-    "accepted": "Your document was accepted. No further action is needed.",
+    "accepted": "The LGU office accepted this document. No further action is needed.",
     "cancelled": "This request was cancelled. You do not need to upload this document.",
 }
 # The staff message that explains each status, when there is one.
@@ -54,7 +55,7 @@ def present_citizen_request(row, latest_file, staff_message):
         "status": status, "status_label": STATUS_LABELS[status], "next_step": NEXT_STEPS[status],
         "reason": reason, "latest_file": latest_file,
         "can_upload": status in UPLOADABLE_STATUSES,
-        "upload_label": "Upload Corrected File" if status == "needs_correction" else "Upload File",
+        "upload_label": "Upload Corrected File" if status == "needs_correction" else "Upload Document",
     }
 
 

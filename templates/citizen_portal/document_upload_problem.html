@@ -5,6 +5,8 @@
   <section class="portal-card" aria-labelledby="problem-heading">
     <h1 id="problem-heading">We could not upload your file</h1>
     <p class="portal-notice portal-notice-error" role="alert">{{ message }}</p>
-    <a class="portal-button" href="{{ url_for('citizen_documents.index') }}">Back to My Documents</a>
+    <div class="portal-actions">
+      <a class="portal-button" href="{{ url_for('citizen_documents.index') }}">Back to My Documents</a>
+    </div>
   </section>
 {% endblock %}

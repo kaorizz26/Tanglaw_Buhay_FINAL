@@ -151,12 +151,32 @@ class ListPageTests(DocumentsTestCase):
         self.make_request(title="Barangay certificate", status="accepted")
         self.signed_in()
         page = self.text(self.client.get("/portal/"))
-        self.assertIn("2 documents to upload", page)
+        self.assertIn("2 documents need your attention.", page)
+        self.assertIn("upload a document or send a corrected file", page)
 
-    def test_home_shows_no_count_when_nothing_is_needed(self):
-        self.make_request(status="accepted")
+    def test_home_uses_the_singular_for_one_document(self):
+        self.make_request(status="needs_correction")
         self.signed_in()
-        self.assertNotIn("to upload", self.text(self.client.get("/portal/")))
+        page = self.text(self.client.get("/portal/"))
+        self.assertIn("1 document needs your attention.", page)
+
+    def test_home_does_not_count_documents_that_need_nothing_from_the_citizen(self):
+        for status in ("submitted", "accepted", "cancelled"):
+            self.make_request(title=f"Doc {status}", status=status)
+        self.signed_in()
+        page = self.text(self.client.get("/portal/"))
+        self.assertIn("No documents need your attention right now.", page)
+        self.assertNotIn("1 document needs", page)
+
+    def test_home_always_shows_the_my_documents_button(self):
+        self.signed_in()
+        link = f'href="{LIST_PATH}"'
+        self.assertIn("Open My Documents", self.text(self.client.get("/portal/")))
+        self.assertIn(link, self.text(self.client.get("/portal/")))
+        self.make_request()
+        page = self.text(self.client.get("/portal/"))
+        self.assertIn("Open My Documents", page)
+        self.assertIn(link, page)
 
     def test_each_status_is_written_out_with_its_next_step(self):
         self.make_request(title="Doc A")
@@ -167,9 +187,81 @@ class ListPageTests(DocumentsTestCase):
         self.signed_in()
         page = self.text(self.client.get(LIST_PATH))
         for label in ("Upload Needed", "Waiting for Review", "Needs Correction", "Accepted",
-                      "Cancelled", "Upload File", "Upload Corrected File"):
+                      "Cancelled", "Upload Document", "Upload Corrected File"):
             self.assertIn(label, page)
+        for sentence in service.NEXT_STEPS.values():
+            self.assertIn(sentence, page)
         self.assertEqual(page.count('class="portal-button"'), 2)
+
+    def test_documents_needing_action_come_first_in_their_own_group(self):
+        self.make_request(title="Doc Accepted", status="accepted")
+        self.make_request(title="Doc Needed")
+        self.make_request(title="Doc Waiting", status="submitted")
+        self.make_request(title="Doc Fix", status="needs_correction")
+        self.signed_in()
+        page = self.text(self.client.get(LIST_PATH))
+        self.assertIn("Needs your attention", page)
+        self.assertIn("Other documents", page)
+        attention, other = page.index("Needs your attention"), page.index("Other documents")
+        self.assertLess(attention, page.index("Doc Needed"))
+        self.assertLess(attention, page.index("Doc Fix"))
+        self.assertLess(page.index("Doc Fix"), other)
+        self.assertLess(other, page.index("Doc Accepted"))
+        self.assertLess(other, page.index("Doc Waiting"))
+
+    def test_without_documents_needing_action_the_only_group_is_called_your_documents(self):
+        self.make_request(status="accepted")
+        self.signed_in()
+        page = self.text(self.client.get(LIST_PATH))
+        self.assertIn("Your documents", page)
+        self.assertNotIn("Needs your attention", page)
+
+    def test_instructions_are_hidden_only_when_they_repeat_the_title(self):
+        self.make_request(title="Birth Certificate", instructions="birth certificate ")
+        self.make_request(title="Valid ID", instructions="Front and back please.")
+        self.signed_in()
+        page = self.text(self.client.get(LIST_PATH))
+        self.assertEqual(page.count('class="portal-document-instructions"'), 1)
+        self.assertIn("Front and back please.", page)
+
+    def test_a_correction_reason_has_its_own_heading_and_a_cancelled_one_does_not(self):
+        corrected = self.make_request(title="Doc A", status="needs_correction")
+        self.staff_message(corrected, "correction_requested", "The photo is blurry.")
+        cancelled = self.make_request(title="Doc B", status="cancelled")
+        self.staff_message(cancelled, "cancelled", "Not needed any more.")
+        self.signed_in()
+        page = self.text(self.client.get(LIST_PATH))
+        self.assertIn("What needs to be fixed", page)
+        self.assertEqual(page.count("What needs to be fixed"), 1)
+        self.assertIn("Message from the LGU office", page)
+
+    def test_a_file_shows_its_name_date_and_a_download_button(self):
+        request_id = self.make_request(status="accepted")
+        stored = self.add_stored_file(request_id, 1)
+        self.signed_in()
+        page = self.text(self.client.get(LIST_PATH))
+        self.assertIn("scan1.pdf", page)
+        self.assertRegex(page, r"Uploaded on \d{1,2} [A-Z][a-z]{2} \d{4}")
+        self.assertNotRegex(page, r"Uploaded on 0\d")
+        self.assertIn("Download File", page)
+        self.assertIn(f'href="/portal/documents/files/{stored["id"]}"', page)
+
+    def test_no_version_numbers_or_subsidy_wording_are_shown(self):
+        request_id = self.make_request(status="accepted")
+        self.add_stored_file(request_id, 1)
+        self.add_stored_file(request_id, 2)
+        self.signed_in()
+        page = self.text(self.client.get(LIST_PATH)).lower()
+        for hidden in ("version", "subsidy", "eligib", "approved"):
+            self.assertNotIn(hidden, page)
+
+    def test_the_upload_page_uses_the_same_correction_heading(self):
+        request_id = self.make_request(status="needs_correction")
+        self.staff_message(request_id, "correction_requested", "The photo is blurry.")
+        self.signed_in()
+        page = self.text(self.client.get(upload_path(request_id)))
+        self.assertIn("What needs to be fixed", page)
+        self.assertIn("The photo is blurry.", page)
 
     def test_correction_and_cancellation_reasons_are_shown(self):
         corrected = self.make_request(title="Doc A", status="needs_correction")
@@ -207,8 +299,10 @@ class ListPageTests(DocumentsTestCase):
 
     def test_the_page_says_so_when_nothing_was_requested(self):
         self.signed_in()
-        self.assertIn("has not asked you for any documents",
-                      self.text(self.client.get(LIST_PATH)))
+        page = self.text(self.client.get(LIST_PATH))
+        self.assertIn("No document requests yet.", page)
+        self.assertIn("When the LGU office requests a document, it will appear here.", page)
+        self.assertIn("Back to Home", page)
 
     def test_missing_document_tables_show_unavailable_not_an_error_trace(self):
         self.db.execute("DROP TABLE document_request_events, document_files, document_requests CASCADE")
@@ -216,7 +310,10 @@ class ListPageTests(DocumentsTestCase):
         self.assertEqual(self.client.get(LIST_PATH).status_code, 503)
         home = self.client.get("/portal/")
         self.assertEqual(home.status_code, 200)
-        self.assertNotIn("to upload", self.text(home))
+        page = self.text(home)
+        self.assertNotIn("attention", page)
+        self.assertIn("See the documents the LGU office has asked for.", page)
+        self.assertIn("Open My Documents", page)
 
 
 class UploadTests(DocumentsTestCase):

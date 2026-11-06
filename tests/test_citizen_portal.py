@@ -666,12 +666,32 @@ class PublicPortalNavigationTests(PortalTestCase):
         self.sign_in()
         home = self.text(self.client.get("/portal/"))
         self.assertIn("Explore Subsidy Programs", home)
+        self.assertIn("The LGU office decides who can receive help.", home)
+        self.assertEqual(len(PUBLIC_PROGRAMS), 4)
         for slug, program in PUBLIC_PROGRAMS.items():
             self.assertIn(f'href="/public/programs/{slug}"', home)
             self.assertIn(program["name"], home)
+            self.assertIn(f'src="/static/{program["icon"]}"', home)
             self.assertEqual(self.client.get(f"/public/programs/{slug}").status_code, 200)
         for private in ("eligib", "approved", "assessment", "priority", "score", "h-1"):
             self.assertNotIn(private, home.lower())
+
+    def test_home_shows_the_email_and_the_session_reminder_separately(self):
+        self.make_active()
+        self.sign_in()
+        home = self.text(self.client.get("/portal/"))
+        self.assertIn(f"Signed in as <strong>{EMAIL}</strong>", home)
+        self.assertIn("For your security, you'll be signed out after 2 hours.", home)
+
+    def test_forms_have_back_links_and_do_not_repeat_their_button_labels(self):
+        self.make_active()
+        self.assertIn("Back to Sign In", self.text(self.client.get("/portal/forgot-password")))
+        self.sign_in()
+        password_page = self.text(self.client.get("/portal/change-password"))
+        self.assertIn("Back to Home", password_page)
+        self.assertNotIn("Cancel", password_page)
+        for path in ("/portal/change-password", "/portal/forgot-password"):
+            self.assertNotIn("Selecting", self.text(self.client.get(path)))
 
 
 if __name__ == "__main__":
