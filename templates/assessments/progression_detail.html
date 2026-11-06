@@ -1,0 +1,183 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Household Progression{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/progression.css') }}">
+  <script src="{{ url_for('static', filename='js/progression.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header progression-header">
+    <div class="page-heading">
+      <a class="progression-back" href="{{ url_for('assessments.progression_index') }}">← Search household history</a>
+      <h1>Household Progression</h1>
+      <p>Household UUID <span class="progression-uuid">{{ results.household_uuid }}</span></p>
+    </div>
+  </header>
+
+  <section class="progression-panel" aria-labelledby="period-heading">
+    <h2 id="period-heading">Compare survey years</h2>
+    <form method="get" class="progression-period-form">
+      <div>
+        <label for="earlier-batch">Earlier assessment</label>
+        <select id="earlier-batch" name="earlier" required>
+          <option value="">Choose a year and batch</option>
+          {% for period in results.periods %}
+            <option value="{{ period.batch_id }}" {% if results.selected and results.selected[0] == period.batch_id %}selected{% endif %}>
+              {{ period.display_label }}{% if period.imported_at %} · Imported {{ period.imported_at | pht_date }}{% endif %}{% if not period.findings %} · No household record{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="later-batch">Later assessment</label>
+        <select id="later-batch" name="later" required>
+          <option value="">Choose a year and batch</option>
+          {% for period in results.periods %}
+            <option value="{{ period.batch_id }}" {% if results.selected and results.selected[1] == period.batch_id %}selected{% endif %}>
+              {{ period.display_label }}{% if period.imported_at %} · Imported {{ period.imported_at | pht_date }}{% endif %}{% if not period.findings %} · No household record{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit">Compare</button>
+    </form>
+    {% if not results.selected %}<p class="progression-note">Choose an earlier and later survey year to compare their stored assessments.</p>{% endif %}
+  </section>
+
+  {% if not results.selected and results.available %}
+    <section class="progression-panel" aria-labelledby="available-heading">
+      <h2 id="available-heading">Available household assessments</h2>
+      <p class="progression-note">A second survey year is needed before a change can be determined.</p>
+      <div class="progression-score-grid">
+        {% for period in results.available %}
+          <div class="progression-score-card">
+            <h3>{{ period.survey_year }} assessment</h3>
+            <p class="progression-score">{{ '%.2f' | format(period.score) }} <small>/ 100</small></p>
+            <p>{{ period.priority }}</p>
+            <p class="progression-context">{{ period.display_label }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if results.selected %}
+    {% set first = results.earlier %}
+    {% set second = results.later %}
+    {% set comparison = results.comparison %}
+    <section class="progression-panel" aria-labelledby="score-heading">
+      <h2 id="score-heading">Historical vulnerability scores</h2>
+      <p class="progression-note">Scores describe recorded deprivation in each survey year. They are not official poverty classifications.</p>
+      <div class="progression-score-grid">
+        {% for period in [first, second] %}
+          <div class="progression-score-card">
+            <h3>{{ period.survey_year }} assessment</h3>
+            {% if period.findings %}
+              <p class="progression-score">{{ '%.2f' | format(period.score) }} <small>/ 100</small></p>
+              <p>{{ period.priority }}</p>
+              <p class="progression-note">{% if period.findings.mpi.unknown_indicator_count %}{{ period.findings.mpi.unknown_indicator_count }} unknown indicator(s){% else %}All 16 indicators determined{% endif %}</p>
+              <p class="progression-context">{{ period.display_label }}</p>
+            {% else %}
+              <p>No {{ period.survey_year }} assessment is available for this household.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="progression-overall progression-{{ comparison.overall | lower | replace(' ', '-') }}">
+        <strong>{{ comparison.overall }}</strong>
+        {% if comparison.score_change is not none %}
+          <span>Score change: {{ '%+.2f' | format(comparison.score_change) }} points</span>
+        {% elif first.findings and second.findings %}
+          <span>The score change cannot be determined reliably because of unknown answers or differing assessment methods.</span>
+        {% else %}
+          <span>Both survey assessments are needed to determine a change.</span>
+        {% endif %}
+      </div>
+    </section>
+
+    {% if results.available %}
+      <section class="progression-panel" aria-labelledby="chart-heading">
+        <h2 id="chart-heading">Available survey scores</h2>
+        <p class="progression-note">Each bar is a stored survey assessment. Missing years have no bar.</p>
+        <div class="progression-chart" role="group" aria-label="Stored household vulnerability scores by survey year">
+          {% for period in results.available %}
+            <div class="progression-chart-item">
+              <div class="progression-chart-track"><span style="height: {{ period.score }}%"></span></div>
+              <strong>{{ '%.2f' | format(period.score) }}</strong>
+              <span>{{ period.survey_year }}</span>
+              <small>{{ period.display_label }}</small>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="progression-panel" aria-labelledby="indicator-heading">
+      <div class="progression-section-heading">
+        <div><h2 id="indicator-heading">Indicator changes</h2><p>Household conditions recorded in each survey.</p></div>
+        <div class="progression-filter"><label for="indicator-filter">Show</label>
+          <select id="indicator-filter">
+            <option value="all">All indicators</option>
+            <option value="Improved">Improved</option>
+            <option value="Worsened">Worsened</option>
+            <option value="Unchanged">Unchanged</option>
+            <option value="Insufficient Data">Insufficient data</option>
+          </select>
+        </div>
+      </div>
+      <div class="progression-counts" aria-label="Indicator change counts">
+        {% for label, count in comparison.counts.items() %}<span>{{ label }}: <strong>{{ count }}</strong></span>{% endfor %}
+      </div>
+      <p class="progression-note" role="status" id="indicator-filter-status"></p>
+      {% for dimension in comparison.dimensions %}
+        <section class="progression-dimension" aria-labelledby="dimension-{{ loop.index }}">
+          <h3 id="dimension-{{ loop.index }}">{{ dimension.name }}</h3>
+          <div class="progression-table-scroll" role="region" aria-label="{{ dimension.name }} indicator changes" tabindex="0">
+            <table class="progression-table">
+              <thead><tr><th scope="col">Indicator</th><th scope="col">{{ first.survey_year }} condition</th><th scope="col">{{ second.survey_year }} condition</th><th scope="col">Change</th></tr></thead>
+              <tbody>
+                {% for indicator in dimension.indicators %}
+                  <tr data-change="{{ indicator.change }}">
+                    <th scope="row">{{ indicator.name }}</th>
+                    {% for item in [indicator.before, indicator.after] %}
+                      <td>{% if item %}<strong>{{ item.status }}</strong><span class="progression-condition">{{ item.explanation }}</span>{% else %}No assessment available{% endif %}</td>
+                    {% endfor %}
+                    <td>
+                      <span class="progression-badge progression-{{ indicator.change | lower | replace(' ', '-') }}">{{ indicator.change }}</span>
+                      {% if indicator.raw_change %}<span class="progression-condition">The recorded condition changed, but the deprivation finding stayed the same.</span>{% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {% endfor %}
+    </section>
+
+    <section class="progression-panel" aria-labelledby="summary-heading">
+      <h2 id="summary-heading">Progression summary</h2>
+      <p>{{ comparison.summary }}</p>
+    </section>
+
+    <section class="progression-panel" aria-labelledby="screening-heading">
+      <h2 id="screening-heading">Historical subsidy screening</h2>
+      <p class="progression-note">These are screening findings, not records of an application, approval, or assistance received.</p>
+      <div class="progression-table-scroll" role="region" aria-label="Historical subsidy screening" tabindex="0">
+        <table class="progression-table">
+          <thead><tr><th scope="col">Program</th><th scope="col">{{ first.survey_year }}</th><th scope="col">{{ second.survey_year }}</th></tr></thead>
+          <tbody>
+            {% for code in ['4Ps', 'SLP', 'SPISC', 'TUPAD'] %}
+              <tr><th scope="row">{{ code }}</th>
+                <td>{{ first.screening[code].label if first.findings else 'No assessment available' }}</td>
+                <td>{{ second.screening[code].label if second.findings else 'No assessment available' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

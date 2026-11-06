@@ -1,0 +1,38 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Accept Document{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set document = page.request %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ url_for('document_requests.detail', request_id=document.id) }}"><span aria-hidden="true">←</span> Back to Request</a>
+    <h1>Accept Document</h1>
+    <p class="account-lead">Check that the latest file is the right document and can be read.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+  {% include 'document_requests/_file_under_review.html' %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('document_requests.accept', request_id=document.id) }}">
+    {% include 'citizen_accounts/_hidden_fields.html' %}
+    <input type="hidden" name="file_id" value="{{ latest_file.id }}">
+
+    <section class="account-section" aria-labelledby="accept-heading">
+      <h2 id="accept-heading">Accept this file?</h2>
+      <ul class="account-checklist">
+        <li>The representative will see that the document was accepted.</li>
+        <li><strong>Accepting cannot be undone.</strong></li>
+        <li>This does not approve any subsidy or change the household's assessment.</li>
+      </ul>
+      <div class="account-actions">
+        <button class="account-button" type="submit">Accept Document</button>
+        <a class="account-button account-button-secondary" href="{{ url_for('document_requests.detail', request_id=document.id) }}">Go Back</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}

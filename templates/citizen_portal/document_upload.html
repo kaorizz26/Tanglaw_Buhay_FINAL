@@ -1,0 +1,31 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Upload {{ document.title }}{% endblock %}
+{% block navigation %}{% set current = 'documents' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  {# Staff instructions are hidden only when they just repeat the document title. #}
+  {% set repeats_title = document.instructions and document.instructions | trim | lower == document.title | trim | lower %}
+  <section class="portal-card" aria-labelledby="upload-heading">
+    <a class="portal-back" href="{{ url_for('citizen_documents.index') }}"><span aria-hidden="true">&larr;</span> Back to My Documents</a>
+    <h1 id="upload-heading">{{ document.title }}</h1>
+    {% if document.instructions and not repeats_title %}<p class="portal-lead">{{ document.instructions }}</p>{% endif %}
+    {% include 'citizen_portal/_document_reason.html' %}
+
+    {% if error %}
+      <p class="portal-notice portal-notice-error" id="upload-error" role="alert">{{ error }}</p>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" data-upload-form data-max-bytes="{{ max_megabytes * 1024 * 1024 }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="portal-field">
+        <label for="document-file">Choose your file</label>
+        <input id="document-file" name="document" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required aria-describedby="file-hint{% if error %} upload-error{% endif %}">
+        <p class="portal-hint" id="file-hint">PDF, JPG or PNG, up to {{ max_megabytes }} MB.</p>
+        <p class="portal-hint portal-hint-error" data-upload-message role="alert" hidden></p>
+      </div>
+      <div class="portal-actions">
+        <button class="portal-button" type="submit" data-upload-button>{{ document.upload_label }}</button>
+      </div>
+    </form>
+  </section>
+  <script src="{{ url_for('static', filename='js/document-upload.js') }}" defer></script>
+{% endblock %}

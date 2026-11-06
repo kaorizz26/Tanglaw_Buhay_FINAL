@@ -42,7 +42,7 @@ HOUSEHOLD_GROUPS = (
 MEMBER_COLUMNS = (
     ("Relationship to head", "a02_relation_to_hh_head"),
     ("Sex", "a05_sex"),
-    ("Age in 2022", "a07_age"),
+    ("Age", "a07_age"),
     ("Highest grade completed", "c02_hgc_group"),
     ("Attending school", "c03_currently_attending_school"),
     ("Worked in the past week", "e01_employed"),
@@ -167,7 +167,7 @@ def get_record_page(page, filters, *, connection_factory=get_connection):
 
 
 def survey_age(raw_age):
-    """Return a member's recorded 2022 age in whole years, or None if it cannot be used.
+    """Return a member's recorded survey age in whole years, or None if unusable.
 
     Uses the screening engines' shared number rule (whole and non-negative) plus
     the agreed 0–120 survey-age range. Missing, fractional, text and out-of-range
@@ -180,7 +180,7 @@ def survey_age(raw_age):
 
 
 def count_household_composition(members):
-    """Count roster members by their recorded 2022 age group.
+    """Count roster members by their recorded survey-age group.
 
     Each member is counted in exactly one group, so children, adults, older
     adults and unclear ages always add up to the total number of members.
@@ -269,7 +269,10 @@ def get_record_detail(household_uuid, *, connection_factory=get_connection):
                     for label, field in fields
                 ],
             } for title, fields in HOUSEHOLD_GROUPS],
-            "member_columns": [label for label, _ in MEMBER_COLUMNS],
+            "member_columns": [
+                f"Age in {context['survey_year']}" if field == "a07_age" else label
+                for label, field in MEMBER_COLUMNS
+            ],
             "members": [{
                 "name": " ".join(filter(None, (
                     _source_text(member["responses"].get(field))

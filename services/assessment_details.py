@@ -5,6 +5,8 @@ from math import isclose
 import re
 
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
+from services.citizen_account_panel import PANEL_UNAVAILABLE, present_account_panel
+from services.document_request_panel import present_document_requests
 from services.assessment_evidence_view import (
     DISPLAY_NAMES,
     prepare_evidence_view,
@@ -80,15 +82,18 @@ def _indicator(name, mpi, source, reference):
 
 
 def format_contact_number(raw_value):
-    """Show a recorded 11-digit mobile number as 0912 345 6789, else "Not recorded".
+    """Show a recorded mobile number as 0912 345 6789, else "Not recorded".
 
-    Anything that is not exactly 09 followed by nine digits is treated as not
-    recorded, so a malformed value is never shown as if it were a usable number.
+    Both 09XXXXXXXXX and +639XXXXXXXXX are accepted and shown in the 09 form. Anything
+    else is treated as not recorded, so a malformed value is never shown as if it were
+    a usable number. Only the display changes; the stored value is never rewritten.
     """
     number = raw_value.strip() if isinstance(raw_value, str) else ""
-    if not re.fullmatch(r"09[0-9]{9}", number):
+    match = re.fullmatch(r"(?:\+63|0)(9[0-9]{9})", number)
+    if match is None:
         return "Not recorded"
-    return f"{number[:4]} {number[4:7]} {number[7:]}"
+    local_number = "0" + match.group(1)
+    return f"{local_number[:4]} {local_number[4:7]} {local_number[7:]}"
 
 
 def prepare_assessment_detail(source, *, assessment_date=None):
@@ -139,6 +144,9 @@ def prepare_assessment_detail(source, *, assessment_date=None):
         "head_name": _head_name(identity),
         "barangay": _source_text(identity["barangay"]) or "Not recorded",
         "contact_number": format_contact_number(source.get("contact_number")),
+        "citizen_account": present_account_panel(source.get("citizen_account", PANEL_UNAVAILABLE)),
+        "document_requests": present_document_requests(
+            source.get("document_requests", PANEL_UNAVAILABLE)),
         "mpi": mpi, "determined_count": 16 - mpi["unknown_indicator_count"],
         "priority_display": priority_display(derive_subsidy_priority(
             mpi["vulnerability_score"],

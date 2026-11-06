@@ -19,12 +19,14 @@ from app import create_app
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
 from repositories import assessment_evidence
 from services import assessment_details as details
+from services import citizen_accounts
 from services import staff_reviews as review_service
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 TEST_URL = os.getenv("TANGLAW_TEST_DATABASE_URL")
 RAW_NUMBER = "09123456789"
+INTERNATIONAL_NUMBER = "+639123456789"
 SHOWN_NUMBER = "0912 345 6789"
 
 
@@ -34,10 +36,28 @@ class ContactNumberFormatTests(unittest.TestCase):
         self.assertEqual(details.format_contact_number("09000000001"), "0900 000 0001")
         self.assertEqual(details.format_contact_number(f" {RAW_NUMBER}\n"), SHOWN_NUMBER)
 
+    def test_plus_639_numbers_are_shown_in_the_same_09_form(self):
+        self.assertEqual(details.format_contact_number(INTERNATIONAL_NUMBER), SHOWN_NUMBER)
+        self.assertEqual(details.format_contact_number(f"\t{INTERNATIONAL_NUMBER} "),
+                         SHOWN_NUMBER)
+        # The leading zero is rebuilt, and zeros inside the number are kept.
+        self.assertEqual(details.format_contact_number("+639000000001"), "0900 000 0001")
+        for local, international in (("09171234567", "+639171234567"),
+                                     ("09999999999", "+639999999999")):
+            with self.subTest(local=local):
+                self.assertEqual(details.format_contact_number(local),
+                                 details.format_contact_number(international))
+
+    def test_the_formatter_is_shared_by_every_screen_that_shows_the_number(self):
+        self.assertIs(citizen_accounts.format_contact_number, details.format_contact_number)
+
     def test_missing_or_invalid_values_are_not_recorded(self):
         for value in (None, "", "   ", "NA", "9123456789", "0912345678", "091234567890",
-                      "+639123456789", "0912-345-6789", "0912 345 6789", "08123456789",
-                      "09abcdefghi", 9123456789, 91234567890):
+                      "0912-345-6789", "0912 345 6789", "08123456789",
+                      "09abcdefghi", 9123456789, 91234567890,
+                      "+63912345678", "+6391234567890", "+639abcdefghi", "639123456789",
+                      "+649123456789", "++639123456789", "+63 912 345 6789",
+                      "+638123456789", "+0639123456789", "+63-912-345-6789"):
             with self.subTest(value=value):
                 self.assertEqual(details.format_contact_number(value), "Not recorded")
 
@@ -46,6 +66,9 @@ class ContactNumberFormatTests(unittest.TestCase):
         self.assertEqual(details.prepare_assessment_detail(source)["contact_number"],
                          "Not recorded")
         source["contact_number"] = RAW_NUMBER
+        self.assertEqual(details.prepare_assessment_detail(source)["contact_number"],
+                         SHOWN_NUMBER)
+        source["contact_number"] = INTERNATIONAL_NUMBER
         self.assertEqual(details.prepare_assessment_detail(source)["contact_number"],
                          SHOWN_NUMBER)
 
@@ -91,6 +114,16 @@ class ContactNumberPageTests(unittest.TestCase):
                     self.assertIn(SHOWN_NUMBER, page)
                     self.assertNotIn(RAW_NUMBER, page)
 
+    def test_plus_639_values_show_in_the_09_form_without_the_raw_value(self):
+        self.source["contact_number"] = INTERNATIONAL_NUMBER
+        for role in ("lgu_staff", "system_administrator"):
+            with self.subTest(role=role), patch.dict(self.user, role=role):
+                self._sign_in()
+                page = self.client.get(self.path).get_data(as_text=True)
+                self.assertIn(SHOWN_NUMBER, page)
+                self.assertNotIn(INTERNATIONAL_NUMBER, page)
+                self.assertNotIn("+63", page)
+
     def test_missing_and_invalid_values_show_not_recorded_without_the_raw_value(self):
         self._sign_in()
         for value in (None, "", "12345", "not-a-number"):
@@ -134,8 +167,10 @@ class ContactNumberPageTests(unittest.TestCase):
             for path in (ROOT / folder).glob("*.py"):
                 if "find_household_contact_number" in path.read_text(encoding="utf-8"):
                     readers.append(f"{folder}/{path.name}")
+        # The Assessment page and the Create Citizen Account page each show one household.
         self.assertEqual(sorted(readers), [
             "repositories/assessment_evidence.py", "services/assessment_queries.py",
+            "services/citizen_accounts.py",
         ])
 
 

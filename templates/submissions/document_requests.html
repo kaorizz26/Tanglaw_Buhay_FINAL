@@ -1,0 +1,83 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Document Requests{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/household-records.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/submissions.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set list_endpoint = 'submissions.document_requests' %}
+  <header class="page-header records-header">
+    <div class="page-heading">
+      <h1>Document Requests</h1>
+      <p>Follow the documents you asked households to upload, and review the files they sent.</p>
+    </div>
+  </header>
+
+  {% if results.awaiting_review_count %}
+    <p class="submissions-attention" role="status">
+      <strong>{{ results.awaiting_review_count }} {{ 'document is' if results.awaiting_review_count == 1 else 'documents are' }} waiting for your review.</strong>
+      {% if results.filters.status != 'submitted' %}
+        <a href="{{ url_for(list_endpoint, status='submitted') }}">Show only these</a>
+      {% endif %}
+    </p>
+  {% endif %}
+
+  <section class="records-panel" aria-label="Document requests">
+    {% set search_label = 'Household ID, representative or document' %}
+    {% set search_hint = 'e.g. HH-00001, a name or Valid ID' %}
+    {% include 'submissions/_filters.html' %}
+
+    <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}document{% endif %} {{ 'request' if results.total == 1 else 'requests' }}</p>
+
+    {% if results['items'] %}
+      <div class="records-table-scroll" role="region" aria-label="Document requests table" tabindex="0">
+        <table class="records-table">
+          <caption class="visually-hidden">Document requests. Requests waiting for review are listed first, longest waiting at the top.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Document</th>
+              <th scope="col">Household</th>
+              <th scope="col">Barangay</th>
+              <th scope="col">Status</th>
+              <th scope="col">Last updated</th>
+              <th scope="col" class="records-action">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in results['items'] %}
+              <tr{% if item.awaiting_review %} class="submissions-row-awaiting"{% endif %}>
+                <td data-label="Document"><strong>{{ item.title }}</strong></td>
+                <td data-label="Household"><span class="records-id">{{ item.household_id }}</span><span class="submissions-sub">{{ item.representative }}</span></td>
+                <td data-label="Barangay">{{ item.barangay }}</td>
+                <td data-label="Status"><span class="account-status document-status document-status-{{ item.status }}">{{ item.status_label }}</span></td>
+                <td data-label="Last updated">{{ item.updated_at|pht_date }}</td>
+                <td class="records-action" data-label="Action">
+                  <a class="{{ 'records-row-link' if item.awaiting_review else 'submissions-link-secondary' }}" href="{{ url_for('document_requests.detail', request_id=item.id, **return_parameters) }}">{{ 'Review' if item.awaiting_review else 'View' }}<span class="visually-hidden"> {{ item.title }}</span></a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% elif results.filters.parameters %}
+      <div class="records-empty" role="status">
+        <h3>No requests match your search</h3>
+        <p>Try another household ID, name, document, status or barangay.</p>
+        <a href="{{ url_for(list_endpoint) }}">Show all requests</a>
+      </div>
+    {% else %}
+      <div class="records-empty" role="status">
+        <h3>No documents have been requested yet</h3>
+        <p>Open a household's Assessment page and choose Request Documents. Households need an active Citizen Account first.</p>
+        <a href="{{ url_for('assessments.prioritization') }}">Go to Household Prioritization</a>
+      </div>
+    {% endif %}
+
+    {% set noun = 'requests' %}
+    {% include 'submissions/_pagination.html' %}
+  </section>
+{% endblock %}

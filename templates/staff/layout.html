@@ -67,7 +67,6 @@
             {% for label, icon in navigation_items %}
               {% if loop.first %}<li class="navigation-section">Workspace</li>{% endif %}
               {% if icon == 'database' %}<li class="navigation-section">Administration</li>{% endif %}
-              {% if icon == 'submissions' %}<li class="navigation-section">Planned</li>{% endif %}
               <li>
                 {% if icon == 'dashboard' %}
                   {% set dashboard_endpoint = 'main.administration' if is_admin else 'main.index' %}
@@ -84,6 +83,9 @@
                   </a>
                 {% elif icon == 'assessments' %}
                   {% set queue_active = request.endpoint == 'assessments.queue' or queue_return_url %}
+                  {% set progression_active = request.endpoint in ('assessments.progression_index', 'assessments.progression_detail') %}
+                  {# Prioritization owns the other Assessments pages, but never pages outside Assessments. #}
+                  {% set prioritization_active = request.blueprint == 'assessments' and not queue_active and not progression_active %}
                   <details class="navigation-group" {% if request.blueprint == 'assessments' %}open{% endif %}>
                     <summary class="navigation-item">
                       <img src="{{ url_for('static', filename='icons/' ~ icon ~ '.svg') }}" alt="" width="20" height="20">
@@ -91,13 +93,14 @@
                       <span class="navigation-chevron" aria-hidden="true">›</span>
                     </summary>
                     <ul class="navigation-children">
-                      <li><a class="navigation-item{% if not queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if not queue_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
+                      <li><a class="navigation-item{% if prioritization_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if prioritization_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
                       <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>Review Queue</a></li>
+                      <li><a class="navigation-item{% if progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.progression_index') }}" {% if progression_active %}aria-current="page"{% endif %}>Household Progression</a></li>
                     </ul>
                   </details>
                 {% elif icon == 'database' %}
-                  <a class="navigation-item{% if request.endpoint == 'main.data_import' %} navigation-item-active{% endif %}"
-                     href="{{ url_for('main.data_import') }}" {% if request.endpoint == 'main.data_import' %}aria-current="page"{% endif %}>
+                  <a class="navigation-item{% if request.endpoint in ('main.data_import', 'main.import_batches', 'main.import_activation') %} navigation-item-active{% endif %}"
+                     href="{{ url_for('main.data_import') }}" {% if request.endpoint in ('main.data_import', 'main.import_batches', 'main.import_activation') %}aria-current="page"{% endif %}>
                     <img src="{{ url_for('static', filename='icons/database.svg') }}" alt="" width="20" height="20">
                     <span>{{ label }}</span>
                   </a>
@@ -112,6 +115,20 @@
                     <ul class="navigation-children">
                       <li><a class="navigation-item{% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_accounts') }}" {% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %}aria-current="page"{% endif %}>Account List</a></li>
                       <li><a class="navigation-item{% if request.endpoint == 'main.staff_account_create' %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_account_create') }}" {% if request.endpoint == 'main.staff_account_create' %}aria-current="page"{% endif %}>Create Account</a></li>
+                    </ul>
+                  </details>
+                {% elif icon == 'submissions' %}
+                  {% set requests_active = request.endpoint in ('submissions.document_requests', 'document_requests.detail', 'document_requests.accept', 'document_requests.correction', 'document_requests.cancel') %}
+                  {% set accounts_active = request.endpoint in ('submissions.citizen_accounts', 'submissions.account_detail') %}
+                  <details class="navigation-group" {% if requests_active or accounts_active %}open{% endif %}>
+                    <summary class="navigation-item">
+                      <img src="{{ url_for('static', filename='icons/submissions.svg') }}" alt="" width="20" height="20">
+                      <span>{{ label }}</span>
+                      <span class="navigation-chevron" aria-hidden="true">›</span>
+                    </summary>
+                    <ul class="navigation-children">
+                      <li><a class="navigation-item{% if requests_active %} navigation-item-active{% endif %}" href="{{ url_for('submissions.document_requests') }}" {% if requests_active %}aria-current="page"{% endif %}>Document Requests</a></li>
+                      <li><a class="navigation-item{% if accounts_active %} navigation-item-active{% endif %}" href="{{ url_for('submissions.citizen_accounts') }}" {% if accounts_active %}aria-current="page"{% endif %}>Citizen Accounts</a></li>
                     </ul>
                   </details>
                 {% else %}

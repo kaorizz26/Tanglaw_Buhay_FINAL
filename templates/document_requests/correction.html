@@ -1,0 +1,44 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Request a Correction{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  {% set document = page.request %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ url_for('document_requests.detail', request_id=document.id) }}"><span aria-hidden="true">←</span> Back to Request</a>
+    <h1>Request a Correction</h1>
+    <p class="account-lead">Tell the representative what to fix. They will upload a new file.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+  {% include 'document_requests/_file_under_review.html' %}
+
+  {% set button_label = 'Request Correction' %}
+  {% include 'citizen_accounts/_form_errors.html' %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('document_requests.correction', request_id=document.id) }}">
+    {% include 'citizen_accounts/_hidden_fields.html' %}
+    <input type="hidden" name="file_id" value="{{ latest_file.id }}">
+
+    <section class="account-section" aria-labelledby="correction-heading">
+      <h2 id="correction-heading">What needs to be fixed?</h2>
+      <div class="account-field">
+        <label for="reason_note">Message for the representative</label>
+        <textarea id="reason_note" name="reason_note" rows="4" maxlength="500"
+                  {% if errors.reason_note %}aria-invalid="true" aria-describedby="reason_note-hint reason_note-error"{% else %}aria-describedby="reason_note-hint"{% endif %}
+                  required>{{ reason }}</textarea>
+        <p class="account-hint" id="reason_note-hint">Write at least 10 characters in plain words, for example "The photo is blurry. Please upload a clear photo of the front and back." The representative will read this. Do not include private details.</p>
+        {% if errors.reason_note %}<p class="account-field-error" id="reason_note-error">{{ errors.reason_note }}</p>{% endif %}
+      </div>
+      <div class="account-actions">
+        <button class="account-button" type="submit">Request Correction</button>
+        <a class="account-button account-button-secondary" href="{{ url_for('document_requests.detail', request_id=document.id) }}">Go Back</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}

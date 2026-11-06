@@ -1,0 +1,23 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Link Cannot Be Used{% endblock %}
+{% block content %}
+  <section class="portal-card" aria-labelledby="problem-heading">
+    {% if handoff_ended %}
+      <h1 id="problem-heading">Please open your activation link again</h1>
+      <p class="portal-lead">For your safety, this page only stays open for 15 minutes.</p>
+      <p class="portal-next">Open the activation email we sent you and select the activation link again. If you have already activated your account, you can sign in.</p>
+    {% else %}
+      {% if cancelled %}
+        <h1 id="problem-heading">This activation link has been cancelled</h1>
+        <p class="portal-lead">The wrong code was entered too many times, so this link no longer works.</p>
+      {% else %}
+        <h1 id="problem-heading">This activation link cannot be used</h1>
+        <p class="portal-lead">The link may have expired (links last 48 hours), already been used, or been replaced by a newer one.</p>
+      {% endif %}
+      <p class="portal-next">Contact the LGU office and ask LGU Staff to send you a new activation email. If you have already activated your account, you can sign in.</p>
+    {% endif %}
+    <div class="portal-actions">
+      <a class="portal-button" href="{{ url_for('citizen_portal.login') }}">Go to Sign In</a>
+    </div>
+  </section>
+{% endblock %}

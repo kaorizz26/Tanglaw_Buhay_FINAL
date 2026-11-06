@@ -1,0 +1,7 @@
+{# The staff's own words for the citizen. Expects `document`. #}
+{% if document.reason %}
+  <div class="portal-document-reason">
+    <p class="portal-document-reason-label">{{ 'What needs to be fixed' if document.status == 'needs_correction' else 'Message from the LGU office' }}</p>
+    <p>{{ document.reason }}</p>
+  </div>
+{% endif %}

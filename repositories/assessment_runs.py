@@ -168,6 +168,14 @@ def find_run(connection, run_id):
         ).fetchone()
 
 
+def household_has_assessment(connection, run_id, household_uuid):
+    """Check that the household has a stored assessment in the run (nothing is read from it)."""
+    return connection.execute(
+        "SELECT 1 FROM household_assessments WHERE run_id = %s AND household_uuid = %s",
+        (run_id, household_uuid),
+    ).fetchone() is not None
+
+
 def find_household_assessment(connection, run_id, household_uuid):
     """Return complete original findings only from an explicitly selected completed run."""
     row = connection.execute(

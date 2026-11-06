@@ -8,11 +8,12 @@ from psycopg.pq import TransactionStatus
 
 from db import get_connection
 from repositories import assessment_runs, dataset_batches
-from repositories import assessment_evidence, staff_reviews
+from repositories import assessment_evidence, citizen_accounts, document_requests, staff_reviews
 from services.assessment_filters import (
     AssessmentFilters, InvalidAssessmentFilters, normalize_filters,
 )
 from services import read_cache
+from services.citizen_account_panel import PANEL_UNAVAILABLE
 from services.dashboard_patterns import present_indicator_patterns
 from services.assessment_reference_labels import code_key
 from services.subsidy_priority import derive_subsidy_priority
@@ -323,6 +324,34 @@ def _read_summary_page(
     return result
 
 
+def _read_citizen_account(connection, batch_id, household_uuid):
+    """Read the household's Citizen Account row without ever breaking the Assessment page.
+
+    The savepoint lets the read fail on its own, for example while the account
+    tables are not installed yet, and the page then shows "unavailable".
+    """
+    try:
+        with connection.transaction():
+            return citizen_accounts.find_panel(connection, batch_id, household_uuid)
+    except psycopg.errors.UndefinedTable:
+        return PANEL_UNAVAILABLE
+
+
+def _read_document_requests(connection, account_row):
+    """Read the account's document requests without ever breaking the Assessment page.
+
+    Like the account read above, a missing table (migration 0017 not applied) makes the
+    section say "unavailable" instead of failing the page.
+    """
+    if account_row is None or account_row == PANEL_UNAVAILABLE:
+        return []
+    try:
+        with connection.transaction():
+            return document_requests.list_requests_for_account(connection, account_row["id"])
+    except psycopg.errors.UndefinedTable:
+        return PANEL_UNAVAILABLE
+
+
 def get_active_household_assessment(household_uuid, *, connection_factory=get_connection):
     """Return one complete stored finding with its active source/run context."""
     if not isinstance(household_uuid, str) or not household_uuid.strip():
@@ -363,12 +392,15 @@ def get_active_assessment_detail(
         )
         if len(identities) != 1 or household is None:
             raise AssessmentQueryError("household_identity_missing")
+        account_row = _read_citizen_account(connection, context["batch_id"], household_uuid)
         result = {
             "context": context, "findings": findings, "identity": identities[0],
             "household": household,
             "contact_number": assessment_evidence.find_household_contact_number(
                 connection, context["batch_id"], household_uuid,
             ),
+            "citizen_account": account_row,
+            "document_requests": _read_document_requests(connection, account_row),
             "members": assessment_evidence.list_member_sources(
                 connection, context["batch_id"], household_uuid,
             ),

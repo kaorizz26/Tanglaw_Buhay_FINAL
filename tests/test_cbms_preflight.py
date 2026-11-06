@@ -10,7 +10,9 @@ import pandas as pd
 
 from services.cbms_preflight import _read_csv, validate_csv_bundle
 from services.data_loader import EXCEL_FILES, REFERENCE_FILES, load_data, verify_data
-from cbms_csv_fixtures import synthetic_csv_frames, write_csv_fixture
+from cbms_csv_fixtures import (
+    FIRST_HOUSEHOLD_ID, SECOND_HOUSEHOLD_ID, synthetic_csv_frames, write_csv_fixture,
+)
 
 
 class CsvPreflightTests(unittest.TestCase):
@@ -38,7 +40,7 @@ class CsvPreflightTests(unittest.TestCase):
         self.assertEqual(report["indicator_count"], 16)
         self.assertEqual(before, {path: path.read_bytes() for path in before})
         output = json.dumps(report)
-        self.assertNotIn("DEV-0001", output)
+        self.assertNotIn(FIRST_HOUSEHOLD_ID, output)
         self.assertNotIn("Sample Barangay", output)
         self.assertNotIn(str(self.root), output)
 
@@ -99,10 +101,53 @@ class CsvPreflightTests(unittest.TestCase):
                 )
                 self._write_bundle()
 
+    def test_non_canonical_household_ids_block_in_every_source(self):
+        valid = FIRST_HOUSEHOLD_ID
+        bad_ids = {
+            "uppercase": valid.upper(),
+            "no hyphens": valid.replace("-", ""),
+            "braces": "{" + valid + "}",
+            "arbitrary text": "DEV-0001",
+            "padded": " " + valid,
+            "trailing newline": valid + chr(10),
+        }
+        child_deaths = self.datasets["section_l11_to_l14"]
+        row = dict.fromkeys(child_deaths.columns, "")
+        row["uuid"] = valid
+        self.datasets["section_l11_to_l14"] = pd.DataFrame([row], columns=child_deaths.columns)
+        for name in EXCEL_FILES:
+            for label, bad_id in bad_ids.items():
+                with self.subTest(source=name, form=label):
+                    self.datasets[name].loc[self.datasets[name].index[0], "uuid"] = bad_id
+                    self._write_bundle()
+                    before = self._source_path(name).read_bytes()
+                    report = validate_csv_bundle(self.root)
+                    self.assertFalse(report["passed"])
+                    self.assertIn((name, "invalid_household_id_format"), self._codes(report))
+                    self.assertNotIn(bad_id.strip(), json.dumps(report))
+                    self.assertEqual(before, self._source_path(name).read_bytes())
+                    self.datasets[name].loc[self.datasets[name].index[0], "uuid"] = valid
+        self._write_bundle()
+        self.assertTrue(validate_csv_bundle(self.root)["passed"])
+
+    def test_blank_household_id_is_reported_as_blank_not_as_bad_format(self):
+        self.datasets["household"].loc[0, "uuid"] = ""
+        self._write_bundle()
+        codes = self._codes(validate_csv_bundle(self.root))
+        self.assertIn(("household", "blank_join_keys"), codes)
+        self.assertNotIn(("household", "invalid_household_id_format"), codes)
+
+    def test_canonical_ids_keep_member_and_health_links_working(self):
+        report = validate_csv_bundle(self.root)
+        self.assertTrue(report["passed"], report)
+        for stats in report["joins"].values():
+            self.assertTrue(stats["join_passed"])
+            self.assertEqual(stats.get("source_records_unmatched", 0), 0)
+
     def test_child_death_repeated_uuid_is_allowed(self):
         frame = self.datasets["section_l11_to_l14"]
         row = dict.fromkeys(frame.columns, "")
-        row["uuid"] = "DEV-0001"
+        row["uuid"] = FIRST_HOUSEHOLD_ID
         pd.DataFrame([row, row], columns=frame.columns).to_csv(
             self._source_path("section_l11_to_l14"), index=False,
         )
@@ -144,7 +189,7 @@ class CsvPreflightTests(unittest.TestCase):
             ("section_l_to_members", "missing_related_records"), self._codes(report, "warnings"),
         )
         members = self.datasets["section_a_e_indiv"]
-        members.loc[members["uuid"].ne("DEV-0001")].to_csv(
+        members.loc[members["uuid"].ne(FIRST_HOUSEHOLD_ID)].to_csv(
             self._source_path("section_a_e_indiv"), index=False,
         )
         report = validate_csv_bundle(self.root)
@@ -213,9 +258,8 @@ class CsvPreflightTests(unittest.TestCase):
         self.assertEqual(report["indicator_count"], 16)
         self.assertEqual(before, {path: path.read_bytes() for path in before})
 
-    def test_leading_zero_keys_pass_without_rewriting(self):
+    def test_leading_zero_line_numbers_pass_without_rewriting(self):
         for name, frame in self.datasets.items():
-            frame["uuid"] = frame["uuid"].replace({"DEV-0001": "00001", "DEV-0002": "00002"})
             line_field = "line_number" if name == "section_a_e_indiv" else "section_l_line_number"
             if line_field in frame:
                 frame[line_field] = frame[line_field].map(lambda value: f"{value:03d}")
@@ -223,7 +267,7 @@ class CsvPreflightTests(unittest.TestCase):
         report = validate_csv_bundle(self.root)
         self.assertTrue(report["passed"], report)
         frame, _ = _read_csv(self._source_path("section_a_e_indiv"))
-        self.assertEqual(frame.iloc[0]["uuid"], "00001")
+        self.assertEqual(frame.iloc[0]["uuid"], FIRST_HOUSEHOLD_ID)
         self.assertEqual(frame.iloc[0]["line_number"], "001")
 
     def test_integer_line_errors_and_collisions_block(self):

@@ -37,9 +37,9 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Staff Reviews | Start a review for one household and program, add permanent notes, reassign the responsible staff member, finish with a recommendation, or cancel. |
 | Review Queue | Municipality-wide queue with three status cards (In Review, For LGU Follow-Up, No Further Action), Assigned to Me / All Staff Reviews scope, search, filters, date sorting, and direct links to each review. |
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
-| Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. They need no account, read no CBMS records, and accept no submissions. |
+| Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. Each program has a bilingual Pozorrubio research-estimate dashboard with source limitations and unavailable-data states for wider geographic scopes. The pages need no account, read no protected CBMS records, and accept no submissions. |
 | MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
-| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), and a validated backend importer used once for the 2022 batch. |
+| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), import workflow migrations 0013–0015, and a validated backend importer used once for the 2022 batch. |
 | Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
 
 ### Partial or Incomplete
@@ -47,9 +47,10 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Module | Current state |
 | --- | --- |
 | Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, and administrator password reset are implemented. Account editing is not implemented. |
-| Data Import interface | The administrator Data Import page is a placeholder. Importing is available only through the backend importer and the one-time 2022 runner script. |
-| Assessment-run management | New runs are created and designated only by controlled backend scripts; there is no administrator interface. |
+| Data Import interface | Administrators select a survey year from the two-year cycle beginning in 2022 (2022, 2024, 2026, and so on), validate four structure-compatible CSVs, store a passing bundle as inactive, prepare its assessments, and explicitly switch to it or back to a previous batch. Migrations 0013–0015 are required before use. End-to-end pilot verification remains. |
+| Assessment-run management | Administrators can prepare and designate a completed run for a staged inactive import. The current 2022 Run 3 and its history remain unchanged. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
+| Public statistics expansion | Verified Pangasinan, Region I, Philippines, beneficiary-demographic, comparison, and historical-trend statistics are deferred until authorized aggregate sources with confirmed scope, units, dates, and public-display approval are available. |
 
 ### Planned, Not Started
 
@@ -59,7 +60,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Public submission integration | Depends on the citizen identity and security decisions above. |
 | Pilot verification | End-to-end verification with real LGU usage has not been done. Verification so far used synthetic data. |
 | Deployment and production hardening | The built-in Flask server is for local development only. |
-| Multi-year support and household progression | The database currently restricts source records to survey year 2022 and Pozorrubio; comparing periods also needs reliable household identity matching. |
+| Multi-year support and household progression | Later-year batches and a read-only historical comparison view are implemented under the approved stable-household-UUID assumption. Visual and authorized later-year pilot checks remain. |
 
 ### Latest Verified Test Results
 
@@ -72,13 +73,13 @@ administrator-only. Imported CBMS records are read-only for everyone.
 
 ### Future CBMS Data Support
 
-Tanglaw-Buhay is **not a one-time-use system**. Its database structure supports
-multiple CBMS dataset batches and multiple assessment runs, including preservation
-of historical results. The current database schema restricts source records to
-**survey year 2022 and Pozorrubio**. Supporting later survey years requires an approved schema change,
-even when the questionnaire structure stays the same. Changes to questionnaires
-may also require approved mapping and validation updates. The administrator-facing
-future-import and assessment-run workflows are **not yet implemented**.
+Tanglaw-Buhay supports multiple CBMS dataset batches and assessment runs while
+preserving historical results. Migration 0015 permits approved later survey years
+for Pozorrubio, and the administrator workflow validates, stores, prepares, and
+activates those batches explicitly. Questionnaire changes still require approved
+mapping and validation updates. Household Progression compares designated
+historical runs under the project's stable-UUID assumption; actual subsidy
+application and benefit histories are separate future data needs.
 
 ### Development Guidelines
 
@@ -327,8 +328,14 @@ an audit table whose actor references the retained `staff_users` row; it does no
 read `deleted_at` or depend on 0012. After the Data Import branch is integrated,
 apply 0013 once where its table is absent. If applying both migrations to a fresh
 database, use numeric order (0012, then 0013); check existing schema first and
-never reapply an already-applied migration. Integrate Staff Accounts first, then
-bring the Data Import branch onto that integration tip before merging it.
+never reapply an already-applied migration. Migration 0014 adds the batch-switch
+audit table; apply it once after 0013, checking first whether it already exists.
+Migration 0015 permits later survey years and records the declared year in import
+audit events; apply it once after 0014. The application accepts only the
+two-year survey cycle beginning in 2022, up to the current Philippine year, and
+does not infer a year from the CSVs.
+The Data Import branch includes the
+Staff Accounts integration tip; recheck both branches before the final merge.
 
 After migrations 0009–0011 are applied, existing
 accounts keep their current passwords and have `must_change_password = false`. Accounts created through the administrator page

@@ -8,6 +8,8 @@ from flask import current_app
 import psycopg
 from psycopg.conninfo import conninfo_to_dict
 
+from db import get_connection
+from repositories import import_validation_events
 from services.auth import create_initial_admin
 
 
@@ -50,3 +52,15 @@ def register_commands(app):
                 "Administrator setup failed. Check configuration and migration 0002."
             ) from None
         click.echo("Initial administrator created. No survey records were changed.")
+
+    @app.cli.command("purge-import-validation-audit")
+    def purge_import_validation_audit_command():
+        """Remove expired standalone validation metadata under the 90-day policy."""
+        try:
+            with get_connection() as connection, connection.transaction():
+                removed = import_validation_events.purge_expired_attempts(connection)
+        except (psycopg.Error, RuntimeError):
+            raise click.ClickException(
+                "Import audit cleanup failed. Check the database and migration 0013."
+            ) from None
+        click.echo(f"Expired validation audit events removed: {removed}.")

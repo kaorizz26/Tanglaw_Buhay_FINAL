@@ -671,6 +671,113 @@ it in Git does not authorize another import. Private `.env`, CSVs and database
 contents remain outside Git. No credentials or source household records are
 embedded in the runner.
 
+### Administrator four-file validation and inactive storage
+
+`GET/POST /administration/import` is System Administrator-only and retains the
+development source guard. The form accepts only `household.csv`,
+`section_a_e_indiv.csv`, `section_l02_to_l41.csv` and
+`section_l11_to_l14.csv`. The other three reference CSVs are not uploaded.
+The administrator must select a year from the two-year survey cycle beginning
+in 2022 (2022, 2024, 2026, and so on), up to the current Philippine year,
+because the source files contain no reliable batch-year field. The year is
+stored and audited; it is never inferred from household answers.
+Validation reads their stored, validated snapshot from the documented 2022
+pilot batch `1`, checks its metadata and ordered row counts, then runs the
+existing preflight with those references. The administrator can check files
+without storage or confirm their authorized source and store a passing bundle.
+Preflight does not independently certify source authorization.
+
+The storage action reuses the same parsed frames. One transaction serializes
+imports, rejects an identical stored bundle, creates an inactive pending batch,
+stores all four original source CSVs plus three approved reference snapshots,
+verifies every table count, and marks the batch validated. A count or database
+failure rolls back the new batch. It never changes the active pointer, creates
+an assessment run, or alters existing source, findings, rankings or reviews.
+The one-time 2022 importer remains separate and unchanged.
+
+Only this route raises its request cap to 256 MiB; ordinary routes retain the
+1 MiB cap. One validation at a time uses a PostgreSQL advisory lock. The four
+files are copied to canonical names in a private temporary directory outside
+the application, bounded by a 1 GiB staging quota, and removed after each
+attempt. A later attempt removes abandoned staging directories older than 24
+hours. The preflight itself still parses CSVs in memory, so deployment must
+measure peak memory with the authorized bundle before enabling real uploads.
+
+Migration `0013_import_validation_audit.sql` must be applied explicitly before
+using the page. It records actor, time, pass/fail/rejection or successful
+staging, the trusted reference version, file sizes and hashes, and aggregate
+issue counts. It stores no source rows or full report. A successful staging
+event links to its batch and is retained with that batch. Standalone validation
+attempts older than 90 days are purged on later attempts or through
+`flask purge-import-validation-audit`; deployment should schedule that command
+to enforce the limit during inactivity. This migration adds only its audit
+table; it does not modify existing source, assessment or staff-review tables.
+An admin-only `/administration/import/batches` page lists staged batches and
+prepares one validated inactive batch on explicit confirmation. The preparation
+service reconstructs that batch from one read-only snapshot, runs the unchanged
+MPI and four screening engines, applies the existing complete-output verifier,
+and compares source-frame fingerprints. Under a preparation advisory lock it
+rechecks the administrator, batch identity, inactivity, source counts and absence
+of earlier runs. One transaction creates the run, stores all findings, completes
+it, compares every stored finding and rank with the calculated output, and
+designates the run. Failure rolls back all run writes and leaves the active
+batch, older runs, original responses and staff reviews untouched. Calculation
+provenance records the administrator ID, source/reference version and engine
+file hashes. The page runs synchronously; deployments should allow a request
+long enough for the full batch or add a durable job worker before production use.
+`GET/POST /administration/import/activation` lists the active batch and other
+validated batches with designated completed runs. A System Administrator must
+explicitly confirm a switch. The service rechecks both runs' household coverage,
+the administrator, and the outgoing batch's `In Review` count in the transaction.
+Any unfinished review blocks the switch until staff finish or cancel it through
+the existing attributed workflow. The active pointer and a metadata-only event
+in `batch_activation_events` commit together; source rows, findings, and review
+history are not rewritten. A previously active batch can be selected again.
+Migration `0014_batch_activation_audit.sql` must be applied once after 0013
+before the activation page is used. Activation events are retained with
+batch/review history. Migration `0015_multi_year_import.sql` replaces the
+2022-only batch constraint with a 2022 lower boundary and adds the declared year
+to validation audit events. Application validation supplies the current-year
+upper boundary. Later-year batches reuse the approved reference snapshot under
+the explicit schema/code compatibility assumption. When no verified age-reference
+date is available, current SPISC age progression keeps conservative year-only
+bounds; it does not invent an interview date. Cross-year household matching is
+outside this workflow.
+
+### Batch-switch safeguard for Citizen Accounts and document requests (temporary)
+
+A Citizen Account belongs to one household in one survey batch, and the Submissions
+screens only show the active batch. Switching away from a batch that still has
+citizen records would hide them from LGU Staff, while citizens could still sign in and
+upload. Cross-year Citizen Account management is deferred, so the switch is blocked
+instead. The check runs in `activate_prepared_batch` (`services/batch_activation.py`),
+inside the switch transaction, so a direct POST cannot skip it. The counts come from
+`count_blocking_citizen_work` in `repositories/dataset_batches.py`. Switch-back uses the
+same service, so the same rule applies to the batch being left.
+
+| Record | Blocks the switch | Does not block |
+|---|---|---|
+| Citizen Account | `pending_activation`, `active` | `deactivated` |
+| Document request | `requested`, `submitted`, `needs_correction` (also for a deactivated account) | `accepted`, `cancelled` |
+
+- Staff Reviews still come first: any review that is `In Review` blocks the switch.
+- Nothing is changed automatically. Staff must deactivate the accounts and accept or
+  cancel the requests; the activation page shows the counts and hides the Switch button.
+- Submissions is available to LGU Staff only, so an administrator cannot clear the block
+  and must ask LGU Staff to do it.
+- The citizen tables are optional. A database without the document tables still counts its
+  accounts, and a database without either table has nothing to count. No migration is needed.
+- Locking: every staff action that adds an account or request first holds the active batch
+  row for share. The switch holds it for update before counting, so an action in progress
+  finishes first and a later one waits and then fails.
+- Legacy importer: `scripts/controlled_cbms_import_2022.py` is the only caller of
+  `import_csv_bundle`, which activates its batch. The script runs only with `--check` or
+  `--execute`, only against the local `tanglaw_buhay_dev`, and stops unless
+  `dataset_batches` and every source table are empty (checked again under the import lock).
+  The function itself has no emptiness check and its tests expect it to replace the active
+  batch, so it must never be called on a populated database. It is not reachable from any
+  route; web uploads are stored inactive and switched only through the guarded service.
+
 ## 13. Phase 6B.3 Task 1: staff authentication
 
 `0002_staff_authentication.sql` adds only `staff_users`, separate from CBMS
@@ -2350,6 +2457,24 @@ branch against that tip and verify its tests. Do not run these commands against
 the development database during test verification; the tests use disposable
 schemas in `tanglaw_buhay_test`.
 
+#### Migration ledger after integration
+
+Citizen Accounts and Document Requests were numbered 0014 and 0015 on the feature branch.
+Data Import already used 0013-0015, so they were renamed (file names only; the SQL is
+unchanged). The two sets do not depend on each other. Databases were checked read-only on
+2026-11-06; check the schema again before applying anything.
+
+| Migration | Origin | `tanglaw_buhay_dev` | `tanglaw_buhay_rehearsal_0015` |
+|---|---|---|---|
+| `0013_import_validation_audit.sql` | Data Import | not applied | not applied |
+| `0014_batch_activation_audit.sql` | Data Import | not applied | not applied |
+| `0015_multi_year_import.sql` | Data Import | not applied | not applied |
+| `0016_citizen_accounts.sql` (was 0014) | Citizen Accounts | applied as 0014 | applied as 0014 |
+| `0017_document_requests.sql` (was 0015) | Digital Dropbox | not applied | applied as 0015 |
+
+Never apply a migration whose tables already exist. Use `psql -1 -v ON_ERROR_STOP=1` so a
+mistaken re-run rolls back completely.
+
 ### Verification record
 
 On 2026-11-05 the Staff Accounts PR branch passed the full synthetic regression
@@ -2360,7 +2485,7 @@ still referenced the retained staff row. Both orders passed. `python -m pip chec
 reported no broken requirements. Earlier counts in this guide describe their
 own checkpoints. Synthetic verification does not replace future pilot usage.
 
-## Household contact-number sync (one-time)
+### Household contact-number sync (one-time)
 
 The household source CSV gained a supplemental `contact_number` column (11-digit
 mobile numbers, kept as text so leading zeros survive). It is a synthetic field
@@ -2387,3 +2512,103 @@ treat a missing contact number as "no recorded number".
 
 Rollback after commit: remove the key (`responses - 'contact_number'`), restore the
 saved `source_columns` and `source_provenance`, or restore the backup.
+
+Display and later imports: the Household Assessment and Citizen Account screens show the
+number through one function, `format_contact_number` (`services/assessment_details.py`).
+It accepts `09XXXXXXXXX` and `+639XXXXXXXXX`, shows both as `0912 345 6789`, and shows
+"Not recorded" for anything else. Stored values and CSV files are never rewritten. Data
+Import keeps `contact_number` as an undefined extra column (a validation warning, not an
+error) and stores it as text, so a later-year file may use either format.
+
+### Household Progression read-only comparison
+
+`/assessments/progression` searches household UUIDs in all validated batches with
+designated completed runs, including inactive batches. The detail route selects
+two different survey years and reads only the stored findings for those selected
+batch/run pairs. The project assumes household UUIDs persist across survey years.
+No cross-year person identity is inferred from roster line numbers. Multiple
+batches in one year require an explicit selection before comparison.
+
+The overall Improved/Worsened/Unchanged label requires both complete 16-indicator
+MPI assessments and matching MPI engine hashes plus identical stored MPI mapping
+rows. A later run that copied MPI from an earlier run resolves that earlier run's
+provenance. Missing provenance, unknown indicators, missing household assessments,
+or differing methods yield Insufficient Data. Individual indicator changes use
+stored flags, with missing or incompatible findings labeled Insufficient Data.
+Scores and findings are never rewritten. Priority uses the existing rule over each
+year's stored score and historical screening statuses; present-day SPISC age
+guidance, staff reviews, applications, approvals, and benefit receipt are not
+treated as survey progression data.
+
+The focused synthetic tests are in `tests/test_household_progression.py`, including
+an isolated PostgreSQL check for the same UUID across 2022/2024 and a 2022-only
+household. The full regression suite passed 633 tests before the final
+staff-facing dataset labels; the focused progression suite passed 12 tests
+afterward. Browser policy blocked a local-file visual viewport check, so
+visual review and an authorized later-year pilot remain open verification tasks.
+
+## Citizen Accounts: staff side (Tasks 2A–2C)
+
+Migration `0016_citizen_accounts.sql` (numbered 0014 before the merge with Data Import) adds `citizen_accounts`, `citizen_account_tokens`
+and the append-only `citizen_account_events`. It must be applied explicitly and is not
+applied automatically. Until it is, the Assessment page shows "Citizen Account
+information is unavailable right now" and the account pages return 503.
+
+- An account belongs to one household record in one survey batch (`UNIQUE (batch_id,
+  household_uuid)`) and one email (`UNIQUE (email)`). Matching the same real household
+  across survey years is deliberately deferred; the composite household reference is kept.
+- Only LGU Staff can create accounts or resend activation (`lgu_staff_required`);
+  administrators receive 403. The acting staff member comes from the session.
+- The activation link and six-digit code are stored only as keyed hashes
+  (`CITIZEN_CREDENTIAL_KEY`). The link is emailed after the account transaction commits
+  and is never returned to a route or template. Staff see the code once, and only when
+  the mail server accepted the email. "Accepted" does not mean delivered to the inbox.
+- Staff verification in the capstone prototype is simulated because the contact numbers
+  are synthetic. The form wording states what staff confirm and does not claim an
+  identity check. A real deployment needs an ID-based check and approved privacy wording.
+- Create and Resend forms carry a one-time form number kept in the session. It prevents
+  ordinary duplicate submissions (browser refresh, double click) from repeating an action
+  or revealing a second code. Because the numbers are in the signed session cookie, this
+  is not a server-side guarantee against someone replaying an older copy of the cookie.
+- Real email is configured only through environment settings (see `.env.example`) and
+  checked with `scripts/check_email_settings.py`. Automated tests mock SMTP.
+
+## Digital Dropbox: storage and data foundation (Task 3A)
+
+- Migration `0017_document_requests.sql` (numbered 0015 before the merge with Data Import) adds
+  `document_requests`, `document_files` and `document_request_events`. It depends on 0016 and
+  `staff_users` only, and is independent of 0013-0015. Apply missing migrations in numeric
+  order; see the migration ledger above. **It has not been applied to any
+  persistent database; applying it needs separate approval and a backup first.**
+- A request belongs to a Citizen Account, so the household is always the account's household.
+  Each request has its own status (`requested`, `submitted`, `needs_correction`, `accepted`,
+  `cancelled`); several requests for one household are independent rows. The database allows
+  only these steps: requested to submitted or cancelled; submitted to accepted, needs
+  correction or cancelled; needs correction to submitted or cancelled. Accepted and cancelled
+  are final. Only the status can change, and requests are never deleted.
+- Every upload is a new `document_files` row (versions 1 to 10). File records and history
+  rows cannot be updated or deleted. Document tables have no link to assessments, subsidy
+  findings or Staff Reviews, so no document action can change them.
+- Uploaded files live in a private folder set by `DOCUMENT_STORAGE_DIR`: an existing absolute
+  folder outside the project and `static/`. Files get random names (`<32 hex>.pdf|jpg|png`);
+  the database stores only that name, and the citizen's file name is a cleaned display label.
+  Files are read only by an authorized route (Tasks 3C and 3D), never as static files.
+- `services/document_storage.py` checks every upload on the server: extension (PDF, JPG,
+  JPEG, PNG), the file's own opening bytes, at least 1 byte and at most 5 MB (the same 5 MB limit is also a database check). The type the
+  browser reports is ignored. Use `stored_upload` around the database insert (with the
+  connection block inside it) so a failed insert or commit removes the file.
+- **Privacy of the folder:** on Linux each file is created readable only by the app's
+  account. Windows ignores that setting, so the storage folder itself must be restricted
+  (Properties, Security) to the account that runs the application and to administrators.
+  The service also refuses a stored file that is a symbolic link or resolves outside the folder.
+- The global request limit stays 1 MB. The upload route (Task 3C) will raise it for itself only.
+- Citizen-facing lookups in `repositories/document_requests.py` filter on the citizen's
+  account in SQL, so another household's request or file is simply not found.
+- **Backups:** the database and the storage folder must be backed up together, at the same
+  time (for example, pause uploads or take the database dump first and then copy the folder).
+  Restore both from the same backup. A file without a record is an orphan that can be removed
+  after review; a record without a file means the backups were not taken together.
+- **Retention (to be decided by the LGU before real use):** versions and history are kept
+  indefinitely for the capstone and there is no delete feature. A real policy still needs to
+  say how long documents are kept after a request is accepted or cancelled, who may approve
+  disposal, how files and records are removed together, and how the disposal is recorded.

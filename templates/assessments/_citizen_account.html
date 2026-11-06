@@ -1,0 +1,77 @@
+{# Citizen Account section of the Household Assessment overview. #}
+{% set account = results.citizen_account %}
+{% set can_manage = g.user['role'] == 'lgu_staff' %}
+<section class="citizen-account-panel" aria-labelledby="citizen-account-heading">
+  <div class="citizen-account-heading">
+    <h2 id="citizen-account-heading">Citizen Account</h2>
+    {% if account and account.state in ('pending_activation', 'active', 'deactivated') %}
+      <span class="account-status account-status-{{ account.state }}">{{ account.status_label }}</span>
+    {% elif account and account.state == 'none' %}
+      <span class="account-status">Not created</span>
+    {% endif %}
+  </div>
+
+  {% for message in get_flashed_messages(category_filter=['citizen_account']) %}
+    <p class="citizen-account-notice" role="status">{{ message }}</p>
+  {% endfor %}
+
+  {% if not account or account.state == 'unavailable' %}
+    <p class="citizen-account-text">Citizen Account information is unavailable right now. Please try again later.</p>
+  {% elif account.state == 'none' %}
+    <p class="citizen-account-text">Create an account to give this household's representative access to the Citizen Portal.</p>
+    {% if can_manage %}
+      <a class="account-button" href="{{ url_for('citizen_accounts.create', household_uuid=results.household_uuid) }}">Create Citizen Account</a>
+    {% endif %}
+  {% else %}
+    <dl class="account-facts">
+      <div><dt>Representative</dt><dd>{{ account.name }}</dd></div>
+      <div><dt>Email address</dt><dd>{{ account.email }}</dd></div>
+      <div><dt>Created</dt><dd>{{ account.created_at|pht_datetime }}</dd></div>
+      {% if account.state == 'active' and account.activated_at %}
+        <div><dt>Activated</dt><dd>{{ account.activated_at|pht_datetime }}</dd></div>
+      {% endif %}
+    </dl>
+    {% if account.state == 'pending_activation' %}
+      <p class="citizen-account-text">Waiting for the representative to activate the account.</p>
+      <ul class="account-checklist">
+        <li>
+          {% if account.email_accepted_at %}
+            Activation email sent on {{ account.email_accepted_at|pht_datetime }}.
+          {% else %}
+            The activation email was not sent. Choose Resend Activation to try again.
+          {% endif %}
+        </li>
+        <li>
+          {% if account.link_valid %}
+            The activation link and code are valid until {{ account.expires_at|pht_datetime }}.
+          {% else %}
+            The activation link and code have expired. Choose Resend Activation.
+          {% endif %}
+        </li>
+      </ul>
+      {% if can_manage %}
+        <p class="account-hint">Resend Activation sends a new email and code. The old ones stop working.</p>
+      {% endif %}
+    {% elif account.state == 'deactivated' %}
+      <p class="citizen-account-text">This account is deactivated. The representative cannot sign in.</p>
+    {% endif %}
+    {% if can_manage %}
+      {% set household = results.household_uuid %}
+      <div class="account-actions">
+        {% if account.can_resend %}
+          <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.resend', household_uuid=household) }}">Resend Activation</a>
+        {% endif %}
+        {% if account.can_reactivate %}
+          <a class="account-button" href="{{ url_for('citizen_accounts.reactivate', household_uuid=household) }}">Reactivate Account</a>
+        {% endif %}
+        {% if account.can_change_email %}
+          <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.change_email', household_uuid=household) }}">Change Email</a>
+        {% endif %}
+        <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.history', household_uuid=household) }}">Account History</a>
+        {% if account.can_deactivate %}
+          <a class="account-button account-button-danger-outline" href="{{ url_for('citizen_accounts.deactivate', household_uuid=household) }}">Deactivate Account</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endif %}
+</section>

@@ -1,0 +1,34 @@
+<section class="import-process-guide import-process-guide-steps-only" aria-label="Data import steps">
+  <ol class="import-workflow">
+    <li class="import-workflow-step{% if current_import_step == 1 %} import-workflow-current{% endif %}"{% if current_import_step == 1 %} aria-current="step"{% endif %}>
+      <div class="import-workflow-heading">
+        <span class="import-workflow-number" aria-hidden="true">1</span>
+        <span class="import-workflow-state">Start here</span>
+      </div>
+      <h3>Upload and check the files</h3>
+      <p>Select the survey year and four required CSV files. Use <strong>Check files only</strong> to review them without saving.</p>
+      <p>When the files pass, confirm their source and choose <strong>Check and store bundle</strong>.</p>
+      <a class="import-workflow-link" href="{{ '#upload-heading' if current_import_step == 1 else url_for('main.data_import') }}">Go to the upload form <span aria-hidden="true">{{ '↓' if current_import_step == 1 else '→' }}</span></a>
+    </li>
+    <li class="import-workflow-step{% if current_import_step == 2 %} import-workflow-current{% endif %}"{% if current_import_step == 2 %} aria-current="step"{% endif %}>
+      <div class="import-workflow-heading">
+        <span class="import-workflow-number" aria-hidden="true">2</span>
+        <span class="import-workflow-state">After storing</span>
+      </div>
+      <h3>Prepare the assessments</h3>
+      <p>Open the stored batches page. Find the new inactive batch and choose <strong>Run and verify assessments</strong>.</p>
+      <p>Continue only after the batch has a completed, designated run.</p>
+      <a class="import-workflow-link" href="{{ '#batches-heading' if current_import_step == 2 else url_for('main.import_batches') }}">Open stored batches <span aria-hidden="true">{{ '↓' if current_import_step == 2 else '→' }}</span></a>
+    </li>
+    <li class="import-workflow-step{% if current_import_step == 3 %} import-workflow-current{% endif %}"{% if current_import_step == 3 %} aria-current="step"{% endif %}>
+      <div class="import-workflow-heading">
+        <span class="import-workflow-number" aria-hidden="true">3</span>
+        <span class="import-workflow-state">Final step</span>
+      </div>
+      <h3>Activate the prepared dataset</h3>
+      <p>Open the active dataset page. Finish or cancel reviews still <strong>In Review</strong>, then confirm the prepared batch staff should use.</p>
+      <p>The previous batch and its history remain stored.</p>
+      <a class="import-workflow-link" href="{{ '#current-batch-heading' if current_import_step == 3 else url_for('main.import_activation') }}">Open active dataset <span aria-hidden="true">{{ '↓' if current_import_step == 3 else '→' }}</span></a>
+    </li>
+  </ol>
+</section>

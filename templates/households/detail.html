@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header records-header record-detail-header">
+  <header class="page-header portal-hero records-header record-detail-header">
     <div class="context-bar">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="{{ list_url }}">Household Records</a>
@@ -32,6 +32,7 @@
       <div class="record-detail-actions">
         <a class="record-back" href="{{ list_url }}">← Back to Records</a>
         <a class="record-assessment" href="{{ url_for('assessments.detail', household_uuid=record.household_uuid, **assessment_parameters) }}">View Assessment →</a>
+        <a class="record-assessment" href="{{ url_for('assessments.progression_detail', household_uuid=record.household_uuid) }}">View Progression →</a>
       </div>
     </div>
   </header>

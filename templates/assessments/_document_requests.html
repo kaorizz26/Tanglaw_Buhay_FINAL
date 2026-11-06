@@ -1,0 +1,42 @@
+{# Document Requests section of the Household Assessment overview. LGU Staff only. #}
+{% set account = results.citizen_account %}
+{% set documents = results.document_requests %}
+{% if g.user['role'] == 'lgu_staff' and account and account.state in ('pending_activation', 'active', 'deactivated') %}
+<section class="citizen-account-panel" aria-labelledby="document-requests-heading">
+  <div class="citizen-account-heading">
+    <h2 id="document-requests-heading">Document Requests</h2>
+  </div>
+
+  {% for message in get_flashed_messages(category_filter=['document_requests']) %}
+    <p class="citizen-account-notice" role="status">{{ message }}</p>
+  {% endfor %}
+
+  {% if documents.state == 'unavailable' %}
+    <p class="citizen-account-text">Document requests are unavailable right now. Please try again later.</p>
+  {% else %}
+    {% if documents.requests %}
+      <ul class="document-list">
+        {% for document in documents.requests %}
+          <li class="document-item">
+            <div class="document-item-main">
+              <strong class="document-title">{{ document.title }}</strong>
+              <span class="account-status document-status document-status-{{ document.status }}">{{ document.status_label }}</span>
+              <p class="document-next-step">{{ document.next_step }}</p>
+            </div>
+            <a class="account-button account-button-secondary" href="{{ url_for('document_requests.detail', request_id=document.id) }}">View Details<span class="visually-hidden"> for {{ document.title }}</span></a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif account.state == 'active' %}
+      <p class="citizen-account-text">No documents have been requested yet.</p>
+    {% endif %}
+    {% if account.state == 'active' %}
+      <div class="account-actions">
+        <a class="account-button" href="{{ url_for('document_requests.create', household_uuid=results.household_uuid) }}">Request Documents</a>
+      </div>
+    {% else %}
+      <p class="citizen-account-text">Documents can be requested while the Citizen Account is Active.</p>
+    {% endif %}
+  {% endif %}
+</section>
+{% endif %}

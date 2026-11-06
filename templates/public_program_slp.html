@@ -6,17 +6,12 @@
 
 {% block content %}
 <article class="fourps-page slp-page" data-program-slug="slp">
-    <div class="fourps-backbar">
-        <div class="public-container fourps-container">
-            <a class="fourps-back-link" href="{{ url_for('public.index') }}#programs">
-                <span aria-hidden="true">&#8592;</span>
-                <span data-i18n="slp.back">Bumalik sa mga Programa</span>
-            </a>
-        </div>
-    </div>
-
     <header class="fourps-header">
         <div class="public-container fourps-container fourps-header__inner">
+            <a class="fourps-back-button" href="{{ url_for('public.index') }}#programs" aria-label="Bumalik sa mga Programa" data-i18n-aria-label="programDetail.back">
+                <span aria-hidden="true">&#8592;</span>
+                <span data-i18n="slp.back">Bumalik</span>
+            </a>
             <h1 data-i18n="slp.title">SLP – Sustainable Livelihood Program</h1>
             <p data-i18n="slp.subtitle">Tulong sa puhunan sa negosyo at pag-aaral para sa bagong trabaho.</p>
         </div>
@@ -27,7 +22,7 @@
             <a class="is-active" href="#about" aria-current="location" data-fourps-tab="about" data-i18n="slp.tab.about">Tungkol dito</a>
             <a href="#documents" data-fourps-tab="documents" data-i18n="slp.tab.documents">Mga Kailangang Papeles</a>
             <a href="#application-process" data-fourps-tab="application-process" data-i18n="slp.tab.process">Paano mag-apply</a>
-            <a href="#local-data" data-fourps-tab="local-data" data-i18n="slp.tab.data">Datos sa Pozorrubio</a>
+            <a href="#local-data" data-fourps-tab="local-data" data-i18n="slp.tab.data">Estadistika at Demograpiko</a>
         </div>
     </nav>
 
@@ -132,12 +127,11 @@
         </section>
 
         <section class="fourps-card" id="local-data" aria-labelledby="data-title">
-            <p class="fourps-step-label" data-i18n="slp.step4.label">Hakbang 4: Mga Datos at Benepisyaryo</p>
-            <h2 id="data-title" data-i18n="slp.step4.heading">Talaan ng mga benepisyaryo sa ating bayan</h2>
+            <p class="fourps-step-label" data-i18n="slp.step4.label">Hakbang 4: Estadistika at Demograpiko</p>
+            <h2 id="data-title" data-i18n="slp.step4.heading">Estadistika at Demograpiko ng SLP</h2>
 
-            <div class="fourps-data-placeholder" aria-label="Nakalaang espasyo para sa datos" data-i18n-aria-label="slp.data.placeholderLabel">
-                <p data-i18n="slp.data.placeholder">Ang datos para sa seksyong ito ay ihahanda sa susunod na yugto.</p>
-            </div>
+            {% set statistic_prefix = 'slp' %}
+            {% include 'public_program_statistic.html' %}
         </section>
 
         <section class="fourps-related" aria-labelledby="related-title">

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessment-details.css') }}">
   <script src="{{ url_for('static', filename='js/assessment-details.js') }}" defer></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-reviews.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -46,6 +47,7 @@
               <dt>Household UUID</dt>
               <dd class="detail-record-id">{{ results.household_uuid }}</dd>
             </dl>
+            <a class="context-navigation" href="{{ url_for('assessments.progression_detail', household_uuid=results.household_uuid) }}">View household progression →</a>
           {% endif %}
         </div>
         <dl class="household-records">
@@ -87,6 +89,8 @@
   {% elif tab == 'reviews' %}
     {% include 'assessments/staff_reviews.html' %}
   {% else %}
+    {% include 'assessments/_citizen_account.html' %}
+    {% include 'assessments/_document_requests.html' %}
     {% include 'assessments/overview.html' %}
   {% endif %}
 {% endblock %}

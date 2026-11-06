@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Citizen Portal{% endblock %} · Tanglaw-Buhay</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-portal.css') }}">
+</head>
+<body class="portal-page">
+  <a class="portal-skip-link" href="#portal-main">Skip to main content</a>
+  <header class="portal-header">
+    <div class="portal-header-inner">
+      <span class="portal-brand">
+        <img src="{{ url_for('static', filename='assets/logos/logo_A.png') }}" alt="" width="40" height="40">
+        <span><strong>Tanglaw-Buhay</strong><small>Citizen Portal</small></span>
+      </span>
+      {% block navigation %}{% endblock %}
+    </div>
+  </header>
+  <main class="portal-main{% block main_class %}{% endblock %}" id="portal-main">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

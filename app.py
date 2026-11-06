@@ -8,11 +8,18 @@ from config import Config
 from commands import register_commands
 from routes.assessments import assessments
 from routes.auth import auth
+from routes.citizen_accounts import citizen_accounts
+from routes.citizen_documents import citizen_documents
+from routes.citizen_portal import citizen_portal
+from routes.document_requests import document_requests
 from routes.households import households
 from routes.main import main
 from routes.public import public
+from routes.submissions import submissions
 from services.auth import protect_staff_routes
-from services.assessment_request_logging import protect_assessment_access_logs
+from services.assessment_request_logging import (
+    protect_assessment_access_logs, protect_portal_token_logs,
+)
 
 
 PHILIPPINE_TIME = ZoneInfo("Asia/Manila")
@@ -38,6 +45,7 @@ def pht_date(value):
 def create_app(test_config=None):
     app = Flask(__name__)
     protect_assessment_access_logs()
+    protect_portal_token_logs()
     app.config.from_object(Config)
     if test_config:
         app.config.update(test_config)
@@ -49,6 +57,11 @@ def create_app(test_config=None):
     app.register_blueprint(auth)
     app.register_blueprint(households)
     app.register_blueprint(assessments)
+    app.register_blueprint(citizen_accounts)
+    app.register_blueprint(document_requests)
+    app.register_blueprint(citizen_portal)
+    app.register_blueprint(citizen_documents)
+    app.register_blueprint(submissions)
     app.before_request(protect_staff_routes)
     register_commands(app)
     app.add_template_filter(pht_datetime)

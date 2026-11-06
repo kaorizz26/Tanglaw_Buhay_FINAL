@@ -44,9 +44,12 @@ REQUIRED_ENGINE_COLUMNS = {
         "l38_availed_medical_treatment",
     ),
 }
+# Household IDs must already be lowercase, hyphenated UUIDs because the staff
+# pages open households by that exact text. IDs are rejected, never rewritten.
+CANONICAL_UUID_PATTERN = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 
-def validate_csv_bundle(data_dir: str | Path = DATA_DIR) -> dict:
+def validate_csv_bundle(data_dir: str | Path = DATA_DIR, *, reference_frames=None) -> dict:
     """Return aggregate errors/warnings for four source and three reference CSVs.
 
     Files use the existing raw/reference directory layout, with source filenames
@@ -54,11 +57,11 @@ def validate_csv_bundle(data_dir: str | Path = DATA_DIR) -> dict:
     are returned. Passing preflight permits further import work; it neither
     inserts a batch nor establishes survey provenance or staff authorization.
     """
-    _, _, report = load_csv_bundle(data_dir)
+    _, _, report = load_csv_bundle(data_dir, reference_frames=reference_frames)
     return report
 
 
-def load_csv_bundle(data_dir: str | Path):
+def load_csv_bundle(data_dir: str | Path, *, reference_frames=None):
     """Return private source/reference frames and their aggregate preflight report.
 
     Each file is read once. Frame attrs hold its filename and SHA-256 from the
@@ -74,10 +77,22 @@ def load_csv_bundle(data_dir: str | Path):
         {name: root / "raw" / f"{name}.csv" for name in EXCEL_FILES},
         report, "datasets",
     )
-    references = _read_group(
-        {name: root / "reference" / filename for name, filename in REFERENCE_FILES.items()},
-        report, "references",
-    )
+    if reference_frames is None:
+        references = _read_group(
+            {name: root / "reference" / filename for name, filename in REFERENCE_FILES.items()},
+            report, "references",
+        )
+    else:
+        references = {
+            name: reference_frames[name] for name in REFERENCE_FILES
+            if name in reference_frames
+        }
+        for name, frame in references.items():
+            report["references"][name] = {
+                "records": len(frame), "columns": len(frame.columns),
+            }
+        for name in REFERENCE_FILES.keys() - references.keys():
+            _issue(report, "errors", name, "missing_file")
     _check_sources(datasets, report)
     _check_references(references, report)
     if len(datasets) == len(EXCEL_FILES):
@@ -151,6 +166,8 @@ def _check_sources(datasets, report):
             count = len(stats[field]) if field == "missing_key_columns" else stats.get(field, 0)
             if count:
                 _issue(report, "errors", name, code, count)
+        if "uuid" in frame:
+            _check_household_id_format(name, frame, report)
         if name == "household" and frame.empty:
             _issue(report, "errors", name, "empty_household_dataset")
         missing = sum(field not in frame for field in REQUIRED_ENGINE_COLUMNS.get(name, ()))
@@ -169,6 +186,15 @@ def _check_sources(datasets, report):
     members = datasets.get("section_a_e_indiv")
     if households is not None and not households.empty and members is not None and members.empty:
         _issue(report, "errors", "section_a_e_indiv", "empty_household_roster")
+
+
+def _check_household_id_format(name, frame, report):
+    """Count nonblank household IDs that are not canonical UUID text."""
+    ids = frame["uuid"]
+    canonical = ids.str.fullmatch(CANONICAL_UUID_PATTERN).fillna(False).astype(bool)
+    count = int((~canonical & ids.str.strip().ne("")).sum())
+    if count:
+        _issue(report, "errors", name, "invalid_household_id_format", count)
 
 
 def _integer_key(value):

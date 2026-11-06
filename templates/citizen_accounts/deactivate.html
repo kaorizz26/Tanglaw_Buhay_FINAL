@@ -1,0 +1,54 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Deactivate Citizen Account{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>Deactivate Citizen Account</h1>
+    <p class="account-lead">Use this when the representative should no longer have access to the Citizen Portal.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  {% set button_label = 'Deactivate Account' %}
+  {% include 'citizen_accounts/_form_errors.html' %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('citizen_accounts.deactivate', household_uuid=page.household_uuid) }}">
+    {% include 'citizen_accounts/_hidden_fields.html' %}
+
+    <section class="account-section account-section-danger" aria-labelledby="deactivate-heading">
+      <h2 id="deactivate-heading">Deactivate this account?</h2>
+      <dl class="account-facts">
+        <div><dt>Representative</dt><dd>{{ page.account.name }}</dd></div>
+        <div><dt>Email address</dt><dd>{{ page.account.email }}</dd></div>
+        <div><dt>Status</dt><dd>{{ page.account.status_label }}</dd></div>
+      </dl>
+      <h3 class="account-subheading">What will happen</h3>
+      <ul class="account-checklist">
+        <li><strong>The representative is signed out immediately</strong> and cannot sign in.</li>
+        <li>Any activation or password reset link stops working.</li>
+        <li>The account stays linked to this household. You can reactivate it later.</li>
+      </ul>
+
+      <div class="account-field">
+        <label for="reason_note">Why is this account being deactivated?</label>
+        <textarea id="reason_note" name="reason_note" rows="3" maxlength="500"
+                  {% if errors.reason_note %}aria-invalid="true" aria-describedby="reason_note-hint reason_note-error"{% else %}aria-describedby="reason_note-hint"{% endif %}
+                  required>{{ values.reason_note or '' }}</textarea>
+        <p class="account-hint" id="reason_note-hint">Write at least 10 characters. Do not write passwords or codes.</p>
+        {% if errors.reason_note %}<p class="account-field-error" id="reason_note-error">{{ errors.reason_note }}</p>{% endif %}
+      </div>
+
+      <div class="account-actions">
+        <button class="account-button account-button-danger" type="submit">Deactivate Account</button>
+        <a class="account-button account-button-secondary" href="{{ assessment_url }}">Cancel</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}

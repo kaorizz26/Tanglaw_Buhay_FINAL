@@ -1,0 +1,50 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Reactivate Citizen Account{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>Reactivate Citizen Account</h1>
+    <p class="account-lead">Give the representative access to the Citizen Portal again.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  {% set button_label = 'Reactivate Account' %}
+  {% include 'citizen_accounts/_form_errors.html' %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('citizen_accounts.reactivate', household_uuid=page.household_uuid) }}">
+    {% include 'citizen_accounts/_hidden_fields.html' %}
+
+    <section class="account-section" aria-labelledby="what-heading">
+      <h2 id="what-heading"><span class="account-step" aria-hidden="true">1</span> Check what will happen</h2>
+      <dl class="account-facts">
+        <div><dt>Representative</dt><dd>{{ page.account.name }}</dd></div>
+        <div><dt>Email address</dt><dd>{{ page.account.email }}</dd></div>
+        <div><dt>Status</dt><dd>{{ page.account.status_label }}</dd></div>
+      </dl>
+      <ul class="account-checklist">
+        <li>The account returns to <strong>Pending Activation</strong>.</li>
+        <li>The old password is removed. The representative must choose a new one.</li>
+        <li>A new activation email is sent to the address above.</li>
+        <li>A new six-digit code is shown to you once. The link and code last 48 hours.</li>
+      </ul>
+    </section>
+
+    <section class="account-section" aria-labelledby="confirm-heading">
+      <h2 id="confirm-heading"><span class="account-step" aria-hidden="true">2</span> Confirm and reactivate</h2>
+      {% set consent_text = 'The representative agreed to reactivate this account and to receive emails at the address above, and confirmed I read it back correctly.' %}
+      {% include 'citizen_accounts/_confirmation_fields.html' %}
+      <div class="account-actions">
+        <button class="account-button" type="submit">Reactivate Account</button>
+        <a class="account-button account-button-secondary" href="{{ assessment_url }}">Cancel</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}

@@ -1,0 +1,14 @@
+{# The file a staff member is about to decide on. Needs: page, latest_file. #}
+<section class="account-section" aria-labelledby="review-file-heading">
+  <h2 id="review-file-heading">File being reviewed</h2>
+  <dl class="account-facts">
+    <div><dt>Document</dt><dd>{{ page.request.title }}</dd></div>
+    <div><dt>Requested from</dt><dd>{{ page.representative_name }}</dd></div>
+    <div><dt>Latest file</dt><dd>{{ latest_file.display_name }} (version {{ latest_file.version_number }})</dd></div>
+    <div><dt>Uploaded</dt><dd>{{ latest_file.uploaded_at|pht_datetime }}</dd></div>
+  </dl>
+  <div class="account-actions">
+    <a class="account-button account-button-secondary" href="{{ url_for('document_requests.preview_file', request_id=page.request.id, file_id=latest_file.id) }}">Preview File<span class="visually-hidden"> {{ latest_file.display_name }}</span></a>
+    <a class="account-button account-button-secondary" href="{{ url_for('document_requests.download_file', request_id=page.request.id, file_id=latest_file.id) }}">Download File<span class="visually-hidden"> {{ latest_file.display_name }}</span></a>
+  </div>
+</section>

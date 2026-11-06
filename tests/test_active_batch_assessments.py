@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts.verify_active_batch_assessments import VerificationError, verify_outputs
-from services.development_data import development_sources
+from services.development_data import development_sources, synthetic_household_id
 from services.subsidy_screening import screen_households
 from services.vulnerability.scoring import INDICATOR_WEIGHTS, assess_households
 
@@ -35,7 +35,7 @@ class AssessmentVerificationTests(unittest.TestCase):
         for counts in summary["screening"]["program_status_counts"].values():
             self.assertEqual(sum(counts.values()), 32)
         public_output = json.dumps(summary)
-        self.assertNotIn("DEV-", public_output)
+        self.assertNotIn(synthetic_household_id(1), public_output)
         self.assertNotIn("Sample Barangay", public_output)
         self.assertNotIn("observed_values", public_output)
         self.assertNotIn("member_line_number", public_output)

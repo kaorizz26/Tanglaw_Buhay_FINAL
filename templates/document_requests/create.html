@@ -1,0 +1,65 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Request Documents{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+  <script src="{{ url_for('static', filename='js/document-request-form.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header account-header">
+    <a class="account-back" href="{{ assessment_url }}"><span aria-hidden="true">←</span> Back to Household Assessment</a>
+    <h1>Request Documents</h1>
+    <p class="account-lead">Ask the representative to upload documents through the Citizen Portal. A request does not approve a subsidy or start a Staff Review.</p>
+  </header>
+
+  {% include 'citizen_accounts/_household_summary.html' %}
+
+  {% set button_label = 'Request Documents' %}
+  {% include 'citizen_accounts/_form_errors.html' %}
+
+  <form class="account-form" method="post" novalidate
+        action="{{ url_for('document_requests.create', household_uuid=page.household_uuid) }}">
+    {% include 'citizen_accounts/_hidden_fields.html' %}
+
+    <section class="account-section" aria-labelledby="documents-heading">
+      <h2 id="documents-heading">Documents to request</h2>
+      <p class="account-instruction">Enter each document you need. Leave unused rows empty. The representative sees these names and instructions.</p>
+
+      <div id="document-rows" data-max-rows="{{ max_rows }}">
+        {% for row in rows %}
+          {% set title_error = errors.get('title_' ~ loop.index0) %}
+          {% set instructions_error = errors.get('instructions_' ~ loop.index0) %}
+          <fieldset class="document-row">
+            <legend class="document-row-number">Document {{ loop.index }}</legend>
+            <div class="account-field">
+              <label for="document_title_{{ loop.index }}">Document name</label>
+              <input id="document_title_{{ loop.index }}" name="document_title" type="text"
+                     maxlength="120" autocomplete="off" value="{{ row.title }}"
+                     placeholder="Example: Valid ID"
+                     {% if title_error %}aria-invalid="true" aria-describedby="document_title_{{ loop.index }}-error"{% endif %}>
+              {% if title_error %}<p class="account-field-error" id="document_title_{{ loop.index }}-error">{{ title_error }}</p>{% endif %}
+            </div>
+            <div class="account-field">
+              <label for="document_instructions_{{ loop.index }}">Instructions <span class="document-optional">(optional)</span></label>
+              <textarea id="document_instructions_{{ loop.index }}" name="document_instructions"
+                        rows="2" maxlength="500"
+                        {% if instructions_error %}aria-invalid="true" aria-describedby="document_instructions_{{ loop.index }}-error"{% endif %}>{{ row.instructions }}</textarea>
+              {% if instructions_error %}<p class="account-field-error" id="document_instructions_{{ loop.index }}-error">{{ instructions_error }}</p>{% endif %}
+            </div>
+          </fieldset>
+        {% endfor %}
+      </div>
+
+      {# Shown by the script; without it the three rows above are still enough to use the form. #}
+      <button class="account-button account-button-secondary document-add-row" type="button" id="add-document" hidden>Add Another Document</button>
+    </section>
+
+    <p class="account-next">Selecting <strong>Request Documents</strong> saves every document you entered at once. Each one can then be tracked on its own.</p>
+    <div class="account-actions">
+      <button class="account-button" type="submit">Request Documents</button>
+      <a class="account-button account-button-secondary" href="{{ assessment_url }}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}
