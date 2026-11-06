@@ -352,6 +352,39 @@ def count_in_progress_reviews(connection, batch_id):
     ).fetchone()[0]
 
 
+def count_blocking_citizen_work(connection, batch_id):
+    """Count the Citizen Accounts and open document requests that belong to one batch.
+
+    Accounts that are waiting for activation or active, and requests that are not
+    finished (even those of deactivated accounts), would be invisible to LGU Staff once
+    another batch became active. Both counts come from one statement, so they share
+    one snapshot. The citizen tables are optional: a missing document table never hides
+    existing accounts, and a missing account table means there is nothing to count.
+    """
+    accounts_exist, requests_exist = connection.execute(
+        """SELECT to_regclass('citizen_accounts') IS NOT NULL,
+                  to_regclass('document_requests') IS NOT NULL""",
+    ).fetchone()
+    # Only fixed text is joined below; the batch id is always a bound parameter.
+    count_accounts = (
+        """(SELECT count(*) FROM citizen_accounts
+            WHERE batch_id = %(batch_id)s
+              AND status IN ('pending_activation', 'active'))"""
+        if accounts_exist else "0"
+    )
+    count_requests = (
+        """(SELECT count(*) FROM document_requests r
+            JOIN citizen_accounts a ON a.id = r.account_id
+            WHERE a.batch_id = %(batch_id)s
+              AND r.status IN ('requested', 'submitted', 'needs_correction'))"""
+        if accounts_exist and requests_exist else "0"
+    )
+    accounts, requests = connection.execute(
+        f"SELECT {count_accounts}, {count_requests}", {"batch_id": batch_id},
+    ).fetchone()
+    return {"accounts": accounts, "requests": requests}
+
+
 def switch_prepared_batch(connection, previous_batch_id, target_batch_id,
                           target_run_id):
     """Move only the active pointer after the service has checked both contexts."""

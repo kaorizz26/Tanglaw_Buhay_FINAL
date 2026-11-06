@@ -22,7 +22,7 @@ from services.import_validation import (
     ImportValidationUnavailable, STAGING_MARKER, _cleanup_stale,
     validate_admin_upload,
 )
-from services.batch_activation import BatchActivationError
+from services.batch_activation import BatchActivationError, describe_citizen_work
 from services.survey_years import (
     is_supported_survey_year, latest_survey_year, parse_survey_year,
     supported_survey_years,
@@ -388,6 +388,43 @@ class ImportRouteTests(unittest.TestCase):
                     8, 7, expected_active_batch_id=1,
                     expected_active_run_id=3, expected_target_run_id=4,
                 )
+
+    def test_activation_page_blocks_switch_for_citizen_records(self):
+        overview = {
+            "active": {"id": 1, "survey_year": 2022, "households": 2, "run_id": 3},
+            "candidates": [{"id": 8, "survey_year": 2022, "households": 2, "run_id": 4}],
+            "in_progress_reviews": 0, "citizen_accounts": 2, "open_document_requests": 1,
+            "citizen_work_summary": describe_citizen_work(2, 1),
+        }
+        with patch("routes.main.activation_overview", return_value=overview):
+            response = self.client.get("/administration/import/activation")
+            self.assertEqual(response.status_code, 200)
+            text = re.sub(rb"<[^>]+>", b"", response.data)
+            self.assertIn(b"Citizen accounts and document requests need attention", text)
+            self.assertIn(b"2 citizen accounts that are active or waiting for activation "
+                          b"and 1 unfinished document request", text)
+            self.assertIn(b"deactivate the accounts and accept or cancel the requests", text)
+            self.assertNotIn(b"Switch to Batch 8", response.data)
+            self.assertIn(b"Resolve the items shown above", text)
+            with self.client.session_transaction() as session:
+                session["csrf_token"] = "synthetic-csrf"
+            blocked = BatchActivationError(
+                "citizen_work_open", account_count=1, request_count=2)
+            with patch("routes.main.activate_prepared_batch", side_effect=blocked):
+                response = self.client.post("/administration/import/activation", data={
+                    "csrf_token": "synthetic-csrf", "target_batch_id": "8",
+                    "expected_active_batch_id": "1", "expected_active_run_id": "3",
+                    "expected_target_run_id": "4", "confirm_switch": "yes",
+                })
+            self.assertEqual(response.status_code, 409)
+            self.assertIn(b"1 citizen account that is active or waiting for activation "
+                          b"and 2 unfinished document requests", response.data)
+
+    def test_citizen_work_wording_handles_each_case(self):
+        self.assertEqual(describe_citizen_work(1, 0),
+                         "1 citizen account that is active or waiting for activation")
+        self.assertEqual(describe_citizen_work(0, 3), "3 unfinished document requests")
+        self.assertEqual(describe_citizen_work(0, 0), "")
 
     def test_activation_page_shows_unfinished_review_guard(self):
         overview = {

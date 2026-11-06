@@ -25,6 +25,7 @@ from services.survey_years import (
 )
 from services.batch_activation import (
     BatchActivationError, activate_prepared_batch, activation_overview,
+    describe_citizen_work,
 )
 from services.staff_account_management import (
     StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
@@ -214,6 +215,14 @@ def import_activation():
                         f"{exc.review_count} staff review"
                         f"{' is' if exc.review_count == 1 else 's are'} still In Review. "
                         "Finish or cancel them before switching batches."
+                    )
+                    status = 409
+                elif str(exc) == "citizen_work_open":
+                    error = (
+                        "Batch switching is blocked. This dataset still has "
+                        f"{describe_citizen_work(exc.account_count, exc.request_count)}. "
+                        "Ask LGU Staff to deactivate the accounts and accept or cancel the "
+                        "requests in Submissions first."
                     )
                     status = 409
                 elif str(exc) in (

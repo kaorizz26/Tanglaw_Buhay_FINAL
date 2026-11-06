@@ -10,9 +10,24 @@ from services.import_sources import ADMIN_UPLOAD_SOURCES
 class BatchActivationError(RuntimeError):
     """Fixed switch failure without private records or database details."""
 
-    def __init__(self, code, *, review_count=0):
+    def __init__(self, code, *, review_count=0, account_count=0, request_count=0):
         super().__init__(code)
         self.review_count = review_count
+        self.account_count = account_count
+        self.request_count = request_count
+
+
+def describe_citizen_work(account_count, request_count):
+    """Say in plain words which citizen records stop a batch switch."""
+    parts = []
+    if account_count:
+        noun = "citizen account" if account_count == 1 else "citizen accounts"
+        parts.append(f"{account_count} {noun} that "
+                     f"{'is' if account_count == 1 else 'are'} active or waiting for activation")
+    if request_count:
+        noun = "document request" if request_count == 1 else "document requests"
+        parts.append(f"{request_count} unfinished {noun}")
+    return " and ".join(parts)
 
 
 def activation_overview(connection_factory=get_connection):
@@ -24,11 +39,19 @@ def activation_overview(connection_factory=get_connection):
             active = [batch for batch in batches if batch["is_active"]]
             if len(active) != 1:
                 raise BatchActivationError("active_context_unavailable")
+            citizen_work = dataset_batches.count_blocking_citizen_work(
+                connection, active[0]["id"],
+            )
             return {
                 "active": active[0],
                 "candidates": [batch for batch in batches if not batch["is_active"]],
                 "in_progress_reviews": dataset_batches.count_in_progress_reviews(
                     connection, active[0]["id"],
+                ),
+                "citizen_accounts": citizen_work["accounts"],
+                "open_document_requests": citizen_work["requests"],
+                "citizen_work_summary": describe_citizen_work(
+                    citizen_work["accounts"], citizen_work["requests"],
                 ),
             }
     except BatchActivationError:
@@ -86,6 +109,18 @@ def activate_prepared_batch(target_batch_id, actor_id, *, expected_active_batch_
             if open_reviews:
                 raise BatchActivationError(
                     "unfinished_reviews", review_count=open_reviews,
+                )
+            # Temporary rule until Citizen Accounts can follow a household across survey
+            # years. The batch row is already locked for update, and every staff action
+            # that adds an account or request first holds that row for share, so nothing
+            # can slip in between this count and the switch.
+            citizen_work = dataset_batches.count_blocking_citizen_work(
+                connection, current[0]["id"],
+            )
+            if citizen_work["accounts"] or citizen_work["requests"]:
+                raise BatchActivationError(
+                    "citizen_work_open", account_count=citizen_work["accounts"],
+                    request_count=citizen_work["requests"],
                 )
             source = target["source_provenance"].get("declared", {}).get("source")
             previously_active = batch_activation_events.was_previously_active(
