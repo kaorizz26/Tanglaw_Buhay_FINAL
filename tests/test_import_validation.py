@@ -97,6 +97,23 @@ class ImportValidationTests(unittest.TestCase):
         self.assertTrue(report["passed"], report)
         self.assertEqual(set(report["references"]), set(REFERENCE_FILES))
 
+    def test_contact_number_column_is_accepted_and_kept_as_text(self):
+        datasets = {name: frame.copy() for name, frame in self.datasets.items()}
+        datasets["household"].insert(3, "contact_number", ["09171234567", "+639171234567"])
+        root = self.root / "with_contact_number"
+        root.mkdir()
+        write_csv_fixture(root, datasets, self.references)
+        frames, _, report = load_csv_bundle(root, reference_frames=self.references)
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["errors"], [])
+        # The column has no system definition, so it only produces a warning.
+        self.assertIn({"source": "household", "code": "columns_without_definitions",
+                       "count": 1}, report["warnings"])
+        contact = frames["household"]["contact_number"]
+        self.assertEqual(list(frames["household"].columns).index("contact_number"), 3)
+        self.assertEqual(contact.tolist(), ["09171234567", "+639171234567"])
+        self.assertTrue(all(isinstance(value, str) for value in contact))
+
     def test_validation_cleans_uploads_and_records_metadata_only(self):
         with self.app.app_context():
             with patch("services.import_validation.load_import_references",

@@ -82,15 +82,18 @@ def _indicator(name, mpi, source, reference):
 
 
 def format_contact_number(raw_value):
-    """Show a recorded 11-digit mobile number as 0912 345 6789, else "Not recorded".
+    """Show a recorded mobile number as 0912 345 6789, else "Not recorded".
 
-    Anything that is not exactly 09 followed by nine digits is treated as not
-    recorded, so a malformed value is never shown as if it were a usable number.
+    Both 09XXXXXXXXX and +639XXXXXXXXX are accepted and shown in the 09 form. Anything
+    else is treated as not recorded, so a malformed value is never shown as if it were
+    a usable number. Only the display changes; the stored value is never rewritten.
     """
     number = raw_value.strip() if isinstance(raw_value, str) else ""
-    if not re.fullmatch(r"09[0-9]{9}", number):
+    match = re.fullmatch(r"(?:\+63|0)(9[0-9]{9})", number)
+    if match is None:
         return "Not recorded"
-    return f"{number[:4]} {number[4:7]} {number[7:]}"
+    local_number = "0" + match.group(1)
+    return f"{local_number[:4]} {local_number[4:7]} {local_number[7:]}"
 
 
 def prepare_assessment_detail(source, *, assessment_date=None):

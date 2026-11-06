@@ -744,6 +744,40 @@ date is available, current SPISC age progression keeps conservative year-only
 bounds; it does not invent an interview date. Cross-year household matching is
 outside this workflow.
 
+### Batch-switch safeguard for Citizen Accounts and document requests (temporary)
+
+A Citizen Account belongs to one household in one survey batch, and the Submissions
+screens only show the active batch. Switching away from a batch that still has
+citizen records would hide them from LGU Staff, while citizens could still sign in and
+upload. Cross-year Citizen Account management is deferred, so the switch is blocked
+instead. The check runs in `activate_prepared_batch` (`services/batch_activation.py`),
+inside the switch transaction, so a direct POST cannot skip it. The counts come from
+`count_blocking_citizen_work` in `repositories/dataset_batches.py`. Switch-back uses the
+same service, so the same rule applies to the batch being left.
+
+| Record | Blocks the switch | Does not block |
+|---|---|---|
+| Citizen Account | `pending_activation`, `active` | `deactivated` |
+| Document request | `requested`, `submitted`, `needs_correction` (also for a deactivated account) | `accepted`, `cancelled` |
+
+- Staff Reviews still come first: any review that is `In Review` blocks the switch.
+- Nothing is changed automatically. Staff must deactivate the accounts and accept or
+  cancel the requests; the activation page shows the counts and hides the Switch button.
+- Submissions is available to LGU Staff only, so an administrator cannot clear the block
+  and must ask LGU Staff to do it.
+- The citizen tables are optional. A database without the document tables still counts its
+  accounts, and a database without either table has nothing to count. No migration is needed.
+- Locking: every staff action that adds an account or request first holds the active batch
+  row for share. The switch holds it for update before counting, so an action in progress
+  finishes first and a later one waits and then fails.
+- Legacy importer: `scripts/controlled_cbms_import_2022.py` is the only caller of
+  `import_csv_bundle`, which activates its batch. The script runs only with `--check` or
+  `--execute`, only against the local `tanglaw_buhay_dev`, and stops unless
+  `dataset_batches` and every source table are empty (checked again under the import lock).
+  The function itself has no emptiness check and its tests expect it to replace the active
+  batch, so it must never be called on a populated database. It is not reachable from any
+  route; web uploads are stored inactive and switched only through the guarded service.
+
 ## 13. Phase 6B.3 Task 1: staff authentication
 
 `0002_staff_authentication.sql` adds only `staff_users`, separate from CBMS
@@ -2478,6 +2512,13 @@ treat a missing contact number as "no recorded number".
 
 Rollback after commit: remove the key (`responses - 'contact_number'`), restore the
 saved `source_columns` and `source_provenance`, or restore the backup.
+
+Display and later imports: the Household Assessment and Citizen Account screens show the
+number through one function, `format_contact_number` (`services/assessment_details.py`).
+It accepts `09XXXXXXXXX` and `+639XXXXXXXXX`, shows both as `0912 345 6789`, and shows
+"Not recorded" for anything else. Stored values and CSV files are never rewritten. Data
+Import keeps `contact_number` as an undefined extra column (a validation warning, not an
+error) and stores it as text, so a later-year file may use either format.
 
 ### Household Progression read-only comparison
 

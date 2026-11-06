@@ -265,6 +265,45 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                    WHERE batch_id = %s""", (result["batch_id"],),
             ).fetchone(), ("staged", 2024))
 
+    def test_upload_keeps_contact_numbers_as_original_text(self):
+        datasets, references = synthetic_csv_frames()
+        sent = ["09171234567", "+639171234567"]
+        datasets["household"].insert(3, "contact_number", sent)
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_csv_fixture(root, datasets, references)
+            uploads = MultiDict([
+                (name, FileStorage(
+                    stream=BytesIO((root / "raw" / f"{name}.csv").read_bytes()),
+                    filename=f"{name}.csv",
+                ))
+                for name in datasets
+            ])
+            app = create_app({
+                "TESTING": True, "DATABASE_URL": self.url,
+                "IMPORT_STAGING_DIR": str(root / "staging"),
+            })
+            with app.app_context():
+                result = validate_admin_upload(
+                    uploads, self.actor_id, 2024, store_inactive=True,
+                    authorization_confirmed=True,
+                )
+        self.assertTrue(result["report"]["passed"], result)
+        with psycopg.connect(self.url) as connection:
+            stored = connection.execute(
+                """SELECT responses ->> 'contact_number',
+                          jsonb_typeof(responses -> 'contact_number')
+                   FROM households WHERE batch_id = %s ORDER BY source_row_number""",
+                (result["batch_id"],),
+            ).fetchall()
+            columns = connection.execute(
+                "SELECT source_columns -> 'household' FROM dataset_batches WHERE id = %s",
+                (result["batch_id"],),
+            ).fetchone()[0]
+        # Leading zero and plus sign survive, as JSON text rather than numbers.
+        self.assertEqual(stored, [(sent[0], "string"), (sent[1], "string")])
+        self.assertEqual(columns.index("contact_number"), 3)
+
     def test_failed_upload_does_not_create_or_activate_a_batch(self):
         datasets, references = synthetic_csv_frames()
         with TemporaryDirectory() as directory:
