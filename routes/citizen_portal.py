@@ -4,7 +4,10 @@ These routes never use the LGU Staff session (g.user). Citizens have their own
 cookie and the helpers in services/citizen_sessions.py.
 """
 
-from flask import Blueprint, abort, g, redirect, render_template, request, url_for
+from flask import (
+    Blueprint, abort, current_app, g, make_response, redirect, render_template, request, url_for,
+)
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 import psycopg
 
 from services import citizen_sessions as sessions
@@ -28,6 +31,12 @@ LOCKED_OUT = (
 )
 UNAVAILABLE = "The Citizen Portal is unavailable right now. Please try again later."
 
+# The emailed link's token is kept in a signed, short-lived cookie so it does not stay in the address bar.
+HANDOFF_COOKIE_NAME = "tanglaw_citizen_activation"
+HANDOFF_COOKIE_PATH = "/portal/activate"
+HANDOFF_SALT = "tanglaw-citizen-activation-handoff"
+HANDOFF_LIFETIME_SECONDS = 15 * 60
+
 
 @citizen_portal.before_request
 def prepare_citizen_session():
@@ -41,6 +50,8 @@ def prepare_citizen_session():
 def finish_citizen_response(response):
     """Write the session cookie if it changed, and keep activation pages out of referrers."""
     response.headers["Referrer-Policy"] = "no-referrer"
+    if request.path.startswith(HANDOFF_COOKIE_PATH):
+        response.headers["Cache-Control"] = "no-store"
     return sessions.save_cookie(response)
 
 
@@ -63,26 +74,87 @@ def _link_problem_page(error):
 
 # ---- Activation -----------------------------------------------------------------
 
-@citizen_portal.route("/activate/<token>", methods=["GET", "POST"])
-def activate(token):
+def _handoff_serializer():
+    """Signs the activation handoff with the app's secret key and its own purpose salt."""
+    return URLSafeTimedSerializer(current_app.secret_key, salt=HANDOFF_SALT)
+
+
+def _handoff_cookie_settings():
+    """Cookie options shared by setting and clearing the handoff cookie."""
+    return {
+        "path": HANDOFF_COOKIE_PATH, "httponly": True, "samesite": "Lax",
+        "secure": current_app.config["SESSION_COOKIE_SECURE"],
+    }
+
+
+def _read_handoff_token():
+    """Return the link token saved by the emailed link, or None if missing, forged or expired."""
+    value = request.cookies.get(HANDOFF_COOKIE_NAME)
+    if not value:
+        return None
+    try:
+        token = _handoff_serializer().loads(value, max_age=HANDOFF_LIFETIME_SECONDS)
+    except BadSignature:  # Also covers expired signatures.
+        return None
+    return token if isinstance(token, str) else None
+
+
+def _handoff_ended_page():
+    """Tell the citizen to reopen the emailed link, since the saved handoff is gone."""
+    response = make_response(_render("activation_problem.html", 410, handoff_ended=True))
+    response.delete_cookie(HANDOFF_COOKIE_NAME, **_handoff_cookie_settings())
+    return response
+
+
+def _link_problem_response(problem):
+    """The 'link cannot be used' page, also removing any saved handoff."""
+    page, status = _link_problem_page(problem)
+    response = make_response(page, status)
+    response.delete_cookie(HANDOFF_COOKIE_NAME, **_handoff_cookie_settings())
+    return response
+
+
+@citizen_portal.route("/activate/<token>")
+def open_activation_link(token):
+    """Check the emailed link, keep its token in a short-lived cookie and move to a clean address."""
+    try:
+        if not activation_link_is_usable(token):
+            return _link_problem_response(ActivationLinkError("invalid"))
+    except (PortalUnavailable, RuntimeError):
+        abort(503, description=UNAVAILABLE)
+    response = redirect(url_for("citizen_portal.activate"), code=303)
+    response.set_cookie(
+        HANDOFF_COOKIE_NAME, _handoff_serializer().dumps(token),
+        max_age=HANDOFF_LIFETIME_SECONDS, **_handoff_cookie_settings(),
+    )
+    return response
+
+
+@citizen_portal.route("/activate", methods=["GET", "POST"])
+def activate():
     """Let the representative enter the code from LGU Staff and choose a password."""
+    token = _read_handoff_token()
+    if token is None:
+        return _handoff_ended_page()
     try:
         if request.method == "GET":
             if not activation_link_is_usable(token):
-                return _link_problem_page(ActivationLinkError("invalid"))
-            return _render("activate.html", token=token, error=None)
+                return _link_problem_response(ActivationLinkError("invalid"))
+            return _render("activate.html", error=None)
         sessions.check_csrf()
         activate_account(
             token, request.form.get("code", ""), request.form.get("new_password", ""),
             request.form.get("confirm_password", ""),
         )
     except ActivationLinkError as problem:
-        return _link_problem_page(problem)
+        return _link_problem_response(problem)
     except CitizenFormError as problem:
-        return _render("activate.html", 400, token=token, error=str(problem))
+        return _render("activate.html", 400, error=str(problem))
     except (PortalUnavailable, RuntimeError):
         abort(503, description=UNAVAILABLE)
-    return redirect(url_for("citizen_portal.login", activated=1), code=303)
+    response = redirect(url_for("citizen_portal.login", activated=1), code=303)
+    response.delete_cookie(HANDOFF_COOKIE_NAME, **_handoff_cookie_settings())
+    return response
 
 
 # ---- Sign-in, home, sign-out ----------------------------------------------------

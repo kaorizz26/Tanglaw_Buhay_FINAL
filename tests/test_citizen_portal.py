@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import unittest
 from datetime import timedelta
+from unittest.mock import patch
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -22,6 +23,7 @@ from werkzeug.security import check_password_hash
 
 from app import create_app
 from repositories import citizen_accounts
+from routes import citizen_portal as citizen_routes
 from services import citizen_authentication as authentication
 from services.citizen_credentials import new_activation_credentials
 from services.public_programs import PUBLIC_PROGRAMS
@@ -32,6 +34,8 @@ TEST_URL = os.getenv("TANGLAW_TEST_DATABASE_URL")
 SECRET = "s" * 48
 CREDENTIAL_KEY = "k" * 48
 COOKIE = "tanglaw_citizen_session"
+HANDOFF_COOKIE = "tanglaw_citizen_activation"
+CLEAN_ACTIVATE_PATH = "/portal/activate"
 PASSWORD = "correct horse battery"
 NEW_PASSWORD = "a different long password"
 EMAIL = "citizen@example.com"
@@ -122,18 +126,117 @@ class PortalTestCase(unittest.TestCase):
 
 class ActivationTests(PortalTestCase):
     def activate_path(self, token):
+        """The emailed link."""
         return f"/portal/activate/{token}"
 
+    def open_link(self, token):
+        """Open the emailed link, as the citizen does; a usable link redirects to the clean address."""
+        return self.client.get(self.activate_path(token))
+
     def submit(self, token, code, password=NEW_PASSWORD, confirm=None):
-        return self.post(self.activate_path(token), {
+        """Open the emailed link, then send the form to the clean activation address."""
+        self.open_link(token)
+        return self.post(CLEAN_ACTIVATE_PATH, {
             "code": code, "new_password": password,
             "confirm_password": password if confirm is None else confirm})
 
+    def handoff_cookie_header(self, token):
+        """The Set-Cookie header the emailed link answers with."""
+        headers = self.open_link(token).headers.getlist("Set-Cookie")
+        return next(header for header in headers if header.startswith(HANDOFF_COOKIE))
+
+    def test_valid_link_redirects_to_the_clean_address_without_the_token(self):
+        _, token, _ = self.make_pending()
+        response = self.open_link(token)
+        self.assertEqual(response.status_code, 303)
+        self.assertTrue(response.location.endswith(CLEAN_ACTIVATE_PATH))
+        self.assertNotIn(token, response.location)
+
     def test_valid_link_shows_the_form_without_revealing_the_code(self):
         _, token, code = self.make_pending()
-        page = self.text(self.client.get(self.activate_path(token)))
+        self.open_link(token)
+        page = self.text(self.client.get(CLEAN_ACTIVATE_PATH))
         self.assertIn("Activate your account", page)
         self.assertNotIn(code, page)
+
+    def test_form_page_does_not_repeat_the_link_token(self):
+        _, token, _ = self.make_pending()
+        self.open_link(token)
+        page = self.text(self.client.get(CLEAN_ACTIVATE_PATH))
+        self.assertNotIn(token, page)
+        self.assertIsNone(re.search(r"<form[^>]*\baction=", page))
+
+    def test_wrong_code_page_does_not_repeat_the_link_token(self):
+        _, token, code = self.make_pending()
+        wrong = "000000" if code != "000000" else "111111"
+        response = self.submit(token, wrong)
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn(token, self.text(response))
+
+    def test_handoff_cookie_is_http_only_lax_path_limited_and_lasts_15_minutes(self):
+        _, token, _ = self.make_pending()
+        header = self.handoff_cookie_header(token)
+        self.assertIn("HttpOnly", header)
+        self.assertIn("SameSite=Lax", header)
+        self.assertIn("Path=/portal/activate", header)
+        self.assertIn("Max-Age=900", header)
+        self.assertNotIn("Secure", header)  # this test app turns Secure off for plain HTTP
+
+    def test_handoff_cookie_is_secure_when_https_is_enabled(self):
+        _, token, _ = self.make_pending()
+        self.app.config["SESSION_COOKIE_SECURE"] = True
+        self.assertIn("Secure", self.handoff_cookie_header(token))
+
+    def test_activation_responses_are_not_cached_and_send_no_referrer(self):
+        _, token, _ = self.make_pending()
+        for response in (self.open_link(token), self.client.get(CLEAN_ACTIVATE_PATH)):
+            self.assertEqual(response.headers["Cache-Control"], "no-store")
+            self.assertEqual(response.headers["Referrer-Policy"], "no-referrer")
+
+    def test_the_cookie_is_signed_so_a_made_up_token_is_refused(self):
+        self.client.set_cookie(HANDOFF_COOKIE, "forged-value", path=CLEAN_ACTIVATE_PATH)
+        response = self.client.get(CLEAN_ACTIVATE_PATH)
+        self.assertEqual(response.status_code, 410)
+        self.assertIn("open your activation link again", self.text(response))
+
+    def test_an_unsigned_real_token_is_refused_too(self):
+        _, token, _ = self.make_pending()
+        self.client.set_cookie(HANDOFF_COOKIE, token, path=CLEAN_ACTIVATE_PATH)
+        self.assertEqual(self.client.get(CLEAN_ACTIVATE_PATH).status_code, 410)
+
+    def test_clean_address_without_the_link_explains_how_to_continue(self):
+        response = self.client.get(CLEAN_ACTIVATE_PATH)
+        self.assertEqual(response.status_code, 410)
+        self.assertIn("Open the activation email", self.text(response))
+
+    def test_an_expired_handoff_asks_the_citizen_to_reopen_the_email_link(self):
+        _, token, code = self.make_pending()
+        self.open_link(token)
+        with patch.object(citizen_routes, "HANDOFF_LIFETIME_SECONDS", -1):
+            response = self.client.get(CLEAN_ACTIVATE_PATH)
+            self.assertEqual(response.status_code, 410)
+            self.assertIn("open your activation link again", self.text(response))
+            posted = self.post(CLEAN_ACTIVATE_PATH, {
+                "code": code, "new_password": NEW_PASSWORD, "confirm_password": NEW_PASSWORD})
+            self.assertEqual(posted.status_code, 410)
+        self.assertEqual(self.token_row(), (0, False, False))
+
+    def test_activation_clears_the_handoff_cookie(self):
+        _, token, code = self.make_pending()
+        response = self.submit(token, code)
+        self.assertEqual(response.status_code, 303)
+        cleared = [h for h in response.headers.getlist("Set-Cookie") if h.startswith(HANDOFF_COOKIE)]
+        self.assertTrue(cleared and "Max-Age=0" in cleared[0])
+        self.assertEqual(self.client.get(CLEAN_ACTIVATE_PATH).status_code, 410)
+
+    def test_activation_works_end_to_end_through_the_handoff(self):
+        account_id, token, code = self.make_pending()
+        self.assertEqual(self.submit(token, code).status_code, 303)
+        self.assertEqual(self.row(account_id)[0], "active")
+
+    def test_the_old_form_address_with_a_token_no_longer_accepts_posts(self):
+        _, token, _ = self.make_pending()
+        self.assertEqual(self.client.post(self.activate_path(token)).status_code, 405)
 
     def test_unknown_or_malformed_links_get_the_same_friendly_page(self):
         for token in ("x" * 43, "short", "a" * 300):
@@ -141,6 +244,7 @@ class ActivationTests(PortalTestCase):
                 response = self.client.get(self.activate_path(token))
                 self.assertEqual(response.status_code, 410)
                 self.assertIn("cannot be used", self.text(response))
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
 
     def test_correct_code_and_password_activate_the_account_then_go_to_sign_in(self):
         account_id, token, code = self.make_pending()
@@ -205,9 +309,20 @@ class ActivationTests(PortalTestCase):
         citizen_accounts.revoke_open_tokens(self.db, account_id, "activation")
         self.assertEqual(self.client.get(self.activate_path(old_token)).status_code, 410)
 
+    def test_a_link_replaced_after_the_handoff_is_refused(self):
+        account_id, old_token, old_code = self.make_pending()
+        self.open_link(old_token)
+        citizen_accounts.revoke_open_tokens(self.db, account_id, "activation")
+        self.assertEqual(self.client.get(CLEAN_ACTIVATE_PATH).status_code, 410)
+        posted = self.post(CLEAN_ACTIVATE_PATH, {
+            "code": old_code, "new_password": NEW_PASSWORD, "confirm_password": NEW_PASSWORD})
+        self.assertEqual(posted.status_code, 410)
+        self.assertEqual(self.row(account_id)[0], "pending_activation")
+
     def test_the_form_needs_a_valid_csrf_token(self):
         _, token, code = self.make_pending()
-        response = self.client.post(self.activate_path(token), data={
+        self.open_link(token)
+        response = self.client.post(CLEAN_ACTIVATE_PATH, data={
             "csrf_token": "forged", "code": code,
             "new_password": NEW_PASSWORD, "confirm_password": NEW_PASSWORD})
         self.assertEqual(response.status_code, 400)
