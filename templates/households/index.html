@@ -97,7 +97,7 @@
                 <td data-label="Household head">{{ item.head_name }}</td>
                 <td data-label="Barangay">{{ item.barangay }}</td>
                 <td class="records-members" data-label="Members">{{ item.member_count }}</td>
-                <td class="records-action" data-label="Record"><a class="records-row-link" href="{{ url_for('households.detail', household_uuid=item.household_uuid, page=results.page, **results.filters.parameters) }}">View Record</a></td>
+                <td class="records-action" data-label="Record"><a class="records-row-link" href="{{ url_for('households.detail', household_uuid=item.household_uuid, page=results.page, **results.filters.parameters) }}" aria-label="View household record {{ item.reference_id }} for {{ item.head_name }}">View Record</a></td>
               </tr>
             {% endfor %}
           </tbody>

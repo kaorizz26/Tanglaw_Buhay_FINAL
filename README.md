@@ -37,7 +37,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Staff Reviews | Start a review for one household and program, add permanent notes, reassign the responsible staff member, finish with a recommendation, or cancel. |
 | Review Queue | Municipality-wide queue with three status cards (In Review, For LGU Follow-Up, No Further Action), Assigned to Me / All Staff Reviews scope, search, filters, date sorting, and direct links to each review. |
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
-| Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. They need no account, read no CBMS records, and accept no submissions. |
+| Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. Each program has a bilingual Pozorrubio research-estimate dashboard with source limitations and unavailable-data states for wider geographic scopes. The pages need no account, read no protected CBMS records, and accept no submissions. |
 | MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
 | PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), and a validated backend importer used once for the 2022 batch. |
 | Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
@@ -50,6 +50,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Data Import interface | The administrator Data Import page is a placeholder. Importing is available only through the backend importer and the one-time 2022 runner script. |
 | Assessment-run management | New runs are created and designated only by controlled backend scripts; there is no administrator interface. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
+| Public statistics expansion | Verified Pangasinan, Region I, Philippines, beneficiary-demographic, comparison, and historical-trend statistics are deferred until authorized aggregate sources with confirmed scope, units, dates, and public-display approval are available. |
 
 ### Planned, Not Started
 

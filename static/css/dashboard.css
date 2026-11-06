@@ -52,6 +52,44 @@
   margin-top: 2px;
 }
 
+.dashboard-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -10px 0 28px;
+}
+
+.dashboard-section-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 1px solid #becbd2;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--navy);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.dashboard-section-nav a:hover {
+  border-color: var(--navy);
+  background: #eaf0f2;
+}
+
+.dashboard-section-nav a:focus-visible {
+  outline: 3px solid #167eb5;
+  outline-offset: 2px;
+}
+
+#reviews-heading,
+#statistics-heading,
+#household-heading {
+  scroll-margin-top: 24px;
+}
+
 .dashboard-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -893,6 +931,7 @@ a.dashboard-bar-row:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dashboard-section-nav a,
   .dashboard-metric-link,
   .dashboard-metric-cue span,
   .dashboard-bar-row,

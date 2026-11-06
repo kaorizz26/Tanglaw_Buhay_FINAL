@@ -71,6 +71,10 @@ class HouseholdRecordRouteTests(unittest.TestCase):
             self.assertIn("Household Records", response.text)
             self.assertIn("Synthetic Head", response.text)
             self.assertIn("Synthetic East", response.text)
+            self.assertIn(
+                'aria-label="View household record HH-00001 for Synthetic Head"',
+                response.text,
+            )
             self.assertIn('href="/households" aria-current="page"', response.text)
             self.assertIn("All barangays", response.text)
             # The survey year comes from the dataset in use and is display-only.
@@ -118,6 +122,10 @@ class HouseholdRecordRouteTests(unittest.TestCase):
                 f"/households/{HOUSEHOLD_UUID}?q=Synthetic&barangay=Synthetic+East&page=2"
             )
         self.assertEqual(detail.status_code, 200)
+        self.assertIn(
+            'class="page-header portal-hero records-header record-detail-header"',
+            detail.text,
+        )
         self.assertIn('/households?page=2&amp;q=Synthetic&amp;barangay=Synthetic+East', detail.text)
         self.assertIn('aria-label="Breadcrumb"', detail.text)
         self.assertIn(f'/assessments/{HOUSEHOLD_UUID}', detail.text)
