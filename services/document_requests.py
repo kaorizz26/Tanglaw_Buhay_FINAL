@@ -17,7 +17,7 @@ from services.citizen_accounts import (
     check_request_values, lock_household_account, read_household_header,
 )
 from services.document_request_panel import (
-    OPEN_STATUSES, present_request, present_request_history,
+    OPEN_STATUSES, present_files, present_request, present_request_history,
 )
 
 MAX_DOCUMENTS_PER_FORM = 10
@@ -75,8 +75,11 @@ def validate_request_form(form):
     return documents
 
 
-def validate_cancellation_form(form):
-    """Return the cleaned cancellation reason, or raise. The citizen will read it."""
+def validate_reason_form(form):
+    """Return the cleaned reason for a cancellation or correction, or raise.
+
+    The citizen will read it, so it must be a real sentence of 10 to 500 characters.
+    """
     reason = form.get("reason_note", "").strip()
     if not MIN_NOTE_LENGTH <= len(reason) <= MAX_NOTE_LENGTH or "\x00" in reason:
         raise DocumentRequestInputError({"reason_note": (
@@ -135,10 +138,29 @@ def get_document_request_page(request_id, *, connection_factory=get_connection):
             raise AssessmentQueryError("document_request_missing")
         page = read_household_header(connection, context, account["household_uuid"])
         events = document_requests.list_events(connection, request_id)
+        files = document_requests.list_files(connection, request_id)
     page["request"] = present_request(request_row)
+    page["files"] = present_files(files, request_row["status"])
     page["representative_name"] = account["representative_name"]
     page["history"] = present_request_history(events)
     return page
+
+
+def lock_request_for_staff(connection, staff_id, request_id, batch_id, run_id):
+    """Run the checks every staff action on a request needs, then return it locked.
+
+    The request is read first to learn its household. Then the survey selection and
+    the staff member are checked, as for every other staff action, before the row is
+    held for changing. Raises CitizenAccountError with a fixed code.
+    """
+    found = document_requests.find_request(connection, request_id)
+    if found is None:
+        raise CitizenAccountError("request_missing")
+    account = citizen_accounts.find_by_id(connection, found["account_id"])
+    if account["batch_id"] != batch_id:
+        raise CitizenAccountError("request_missing")
+    check_actor_and_context(connection, staff_id, batch_id, run_id, account["household_uuid"])
+    return document_requests.find_request(connection, request_id, lock=True)
 
 
 def cancel_document_request(staff_id, request_id, batch_id, run_id, form, *,
@@ -149,22 +171,11 @@ def cancel_document_request(staff_id, request_id, batch_id, run_id, form, *,
     """
     if any(type(value) is not int or value < 1 for value in (staff_id, request_id, batch_id, run_id)):
         raise CitizenAccountError("invalid_request")
-    reason = validate_cancellation_form(form)
+    reason = validate_reason_form(form)
     try:
         with connection_factory() as connection:
             with connection.transaction():
-                # Read the request first to learn its household, then run the same actor
-                # and survey checks as every other staff action before changing it.
-                found = document_requests.find_request(connection, request_id)
-                if found is None:
-                    raise CitizenAccountError("request_missing")
-                account = citizen_accounts.find_by_id(connection, found["account_id"])
-                if account["batch_id"] != batch_id:
-                    raise CitizenAccountError("request_missing")
-                check_actor_and_context(
-                    connection, staff_id, batch_id, run_id, account["household_uuid"],
-                )
-                locked = document_requests.find_request(connection, request_id, lock=True)
+                locked = lock_request_for_staff(connection, staff_id, request_id, batch_id, run_id)
                 if locked["status"] not in OPEN_STATUSES:
                     raise CitizenAccountError("not_cancellable")
                 document_requests.change_status(connection, request_id, "cancelled")

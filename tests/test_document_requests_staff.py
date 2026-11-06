@@ -86,10 +86,10 @@ class FormValidationTests(unittest.TestCase):
         self.assertEqual(set(self.errors(*ten, ("One more", ""))), {"form"})
 
     def test_the_cancellation_reason_needs_ten_to_five_hundred_characters(self):
-        self.assertEqual(service.validate_cancellation_form({"reason_note": f" {REASON} "}), REASON)
+        self.assertEqual(service.validate_reason_form({"reason_note": f" {REASON} "}), REASON)
         for reason in ("", "short", "x" * 501, "ok" * 5 + "\x00"):
             with self.assertRaises(service.DocumentRequestInputError) as caught:
-                service.validate_cancellation_form({"reason_note": reason})
+                service.validate_reason_form({"reason_note": reason})
             self.assertEqual(set(caught.exception.errors), {"reason_note"})
 
 

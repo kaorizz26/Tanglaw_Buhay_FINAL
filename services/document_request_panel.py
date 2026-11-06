@@ -23,6 +23,30 @@ EVENT_LABELS = {
 }
 
 
+def _size_label(size_bytes):
+    """Show a file size in plain units, for example '340 KB' or '1.2 MB'."""
+    if size_bytes >= 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    return f"{max(1, round(size_bytes / 1024))} KB"
+
+
+def present_files(files, status):
+    """List uploaded versions (newest first) and mark the one staff should review.
+
+    Only the newest version can be reviewed, and only while the request is Ready for
+    Review. Older versions stay listed so nothing the representative sent is lost.
+    """
+    return [
+        {
+            "id": item["id"], "version_number": item["version_number"],
+            "display_name": item["display_name"], "size_label": _size_label(item["size_bytes"]),
+            "uploaded_at": item["uploaded_at"], "is_latest": position == 0,
+            "awaiting_review": position == 0 and status == "submitted",
+        }
+        for position, item in enumerate(files)
+    ]
+
+
 def present_request(row):
     """Turn a stored request row into what staff pages show."""
     return {
@@ -31,6 +55,7 @@ def present_request(row):
         "next_step": NEXT_STEPS[row["status"]],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
         "can_cancel": row["status"] in OPEN_STATUSES,
+        "can_review": row["status"] == "submitted",
     }
 
 

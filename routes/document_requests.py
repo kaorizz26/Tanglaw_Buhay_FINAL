@@ -1,15 +1,18 @@
-"""Staff pages for requesting documents from a household, viewing requests and cancelling them.
+"""Staff pages for requesting documents, viewing requests, reviewing uploads and cancelling.
 
 Only LGU Staff may use these pages. Requests are made only for households with an
 Active Citizen Account. Staff decisions here never change assessments or Staff Reviews.
 """
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import (
+    Blueprint, abort, flash, g, redirect, render_template, request, send_file, url_for,
+)
 
 from routes.staff_forms import context_ids, issue_form_number, staff_context, use_form_number
 from services.assessment_queries import AssessmentQueryError
 from services.auth import check_csrf, lgu_staff_required
 from services.citizen_accounts import CitizenAccountError, get_household_account_page
+from services.document_reviews import accept_document, open_file_for_staff, request_correction
 from services.document_requests import (
     MAX_DOCUMENTS_PER_FORM, DocumentRequestInputError, cancel_document_request,
     create_document_requests, get_document_request_page,
@@ -26,6 +29,11 @@ NOT_ACTIVE_MESSAGE = "Documents can only be requested while the Citizen Account 
 REQUEST_GONE_MESSAGE = "This document request is no longer available."
 NOT_CANCELLABLE_MESSAGE = "This request can no longer be cancelled."
 ALREADY_DONE_MESSAGE = "This request was already completed, so nothing was changed."
+NOT_REVIEWABLE_MESSAGE = (
+    "This document is not waiting for review. It may already have been reviewed or cancelled, "
+    "so nothing was changed."
+)
+NEWER_FILE_MESSAGE = "A newer file was uploaded. Review the latest file below before deciding."
 HOUSEHOLD_GONE_MESSAGE = "This household assessment is unavailable in the selected batch."
 
 
@@ -169,3 +177,100 @@ def cancel(request_id):
             return _redirect_to_assessment(household_uuid, NOT_CANCELLABLE_MESSAGE)
         _stop_for(failure)
     return _redirect_to_assessment(household_uuid, "The document request was cancelled.")
+
+
+# ---- Reviewing an uploaded file ---------------------------------------------------
+
+def _posted_file_id():
+    """Read the id of the file the staff member was shown; it is posted back by the form."""
+    value = request.form.get("file_id", "")
+    if not value.isascii() or not value.isdecimal() or len(value) > 18:
+        abort(400, description="The form expired. Return to the request and try again.")
+    return int(value)
+
+
+def _redirect_to_request(request_id, message):
+    flash(message, FLASH_CATEGORY)
+    return redirect(url_for("document_requests.detail", request_id=request_id), code=303)
+
+
+@document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>")
+@lgu_staff_required
+def download_file(request_id, file_id):
+    """Download one uploaded file. It is never shown in the browser or served as a static file."""
+    try:
+        stored = open_file_for_staff(g.user["id"], request_id, file_id)
+    except CitizenAccountError as failure:
+        _stop_for(failure)
+    response = send_file(
+        stored["path"], mimetype=stored["content_type"], as_attachment=True,
+        download_name=stored["display_name"], max_age=0,
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _review_page(template, request_id, decide, success_message):
+    """Show a review confirmation page, or run the decision when it is posted.
+
+    `decide(page, file_id)` calls the service; `success_message` is shown afterwards.
+    The page always shows the newest file, and the form posts that file's id back, so a
+    file that was replaced meanwhile is noticed.
+    """
+    if request.method == "POST":
+        check_csrf()
+        if not use_form_number():
+            return redirect(url_for("document_requests.detail", request_id=request_id), code=303)
+    page = _load_request_page(request_id)
+    if not page["request"]["can_review"] or not page["files"]:
+        return _redirect_to_request(request_id, NOT_REVIEWABLE_MESSAGE)
+    latest = page["files"][0]
+
+    def render_form(errors, status=200):
+        return render_template(
+            template, page=page, latest_file=latest, errors=errors,
+            reason=request.form.get("reason_note", ""), form_number=issue_form_number(),
+            **staff_context(),
+        ), status
+
+    if request.method == "GET":
+        return render_form({})
+    try:
+        decide(page, _posted_file_id())
+    except DocumentRequestInputError as invalid:
+        return render_form(invalid.errors, 400)
+    except CitizenAccountError as failure:
+        if str(failure) == "file_changed":
+            return _redirect_to_request(request_id, NEWER_FILE_MESSAGE)
+        if str(failure) == "not_reviewable":
+            return _redirect_to_request(request_id, NOT_REVIEWABLE_MESSAGE)
+        _stop_for(failure)
+    return _redirect_to_request(request_id, success_message)
+
+
+@document_requests.route("/document-requests/<int:request_id>/accept", methods=["GET", "POST"])
+@lgu_staff_required
+def accept(request_id):
+    """Confirm and accept the newest uploaded file. Accepted is final."""
+    def decide(page, file_id):
+        batch_id, run_id = context_ids()
+        accept_document(g.user["id"], request_id, batch_id, run_id, file_id)
+
+    return _review_page(
+        "document_requests/accept.html", request_id, decide, "The document was accepted.",
+    )
+
+
+@document_requests.route("/document-requests/<int:request_id>/correction", methods=["GET", "POST"])
+@lgu_staff_required
+def correction(request_id):
+    """Ask the representative for a corrected file; the reason is shown to them."""
+    def decide(page, file_id):
+        batch_id, run_id = context_ids()
+        request_correction(g.user["id"], request_id, batch_id, run_id, file_id, request.form)
+
+    return _review_page(
+        "document_requests/correction.html", request_id, decide,
+        "A correction was requested. The representative can now upload a new file.",
+    )

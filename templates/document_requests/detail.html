@@ -15,6 +15,10 @@
 
   {% include 'citizen_accounts/_household_summary.html' %}
 
+  {% for message in get_flashed_messages(category_filter=['document_requests']) %}
+    <p class="citizen-account-notice" role="status">{{ message }}</p>
+  {% endfor %}
+
   <section class="account-section" aria-labelledby="request-heading">
     <div class="citizen-account-heading">
       <h2 id="request-heading">Request</h2>
@@ -36,6 +40,34 @@
       {% endif %}
       <a class="account-button account-button-secondary" href="{{ assessment_url }}">Back to Household Assessment</a>
     </div>
+  </section>
+
+  <section class="account-section" aria-labelledby="files-heading">
+    <h2 id="files-heading">Uploaded Files</h2>
+    {% if page.files %}
+      <ul class="document-file-list">
+        {% for file in page.files %}
+          <li class="document-file">
+            <div class="document-file-main">
+              <strong class="document-title">{{ file.display_name }}</strong>
+              {% if file.is_latest %}<span class="account-status document-status document-status-submitted">Latest file</span>{% endif %}
+              <p class="document-next-step">Version {{ file.version_number }} · {{ file.size_label }} · uploaded {{ file.uploaded_at|pht_datetime }}</p>
+            </div>
+            <a class="account-button account-button-secondary" href="{{ url_for('document_requests.download_file', request_id=document.id, file_id=file.id) }}">Download<span class="visually-hidden"> {{ file.display_name }}</span></a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="citizen-account-text">No file has been uploaded yet.</p>
+    {% endif %}
+    {% if document.can_review %}
+      <h3 class="account-subheading">Review the latest file</h3>
+      <p class="citizen-account-text">Download and check the latest file, then choose what happens next.</p>
+      <div class="account-actions">
+        <a class="account-button" href="{{ url_for('document_requests.accept', request_id=document.id) }}">Accept Document</a>
+        <a class="account-button account-button-secondary" href="{{ url_for('document_requests.correction', request_id=document.id) }}">Needs Correction</a>
+      </div>
+    {% endif %}
   </section>
 
   <section class="account-section" aria-labelledby="history-heading">

@@ -502,3 +502,30 @@
     width: 100%;
   }
 }
+
+/* Uploaded files on the request page. */
+.document-file-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.document-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.document-file:first-child {
+  border-top: 0;
+}
+
+.document-file-main {
+  flex: 1 1 280px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
