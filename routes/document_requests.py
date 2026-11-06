@@ -36,6 +36,8 @@ NOT_REVIEWABLE_MESSAGE = (
 )
 NEWER_FILE_MESSAGE = "A newer file was uploaded. Review the latest file below before deciding."
 HOUSEHOLD_GONE_MESSAGE = "This household assessment is unavailable in the selected batch."
+# Policy for a file shown inline: load nothing else, and only this site may frame it.
+INLINE_FILE_POLICY = "default-src 'none'; frame-ancestors 'self'"
 
 
 def _assessment_url(household_uuid):
@@ -202,21 +204,61 @@ def _redirect_to_request(request_id, message):
     return redirect(url_for("document_requests.detail", request_id=request_id), code=303)
 
 
-@document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>")
-@lgu_staff_required
-def download_file(request_id, file_id):
-    """Download one uploaded file. It is never shown in the browser or served as a static file."""
+def _open_stored_file(request_id, file_id):
+    """Run the LGU Staff and private-storage checks, then return the stored file's details."""
     try:
-        stored = open_file_for_staff(g.user["id"], request_id, file_id)
+        return open_file_for_staff(g.user["id"], request_id, file_id)
     except CitizenAccountError as failure:
         _stop_for(failure)
+
+
+def _send_stored_file(stored, *, as_attachment):
+    """Send a checked file with safe headers; it is never served as a static file.
+
+    An inline file may only be framed by this site, and may not load anything else.
+    """
     response = send_file(
-        stored["path"], mimetype=stored["content_type"], as_attachment=True,
+        stored["path"], mimetype=stored["content_type"], as_attachment=as_attachment,
         download_name=stored["display_name"], max_age=0,
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Cache-Control"] = "no-store"
+    if not as_attachment:
+        response.headers["Content-Security-Policy"] = INLINE_FILE_POLICY
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "no-referrer"
     return response
+
+
+@document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>")
+@lgu_staff_required
+def download_file(request_id, file_id):
+    """Download one uploaded file."""
+    stored = _open_stored_file(request_id, file_id)
+    return _send_stored_file(stored, as_attachment=True)
+
+
+@document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>/view")
+@lgu_staff_required
+def view_file(request_id, file_id):
+    """Show one uploaded file inside the preview page, or in its own tab for a PDF."""
+    stored = _open_stored_file(request_id, file_id)
+    return _send_stored_file(stored, as_attachment=False)
+
+
+@document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>/preview")
+@lgu_staff_required
+def preview_file(request_id, file_id):
+    """Show one uploaded version (latest or earlier) on a page with Download and Back."""
+    stored = _open_stored_file(request_id, file_id)
+    page = _load_request_page(request_id)
+    version = next((item for item in page["files"] if item["id"] == file_id), None)
+    if version is None:
+        abort(404, description=REQUEST_GONE_MESSAGE)
+    return render_template(
+        "document_requests/preview.html", page=page, version=version,
+        is_pdf=stored["content_type"] == "application/pdf", **staff_context(),
+    )
 
 
 def _review_page(template, request_id, decide, success_message):

@@ -8,6 +8,7 @@
     <div><dt>Uploaded</dt><dd>{{ latest_file.uploaded_at|pht_datetime }}</dd></div>
   </dl>
   <div class="account-actions">
+    <a class="account-button account-button-secondary" href="{{ url_for('document_requests.preview_file', request_id=page.request.id, file_id=latest_file.id) }}">Preview File<span class="visually-hidden"> {{ latest_file.display_name }}</span></a>
     <a class="account-button account-button-secondary" href="{{ url_for('document_requests.download_file', request_id=page.request.id, file_id=latest_file.id) }}">Download File<span class="visually-hidden"> {{ latest_file.display_name }}</span></a>
   </div>
 </section>

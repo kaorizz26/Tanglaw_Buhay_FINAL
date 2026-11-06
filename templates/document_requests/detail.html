@@ -56,7 +56,10 @@
               {% if file.is_latest %}<span class="account-status document-status document-status-submitted">Latest file</span>{% endif %}
               <p class="document-next-step">Version {{ file.version_number }} · {{ file.size_label }} · uploaded {{ file.uploaded_at|pht_datetime }}</p>
             </div>
-            <a class="account-button account-button-secondary" href="{{ url_for('document_requests.download_file', request_id=document.id, file_id=file.id) }}">Download<span class="visually-hidden"> {{ file.display_name }}</span></a>
+            <div class="document-file-actions">
+              <a class="account-button account-button-secondary" href="{{ url_for('document_requests.preview_file', request_id=document.id, file_id=file.id) }}">Preview<span class="visually-hidden"> {{ file.display_name }}</span></a>
+              <a class="account-button account-button-secondary" href="{{ url_for('document_requests.download_file', request_id=document.id, file_id=file.id) }}">Download<span class="visually-hidden"> {{ file.display_name }}</span></a>
+            </div>
           </li>
         {% endfor %}
       </ul>
