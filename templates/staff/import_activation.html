@@ -14,7 +14,7 @@
         <div>
           <p class="import-hero-kicker">Data Import · Step 3 of 3</p>
           <h1>Activate Dataset</h1>
-          <p class="portal-hero-subtitle">Choose the prepared CBMS batch that staff should use.</p>
+          <p class="portal-hero-subtitle">{% if overview.initial_setup %}Activate the prepared first dataset after its assessments have been verified.{% else %}Choose the prepared CBMS batch that staff should use.{% endif %}</p>
         </div>
         <a class="portal-hero-action" href="{{ url_for('main.import_batches') }}">
           View stored batches <span aria-hidden="true">→</span>
@@ -28,7 +28,7 @@
     {% for message in get_flashed_messages() %}
       <div class="import-page-alert import-page-alert-success" role="status">
         <span class="import-alert-icon" aria-hidden="true">✓</span>
-        <div><strong>Dataset switched successfully</strong><p>{{ message }}</p></div>
+        <div><strong>Dataset activated successfully</strong><p>{{ message }}</p></div>
       </div>
     {% endfor %}
 
@@ -43,21 +43,29 @@
       <div class="import-activation-panel-heading">
         <div>
           <p class="import-panel-kicker">Current selection</p>
-          <h2 id="current-batch-heading">Currently active dataset</h2>
-          <p>This is the validated batch and designated assessment run currently visible to staff.</p>
+          <h2 id="current-batch-heading">{{ 'No active dataset yet' if overview.initial_setup else 'Currently active dataset' }}</h2>
+          <p>{% if overview.initial_setup %}Complete the first activation below before staff begin using household records and assessments.{% else %}This is the validated dataset currently visible to staff.{% endif %}</p>
         </div>
-        <span class="import-active-badge">Active now</span>
+        <span class="import-active-badge">{{ 'Setup required' if overview.initial_setup else 'Active now' }}</span>
       </div>
 
-      <dl class="import-active-facts">
-        <div><dt>Batch</dt><dd>{{ overview.active.id }}</dd></div>
-        <div><dt>Survey year</dt><dd>{{ overview.active.survey_year }}</dd></div>
-        <div><dt>Households</dt><dd>{{ overview.active.households }}</dd></div>
-        <div><dt>Designated run</dt><dd>Run {{ overview.active.run_id }}</dd></div>
-      </dl>
+      {% if overview.active %}
+        <dl class="import-active-facts">
+          <div><dt>Batch</dt><dd>{{ overview.active.id }}</dd></div>
+          <div><dt>Survey year</dt><dd>{{ overview.active.survey_year }}</dd></div>
+          <div><dt>Households</dt><dd>{{ overview.active.households }}</dd></div>
+          <div><dt>Assessment results</dt><dd>Verified and ready</dd></div>
+        </dl>
+      {% else %}
+        <div class="import-review-state import-review-state-warning">
+          <span class="import-review-state-icon" aria-hidden="true">!</span>
+          <div><strong>Household data is not available to staff yet</strong><p>Upload the authorized first dataset, prepare its assessments, then return here to activate it.</p></div>
+        </div>
+      {% endif %}
 
       {% set citizen_blocked = overview.citizen_accounts or overview.open_document_requests %}
-      {% if overview.in_progress_reviews %}
+      {% if overview.initial_setup %}
+      {% elif overview.in_progress_reviews %}
         <div class="import-review-state import-review-state-warning">
           <span class="import-review-state-icon" aria-hidden="true">!</span>
           <div>
@@ -87,16 +95,16 @@
     <section class="import-activation-panel" aria-labelledby="prepared-batches-heading">
       <div class="import-activation-panel-heading">
         <div>
-          <p class="import-panel-kicker">Available replacements</p>
-          <h2 id="prepared-batches-heading">Prepared batches</h2>
-          <p>Only batches with a completed, verified and designated assessment run appear here.</p>
+          <p class="import-panel-kicker">{{ 'First dataset' if overview.initial_setup else 'Available replacements' }}</p>
+          <h2 id="prepared-batches-heading">{{ 'Prepared baseline batch' if overview.initial_setup else 'Prepared batches' }}</h2>
+          <p>{% if overview.initial_setup %}Activate the authorized first import only after its assessment results have been verified and are ready.{% else %}Only batches with verified assessment results that are ready to use appear here.{% endif %}</p>
         </div>
         <span class="import-candidate-count">{{ overview.candidates|length }} {{ 'batch' if overview.candidates|length == 1 else 'batches' }}</span>
       </div>
 
       <div class="import-safety-note import-activation-note" role="note">
         <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-        <p><strong>Switching preserves history.</strong> The current batch, its assessment results and all completed staff reviews remain stored after activation.</p>
+        <p>{% if overview.initial_setup %}<strong>This creates the baseline.</strong> Staff will begin using this batch only after the final confirmation below.{% else %}<strong>Switching preserves history.</strong> The current batch, its assessment results and all completed staff reviews remain stored after activation.{% endif %}</p>
       </div>
 
       {% if overview.candidates %}
@@ -114,7 +122,7 @@
 
                 <dl class="import-candidate-facts">
                   <div><dt>Households</dt><dd>{{ batch.households }}</dd></div>
-                  <div><dt>Assessment run</dt><dd>Run {{ batch.run_id }} designated</dd></div>
+                  <div><dt>Assessment results</dt><dd>Verified and ready</dd></div>
                 </dl>
               </div>
 
@@ -122,14 +130,14 @@
                 <form method="post" action="{{ url_for('main.import_activation') }}" class="import-candidate-switch-form">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="target_batch_id" value="{{ batch.id }}">
-                  <input type="hidden" name="expected_active_batch_id" value="{{ overview.active.id }}">
-                  <input type="hidden" name="expected_active_run_id" value="{{ overview.active.run_id }}">
+                  <input type="hidden" name="expected_active_batch_id" value="{{ overview.active.id if overview.active else '' }}">
+                  <input type="hidden" name="expected_active_run_id" value="{{ overview.active.run_id if overview.active else '' }}">
                   <input type="hidden" name="expected_target_run_id" value="{{ batch.run_id }}">
                   <label class="import-switch-confirmation">
                     <input type="checkbox" name="confirm_switch" value="yes" required>
-                    <span><strong>Confirm this switch</strong>I confirm staff should now see Batch {{ batch.id }}. The current batch and its history will remain stored.</span>
+                    <span><strong>{{ 'Confirm first activation' if overview.initial_setup else 'Confirm this switch' }}</strong>I confirm staff should now see Batch {{ batch.id }}.{% if not overview.initial_setup %} The current batch and its history will remain stored.{% endif %}</span>
                   </label>
-                  <button type="submit" class="import-action-button">Switch to Batch {{ batch.id }}</button>
+                  <button type="submit" class="import-action-button">{{ 'Activate first dataset' if overview.initial_setup else 'Switch to Batch ' ~ batch.id }}</button>
                 </form>
               {% else %}
                 <div class="import-candidate-blocked">
@@ -141,8 +149,8 @@
         </div>
       {% else %}
         <div class="import-activation-empty">
-          <h3>No prepared replacement batches</h3>
-          <p>Prepare an inactive stored batch before attempting to switch the active dataset.</p>
+          <h3>{{ 'No prepared first dataset' if overview.initial_setup else 'No prepared replacement batches' }}</h3>
+          <p>{% if overview.initial_setup %}Upload and prepare the authorized first dataset before activation.{% else %}Prepare an inactive stored batch before attempting to switch the active dataset.{% endif %}</p>
           <a href="{{ url_for('main.import_batches') }}">View stored batches <span aria-hidden="true">→</span></a>
         </div>
       {% endif %}
@@ -152,22 +160,22 @@
       <div class="import-switch-dialog-header">
         <p class="import-panel-kicker">Final confirmation</p>
         <h2 id="dataset-switch-heading">Activate Batch <span data-switch-batch></span>?</h2>
-        <p id="dataset-switch-description">This changes the dataset staff use throughout the portal.</p>
+        <p id="dataset-switch-description">{% if overview.initial_setup %}This makes the first household dataset available throughout the staff portal.{% else %}This changes the dataset staff use throughout the portal.{% endif %}</p>
       </div>
 
       <div class="import-switch-dialog-body">
         <div class="import-switch-warning" role="note">
           <span aria-hidden="true">!</span>
-          <p><strong>The active dataset will change immediately.</strong> Staff will begin using Batch <b data-switch-batch></b> and its designated assessment run.</p>
+          <p><strong>{{ 'The first dataset will become active.' if overview.initial_setup else 'The active dataset will change immediately.' }}</strong> Staff will begin using Batch <b data-switch-batch></b> and its verified assessment results.</p>
         </div>
 
         <h3>Before you continue, confirm that:</h3>
         <ul class="import-switch-checklist">
-          <li>Every staff review still marked <strong>In Review</strong> has been completed or cancelled.</li>
+          {% if not overview.initial_setup %}<li>Every staff review still marked <strong>In Review</strong> has been completed or cancelled.</li>{% endif %}
           <li>Batch <strong data-switch-batch></strong>, survey year <strong data-switch-year></strong>, is the dataset staff should now use.</li>
-          <li>The current batch, previous results and completed review history will remain stored.</li>
+          {% if not overview.initial_setup %}<li>The current batch, previous results and completed review history will remain stored.</li>{% endif %}
         </ul>
-        <p class="import-switch-server-note">The system checks the review queue and selected runs again before switching.</p>
+        <p class="import-switch-server-note">The system checks the review queue and verified assessment results again before switching.</p>
       </div>
 
       <div class="import-switch-dialog-actions">

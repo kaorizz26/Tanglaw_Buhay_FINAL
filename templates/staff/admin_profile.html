@@ -1,0 +1,136 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-profile.css') }}">
+  <script src="{{ url_for('static', filename='js/admin-profile.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header profile-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('main.administration') }}">Dashboard</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">My Profile</span>
+    </nav>
+    <h1>Profile Settings</h1>
+    <p>View your account, update sign-in details and review system information.</p>
+  </header>
+
+  {% for message in get_flashed_messages(category_filter=['profile']) %}
+    <p class="profile-notice profile-notice-success" role="status">{{ message }}</p>
+  {% endfor %}
+
+  <div class="profile-layout">
+    <section class="profile-card" aria-labelledby="account-settings-heading">
+      <div class="profile-card-heading">
+        <h2 id="account-settings-heading">My Account</h2>
+      </div>
+      <div class="profile-card-body">
+        <div class="profile-field-group">
+          <span class="profile-label">Signed in as</span>
+          <p class="profile-readonly-value">System Administrator — {{ staff_username }}</p>
+        </div>
+
+        <div class="profile-setting-section" aria-labelledby="profile-username-heading">
+          <h3 id="profile-username-heading">Change username</h3>
+          <p class="profile-help">This username is used to sign in to the Admin Portal.</p>
+        {% if error and error_section == 'username' %}
+          <p class="profile-notice profile-notice-error" id="username-error" role="alert">{{ error }}</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('main.admin_profile_username') }}"
+              data-confirm-message="Change your username now? Remember the new username because you will need it the next time you sign in.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label class="profile-label" for="profile-username">Username</label>
+          <input class="profile-input" id="profile-username" name="username" type="text"
+                 value="{{ username_value if username_value is defined else staff_username }}"
+                 minlength="3" maxlength="64" pattern="[a-z0-9][a-z0-9_.-]{2,63}"
+                 autocomplete="username" autocapitalize="none" spellcheck="false"
+                 {% if error and error_section == 'username' %}aria-describedby="username-error" aria-invalid="true"{% endif %} required>
+          <button class="profile-primary-button" type="submit">Save username</button>
+        </form>
+        </div>
+
+        <div class="profile-setting-section" aria-labelledby="profile-password-heading">
+          <h3 id="profile-password-heading">Change password</h3>
+          <p class="profile-help">Enter your current password before choosing a new one.</p>
+        {% if error and error_section == 'password' %}
+          <p class="profile-notice profile-notice-error" id="password-error" role="alert">{{ error }}</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('main.admin_profile_password') }}"
+              data-confirm-message="Change your password now? Remember the new password because you will need it the next time you sign in.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="profile-password-fields">
+            <div>
+              <label class="profile-label" for="profile-current-password">Current password</label>
+              <input class="profile-input" id="profile-current-password" name="current_password"
+                     type="password" placeholder="Current password" autocomplete="current-password"
+                     maxlength="1024" required>
+            </div>
+            <div>
+              <label class="profile-label" for="profile-new-password">New password</label>
+              <input class="profile-input" id="profile-new-password" name="new_password"
+                     type="password" placeholder="New password" autocomplete="new-password"
+                     minlength="12" maxlength="1024" required>
+            </div>
+            <div>
+              <label class="profile-label" for="profile-confirm-password">Confirm new password</label>
+              <input class="profile-input" id="profile-confirm-password" name="confirm_password"
+                     type="password" placeholder="Confirm new password" autocomplete="new-password"
+                     minlength="12" maxlength="1024"
+                     {% if error and error_section == 'password' %}aria-describedby="password-error" aria-invalid="true"{% endif %} required>
+            </div>
+          </div>
+          <button class="profile-primary-button" type="submit">Update password</button>
+        </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="profile-card" aria-labelledby="system-information-heading">
+      <div class="profile-card-heading">
+        <h2 id="system-information-heading">About the System</h2>
+      </div>
+      <div class="profile-card-body">
+        <div class="profile-system-notices" aria-label="Important reminders">
+          <div class="profile-system-notice profile-system-notice-important">
+            <strong>Findings reminder</strong>
+            <p>Results support staff decisions and do not confirm eligibility, approval or benefit allocation.</p>
+          </div>
+          <div class="profile-system-notice">
+            <strong>Privacy reminder</strong>
+            <p>Household information must only be used for authorized LGU work.</p>
+          </div>
+        </div>
+
+        <dl class="profile-system-grid">
+          <div class="profile-system-wide">
+            <dt>System name</dt>
+            <dd>Tanglaw-Buhay</dd>
+          </div>
+          <div>
+            <dt>Organization</dt>
+            <dd>Municipality of Pozorrubio</dd>
+          </div>
+          <div>
+            <dt>Intended users</dt>
+            <dd>Authorized LGU personnel</dd>
+          </div>
+          <div class="profile-system-wide">
+            <dt>Purpose</dt>
+            <dd>Support household assessment and program-review work.</dd>
+          </div>
+          <div class="profile-system-wide">
+            <dt>Main sections</dt>
+            <dd>Dashboard, Household Records, Assessments, Data Import and Staff Accounts.</dd>
+          </div>
+          <div class="profile-system-wide">
+            <dt>Information covered</dt>
+            <dd>Historical household records and survey-based assessment findings.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  </div>
+{% endblock %}

@@ -14,11 +14,11 @@
         <h1>Dashboard</h1>
         {% if show_reviews %}<p class="dashboard-welcome">Welcome back, {{ welcome_name }}!</p>{% endif %}
         <p class="portal-hero-subtitle">
-          {% if show_reviews %}Your subsidy reviews and household statistics for {% else %}Household statistics for {% endif %}Pozorrubio
+          {% if initial_setup %}Complete the first dataset import before household statistics become available{% elif show_reviews %}Your subsidy reviews and household statistics for Pozorrubio{% else %}Household statistics for Pozorrubio{% endif %}
         </p>
       </div>
-      <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization', barangay=barangay_arg) }}">
-        Explore households <span aria-hidden="true">→</span>
+      <a class="dashboard-primary-link" href="{{ url_for('main.data_import') if initial_setup else url_for('assessments.prioritization', barangay=barangay_arg) }}">
+        {{ 'Import first dataset' if initial_setup else 'Explore households' }} <span aria-hidden="true">→</span>
       </a>
     </div>
   </header>
@@ -197,10 +197,10 @@
     </section>
   {% else %}
     <section class="dashboard-unavailable" role="status" aria-labelledby="unavailable-heading">
-      <h2 id="unavailable-heading">Assessment summary unavailable</h2>
-      <p>The municipal summary could not be loaded right now. Please try again later.</p>
+      <h2 id="unavailable-heading">{{ 'No active dataset yet' if initial_setup else 'Assessment summary unavailable' }}</h2>
+      <p>{% if initial_setup %}Upload the authorized first dataset, prepare its assessments, and activate it as the baseline.{% else %}The municipal summary could not be loaded right now. Please try again later.{% endif %}</p>
       
-        <a class="dashboard-primary-link" href="{{ url_for('assessments.prioritization') }}">Open Household Prioritization <span aria-hidden="true">→</span></a>
+        <a class="dashboard-primary-link" href="{{ url_for('main.data_import') if initial_setup else url_for('assessments.prioritization') }}">{{ 'Go to Data Import' if initial_setup else 'Open Household Prioritization' }} <span aria-hidden="true">→</span></a>
       
     </section>
   {% endif %}

@@ -183,7 +183,10 @@ class StaffAuthenticationTests(unittest.TestCase):
             if username == "synthetic_admin":
                 self.assertEqual(client.get("/assessments").status_code, 503)
                 self.assertEqual(client.get("/").location, "/administration")
-                self.assertEqual(client.get("/administration/import").status_code, 200)
+                with patch("routes.main.active_dataset_exists", return_value=False):
+                    self.assertEqual(
+                        client.get("/administration/import").status_code, 200,
+                    )
                 self.assertEqual(client.get("/administration/accounts").status_code, 200)
             else:
                 # This isolated auth schema has no assessments.

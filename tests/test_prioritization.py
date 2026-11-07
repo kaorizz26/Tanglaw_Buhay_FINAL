@@ -389,6 +389,14 @@ class PrioritizationTests(unittest.TestCase):
 
     def test_missing_assessment_is_sanitized_without_fixture_fallback(self):
         self._session()
+        self.query.side_effect = AssessmentQueryError("active_batch_missing")
+        response = self.client.get("/assessments")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Household Prioritization", response.text)
+        self.assertIn("No active dataset yet", response.text)
+        self.assertIn("system administrator must import", response.text)
+        self.assertNotIn("Request Unavailable", response.text)
+
         self.query.side_effect = AssessmentQueryError("SYNTHETIC_PRIVATE_DATABASE_DETAIL")
         response = self.client.get("/assessments")
         self.assertEqual(response.status_code, 503)

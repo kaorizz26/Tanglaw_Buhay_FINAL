@@ -26,7 +26,7 @@
     {% set return_url = url_for('assessments.prioritization', **list_parameters) %}
     {% set back_label = 'Prioritization' %}
   {% endif %}
-  <header class="page-header detail-header">
+  <header class="page-header detail-header assessment-detail-hero">
     {% if not focused_review %}
       <a class="back-to-prioritization context-navigation" href="{{ return_url }}">
         <span aria-hidden="true">←</span> Back to {{ back_label }}

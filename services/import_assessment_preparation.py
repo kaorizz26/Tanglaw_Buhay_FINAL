@@ -38,7 +38,7 @@ def list_import_batches(connection_factory=get_connection):
     try:
         with connection_factory() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                return cursor.execute(
+                batches = cursor.execute(
                     """SELECT b.id, b.survey_year, b.is_active,
                               count(DISTINCT h.uuid) AS households,
                               count(DISTINCT r.id) AS run_count,
@@ -53,6 +53,19 @@ def list_import_batches(connection_factory=get_connection):
                        GROUP BY b.id ORDER BY b.id DESC""",
                     ADMIN_UPLOAD_SOURCES,
                 ).fetchall()
+            for batch in batches:
+                blockers = dataset_batches.import_batch_deletion_blockers(
+                    connection, batch["id"],
+                )
+                batch["can_delete"] = (
+                    not batch["is_active"]
+                    and blockers["audit_rows"] == 1
+                    and not any(blockers[name] for name in (
+                        "activation_events", "staff_reviews", "citizen_accounts",
+                        "reference_uses",
+                    ))
+                )
+            return batches
     except (psycopg.Error, RuntimeError):
         raise AssessmentPreparationError("batch_list_unavailable") from None
 

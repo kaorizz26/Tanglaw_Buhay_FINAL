@@ -1,0 +1,29 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header portal-hero dashboard-header">
+    <div class="portal-hero-content">
+      <div>
+        <h1>{{ page_title }}</h1>
+        <p class="portal-hero-subtitle">{{ page_summary }}</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="dashboard-unavailable" role="status" aria-labelledby="dataset-setup-heading">
+    <h2 id="dataset-setup-heading">No active dataset yet</h2>
+    {% if is_admin %}
+      <p>Import the authorized first dataset, prepare its assessments, and activate it as the baseline. This page will then become available automatically.</p>
+      <a class="dashboard-primary-link" href="{{ url_for('main.data_import') }}">Go to Data Import <span aria-hidden="true">→</span></a>
+    {% else %}
+      <p>A system administrator must import, prepare, and activate the first dataset before this page becomes available.</p>
+      <a class="dashboard-primary-link" href="{{ url_for('main.index') }}">Return to Dashboard <span aria-hidden="true">→</span></a>
+    {% endif %}
+  </section>
+{% endblock %}

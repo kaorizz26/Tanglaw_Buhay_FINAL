@@ -7,19 +7,22 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header prioritization-header">
-    <div class="page-heading">
-      <h1>Household Prioritization</h1>
-      <p>
-        Find households using vulnerability scores and subsidy screening results for
-        {{ results.context.municipality }}.
-      </p>
+  <header class="page-header portal-hero prioritization-header">
+    <div class="portal-hero-content">
+      <div>
+        <h1>Household Prioritization</h1>
+        <p class="portal-hero-subtitle">
+          Find households using vulnerability scores and subsidy screening results for
+          {{ results.context.municipality }}.
+        </p>
+      </div>
     </div>
-    <p class="priority-note">
-      Priority recommendations help staff decide which households to examine first.
-      They do not confirm subsidy eligibility or approval.
-    </p>
   </header>
+
+  <p class="priority-note assessment-page-note">
+    Priority recommendations help staff decide which households to examine first.
+    They do not confirm subsidy eligibility or approval.
+  </p>
 
   <section class="ranking-panel" aria-labelledby="ranking-heading">
     {% include 'assessments/filters.html' %}

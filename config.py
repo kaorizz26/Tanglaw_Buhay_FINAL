@@ -45,5 +45,9 @@ class Config:
     IMPORT_MAX_CONTENT_LENGTH = 256 * 1024 * 1024
     IMPORT_STAGING_BYTES = 1024 * 1024 * 1024
     IMPORT_STAGING_DIR = os.getenv("IMPORT_STAGING_DIR")
+    # Optional system-installed, non-household reference package. This is
+    # required when an administrator will upload the first dataset.
+    IMPORT_REFERENCE_DIR = os.getenv("IMPORT_REFERENCE_DIR")
     # The documented 2022 pilot batch provides the approved reference snapshot.
+    # Existing installations may keep this fallback until the package is set.
     IMPORT_REFERENCE_BATCH_ID = 1

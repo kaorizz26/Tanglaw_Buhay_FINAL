@@ -6,6 +6,7 @@ documents and reviewing files still happen on the existing pages these lists lin
 
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 
+from routes.dataset_setup import is_no_active_dataset, render_dataset_setup
 from routes.staff_forms import staff_context
 from services.assessment_queries import AssessmentQueryError
 from services.auth import lgu_staff_required
@@ -34,7 +35,9 @@ def _read_directory(read, page, filters):
         results = read(page, filters)
     except InvalidDirectoryFilters:
         abort(400, description=BAD_FILTERS_MESSAGE)
-    except AssessmentQueryError:
+    except AssessmentQueryError as failure:
+        if is_no_active_dataset(failure):
+            raise
         abort(503, description=UNAVAILABLE_MESSAGE)
     if results is None:
         abort(404, description="This page of the list does not exist.")
@@ -46,7 +49,15 @@ def _read_directory(read, page, filters):
 def document_requests():
     """List every document request; requests waiting for review come first."""
     page, filters = _read_arguments("document_requests")
-    results = _read_directory(get_request_directory, page, filters)
+    try:
+        results = _read_directory(get_request_directory, page, filters)
+    except AssessmentQueryError as failure:
+        if is_no_active_dataset(failure):
+            return render_dataset_setup(
+                "Document Requests",
+                "Review household document requests connected to the active survey dataset.",
+            )
+        raise
     return render_template(
         "submissions/document_requests.html", results=results,
         return_parameters=return_parameters(page, filters), **staff_context(),
@@ -58,7 +69,15 @@ def document_requests():
 def citizen_accounts():
     """List every Citizen Account with its status."""
     page, filters = _read_arguments("citizen_accounts")
-    results = _read_directory(get_account_directory, page, filters)
+    try:
+        results = _read_directory(get_account_directory, page, filters)
+    except AssessmentQueryError as failure:
+        if is_no_active_dataset(failure):
+            return render_dataset_setup(
+                "Citizen Accounts",
+                "View household portal accounts connected to the active survey dataset.",
+            )
+        raise
     return render_template(
         "submissions/citizen_accounts.html", results=results,
         return_parameters=return_parameters(page, filters), **staff_context(),
@@ -73,6 +92,11 @@ def account_detail(household_uuid):
     try:
         results = get_account_detail(str(household_uuid))
     except AssessmentQueryError as failure:
+        if is_no_active_dataset(failure):
+            return render_dataset_setup(
+                "Citizen Accounts",
+                "View household portal accounts connected to the active survey dataset.",
+            )
         if str(failure) in ("household_assessment_missing", "household_identity_missing"):
             abort(404, description="This household is not in the selected survey.")
         abort(503, description=UNAVAILABLE_MESSAGE)

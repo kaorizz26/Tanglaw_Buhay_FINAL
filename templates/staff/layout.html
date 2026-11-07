@@ -28,7 +28,7 @@
               <span class="brand-divider" aria-hidden="true"></span>
               <img
                 class="tanglaw-logo"
-                src="{{ url_for('static', filename='branding/tanglaw-buhay.svg') }}"
+                src="{{ url_for('static', filename='branding/tanglaw-buhay.png') }}"
                 alt="Tanglaw-Buhay logo"
                 width="48"
                 height="48"
@@ -148,14 +148,27 @@
         </nav>
 
         <div class="staff-account">
+          {% set staff_display_name = g.user.get('display_name') or staff_username %}
           <p class="account-notice">Authorized LGU personnel only.</p>
-          <div class="staff-profile">
-            <span class="staff-avatar" aria-hidden="true">{{ staff_username[0] | upper }}</span>
-            <div class="staff-details">
-              <p class="staff-name">{{ staff_username }}</p>
-              <p class="staff-role">{{ role_label }}</p>
+          {% if g.user['role'] == 'system_administrator' %}
+            <a class="staff-profile staff-profile-link" href="{{ url_for('main.admin_profile') }}" {% if request.endpoint == 'main.admin_profile' %}aria-current="page"{% endif %}>
+              <span class="staff-avatar" aria-hidden="true">{{ staff_display_name[0] | upper }}</span>
+              <span class="staff-details">
+                <span class="staff-name">{{ staff_display_name }}</span>
+                <span class="staff-role">{{ role_label }}</span>
+              </span>
+              <span class="staff-profile-arrow" aria-hidden="true">›</span>
+              <span class="visually-hidden">View profile</span>
+            </a>
+          {% else %}
+            <div class="staff-profile">
+              <span class="staff-avatar" aria-hidden="true">{{ staff_display_name[0] | upper }}</span>
+              <div class="staff-details">
+                <p class="staff-name">{{ staff_display_name }}</p>
+                <p class="staff-role">{{ role_label }}</p>
+              </div>
             </div>
-          </div>
+          {% endif %}
           <form method="post" action="{{ url_for('auth.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="sign-out-button" type="submit">

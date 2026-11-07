@@ -1,4 +1,35 @@
 /* Submissions lists. Tables, filters and paging reuse the Household Records styles. */
+.submissions-header {
+  margin-bottom: 24px;
+}
+
+.submissions-detail-header {
+  display: grid;
+  gap: 14px;
+}
+
+.submissions-hero-back {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.submissions-hero-back:hover {
+  color: #e7d4ad;
+}
+
+.submissions-hero-back:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
 .submissions-filters {
   grid-template-columns: minmax(220px, 1fr) minmax(150px, 200px) minmax(150px, 220px) auto;
 }
@@ -11,12 +42,13 @@
 
 /* Gold notice for requests waiting for review. */
 .submissions-attention {
-  margin: 0 0 16px;
-  padding: 12px 16px;
+  margin: 0 0 20px;
+  padding: 14px 18px;
   border: 1px solid var(--gold-border);
   border-left: 4px solid var(--gold);
   border-radius: 8px;
   background: var(--notice);
+  box-shadow: 0 5px 16px rgb(16 42 63 / 4%);
 }
 
 .submissions-attention a {
@@ -71,6 +103,10 @@
 }
 
 @media (max-width: 600px) {
+  .submissions-header {
+    margin-bottom: 18px;
+  }
+
   .submissions-filters {
     grid-template-columns: 1fr;
   }

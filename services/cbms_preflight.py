@@ -108,6 +108,18 @@ def load_csv_bundle(data_dir: str | Path, *, reference_frames=None):
     return datasets, references, report
 
 
+def load_reference_csv_bundle(reference_dir: str | Path):
+    """Read and structurally check the three system-supplied reference CSVs."""
+    root = Path(reference_dir)
+    report = {"errors": [], "warnings": [], "references": {}}
+    references = _read_group(
+        {name: root / filename for name, filename in REFERENCE_FILES.items()},
+        report, "references",
+    )
+    _check_references(references, report)
+    return references, report
+
+
 def _issue(report, severity, source, code, count=1):
     """Add a fixed diagnostic code and aggregate count, never source values."""
     report[severity].append({"source": source, "code": code, "count": int(count)})

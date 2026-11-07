@@ -431,6 +431,8 @@ class DocumentRequestListTests(SubmissionsRouteCase):
                       "Barangay", "Apply Filters", "Valid ID", "HH-00008", "Maria Santos",
                       "Ready for review"):
             self.assertIn(words, text)
+        self.assertIn('class="page-header portal-hero submissions-header"', text)
+        self.assertIn('class="records-search-control"', text)
 
     def test_requests_waiting_for_review_are_prominent_with_a_review_button(self):
         self.requests_page = directory(
@@ -470,6 +472,9 @@ class DocumentRequestListTests(SubmissionsRouteCase):
         self.assertIn("No requests match your search", text)
         self.assertIn('value="zzz"', text)
         self.assertIn("Clear Filters", text)
+        self.assertIn("Applied filters", text)
+        self.assertIn("Search: zzz", text)
+        self.assertIn("Status: Accepted", text)
 
     def test_an_empty_list_tells_staff_how_requests_are_made(self):
         self.requests_page = directory([], awaiting_review_count=0)
@@ -493,6 +498,14 @@ class DocumentRequestListTests(SubmissionsRouteCase):
                 self.assertEqual(self.client.get(REQUESTS_URL + query).status_code, 400)
         self.requests_page = None
         self.assertEqual(self.client.get(REQUESTS_URL + "?page=9").status_code, 404)
+        self.mocks["submissions_requests"].side_effect = AssessmentQueryError(
+            "active_batch_missing")
+        response = self.client.get(REQUESTS_URL)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Document Requests", response.text)
+        self.assertIn("No active dataset yet", response.text)
+        self.assertIn("system administrator must import", response.text)
+        self.assertNotIn("Request Unavailable", response.text)
         self.mocks["submissions_requests"].side_effect = AssessmentQueryError("unavailable")
         self.assertEqual(self.client.get(REQUESTS_URL).status_code, 503)
         self.mocks["submissions_requests"].side_effect = InvalidDirectoryFilters("barangay")
@@ -512,6 +525,7 @@ class CitizenAccountListTests(SubmissionsRouteCase):
             self.assertIn(words, text)
         self.assertIn(f"{ACCOUNT_URL}", text)
         self.assertIn(">View<", text)
+        self.assertIn('class="page-header portal-hero submissions-header"', text)
 
     def test_every_account_status_is_written_out(self):
         self.accounts_page = directory([
@@ -543,6 +557,19 @@ class CitizenAccountListTests(SubmissionsRouteCase):
         for private in ("citizen@example.com", "/portal/activate/", "activation code"):
             self.assertNotIn(private, text)
 
+    def test_no_active_dataset_is_a_setup_state_but_real_failures_stay_unavailable(self):
+        self.mocks["submissions_accounts"].side_effect = AssessmentQueryError(
+            "active_batch_missing")
+        response = self.client.get(ACCOUNTS_URL)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Citizen Accounts", response.text)
+        self.assertIn("No active dataset yet", response.text)
+        self.assertIn("system administrator must import", response.text)
+        self.assertNotIn("Request Unavailable", response.text)
+
+        self.mocks["submissions_accounts"].side_effect = AssessmentQueryError("unavailable")
+        self.assertEqual(self.client.get(ACCOUNTS_URL).status_code, 503)
+
 
 class CitizenAccountPageTests(SubmissionsRouteCase):
     def test_the_page_reuses_the_account_actions_and_offers_a_way_back(self):
@@ -565,6 +592,11 @@ class CitizenAccountPageTests(SubmissionsRouteCase):
                          (303, "/submissions/citizen-accounts?q=Maria"))
 
     def test_missing_or_unavailable_households_get_clear_errors(self):
+        self.mocks["submissions_detail"].side_effect = AssessmentQueryError(
+            "active_batch_missing")
+        response = self.client.get(ACCOUNT_URL)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("No active dataset yet", response.text)
         self.mocks["submissions_detail"].side_effect = AssessmentQueryError(
             "household_assessment_missing")
         self.assertEqual(self.client.get(ACCOUNT_URL).status_code, 404)

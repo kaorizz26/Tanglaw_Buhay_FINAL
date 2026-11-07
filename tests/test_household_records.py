@@ -161,6 +161,14 @@ class HouseholdRecordRouteTests(unittest.TestCase):
             query.assert_not_called()
         with patch("routes.households.get_record_page", return_value=None):
             self.assertEqual(self.client.get("/households?page=9").status_code, 404)
+        self._sign_in("system_administrator")
+        with patch("routes.households.get_record_page",
+                   side_effect=AssessmentQueryError("active_batch_missing")):
+            response = self.client.get("/households")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("No active dataset yet", response.text)
+            self.assertIn("Go to Data Import", response.text)
+            self.assertNotIn("Request Unavailable", response.text)
         with patch("routes.households.get_record_page",
                    side_effect=AssessmentQueryError("private_source_detail")):
             response = self.client.get("/households")

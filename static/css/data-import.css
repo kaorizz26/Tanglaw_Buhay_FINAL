@@ -312,7 +312,7 @@
 
 .import-process-guide {
   margin-bottom: 24px;
-  padding: 24px;
+  padding: 16px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
@@ -322,7 +322,7 @@
 .import-workflow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
   margin: 20px 0 0;
   padding: 0;
   list-style: none;
@@ -332,17 +332,26 @@
   margin-top: 0;
 }
 
-.import-workflow-step {
-  display: flex;
-  flex-direction: column;
+.import-workflow > li {
   min-width: 0;
-  min-height: 238px;
-  padding: 18px;
+}
+
+.import-workflow-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 86px;
+  height: 100%;
+  padding: 16px 18px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
   color: var(--navy);
+  text-decoration: none;
   box-shadow: 0 5px 16px rgb(16 42 63 / 4%);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .import-workflow-current {
@@ -352,11 +361,20 @@
   box-shadow: inset 0 -3px var(--gold), 0 8px 20px rgb(16 42 63 / 12%);
 }
 
-.import-workflow-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.import-workflow-step:hover {
+  transform: translateY(-2px);
+  border-color: #9eb1bb;
+  box-shadow: 0 9px 22px rgb(16 42 63 / 10%);
+}
+
+.import-workflow-current:hover {
+  border-color: var(--navy);
+  background: #18384c;
+}
+
+.import-workflow-step:focus-visible {
+  outline: 3px solid rgb(211 162 60 / 45%);
+  outline-offset: 3px;
 }
 
 .import-workflow-number {
@@ -379,69 +397,30 @@
   color: #183446;
 }
 
-.import-workflow-state {
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.import-workflow-current .import-workflow-state {
-  color: #ead9b8;
-}
-
-.import-workflow-step h3 {
-  margin: 14px 0 8px;
+.import-workflow-title {
+  min-width: 0;
   font-size: 1rem;
+  font-weight: 750;
   line-height: 1.3;
 }
 
-.import-workflow-step p {
+.import-workflow-arrow {
   color: var(--text-muted);
-  font-size: 0.8125rem;
-  line-height: 1.5;
-}
-
-.import-workflow-step p + p {
-  margin-top: 8px;
-}
-
-.import-workflow-step strong {
-  color: var(--navy);
+  font-size: 1rem;
   font-weight: 750;
+  transition: transform 160ms ease;
 }
 
-.import-workflow-current p {
-  color: #d9e5ea;
-}
-
-.import-workflow-current strong {
-  color: var(--surface);
-}
-
-.import-workflow-link {
-  align-self: flex-start;
-  margin-top: auto;
-  padding-top: 14px;
-  color: var(--navy);
-  font-size: 0.8rem;
-  font-weight: 750;
-  text-decoration: none;
-}
-
-.import-workflow-current .import-workflow-link {
+.import-workflow-current .import-workflow-arrow {
   color: #f0d394;
 }
 
-.import-workflow-link:hover {
-  text-decoration: underline;
+.import-workflow-step:hover .import-workflow-arrow {
+  transform: translateX(3px);
 }
 
-.import-workflow-link:focus-visible {
-  outline: 3px solid rgb(211 162 60 / 40%);
-  outline-offset: 3px;
-  border-radius: 2px;
+.import-workflow-current:hover .import-workflow-arrow {
+  transform: translateY(3px);
 }
 
 .import-page-alert {
@@ -927,7 +906,7 @@
 
 @media (max-width: 760px) {
   .import-process-guide {
-    padding: 20px;
+    padding: 14px;
   }
 
   .import-workflow {
@@ -936,7 +915,7 @@
   }
 
   .import-workflow-step {
-    min-height: 0;
+    min-height: 74px;
   }
 
   .import-panel-heading,
@@ -1274,6 +1253,88 @@
   background: #eef3f6;
 }
 
+.import-batch-delete-panel,
+.import-batch-delete-unavailable {
+  border-top: 1px solid #e2c5c5;
+  background: #fff8f8;
+}
+
+.import-batch-delete-panel summary {
+  padding: 13px 20px;
+  color: #8b2d2d;
+  font-size: 0.825rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.import-batch-delete-panel summary:focus-visible {
+  outline: 3px solid #b44646;
+  outline-offset: -3px;
+}
+
+.import-batch-delete-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+  gap: 24px;
+  padding: 4px 20px 18px;
+}
+
+.import-batch-delete-content strong,
+.import-batch-delete-unavailable strong {
+  color: #7b2929;
+  font-size: 0.85rem;
+}
+
+.import-batch-delete-content p,
+.import-batch-delete-unavailable p {
+  margin-top: 4px;
+  color: #6d5555;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.import-delete-form {
+  display: grid;
+  gap: 8px;
+}
+
+.import-delete-form label {
+  color: #553f3f;
+  font-size: 0.78rem;
+}
+
+.import-delete-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid #bfa4a4;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+}
+
+.import-delete-form button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #983b3b;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.import-delete-form :is(input, button):focus-visible {
+  outline: 3px solid #b44646;
+  outline-offset: 2px;
+}
+
+.import-batch-delete-unavailable {
+  padding: 13px 20px;
+}
+
 .import-batch-empty {
   margin: 0 28px 28px;
   padding: 36px 24px;
@@ -1302,6 +1363,10 @@
 
   .import-prepare-form {
     justify-content: space-between;
+  }
+
+  .import-batch-delete-content {
+    grid-template-columns: 1fr;
   }
 }
 

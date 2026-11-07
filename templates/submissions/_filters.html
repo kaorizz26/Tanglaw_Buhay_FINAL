@@ -2,7 +2,10 @@
 <form class="records-filters submissions-filters" method="get" action="{{ url_for(list_endpoint) }}" role="search">
   <div class="records-field records-search">
     <label for="list-search">{{ search_label }}</label>
-    <input id="list-search" name="q" type="search" value="{{ results.filters.search }}" maxlength="200" placeholder="{{ search_hint }}">
+    <div class="records-search-control">
+      <span class="records-search-icon" aria-hidden="true"></span>
+      <input id="list-search" name="q" type="search" value="{{ results.filters.search }}" maxlength="200" placeholder="{{ search_hint }}">
+    </div>
   </div>
   <div class="records-field">
     <label for="list-status">Status</label>
@@ -29,3 +32,29 @@
     {% endif %}
   </div>
 </form>
+{% if results.filters.parameters %}
+  <div class="records-active-filters" aria-label="Applied filters">
+    <p>Applied filters</p>
+    <ul>
+      {% if results.filters.search %}
+        <li>
+          <span>Search: {{ results.filters.search }}</span>
+          <a href="{{ url_for(list_endpoint, status=results.filters.status or None, barangay=results.filters.barangay or None) }}" aria-label="Remove search filter">×</a>
+        </li>
+      {% endif %}
+      {% if results.filters.status %}
+        <li>
+          <span>Status: {% for value, label in results.statuses %}{% if value == results.filters.status %}{{ label }}{% endif %}{% endfor %}</span>
+          <a href="{{ url_for(list_endpoint, q=results.filters.search or None, barangay=results.filters.barangay or None) }}" aria-label="Remove status filter">×</a>
+        </li>
+      {% endif %}
+      {% if results.filters.barangay %}
+        <li>
+          <span>Barangay: {{ results.filters.barangay }}</span>
+          <a href="{{ url_for(list_endpoint, q=results.filters.search or None, status=results.filters.status or None) }}" aria-label="Remove barangay filter">×</a>
+        </li>
+      {% endif %}
+    </ul>
+    <a class="records-clear-all" href="{{ url_for(list_endpoint) }}">Clear all</a>
+  </div>
+{% endif %}

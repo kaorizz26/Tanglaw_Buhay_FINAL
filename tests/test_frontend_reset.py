@@ -22,6 +22,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         for username, user in self.users.items():
             user.update(username=username, password_hash=password_hash,
                         is_active=True, session_version=1)
+        self.users["synthetic_staff"]["display_name"] = "Synthetic Staff Member"
         self.app = create_app({
             "TESTING": True, "SECRET_KEY": token_urlsafe(48), "DATABASE_URL": None,
         })
@@ -122,6 +123,8 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                 self.assertIn("Submissions", page.text)
                 self.assertNotIn("Data Import", page.text)
                 self.assertNotIn("Staff Accounts", page.text)
+                self.assertIn("Synthetic Staff Member", page.text)
+                self.assertNotIn('<p class="staff-name">synthetic_staff</p>', page.text)
             for retired in ("<table", "DEV-", "PRIVATE_RECORD_RESPONSE"):
                 self.assertNotIn(retired, page.text)
             self.assertEqual(page.headers["Cache-Control"], "no-store")
@@ -222,6 +225,107 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         for path in paths:
             self.assertEqual(staff.get(path).status_code, 403)
             self.assertEqual(staff.post(path).status_code, 403)
+
+    def test_admin_profile_shows_account_system_info_and_credential_forms(self):
+        path = "/administration/profile"
+        self.assertEqual(self.client.get(path).location, "/login")
+        self._login("synthetic_admin")
+        page = self.client.get(path)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('<h1>Profile Settings</h1>', page.text)
+        self.assertIn('href="/administration/profile" aria-current="page"', page.text)
+        self.assertIn('value="synthetic_admin"', page.text)
+        self.assertIn("My Account", page.text)
+        self.assertIn("System Administrator", page.text)
+        self.assertIn("Municipality of Pozorrubio", page.text)
+        self.assertIn("About the System", page.text)
+        self.assertIn("Authorized LGU personnel", page.text)
+        self.assertIn("Results support staff decisions", page.text)
+        self.assertIn("Household information must only be used", page.text)
+        self.assertLess(page.text.index("Findings reminder"), page.text.index("System name"))
+        self.assertLess(page.text.index("Privacy reminder"), page.text.index("System name"))
+        self.assertNotIn("Profile picture", page.text)
+        self.assertNotIn("Choose picture", page.text)
+        self.assertIn('action="/administration/profile/username"', page.text)
+        self.assertIn('action="/administration/profile/password"', page.text)
+        self.assertIn('type="submit">Save username</button>', page.text)
+        self.assertIn('type="submit">Update password</button>', page.text)
+        self.assertIn("Remember the new username", page.text)
+        self.assertIn("Remember the new password", page.text)
+        self.assertNotIn("coming soon", page.text.lower())
+        self.assertNotIn("cannot save", page.text.lower())
+        self.assertNotIn("planned settings", page.text.lower())
+        self.assertEqual(self.client.post(path).status_code, 405)
+        self.assertEqual(
+            self.client.post("/administration/profile/username", data={"username": "new.admin"}).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.client.post("/administration/profile/password", data={
+                "current_password": self.password,
+                "new_password": "a different secure password",
+                "confirm_password": "a different secure password",
+            }).status_code,
+            400,
+        )
+        with patch.dict(self.app.extensions["development_workspace"],
+                        source_kind="actual_cbms"):
+            self.assertEqual(self.client.get(path).status_code, 403)
+
+        staff = self.app.test_client()
+        self._login("synthetic_staff", staff)
+        self.assertEqual(staff.get(path).status_code, 403)
+        self.assertEqual(staff.post("/administration/profile/username").status_code, 403)
+        self.assertEqual(staff.post("/administration/profile/password").status_code, 403)
+        with patch("routes.main.get_active_dashboard_summary", return_value=None):
+            staff_page = staff.get("/")
+        self.assertNotIn('href="/administration/profile"', staff_page.text)
+
+    def test_admin_profile_applies_credentials_and_reminds_admin(self):
+        self._login("synthetic_admin")
+        account = self.users["synthetic_admin"]
+
+        def change_username(user, username):
+            self.assertEqual(user["id"], account["id"])
+            account["username"] = username
+            account["session_version"] += 1
+            return ({
+                "id": account["id"], "role": account["role"],
+                "session_version": account["session_version"],
+            }, username)
+
+        with patch("routes.main.change_admin_username", side_effect=change_username):
+            response = self.client.post("/administration/profile/username", data={
+                "csrf_token": self._token("/administration/profile"),
+                "username": "new.admin",
+            })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, "/administration/profile")
+        page = self.client.get(response.location)
+        self.assertIn('value="new.admin"', page.text)
+        self.assertIn("Remember this username for your next sign-in.", page.text)
+
+        def change_password(user, current, new, confirmation):
+            self.assertEqual((current, new, confirmation), (
+                self.password, "a different secure password",
+                "a different secure password",
+            ))
+            account["session_version"] += 1
+            return {
+                "id": account["id"], "role": account["role"],
+                "session_version": account["session_version"],
+            }
+
+        with patch("routes.main.change_admin_password", side_effect=change_password):
+            response = self.client.post("/administration/profile/password", data={
+                "csrf_token": self._token("/administration/profile"),
+                "current_password": self.password,
+                "new_password": "a different secure password",
+                "confirm_password": "a different secure password",
+            })
+        self.assertEqual(response.status_code, 302)
+        page = self.client.get(response.location)
+        self.assertIn("Remember your new password for your next sign-in.", page.text)
 
     def test_admin_keeps_assessment_navigation_and_route_permission(self):
         self._login("synthetic_admin")

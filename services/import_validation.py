@@ -15,7 +15,9 @@ from services.cbms_import import DuplicateImportBundle, stage_validated_snapshot
 from services.cbms_preflight import load_csv_bundle
 from services.data_loader import EXCEL_FILES
 from services.import_sources import ADMIN_UPLOAD_SOURCE
-from services.import_references import load_import_references
+from services.import_references import (
+    ImportReferenceError, load_import_references, load_system_import_references,
+)
 from services.survey_years import is_supported_survey_year, latest_survey_year
 
 
@@ -137,6 +139,19 @@ def _snapshot_provenance(datasets, references, metadata, actor_id,
     }
 
 
+def _approved_references(connection):
+    """Use the installed reference package, with the original batch fallback."""
+    reference_dir = current_app.config.get("IMPORT_REFERENCE_DIR")
+    if reference_dir:
+        references, version = load_system_import_references(reference_dir)
+        return references, version, None
+    reference_batch_id = current_app.config.get("IMPORT_REFERENCE_BATCH_ID")
+    if type(reference_batch_id) is not int or reference_batch_id <= 0:
+        raise ImportValidationUnavailable("system_reference_package_unavailable")
+    references, version = load_import_references(connection, reference_batch_id)
+    return references, version, reference_batch_id
+
+
 def validate_admin_upload(files, actor_id, survey_year, *, store_inactive=False,
                           authorization_confirmed=False,
                           connection_factory=get_connection):
@@ -178,13 +193,12 @@ def validate_admin_upload(files, actor_id, survey_year, *, store_inactive=False,
                 with TemporaryDirectory(prefix=STAGING_PREFIX, dir=root) as directory:
                     (Path(directory) / STAGING_MARKER).write_text("validation", encoding="ascii")
                     metadata = _save_files(files, Path(directory))
-                    reference_batch_id = current_app.config["IMPORT_REFERENCE_BATCH_ID"]
                     with connection.transaction():
                         connection.execute(
                             "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
                         )
-                        references, reference_version = load_import_references(
-                            connection, reference_batch_id,
+                        references, reference_version, reference_batch_id = (
+                            _approved_references(connection)
                         )
                     datasets, references, result["report"] = load_csv_bundle(
                         directory, reference_frames=references,
@@ -242,6 +256,12 @@ def validate_admin_upload(files, actor_id, survey_year, *, store_inactive=False,
                     survey_year=audit_year,
                 )
                 import_validation_events.purge_expired_attempts(connection)
+    except ImportValidationUnavailable:
+        raise
+    except ImportReferenceError:
+        raise ImportValidationUnavailable(
+            "system_reference_package_unavailable",
+        ) from None
     except (psycopg.Error, OSError, RuntimeError, ValueError, KeyError):
         raise ImportValidationUnavailable("import_validation_unavailable") from None
     return result

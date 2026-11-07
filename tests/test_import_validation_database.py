@@ -26,6 +26,10 @@ from services.import_validation import validate_admin_upload
 from services.import_assessment_preparation import (
     AssessmentPreparationError, list_import_batches, prepare_import_batch,
 )
+from services.import_batch_deletion import BatchDeletionError, delete_import_batch
+from services.batch_activation import (
+    active_dataset_exists, activate_prepared_batch, activation_overview,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,6 +64,7 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                     "0004_assessment_run_selection.sql",
                     "0013_import_validation_audit.sql",
                     "0015_multi_year_import.sql",
+                    "0018_import_batch_deletion_audit.sql",
                 ):
                     connection.execute((ROOT / "migrations" / name).read_text())
                 cls.actor_id = connection.execute(
@@ -265,6 +270,80 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                    WHERE batch_id = %s""", (result["batch_id"],),
             ).fetchone(), ("staged", 2024))
 
+    def test_delete_inactive_batch_removes_data_and_retains_audit(self):
+        datasets, references = synthetic_csv_frames()
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_csv_fixture(root, datasets, references)
+            datasets, references, report = load_csv_bundle(directory)
+        self.assertTrue(report["passed"], report)
+        provenance = {
+            "declared": {
+                "source": "administrator_uploaded_compatible_csv",
+                "survey_year": 2024,
+                "bundle_sha256": "f" * 64,
+                "reference_version": "synthetic-reference-v1",
+            },
+            "files": {
+                name: {**frame.attrs, "records": len(frame)}
+                for name, frame in {**datasets, **references}.items()
+            },
+        }
+        with psycopg.connect(self.url) as connection:
+            batch_id = stage_validated_snapshot(
+                connection, datasets, references, provenance, 2024,
+            )
+            import_validation_events.record_attempt(
+                connection, self.actor_id, "staged", self.batch_id,
+                "synthetic-reference-v1", provenance["files"], 0, 0,
+                batch_id, survey_year=2024,
+            )
+
+        factory = lambda: psycopg.connect(self.url)
+        prepared = prepare_import_batch(
+            batch_id, self.actor_id, connection_factory=factory,
+        )
+        result = delete_import_batch(
+            batch_id, self.actor_id, f"DELETE BATCH {batch_id}",
+            connection_factory=factory,
+        )
+        self.assertEqual(result["households"], len(datasets["household"]))
+        self.assertEqual(result["assessment_runs"], 1)
+        self.assertEqual(prepared["households"], result["households"])
+
+        with psycopg.connect(self.url) as connection:
+            self.assertIsNone(connection.execute(
+                "SELECT id FROM dataset_batches WHERE id = %s", (batch_id,),
+            ).fetchone())
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM households WHERE batch_id = %s", (batch_id,),
+            ).fetchone()[0], 0)
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM assessment_runs WHERE batch_id = %s", (batch_id,),
+            ).fetchone()[0], 0)
+            audit = connection.execute(
+                """SELECT outcome, batch_id, deleted_batch_id,
+                          deleted_at IS NOT NULL, deleted_by
+                   FROM import_validation_events WHERE deleted_batch_id = %s""",
+                (batch_id,),
+            ).fetchone()
+            self.assertEqual(audit, ("deleted", None, batch_id, True, self.actor_id))
+            connection.execute(
+                """UPDATE import_validation_events SET attempted_at =
+                   CURRENT_TIMESTAMP - INTERVAL '91 days'
+                   WHERE deleted_batch_id = %s""",
+                (batch_id,),
+            )
+            self.assertEqual(import_validation_events.purge_expired_attempts(connection), 0)
+
+    def test_active_batch_cannot_be_deleted(self):
+        factory = lambda: psycopg.connect(self.url)
+        with self.assertRaisesRegex(BatchDeletionError, "active_batch"):
+            delete_import_batch(
+                self.batch_id, self.actor_id,
+                f"DELETE BATCH {self.batch_id}", connection_factory=factory,
+            )
+
     def test_upload_keeps_contact_numbers_as_original_text(self):
         datasets, references = synthetic_csv_frames()
         sent = ["09171234567", "+639171234567"]
@@ -408,3 +487,110 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             self.assertEqual(connection.execute(
                 "SELECT id FROM dataset_batches WHERE is_active",
             ).fetchone()[0], self.batch_id)
+
+
+@unittest.skipUnless(TEST_URL, "Set TANGLAW_TEST_DATABASE_URL for isolated database checks.")
+class FirstDatasetDatabaseTests(unittest.TestCase):
+    """Exercise the administrator workflow from an empty dataset database."""
+
+    @classmethod
+    def setUpClass(cls):
+        settings = conninfo_to_dict(TEST_URL)
+        if (settings.get("dbname") != "tanglaw_buhay_test"
+                or settings.get("host") not in ("localhost", "127.0.0.1", "::1")
+                or settings.get("hostaddr", "127.0.0.1") not in ("127.0.0.1", "::1")
+                or "service" in settings):
+            raise ValueError("Synthetic checks require the local test database.")
+        cls.schema = f"first_import_{uuid4().hex}"
+        cls.url = make_conninfo(
+            TEST_URL, hostaddr="127.0.0.1", connect_timeout=5,
+            options=f"-c search_path={cls.schema}",
+        )
+        with psycopg.connect(TEST_URL, hostaddr="127.0.0.1", autocommit=True) as connection:
+            connection.execute(
+                sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(cls.schema)),
+            )
+        with psycopg.connect(cls.url) as connection:
+            for name in (
+                    "0001_database_foundation.sql",
+                    "0002_staff_authentication.sql",
+                    "0003_assessment_persistence.sql",
+                    "0004_assessment_run_selection.sql",
+                    "0013_import_validation_audit.sql",
+                    "0014_batch_activation_audit.sql",
+                    "0015_multi_year_import.sql",
+                    "0018_import_batch_deletion_audit.sql",
+                    "0019_initial_dataset_activation.sql",
+            ):
+                connection.execute((ROOT / "migrations" / name).read_text())
+            cls.actor_id = connection.execute(
+                """INSERT INTO staff_users (username, password_hash, role)
+                   VALUES ('first_admin', %s, 'system_administrator') RETURNING id""",
+                (generate_password_hash("synthetic-first-password", method="scrypt"),),
+            ).fetchone()[0]
+
+    @classmethod
+    def tearDownClass(cls):
+        with psycopg.connect(TEST_URL, hostaddr="127.0.0.1", autocommit=True) as connection:
+            connection.execute(
+                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(cls.schema)),
+            )
+
+    def test_admin_imports_prepares_and_activates_first_dataset(self):
+        datasets, references = synthetic_csv_frames()
+        factory = lambda: psycopg.connect(self.url)
+        self.assertFalse(active_dataset_exists(connection_factory=factory))
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_csv_fixture(root, datasets, references)
+            uploads = MultiDict([
+                (name, FileStorage(
+                    stream=BytesIO((root / "raw" / f"{name}.csv").read_bytes()),
+                    filename=f"{name}.csv",
+                ))
+                for name in datasets
+            ])
+            app = create_app({
+                "TESTING": True, "DATABASE_URL": self.url,
+                "IMPORT_STAGING_DIR": str(root / "staging"),
+                "IMPORT_REFERENCE_DIR": str(root / "reference"),
+                "IMPORT_REFERENCE_BATCH_ID": None,
+            })
+            with app.app_context():
+                imported = validate_admin_upload(
+                    uploads, self.actor_id, 2022, store_inactive=True,
+                    authorization_confirmed=True,
+                )
+        self.assertTrue(imported["report"]["passed"], imported)
+        batch_id = imported["batch_id"]
+        prepared = prepare_import_batch(
+            batch_id, self.actor_id, connection_factory=factory,
+        )
+        overview = activation_overview(connection_factory=factory)
+        self.assertTrue(overview["initial_setup"])
+        self.assertIsNone(overview["active"])
+        self.assertEqual(overview["candidates"][0]["id"], batch_id)
+        activated = activate_prepared_batch(
+            batch_id, self.actor_id,
+            expected_active_batch_id=None, expected_active_run_id=None,
+            expected_target_run_id=prepared["run_id"],
+            connection_factory=factory,
+        )
+        self.assertEqual(activated["action"], "initial_activate")
+        self.assertTrue(active_dataset_exists(connection_factory=factory))
+        with psycopg.connect(self.url) as connection:
+            self.assertEqual(connection.execute(
+                "SELECT id FROM dataset_batches WHERE is_active",
+            ).fetchone()[0], batch_id)
+            self.assertEqual(connection.execute(
+                """SELECT reference_batch_id, reference_version IS NOT NULL
+                   FROM import_validation_events WHERE batch_id = %s""",
+                (batch_id,),
+            ).fetchone(), (None, True))
+            self.assertEqual(connection.execute(
+                """SELECT action, previous_batch_id, previous_run_id,
+                          target_batch_id, target_run_id
+                   FROM batch_activation_events""",
+            ).fetchone(), (
+                "initial_activate", None, None, batch_id, prepared["run_id"],
+            ))

@@ -10,6 +10,7 @@ from psycopg.pq import TransactionStatus
 
 from db import get_connection
 from repositories import assessment_evidence, household_progression
+from services import read_cache
 from services.assessment_details import _indicator
 from services.assessment_evidence_view import DISPLAY_NAMES, direct_condition
 from services.assessment_queries import AssessmentQueryError
@@ -23,6 +24,9 @@ ROOT = Path(__file__).resolve().parents[1]
 UUID_PREFIX = re.compile(r"[0-9a-fA-F-]{4,36}\Z")
 PROGRAMS = ("4Ps", "SLP", "SPISC", "TUPAD")
 CHANGE_LABELS = ("Improved", "Worsened", "Unchanged", "Insufficient Data")
+DASHBOARD_CACHE_SECONDS = 1800
+SEARCH_MODES = ("uuid", "name")
+MAX_SEARCH_LENGTH = 100
 
 
 class InvalidProgressionSelection(ValueError):
@@ -52,6 +56,194 @@ def search_households(prefix, *, connection_factory=get_connection):
     except AssessmentQueryError:
         raise
     except (psycopg.Error, RuntimeError):
+        raise AssessmentQueryError("progression_unavailable") from None
+
+
+def _search_text(raw, search_by):
+    """Normalize a staff search while keeping UUID and name rules explicit."""
+    if search_by not in SEARCH_MODES:
+        raise InvalidProgressionSelection("invalid_search_mode")
+    query = " ".join((raw or "").split())
+    if len(query) > MAX_SEARCH_LENGTH or "\x00" in query:
+        raise InvalidProgressionSelection("invalid_household_search")
+    if query and search_by == "uuid" and not UUID_PREFIX.fullmatch(query):
+        raise InvalidProgressionSelection("invalid_household_search")
+    if query and search_by == "name" and len(query) < 2:
+        raise InvalidProgressionSelection("invalid_household_search")
+    return query
+
+
+def _display_source(value, fallback="Not recorded"):
+    value = value.strip() if isinstance(value, str) else ""
+    return fallback if not value or value == "NA" else value
+
+
+def _head_name(row):
+    if row["head_count"] != 1:
+        return "Not clearly recorded"
+    parts = [_display_source(row[field], "")
+             for field in ("first_name", "middle_name", "last_name")]
+    return " ".join(part for part in parts if part) or "Not recorded"
+
+
+def _present_match(row, comparison_years):
+    years = list(row["years"])
+    if len(comparison_years) == 2 and set(years) == set(comparison_years):
+        availability = "Both years"
+    elif len(years) == 1:
+        availability = f"{years[0]} only"
+    else:
+        availability = ", ".join(map(str, years))
+    return {
+        "household_uuid": row["household_uuid"],
+        "head_name": _head_name(row),
+        "barangay": _display_source(row["barangay"]),
+        "years": years,
+        "availability": availability,
+    }
+
+
+def _valid_period_findings(findings, year):
+    return (_valid_mpi(findings)
+            and findings.get("survey_year") == year)
+
+
+def _build_dashboard(connection, earlier, later):
+    """Aggregate stored household and indicator changes for one comparison pair."""
+    rows = household_progression.list_comparison_findings(
+        connection, earlier["batch_id"], earlier["run_id"],
+        later["batch_id"], later["run_id"],
+    )
+    earlier_method = _mpi_signature(connection, earlier)
+    later_method = _mpi_signature(connection, later)
+    method_compatible = earlier_method is not None and earlier_method == later_method
+    households = Counter()
+    outcomes = Counter()
+    indicator_counts = {name: Counter() for name in INDICATOR_WEIGHTS}
+    for row in rows:
+        first, second = row["earlier_findings"], row["later_findings"]
+        if first is not None:
+            households["earlier"] += 1
+        if second is not None:
+            households["later"] += 1
+        if first is None:
+            households["later_only"] += 1
+            continue
+        if second is None:
+            households["earlier_only"] += 1
+            continue
+        households["matched"] += 1
+        first_valid = _valid_period_findings(first, earlier["survey_year"])
+        second_valid = _valid_period_findings(second, later["survey_year"])
+        if (method_compatible and first_valid and second_valid
+                and first["mpi"]["unknown_indicator_count"] == 0
+                and second["mpi"]["unknown_indicator_count"] == 0):
+            score_change = (Decimal(str(second["mpi"]["vulnerability_score"]))
+                            - Decimal(str(first["mpi"]["vulnerability_score"])))
+            outcome = ("Improved" if score_change < 0 else
+                       "Worsened" if score_change > 0 else "Unchanged")
+        else:
+            outcome = "Insufficient Data"
+        outcomes[outcome] += 1
+        for name in INDICATOR_WEIGHTS:
+            if method_compatible and first_valid and second_valid:
+                change = _status(first["mpi"].get(name), second["mpi"].get(name), True)
+            else:
+                change = "Insufficient Data"
+            indicator_counts[name][change] += 1
+    indicators = []
+    for dimension, (_, names) in DIMENSIONS.items():
+        for name in names:
+            indicators.append({
+                "dimension": dimension,
+                "name": DISPLAY_NAMES.get(name, name),
+                "counts": {label: indicator_counts[name][label]
+                           for label in CHANGE_LABELS},
+            })
+    return {
+        "households": {key: households[key] for key in
+                       ("earlier", "later", "matched", "earlier_only", "later_only")},
+        "outcomes": {label: outcomes[label] for label in CHANGE_LABELS},
+        "comparable": households["matched"] - outcomes["Insufficient Data"],
+        "indicators": indicators,
+        "method_compatible": method_compatible,
+    }
+
+
+def _dashboard(connection, earlier, later):
+    key = (
+        "progression-dashboard", connection.info.dbname,
+        earlier["batch_id"], earlier["run_id"],
+        later["batch_id"], later["run_id"],
+    )
+    return read_cache.cached(
+        key, DASHBOARD_CACHE_SECONDS,
+        lambda: _build_dashboard(connection, earlier, later),
+    )
+
+
+def get_progression_index(query="", search_by="uuid", barangay="",
+                          earlier_raw=None, later_raw=None,
+                          *, connection_factory=get_connection):
+    """Build the read-only progression dashboard and historical search page."""
+    query = _search_text(query, search_by)
+    barangay = (barangay or "").strip()
+    if len(barangay) > 200 or "\x00" in barangay:
+        raise InvalidProgressionSelection("invalid_barangay")
+    try:
+        with _read_snapshot(connection_factory) as connection, connection.transaction():
+            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            batches = _label_batches(household_progression.list_ready_batches(connection))
+            pending = household_progression.list_unready_batches(connection)
+            selected = _choose_batches(batches, earlier_raw, later_raw)
+            by_id = {batch["batch_id"]: batch for batch in batches}
+            earlier = by_id[selected[0]] if selected else None
+            later = by_id[selected[1]] if selected else None
+            scope = [selected[0], selected[1]] if selected else [
+                batch["batch_id"] for batch in batches
+            ]
+            barangays = household_progression.list_search_barangays(connection, scope)
+            if barangay and barangay not in barangays:
+                raise InvalidProgressionSelection("invalid_barangay")
+            matches = []
+            if query or barangay:
+                rows = household_progression.search_progression_households(
+                    connection, scope, query, search_by, barangay,
+                )
+                comparison_years = ([earlier["survey_year"], later["survey_year"]]
+                                    if selected else [])
+                matches = [_present_match(row, comparison_years) for row in rows]
+            ready_years = sorted({batch["survey_year"] for batch in batches})
+            pending_years = sorted({batch["survey_year"] for batch in pending
+                                    if batch["survey_year"] not in ready_years})
+            if selected:
+                state = "ready"
+            elif len(ready_years) >= 2:
+                state = "choose"
+            elif pending_years:
+                state = "preparing"
+            else:
+                state = "needs_import"
+            active = next((batch for batch in batches if batch["is_active"]), None)
+            return {
+                "batches": batches,
+                "pending": pending,
+                "ready_years": ready_years,
+                "pending_years": pending_years,
+                "active": active,
+                "selected": selected,
+                "earlier": earlier,
+                "later": later,
+                "state": state,
+                "dashboard": _dashboard(connection, earlier, later) if selected else None,
+                "filters": {"query": query, "search_by": search_by,
+                            "barangay": barangay},
+                "barangays": barangays,
+                "matches": matches,
+            }
+    except (InvalidProgressionSelection, AssessmentQueryError):
+        raise
+    except (psycopg.Error, RuntimeError, ValueError):
         raise AssessmentQueryError("progression_unavailable") from None
 
 

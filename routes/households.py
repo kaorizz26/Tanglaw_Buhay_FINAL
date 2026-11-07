@@ -8,6 +8,7 @@ from services.household_records import (
     InvalidRecordFilters, get_record_detail, get_record_page, parse_record_arguments,
     record_return_parameters,
 )
+from routes.dataset_setup import is_no_active_dataset, render_dataset_setup
 
 
 households = Blueprint("households", __name__)
@@ -27,7 +28,12 @@ def index():
         results = get_record_page(page, filters)
     except InvalidRecordFilters:
         abort(400, description="Choose a valid household search or barangay.")
-    except AssessmentQueryError:
+    except AssessmentQueryError as failure:
+        if is_no_active_dataset(failure):
+            return render_dataset_setup(
+                "Household Records",
+                "Browse imported household records from the active survey dataset.",
+            )
         abort(503, description="Household records are unavailable. Please try again later.")
     if results is None:
         abort(404, description="This household records page does not exist.")

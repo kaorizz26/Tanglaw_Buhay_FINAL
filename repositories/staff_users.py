@@ -33,6 +33,40 @@ def find_for_password_change(connection, user_id):
         ).fetchone()
 
 
+def find_for_profile_change(connection, user_id):
+    """Lock an administrator account while changing its sign-in details."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, username, password_hash, role, is_active,
+                      session_version, must_change_password
+               FROM staff_users WHERE id = %s FOR UPDATE""", (user_id,),
+        ).fetchone()
+
+
+def update_admin_username(connection, user_id, username):
+    """Change an administrator username and revoke older sessions."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """UPDATE staff_users
+               SET username = %s, session_version = session_version + 1
+               WHERE id = %s AND role = 'system_administrator' AND is_active
+               RETURNING id, role, session_version""",
+            (username, user_id),
+        ).fetchone()
+
+
+def update_admin_password(connection, user_id, password_hash):
+    """Change an administrator password and revoke older sessions."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """UPDATE staff_users
+               SET password_hash = %s, session_version = session_version + 1
+               WHERE id = %s AND role = 'system_administrator' AND is_active
+               RETURNING id, role, session_version""",
+            (password_hash, user_id),
+        ).fetchone()
+
+
 def complete_initial_password_change(connection, user_id, password_hash):
     """Store the new hash and revoke older sessions atomically."""
     with connection.cursor(row_factory=dict_row) as cursor:

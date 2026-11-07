@@ -8,11 +8,13 @@
 {% endblock %}
 
 {% block content %}
-  <header class="page-header progression-header">
-    <div class="page-heading">
-      <a class="progression-back" href="{{ url_for('assessments.progression_index') }}">← Search household history</a>
-      <h1>Household Progression</h1>
-      <p>Household UUID <span class="progression-uuid">{{ results.household_uuid }}</span></p>
+  <header class="page-header portal-hero progression-header progression-detail-hero">
+    <div class="portal-hero-content">
+      <div>
+        <a class="progression-back" href="{{ url_for('assessments.progression_index') }}">← Search household history</a>
+        <h1>Household Progression</h1>
+        <p class="portal-hero-subtitle">Household UUID <span class="progression-uuid">{{ results.household_uuid }}</span></p>
+      </div>
     </div>
   </header>
 

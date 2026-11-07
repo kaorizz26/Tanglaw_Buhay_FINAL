@@ -7,7 +7,12 @@ from flask import (
 import psycopg
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from services.auth import ADMIN_ROLE, admin_required, check_csrf, csrf_token
+from services.auth import (
+    ADMIN_ROLE, admin_required, check_csrf, csrf_token, start_session,
+)
+from services.admin_profile import (
+    AdminProfileInputError, change_admin_password, change_admin_username,
+)
 from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError, get_active_dashboard_summary
 from services.dashboard_patterns import select_area
@@ -19,12 +24,14 @@ from services.import_validation_presentation import present_report
 from services.import_assessment_preparation import (
     AssessmentPreparationError, list_import_batches, prepare_import_batch,
 )
+from services.import_batch_deletion import BatchDeletionError, delete_import_batch
 from services.survey_years import (
     MIN_SURVEY_YEAR, latest_survey_year, parse_survey_year,
     supported_survey_years,
 )
 from services.batch_activation import (
-    BatchActivationError, activate_prepared_batch, activation_overview,
+    BatchActivationError, active_dataset_exists, activate_prepared_batch,
+    activation_overview,
     describe_citizen_work,
 )
 from services.staff_account_management import (
@@ -60,7 +67,7 @@ def dashboard_reviews():
         return None
 
 
-def render_dashboard(role_label, *, with_reviews):
+def render_dashboard(role_label, *, with_reviews, initial_setup=False):
     require_fixture_source()
     supplied = request.args.getlist("barangay")
     if len(supplied) > 1:
@@ -70,6 +77,7 @@ def render_dashboard(role_label, *, with_reviews):
         selected_area=select_area(request.args.get("area")),
         show_reviews=with_reviews, reviews=dashboard_reviews() if with_reviews else None,
         welcome_name=(g.user.get("display_name") or g.user["username"]),
+        initial_setup=initial_setup,
         role_label=role_label, staff_username=g.user["username"],
         csrf_token=csrf_token(),
     )
@@ -85,7 +93,80 @@ def index():
 @main.get("/administration")
 @admin_required
 def administration():
-    return render_dashboard("System Administrator", with_reviews=False)
+    initial_setup = False
+    if current_app.config.get("DATABASE_URL"):
+        try:
+            initial_setup = not active_dataset_exists()
+        except BatchActivationError:
+            pass
+    return render_dashboard(
+        "System Administrator", with_reviews=False, initial_setup=initial_setup,
+    )
+
+
+@main.get("/administration/profile")
+@admin_required
+def admin_profile():
+    """Show the administrator's profile and credential settings."""
+    require_fixture_source()
+    return render_template(
+        "staff/admin_profile.html", role_label="System Administrator",
+        staff_username=g.user["username"], csrf_token=csrf_token(),
+    )
+
+
+def render_admin_profile_error(message, *, username_value=None, password_error=False):
+    return render_template(
+        "staff/admin_profile.html", role_label="System Administrator",
+        staff_username=g.user["username"], csrf_token=csrf_token(),
+        username_value=username_value, error=message,
+        error_section="password" if password_error else "username",
+    ), 400
+
+
+@main.post("/administration/profile/username")
+@admin_required
+def admin_profile_username():
+    """Apply an administrator username change immediately."""
+    require_fixture_source()
+    check_csrf()
+    username = request.form.get("username", "")
+    try:
+        updated_user, new_username = change_admin_username(g.user, username)
+    except AdminProfileInputError as exc:
+        return render_admin_profile_error(str(exc), username_value=username)
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Username changes are unavailable. Please try again.")
+    start_session(updated_user)
+    flash(
+        f"Username changed to {new_username}. Remember this username for your next sign-in.",
+        "profile",
+    )
+    return redirect(url_for("main.admin_profile"))
+
+
+@main.post("/administration/profile/password")
+@admin_required
+def admin_profile_password():
+    """Apply an administrator password change immediately."""
+    require_fixture_source()
+    check_csrf()
+    try:
+        updated_user = change_admin_password(
+            g.user, request.form.get("current_password", ""),
+            request.form.get("new_password", ""),
+            request.form.get("confirm_password", ""),
+        )
+    except AdminProfileInputError as exc:
+        return render_admin_profile_error(str(exc), password_error=True)
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Password changes are unavailable. Please try again.")
+    start_session(updated_user)
+    flash(
+        "Password changed. Remember your new password for your next sign-in.",
+        "profile",
+    )
+    return redirect(url_for("main.admin_profile"))
 
 
 @main.route("/administration/import", methods=["GET", "POST"])
@@ -98,6 +179,12 @@ def data_import():
     batch_id = None
     survey_year_value = ""
     status = 200
+    initial_setup = True
+    if current_app.config.get("DATABASE_URL"):
+        try:
+            initial_setup = not active_dataset_exists()
+        except BatchActivationError:
+            abort(503, description="Dataset setup status is unavailable. Please try again.")
     if request.method == "POST":
         request.max_content_length = current_app.config["IMPORT_MAX_CONTENT_LENGTH"]
         try:
@@ -132,12 +219,20 @@ def data_import():
                 abort(503, description="Data validation is unavailable. Please try again.")
             error = "The four files exceed the 256 MiB upload limit."
             status = 413
-        except ImportValidationUnavailable:
-            abort(503, description="Data validation is unavailable. Please try again.")
+        except ImportValidationUnavailable as exc:
+            if str(exc) == "system_reference_package_unavailable":
+                error = (
+                    "The system reference package is unavailable. Ask the system "
+                    "installer to configure the approved codebook and mappings."
+                )
+                status = 503
+            else:
+                abort(503, description="Data validation is unavailable. Please try again.")
     return render_template(
         "staff/data_import.html", report=present_report(report), error=error,
         batch_id=batch_id, survey_year_value=survey_year_value,
         survey_year_options=supported_survey_years(),
+        initial_setup=initial_setup,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), status
@@ -182,6 +277,45 @@ def import_batches():
     ), status
 
 
+@main.post("/administration/import/batches/<int:batch_id>/delete")
+@admin_required
+def delete_stored_import_batch(batch_id):
+    """Permanently remove one unused inactive import after explicit confirmation."""
+    require_fixture_source()
+    check_csrf()
+    confirmations = request.form.getlist("delete_confirmation")
+    if len(confirmations) != 1:
+        abort(400, description="Enter the required batch deletion confirmation.")
+    try:
+        result = delete_import_batch(batch_id, g.user["id"], confirmations[0])
+    except BatchDeletionError as exc:
+        code = str(exc)
+        if code == "invalid_deletion_request":
+            abort(400, description=f"Type DELETE BATCH {batch_id} to confirm deletion.")
+        if code == "unauthorized":
+            abort(403)
+        if code == "deletion_unavailable":
+            abort(503, description="The stored batch could not be deleted. Try again later.")
+        messages = {
+            "active_batch": "The active dataset cannot be deleted.",
+            "batch_missing": "This stored batch no longer exists.",
+            "batch_not_deletable": "This batch is not an administrator-imported stored batch.",
+            "batch_busy": "Another import or assessment preparation is in progress. Try again later.",
+            "audit_missing": "This batch cannot be deleted because its import audit is incomplete.",
+            "batch_referenced": "This batch is used as a reference by another import and cannot be deleted.",
+            "retained_history": "This batch has retained activation, staff-review, or citizen-account history and cannot be deleted.",
+        }
+        flash(messages.get(code, "This stored batch cannot be deleted."), "import_error")
+    else:
+        flash(
+            f"Batch {result['batch_id']} for survey year {result['survey_year']} was "
+            f"permanently deleted with {result['households']} household records and "
+            f"{result['assessment_runs']} assessment runs. Its deletion audit was retained.",
+            "import_success",
+        )
+    return redirect(url_for("main.import_batches"), code=303)
+
+
 @main.route("/administration/import/activation", methods=["GET", "POST"])
 @admin_required
 def import_activation():
@@ -191,23 +325,30 @@ def import_activation():
     status = 200
     if request.method == "POST":
         check_csrf()
-        fields = (
-            "target_batch_id", "expected_active_batch_id",
-            "expected_active_run_id", "expected_target_run_id",
+        target_value = request.form.get("target_batch_id", "")
+        target_run_value = request.form.get("expected_target_run_id", "")
+        active_value = request.form.get("expected_active_batch_id", "")
+        active_run_value = request.form.get("expected_active_run_id", "")
+        active_values_match = (
+            (not active_value and not active_run_value)
+            or (active_value.isascii() and active_value.isdecimal()
+                and active_run_value.isascii() and active_run_value.isdecimal()
+                and len(active_value) <= 18 and len(active_run_value) <= 18)
         )
-        values = [request.form.get(name, "") for name in fields]
         if (request.form.get("confirm_switch") != "yes"
-                or any(not value.isascii() or not value.isdecimal()
-                       or len(value) > 18 for value in values)):
+                or not target_value.isascii() or not target_value.isdecimal()
+                or len(target_value) > 18
+                or not target_run_value.isascii() or not target_run_value.isdecimal()
+                or len(target_run_value) > 18 or not active_values_match):
             error = "Select a prepared batch and confirm the switch."
             status = 400
         else:
             try:
                 result = activate_prepared_batch(
-                    int(values[0]), g.user["id"],
-                    expected_active_batch_id=int(values[1]),
-                    expected_active_run_id=int(values[2]),
-                    expected_target_run_id=int(values[3]),
+                    int(target_value), g.user["id"],
+                    expected_active_batch_id=(int(active_value) if active_value else None),
+                    expected_active_run_id=(int(active_run_value) if active_run_value else None),
+                    expected_target_run_id=int(target_run_value),
                 )
             except BatchActivationError as exc:
                 if str(exc) == "unfinished_reviews":
@@ -237,10 +378,15 @@ def import_activation():
                 else:
                     abort(503, description="Batch switching is unavailable. Please try again.")
             else:
-                flash(
-                    f"Batch {result['target_batch_id']} is now active. "
-                    f"Batch {result['previous_batch_id']} and its review history remain stored.",
-                )
+                if result["action"] == "initial_activate":
+                    flash(
+                        f"Batch {result['target_batch_id']} is now the first active dataset."
+                    )
+                else:
+                    flash(
+                        f"Batch {result['target_batch_id']} is now active. "
+                        f"Batch {result['previous_batch_id']} and its review history remain stored.",
+                    )
                 return redirect(url_for("main.import_activation"))
     try:
         overview = activation_overview()

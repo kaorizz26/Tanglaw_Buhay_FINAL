@@ -10,10 +10,15 @@
 
 {% block content %}
   {% set list_endpoint = 'submissions.citizen_accounts' %}
-  <header class="page-header records-header">
-    <div class="page-heading">
-      <h1>Citizen Accounts</h1>
-      <p>Household representatives who have a Citizen Portal account. Accounts are created from a household's Assessment page.</p>
+  <header class="page-header portal-hero submissions-header">
+    <div class="portal-hero-content">
+      <div>
+        <h1>Citizen Accounts</h1>
+        <p class="portal-hero-subtitle">Find household representatives with Citizen Portal access and review their account status.</p>
+      </div>
+      <a class="portal-hero-action" href="{{ url_for('submissions.document_requests') }}">
+        View document requests <span aria-hidden="true">→</span>
+      </a>
     </div>
   </header>
 
@@ -54,12 +59,14 @@
       </div>
     {% elif results.filters.parameters %}
       <div class="records-empty" role="status">
+        <span class="records-empty-icon" aria-hidden="true"></span>
         <h3>No accounts match your search</h3>
         <p>Try another household ID, name, status or barangay.</p>
         <a href="{{ url_for(list_endpoint) }}">Show all accounts</a>
       </div>
     {% else %}
       <div class="records-empty" role="status">
+        <span class="records-empty-icon" aria-hidden="true"></span>
         <h3>No Citizen Accounts yet</h3>
         <p>Open a household's Assessment page and choose Create Citizen Account. New accounts appear here automatically.</p>
         <a href="{{ url_for('assessments.prioritization') }}">Go to Household Prioritization</a>

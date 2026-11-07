@@ -39,7 +39,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
 | Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. Each program has a bilingual Pozorrubio research-estimate dashboard with source limitations and unavailable-data states for wider geographic scopes. The pages need no account, read no protected CBMS records, and accept no submissions. |
 | MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
-| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables (migrations 0001–0012), import workflow migrations 0013–0015, and a validated backend importer used once for the 2022 batch. |
+| PostgreSQL and Import Foundation | CBMS tables, batches, assessment runs, review and account tables, import audit/activation migrations, and administrator-led first and later dataset imports. |
 | Development Review Reset | Developer-only, safeguarded reset of disposable local staff-review records; **never use on real LGU history**. |
 
 ### Partial or Incomplete
@@ -47,7 +47,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Module | Current state |
 | --- | --- |
 | Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, and administrator password reset are implemented. Account editing is not implemented. |
-| Data Import interface | Administrators select a survey year from the two-year cycle beginning in 2022 (2022, 2024, 2026, and so on), validate four structure-compatible CSVs, store a passing bundle as inactive, prepare its assessments, and explicitly switch to it or back to a previous batch. Migrations 0013–0015 are required before use. End-to-end pilot verification remains. |
+| Data Import interface | Administrators select a survey year from the two-year cycle beginning in 2022, validate four structure-compatible CSVs using the system-installed references, store a passing bundle as inactive, prepare its assessments, and activate it as the first baseline or switch between later batches. Migrations 0013–0015 and 0018–0019 are required before use. End-to-end authorized-data pilot verification remains. |
 | Assessment-run management | Administrators can prepare and designate a completed run for a staged inactive import. The current 2022 Run 3 and its history remain unchanged. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
 | Public statistics expansion | Verified Pangasinan, Region I, Philippines, beneficiary-demographic, comparison, and historical-trend statistics are deferred until authorized aggregate sources with confirmed scope, units, dates, and public-display approval are available. |
@@ -60,7 +60,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 | Public submission integration | Depends on the citizen identity and security decisions above. |
 | Pilot verification | End-to-end verification with real LGU usage has not been done. Verification so far used synthetic data. |
 | Deployment and production hardening | The built-in Flask server is for local development only. |
-| Multi-year support and household progression | Later-year batches and a read-only historical comparison view are implemented under the approved stable-household-UUID assumption. Visual and authorized later-year pilot checks remain. |
+| Multi-year support and household progression | Later-year batches, read-only household comparison, municipal progression statistics, aggregate indicator changes, year context, and UUID/name/barangay search are implemented under the approved stable-household-UUID assumption. Synthetic end-to-end and viewport checks passed; an authorized non-synthetic later-year pilot remains. |
 
 ### Latest Verified Test Results
 
@@ -380,6 +380,14 @@ Replace every placeholder. URL-encode special password characters such as `@`,
 Use `SESSION_COOKIE_SECURE=false` **only for local loopback HTTP development**.
 Deployment requires HTTPS and secure cookies. Keep `.env`, passwords, and signing
 keys private; never paste them into AI assistant prompts, screenshots, or Git.
+
+For a new empty installation, the system installer must place the three approved,
+non-household reference CSVs in a protected folder and set its absolute path as
+`IMPORT_REFERENCE_DIR`. The required filenames are listed in
+`services/data_loader.py`. The folder contains the codebook, MPI mapping and field
+definitions only; the administrator supplies all household/member CSVs through Data
+Import. Existing restored installations may continue using their approved batch-1
+reference snapshot until `IMPORT_REFERENCE_DIR` is configured.
 
 ## 7. Create your System Administrator account
 

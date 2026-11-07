@@ -11,7 +11,7 @@ from services.household_records import (
 from services.prioritization import get_prioritization_page
 from services.assessment_details import detail_navigation, get_assessment_detail
 from services.household_progression import (
-    InvalidProgressionSelection, get_household_progression, search_households,
+    InvalidProgressionSelection, get_household_progression, get_progression_index,
 )
 from services.staff_reviews import (
     StaffReviewError, get_staff_review_detail, start_staff_review,
@@ -23,6 +23,7 @@ from services.review_queue import (
     parse_review_origin, queue_return_parameters,
 )
 from routes.recommendation_changes import recommendation_form
+from routes.dataset_setup import is_no_active_dataset, render_dataset_setup
 
 
 assessments = Blueprint("assessments", __name__)
@@ -30,18 +31,24 @@ assessments = Blueprint("assessments", __name__)
 
 @assessments.get("/assessments/progression")
 def progression_index():
-    """Find UUIDs across all designated historical assessment batches."""
-    queries = request.args.getlist("q")
-    if len(queries) > 1:
-        abort(400, description="Choose one household search.")
+    """Show municipal progression statistics and find historical households."""
+    allowed = {"q", "search_by", "barangay", "earlier", "later"}
+    if any(key not in allowed or len(request.args.getlist(key)) != 1
+           for key in request.args):
+        abort(400, description="Choose valid progression filters.")
     try:
-        results = search_households(queries[0] if queries else "")
+        results = get_progression_index(
+            request.args.get("q", ""), request.args.get("search_by", "uuid"),
+            request.args.get("barangay", ""), request.args.get("earlier"),
+            request.args.get("later"),
+        )
     except InvalidProgressionSelection:
-        abort(400, description="Search using at least four UUID characters.")
+        abort(400, description="Choose valid survey years and household search filters.")
     except AssessmentQueryError:
         abort(503, description="Household history is unavailable. Please try again later.")
     return render_template(
         "assessments/progression_index.html", results=results,
+        is_admin=g.user["role"] == ADMIN_ROLE,
         role_label="System Administrator" if g.user["role"] == ADMIN_ROLE else "LGU Staff",
         staff_username=g.user["username"], csrf_token=csrf_token(),
     )
@@ -140,7 +147,12 @@ def queue():
         results = get_review_queue_page(page, filters, staff_id=g.user['id'])
     except InvalidAssessmentFilters:
         abort(400, description='Choose valid review status and filter values.')
-    except AssessmentQueryError:
+    except AssessmentQueryError as failure:
+        if is_no_active_dataset(failure):
+            return render_dataset_setup(
+                "Review Queue",
+                "Manage household subsidy reviews from the active survey dataset.",
+            )
         abort(503, description='Staff reviews are unavailable. Please try again later.')
     if results is None:
         flash('This queue page is no longer available. Showing the first page.')
@@ -171,7 +183,12 @@ def prioritization():
         results = get_prioritization_page(int(raw_page), filters)
     except InvalidAssessmentFilters:
         abort(400, description="Choose valid search and filter values.")
-    except AssessmentQueryError:
+    except AssessmentQueryError as failure:
+        if is_no_active_dataset(failure):
+            return render_dataset_setup(
+                "Household Prioritization",
+                "Review stored household assessments and priority groups from the active survey dataset.",
+            )
         abort(503, description="Household assessments are unavailable. Please try again later.")
     if results is None:
         abort(404, description="This assessment page does not exist.")

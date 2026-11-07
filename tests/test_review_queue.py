@@ -450,6 +450,14 @@ class QueueRouteTests(unittest.TestCase):
         action.assert_called_once()
         for bad in ('from_queue=1&queue_status=Closed', 'from_queue=1&queue_url=https://evil.test'):
             self.assertEqual(self.client.get(record + '?' + bad).status_code, 400)
+        self.query.side_effect = AssessmentQueryError('active_batch_missing')
+        response = self.client.get('/assessments/queue')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Review Queue', response.text)
+        self.assertIn('No active dataset yet', response.text)
+        self.assertIn('system administrator must import', response.text)
+        self.assertNotIn('Request Unavailable', response.text)
+
         self.query.side_effect = AssessmentQueryError('private detail')
         response = self.client.get('/assessments/queue')
         self.assertEqual(response.status_code, 503)

@@ -63,6 +63,7 @@ class BatchActivationDatabaseTests(unittest.TestCase):
                 "0005_staff_reviews.sql",
                 "0006_staff_review_completion.sql",
                 "0014_batch_activation_audit.sql",
+                "0019_initial_dataset_activation.sql",
             ):
                 connection.execute((ROOT / "migrations" / name).read_text())
             self.admin_id = connection.execute(
@@ -165,6 +166,33 @@ class BatchActivationDatabaseTests(unittest.TestCase):
             self.assertEqual(connection.execute(
                 "SELECT count(*) FROM household_assessments",
             ).fetchone()[0], 2 * len(self.findings))
+
+    def test_first_prepared_batch_can_become_initial_active_dataset(self):
+        with self._factory() as connection:
+            connection.execute(
+                "UPDATE dataset_batches SET is_active = false WHERE id = %s",
+                (self.old_batch,),
+            )
+        overview = activation_overview(connection_factory=self._factory)
+        self.assertIsNone(overview["active"])
+        self.assertTrue(overview["initial_setup"])
+        result = activate_prepared_batch(
+            self.new_batch, self.admin_id,
+            expected_active_batch_id=None, expected_active_run_id=None,
+            expected_target_run_id=self.new_run,
+            connection_factory=self._factory,
+        )
+        self.assertEqual(result["action"], "initial_activate")
+        self.assertIsNone(result["previous_batch_id"])
+        self.assertEqual(self._active_batch(), self.new_batch)
+        with self._factory() as connection:
+            self.assertEqual(connection.execute(
+                """SELECT action, previous_batch_id, previous_run_id,
+                          target_batch_id, target_run_id
+                   FROM batch_activation_events""",
+            ).fetchone(), (
+                "initial_activate", None, None, self.new_batch, self.new_run,
+            ))
 
     def test_unfinished_reviews_block_switch_until_cancelled(self):
         household_uuid = next(iter(self.findings))

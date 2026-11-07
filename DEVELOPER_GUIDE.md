@@ -2471,9 +2471,33 @@ unchanged). The two sets do not depend on each other. Databases were checked rea
 | `0015_multi_year_import.sql` | Data Import | not applied | not applied |
 | `0016_citizen_accounts.sql` (was 0014) | Citizen Accounts | applied as 0014 | applied as 0014 |
 | `0017_document_requests.sql` (was 0015) | Digital Dropbox | not applied | applied as 0015 |
+| `0018_import_batch_deletion_audit.sql` | Data Import | applied | not applied |
+| `0019_initial_dataset_activation.sql` | Data Import | applied | not applied |
 
 Never apply a migration whose tables already exist. Use `psql -1 -v ON_ERROR_STOP=1` so a
 mistaken re-run rolls back completely.
+
+Migration 0018 supports permanent deletion of an unused inactive administrator import
+without deleting its accountability record. The service serializes import preparation,
+activation and deletion, then locks and rechecks the batch in one transaction. It rejects
+active or previously activated batches, batches referenced by another import, and batches
+with Staff Review or Citizen Account history. For an eligible batch, it removes its source,
+reference, prepared assessment and designated-run rows, changes the staged validation event
+to a metadata-only `deleted` event, and excludes that event from the 90-day standalone
+validation cleanup. The UI requires the exact phrase `DELETE BATCH <id>` and is System
+Administrator-only. Migration 0018 was applied transactionally to the local development
+database on 2026-11-07; no batch was deleted during implementation.
+
+Migration 0019 permits `initial_activate` audit rows whose previous batch/run are
+null; all later `activate` and `switch_back` rows still require both previous values.
+An empty installation loads the three approved reference CSVs from the absolute
+`IMPORT_REFERENCE_DIR`, while the administrator uploads the four household/member
+CSVs. References are parsed, structurally checked, hashed and copied into the stored
+batch snapshot before assessment preparation. The first prepared batch can then be
+activated only while no active batch exists. Existing installations without this
+setting retain the approved `IMPORT_REFERENCE_BATCH_ID` fallback. Migration 0019 was
+applied transactionally to local development on 2026-11-07; all existing batches and
+activation events were retained.
 
 ### Verification record
 
@@ -2522,12 +2546,21 @@ error) and stores it as text, so a later-year file may use either format.
 
 ### Household Progression read-only comparison
 
-`/assessments/progression` searches household UUIDs in all validated batches with
-designated completed runs, including inactive batches. The detail route selects
-two different survey years and reads only the stored findings for those selected
-batch/run pairs. The project assumes household UUIDs persist across survey years.
-No cross-year person identity is inferred from roster line numbers. Multiple
-batches in one year require an explicit selection before comparison.
+`/assessments/progression` lists comparison-ready survey years and defaults to the
+latest two unique years. Its cached municipal summary counts each year's assessed
+households, same-UUID matches, earlier/later-only records, overall progression
+outcomes, and all 16 indicator transitions. It also searches by UUID or the unique
+recorded household-head name from each household's most recent selected record;
+the barangay filter uses that same record. Results remain capped at 25. A validated
+batch without a completed designated run appears only as a preparation state and
+never contributes statistics. Admins receive the applicable import/preparation
+action while LGU Staff receive a contact-admin message.
+
+The detail route selects two different survey years and reads only the stored
+findings for those selected batch/run pairs, including inactive batches. The
+project assumes household UUIDs persist across survey years. No cross-year person
+identity is inferred from roster line numbers. Multiple batches in one year
+require an explicit selection before comparison.
 
 The overall Improved/Worsened/Unchanged label requires both complete 16-indicator
 MPI assessments and matching MPI engine hashes plus identical stored MPI mapping
@@ -2541,11 +2574,11 @@ guidance, staff reviews, applications, approvals, and benefit receipt are not
 treated as survey progression data.
 
 The focused synthetic tests are in `tests/test_household_progression.py`, including
-an isolated PostgreSQL check for the same UUID across 2022/2024 and a 2022-only
-household. The full regression suite passed 633 tests before the final
-staff-facing dataset labels; the focused progression suite passed 12 tests
-afterward. Browser policy blocked a local-file visual viewport check, so
-visual review and an authorized later-year pilot remain open verification tasks.
+an isolated PostgreSQL check for the same UUID across 2022/2024, name and barangay
+search, aggregate pairing, and a 2022-only household. The focused progression suite
+passed 16 tests. The owner completed the 13-step synthetic 2024 import/progression
+workflow. Synthetic UI rendering was checked at 1920, 1440, 1366 and 760 px. An
+authorized non-synthetic later-year pilot remains an open verification task.
 
 ## Citizen Accounts: staff side (Tasks 2A–2C)
 

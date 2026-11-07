@@ -24,6 +24,15 @@
     {% set current_import_step = 2 %}
     {% include 'staff/_import_steps.html' %}
 
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      {% if category in ('import_success', 'import_error') %}
+        <div class="import-page-alert {{ 'import-page-alert-success' if category == 'import_success' else 'import-page-alert-error' }}" role="{{ 'status' if category == 'import_success' else 'alert' }}">
+          <span class="import-alert-icon" aria-hidden="true">{{ '✓' if category == 'import_success' else '!' }}</span>
+          <div><strong>{{ 'Stored batch deleted' if category == 'import_success' else 'Batch deletion could not continue' }}</strong><p>{{ message }}</p></div>
+        </div>
+      {% endif %}
+    {% endfor %}
+
     {% if error %}
       <div class="import-page-alert import-page-alert-error" role="alert">
         <span class="import-alert-icon" aria-hidden="true">!</span>
@@ -36,7 +45,7 @@
         <span class="import-alert-icon" aria-hidden="true">✓</span>
         <div>
           <strong>Batch {{ prepared.batch_id }} is ready for activation</strong>
-          <p>Completed Run {{ prepared.run_id }} verified {{ prepared.households }} households and {{ prepared.subsidy_findings }} subsidy findings. The active dataset is unchanged.</p>
+          <p>Assessment results verified {{ prepared.households }} households and {{ prepared.subsidy_findings }} subsidy findings. The active dataset is unchanged.</p>
         </div>
       </div>
     {% endif %}
@@ -46,14 +55,14 @@
         <div>
           <p class="import-panel-kicker">Stored data</p>
           <h2 id="batches-heading">Stored batches</h2>
-          <p>Review each batch's assessment status. Only an inactive batch without an existing run can be prepared here.</p>
+          <p>Review each batch's assessment status. Only an inactive batch without existing assessment results can be prepared here.</p>
         </div>
         <span class="import-batch-count">{{ batches|length }} {{ 'batch' if batches|length == 1 else 'batches' }}</span>
       </div>
 
       <div class="import-safety-note import-preparation-note" role="note">
         <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-        <p><strong>Preparation does not activate a dataset.</strong> The system calculates, stores and verifies a completed assessment run. An administrator must activate it separately.</p>
+        <p><strong>Preparation does not activate a dataset.</strong> The system calculates, stores and verifies the batch's assessment results. An administrator must activate it separately.</p>
       </div>
 
       {% if batches %}
@@ -86,11 +95,11 @@
                 <dl class="import-batch-facts">
                   <div><dt>Households</dt><dd>{{ batch.households }}</dd></div>
                   <div>
-                    <dt>Assessment run</dt>
+                    <dt>Assessment results</dt>
                     <dd>
-                      {% if batch.designated_run_id %}Run {{ batch.designated_run_id }} designated
-                      {% elif batch.run_count %}{{ batch.run_count }} existing {{ 'run' if batch.run_count == 1 else 'runs' }}
-                      {% else %}Not yet run{% endif %}
+                      {% if batch.designated_run_id %}Verified and ready
+                      {% elif batch.run_count %}Needs technical review
+                      {% else %}Not prepared{% endif %}
                     </dd>
                   </div>
                 </dl>
@@ -114,17 +123,42 @@
                 </div>
               {% elif not batch.is_active and batch.designated_run_id %}
                 <div class="import-batch-ready-panel">
-                  <p>This batch has a verified, designated assessment run.</p>
+                  <p>This batch has verified assessment results and is ready for activation.</p>
                   <a href="{{ url_for('main.import_activation') }}">Review for activation <span aria-hidden="true">→</span></a>
                 </div>
               {% elif not batch.is_active and batch.run_count %}
                 <div class="import-batch-attention-panel">
-                  <p>An assessment run exists, but no completed run is designated. This batch requires technical review before activation.</p>
+                  <p>Assessment results exist but are not ready for activation. This batch requires technical review.</p>
                 </div>
               {% else %}
                 <div class="import-batch-active-panel">
                   <p>This is the dataset currently visible to staff.</p>
                 </div>
+              {% endif %}
+
+              {% if not batch.is_active %}
+                {% if batch.can_delete %}
+                  <details class="import-batch-delete-panel">
+                    <summary>Delete stored batch</summary>
+                    <div class="import-batch-delete-content">
+                      <div>
+                        <strong>Permanently delete Batch {{ batch.id }}</strong>
+                        <p>This removes its imported source records and all prepared assessment results. It cannot be undone; the original files would need to be imported again. The deletion audit is retained.</p>
+                      </div>
+                      <form method="post" action="{{ url_for('main.delete_stored_import_batch', batch_id=batch.id) }}" class="import-delete-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <label for="delete-batch-{{ batch.id }}">Type <strong>DELETE BATCH {{ batch.id }}</strong></label>
+                        <input id="delete-batch-{{ batch.id }}" name="delete_confirmation" type="text" required autocomplete="off" pattern="DELETE BATCH {{ batch.id }}">
+                        <button type="submit">Permanently delete batch</button>
+                      </form>
+                    </div>
+                  </details>
+                {% else %}
+                  <div class="import-batch-delete-unavailable">
+                    <strong>Deletion unavailable</strong>
+                    <p>This batch has retained operational or audit dependencies and must remain stored.</p>
+                  </div>
+                {% endif %}
               {% endif %}
             </article>
           {% endfor %}

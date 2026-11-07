@@ -17,12 +17,15 @@ from app import create_app
 from cbms_csv_fixtures import FIRST_HOUSEHOLD_ID, synthetic_csv_frames, write_csv_fixture
 from services.cbms_preflight import load_csv_bundle, validate_csv_bundle
 from services.data_loader import EXCEL_FILES, REFERENCE_FILES
-from services.import_references import load_import_references
+from services.import_references import (
+    ImportReferenceError, load_import_references, load_system_import_references,
+)
 from services.import_validation import (
     ImportValidationUnavailable, STAGING_MARKER, _cleanup_stale,
     validate_admin_upload,
 )
 from services.batch_activation import BatchActivationError, describe_citizen_work
+from services.import_batch_deletion import BatchDeletionError
 from services.survey_years import (
     is_supported_survey_year, latest_survey_year, parse_survey_year,
     supported_survey_years,
@@ -96,6 +99,14 @@ class ImportValidationTests(unittest.TestCase):
         report = validate_csv_bundle(self.root, reference_frames=self.references)
         self.assertTrue(report["passed"], report)
         self.assertEqual(set(report["references"]), set(REFERENCE_FILES))
+
+    def test_system_reference_package_is_versioned_and_fails_closed(self):
+        loaded, version = load_system_import_references(self.root / "reference")
+        self.assertEqual(set(loaded), set(REFERENCE_FILES))
+        self.assertRegex(version, r"^[0-9a-f]{64}$")
+        (self.root / "reference" / next(iter(REFERENCE_FILES.values()))).unlink()
+        with self.assertRaisesRegex(ImportReferenceError, "package_invalid"):
+            load_system_import_references(self.root / "reference")
 
     def test_contact_number_column_is_accepted_and_kept_as_text(self):
         datasets = {name: frame.copy() for name, frame in self.datasets.items()}
@@ -268,6 +279,9 @@ class ImportRouteTests(unittest.TestCase):
         self.auth_user = patch("services.auth.load_session_user", side_effect=load_user)
         self.auth_user.start()
         self.addCleanup(self.auth_user.stop)
+        self.active_dataset = patch("routes.main.active_dataset_exists", return_value=True)
+        self.active_dataset_mock = self.active_dataset.start()
+        self.addCleanup(self.active_dataset.stop)
 
     def test_admin_can_open_and_staff_cannot_open_import_page(self):
         response = self.client.get("/administration/import")
@@ -283,6 +297,21 @@ class ImportRouteTests(unittest.TestCase):
         self.assertNotIn(b'<option value="2023">', response.data)
         self.role = "lgu_staff"
         self.assertEqual(self.client.get("/administration/import").status_code, 403)
+
+    def test_first_import_page_explains_baseline_setup(self):
+        self.active_dataset_mock.return_value = False
+        response = self.client.get("/administration/import")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"No dataset is active yet", response.data)
+        self.assertIn(b"activating it as the baseline dataset", response.data)
+
+    def test_empty_admin_dashboard_leads_to_first_import(self):
+        self.active_dataset_mock.return_value = False
+        with patch("routes.main.get_active_dashboard_summary", return_value=None):
+            response = self.client.get("/administration")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"No active dataset yet", response.data)
+        self.assertIn(b"Go to Data Import", response.data)
 
     def test_post_requires_supported_year_and_never_imports_data(self):
         with self.client.session_transaction() as session:
@@ -357,11 +386,14 @@ class ImportRouteTests(unittest.TestCase):
 
     def test_admin_preparation_page_and_action_require_confirmation(self):
         batches = [{"id": 8, "survey_year": 2022, "is_active": False,
-                    "households": 2, "run_count": 0, "designated_run_id": None}]
+                    "households": 2, "run_count": 0, "designated_run_id": None,
+                    "can_delete": True}]
         with patch("routes.main.list_import_batches", return_value=batches):
             response = self.client.get("/administration/import/batches")
             self.assertEqual(response.status_code, 200)
             self.assertIn(b"Run and verify assessments", response.data)
+            self.assertIn(b"Delete stored batch", response.data)
+            self.assertIn(b"DELETE BATCH 8", response.data)
             self.role = "lgu_staff"
             self.assertEqual(self.client.get(
                 "/administration/import/batches").status_code, 403)
@@ -380,6 +412,60 @@ class ImportRouteTests(unittest.TestCase):
                 })
                 self.assertEqual(response.status_code, 200)
                 prepare.assert_called_once_with(8, 7)
+
+    def test_admin_can_permanently_delete_confirmed_inactive_batch(self):
+        with self.client.session_transaction() as session:
+            session["csrf_token"] = "synthetic-csrf"
+        result = {"batch_id": 8, "survey_year": 2024,
+                  "households": 2, "assessment_runs": 1}
+        with patch("routes.main.delete_import_batch", return_value=result) as delete, \
+             patch("routes.main.list_import_batches", return_value=[]):
+            response = self.client.post(
+                "/administration/import/batches/8/delete",
+                data={"csrf_token": "synthetic-csrf",
+                      "delete_confirmation": "DELETE BATCH 8"},
+                follow_redirects=True,
+            )
+        self.assertEqual(response.status_code, 200)
+        delete.assert_called_once_with(8, 7, "DELETE BATCH 8")
+        self.assertIn(b"Batch 8 for survey year 2024 was permanently deleted", response.data)
+        self.assertIn(b"deletion audit was retained", response.data)
+
+    def test_batch_deletion_requires_exact_confirmation_and_admin_role(self):
+        with self.client.session_transaction() as session:
+            session["csrf_token"] = "synthetic-csrf"
+        with patch(
+                "routes.main.delete_import_batch",
+                side_effect=BatchDeletionError("invalid_deletion_request"),
+        ) as delete:
+            response = self.client.post(
+                "/administration/import/batches/8/delete",
+                data={"csrf_token": "synthetic-csrf", "delete_confirmation": "delete"},
+            )
+        self.assertEqual(response.status_code, 400)
+        delete.assert_called_once_with(8, 7, "delete")
+        self.role = "lgu_staff"
+        response = self.client.post(
+            "/administration/import/batches/8/delete",
+            data={"csrf_token": "synthetic-csrf",
+                  "delete_confirmation": "DELETE BATCH 8"},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_batch_deletion_explains_retained_history_block(self):
+        with self.client.session_transaction() as session:
+            session["csrf_token"] = "synthetic-csrf"
+        with patch("routes.main.delete_import_batch",
+                   side_effect=BatchDeletionError("retained_history")), \
+             patch("routes.main.list_import_batches", return_value=[]):
+            response = self.client.post(
+                "/administration/import/batches/8/delete",
+                data={"csrf_token": "synthetic-csrf",
+                      "delete_confirmation": "DELETE BATCH 8"},
+                follow_redirects=True,
+            )
+        self.assertIn(b"retained activation, staff-review, or citizen-account history",
+                      response.data)
 
     def test_activation_page_requires_admin_confirmation_and_fresh_context(self):
         overview = {
@@ -410,7 +496,8 @@ class ImportRouteTests(unittest.TestCase):
                 ).status_code, 400)
                 switch.assert_not_called()
                 switch.return_value = {
-                    "target_batch_id": 8, "previous_batch_id": 1,
+                    "action": "activate", "target_batch_id": 8,
+                    "previous_batch_id": 1,
                 }
                 response = self.client.post(
                     "/administration/import/activation",
@@ -421,6 +508,37 @@ class ImportRouteTests(unittest.TestCase):
                     8, 7, expected_active_batch_id=1,
                     expected_active_run_id=3, expected_target_run_id=4,
                 )
+
+    def test_first_activation_uses_empty_previous_context(self):
+        overview = {
+            "active": None, "initial_setup": True,
+            "candidates": [{"id": 8, "survey_year": 2022,
+                            "households": 2, "run_id": 4}],
+            "in_progress_reviews": 0, "citizen_accounts": 0,
+            "open_document_requests": 0, "citizen_work_summary": "",
+        }
+        with patch("routes.main.activation_overview", return_value=overview), \
+             patch("routes.main.activate_prepared_batch", return_value={
+                 "action": "initial_activate", "target_batch_id": 8,
+                 "previous_batch_id": None,
+             }) as activate:
+            response = self.client.get("/administration/import/activation")
+            self.assertIn(b"Activate first dataset", response.data)
+            with self.client.session_transaction() as session:
+                session["csrf_token"] = "synthetic-csrf"
+            response = self.client.post(
+                "/administration/import/activation",
+                data={
+                    "csrf_token": "synthetic-csrf", "target_batch_id": "8",
+                    "expected_active_batch_id": "", "expected_active_run_id": "",
+                    "expected_target_run_id": "4", "confirm_switch": "yes",
+                },
+            )
+        self.assertEqual(response.status_code, 302)
+        activate.assert_called_once_with(
+            8, 7, expected_active_batch_id=None,
+            expected_active_run_id=None, expected_target_run_id=4,
+        )
 
     def test_activation_page_blocks_switch_for_citizen_records(self):
         overview = {

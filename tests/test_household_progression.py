@@ -38,6 +38,19 @@ def period(year, batch_id, score, flags, *, unknown=0):
             "score": score, "findings": findings}
 
 
+def index_result(*, state="needs_import", matches=None, dashboard=None, query=""):
+    batch = {"survey_year": 2022, "batch_id": 1, "run_id": 11,
+             "display_label": "2022", "is_active": True}
+    return {
+        "batches": [batch], "pending": [], "ready_years": [2022],
+        "pending_years": [], "active": batch, "selected": None,
+        "earlier": None, "later": None, "state": state,
+        "dashboard": dashboard,
+        "filters": {"query": query, "search_by": "uuid", "barangay": ""},
+        "barangays": ["Synthetic East"], "matches": matches or [],
+    }
+
+
 class ProgressionComparisonTests(unittest.TestCase):
     def setUp(self):
         self.first = period(2022, 1, 12.5, {"School Attendance": 1})
@@ -122,6 +135,36 @@ class ProgressionComparisonTests(unittest.TestCase):
         self.assertIsNotNone(signature)
         source.assert_called_once()
 
+    def test_dashboard_reconciles_households_outcomes_and_indicators(self):
+        first = self.first["findings"]
+        second = self.second["findings"]
+        rows = [
+            {"earlier_findings": first, "later_findings": second},
+            {"earlier_findings": first, "later_findings": None},
+            {"earlier_findings": None, "later_findings": second},
+        ]
+        with patch.object(progression.household_progression,
+                          "list_comparison_findings", return_value=rows), \
+             patch.object(progression, "_mpi_signature", return_value=("same",)):
+            result = progression._build_dashboard(MagicMock(), self.first, self.second)
+        self.assertEqual(result["households"], {
+            "earlier": 2, "later": 2, "matched": 1,
+            "earlier_only": 1, "later_only": 1,
+        })
+        self.assertEqual(result["outcomes"]["Improved"], 1)
+        self.assertEqual(sum(result["outcomes"].values()), 1)
+        self.assertEqual(len(result["indicators"]), 16)
+        self.assertEqual(sum(result["indicators"][0]["counts"].values()), 1)
+
+    def test_search_rules_keep_uuid_preferred_but_allow_names(self):
+        self.assertEqual(progression._search_text(" 1111 ", "uuid"), "1111")
+        self.assertEqual(progression._search_text(" Synthetic   Head ", "name"),
+                         "Synthetic Head")
+        with self.assertRaises(progression.InvalidProgressionSelection):
+            progression._search_text("x", "name")
+        with self.assertRaises(progression.InvalidProgressionSelection):
+            progression._search_text("not-a-uuid", "uuid")
+
 
 class ProgressionRouteTests(unittest.TestCase):
     def setUp(self):
@@ -145,15 +188,38 @@ class ProgressionRouteTests(unittest.TestCase):
     def test_staff_guard_and_historical_search(self):
         self.assertEqual(self.client.get("/assessments/progression").location, "/login")
         self._sign_in()
-        result = {"batches": [{"survey_year": 2022}], "query": "1111",
-                  "matches": [{"household_uuid": str(HOUSEHOLD_UUID), "years": [2022]}]}
-        with patch("routes.assessments.search_households", return_value=result) as query:
+        result = index_result(query="1111", matches=[{
+            "household_uuid": str(HOUSEHOLD_UUID), "years": [2022],
+            "head_name": "Synthetic Head", "barangay": "Synthetic East",
+            "availability": "2022 only",
+        }])
+        with patch("routes.assessments.get_progression_index", return_value=result) as query:
             response = self.client.get("/assessments/progression?q=1111")
         self.assertEqual(response.status_code, 200)
-        query.assert_called_once_with("1111")
+        query.assert_called_once_with("1111", "uuid", "", None, None)
         self.assertIn("Household Progression", response.text)
         self.assertIn(str(HOUSEHOLD_UUID), response.text)
+        self.assertIn("Synthetic Head", response.text)
+        self.assertIn("Household UUID (recommended)", response.text)
         self.assertIn("View history", response.text)
+
+    def test_staff_empty_state_does_not_link_to_admin_import(self):
+        self._sign_in()
+        with patch("routes.assessments.get_progression_index",
+                   return_value=index_result()):
+            response = self.client.get("/assessments/progression")
+        self.assertIn("Ask a system administrator", response.text)
+        self.assertNotIn("Import another survey year</a>", response.text)
+
+    def test_admin_empty_state_links_to_data_import(self):
+        self.user["role"] = "system_administrator"
+        self._sign_in()
+        with patch("routes.assessments.get_progression_index",
+                   return_value=index_result()):
+            response = self.client.get("/assessments/progression")
+        self.assertIn("Another survey year is needed", response.text)
+        self.assertIn('href="/administration/import"', response.text)
+        self.assertIn("Import another survey year", response.text)
 
     def test_invalid_comparison_query_is_rejected(self):
         self._sign_in()
@@ -251,10 +317,23 @@ class ProgressionPostgresTests(unittest.TestCase):
             (year, Jsonb({"household": ["uuid"]}), active),
         ).fetchone()[0]
         for position, household_uuid in enumerate(uuids, 1):
+            barangay = "Synthetic East" if position % 2 else "Synthetic West"
             self.connection.execute(
                 """INSERT INTO households (batch_id, uuid, source_row_number, responses)
                    VALUES (%s, %s, %s, %s)""",
-                (batch_id, household_uuid, position, Jsonb({"uuid": household_uuid})),
+                (batch_id, household_uuid, position,
+                 Jsonb({"uuid": household_uuid, "barangay": barangay})),
+            )
+            self.connection.execute(
+                """INSERT INTO household_members
+                   (batch_id, uuid, line_number, source_row_number, responses)
+                   VALUES (%s, %s, 1, %s, %s)""",
+                (batch_id, household_uuid, position, Jsonb({
+                    "a02_relation_to_hh_head": "1",
+                    "a01_first_name": f"Synthetic {year}",
+                    "a01_middle_name": "",
+                    "a01_last_name": f"Head {position}",
+                })),
             )
         self.connection.execute(
             """INSERT INTO mpi_code_mappings (batch_id, source_row_number, responses)
@@ -290,8 +369,8 @@ class ProgressionPostgresTests(unittest.TestCase):
     def test_same_uuid_links_years_and_retains_older_only_household(self):
         shared = str(HOUSEHOLD_UUID)
         older_only = "22222222-2222-4222-8222-222222222222"
-        first, _ = self._store_batch(2022, [shared, older_only])
-        second, _ = self._store_batch(2024, [shared], active=True)
+        first, first_run = self._store_batch(2022, [shared, older_only])
+        second, second_run = self._store_batch(2024, [shared], active=True)
         self.assertEqual(
             [(row["batch_id"], row["survey_year"]) for row in
              repository.list_ready_batches(self.connection)],
@@ -310,6 +389,21 @@ class ProgressionPostgresTests(unittest.TestCase):
         self.assertEqual(matches[0]["household_uuid"], older_only)
         self.assertEqual(repository.find_mapping_fingerprint(self.connection, first),
                          repository.find_mapping_fingerprint(self.connection, second))
+        self.assertEqual(repository.list_search_barangays(
+            self.connection, [first, second]), ["Synthetic East", "Synthetic West"])
+        by_name = repository.search_progression_households(
+            self.connection, [first, second], "Synthetic 2024 Head 1", "name",
+        )
+        self.assertEqual([row["household_uuid"] for row in by_name], [shared])
+        self.assertEqual(by_name[0]["years"], [2022, 2024])
+        by_barangay = repository.search_progression_households(
+            self.connection, [first, second], "", "uuid", "Synthetic West",
+        )
+        self.assertEqual([row["household_uuid"] for row in by_barangay], [older_only])
+        pairs = repository.list_comparison_findings(
+            self.connection, first, first_run, second, second_run,
+        )
+        self.assertEqual(len(pairs), 2)
 
 
 if __name__ == "__main__":

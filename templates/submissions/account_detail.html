@@ -4,15 +4,20 @@
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/citizen-accounts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/submissions.css') }}">
 {% endblock %}
 
 {% block content %}
   {# The shared household summary and account sections read their values from "page" and "results". #}
   {% set page = results %}
-  <header class="page-header account-header">
-    <a class="account-back" href="{{ list_url }}"><span aria-hidden="true">←</span> Back to Citizen Accounts</a>
-    <h1>Citizen Account</h1>
-    <p class="account-lead">Manage this household's representative account and the documents requested from them.</p>
+  <header class="page-header portal-hero submissions-header submissions-detail-header">
+    <a class="submissions-hero-back" href="{{ list_url }}"><span aria-hidden="true">←</span> Back to Citizen Accounts</a>
+    <div class="portal-hero-content">
+      <div>
+        <h1>Citizen Account</h1>
+        <p class="portal-hero-subtitle">Manage this household's representative account and requested documents.</p>
+      </div>
+    </div>
   </header>
 
   {% include 'citizen_accounts/_household_summary.html' %}

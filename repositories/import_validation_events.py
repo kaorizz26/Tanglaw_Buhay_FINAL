@@ -22,5 +22,6 @@ def purge_expired_attempts(connection):
     return connection.execute(
         """DELETE FROM import_validation_events
            WHERE batch_id IS NULL
+             AND outcome <> 'deleted'
              AND attempted_at < CURRENT_TIMESTAMP - INTERVAL '90 days'""",
     ).rowcount

@@ -13,7 +13,7 @@
         <div>
           <p class="import-hero-kicker">Administration</p>
           <h1>Data Import</h1>
-          <p class="portal-hero-subtitle">Check and securely store a Pozorrubio CBMS dataset for a supported survey year.</p>
+          <p class="portal-hero-subtitle">{% if initial_setup %}Import the first Pozorrubio CBMS dataset that will become the system baseline.{% else %}Check and securely store a Pozorrubio CBMS dataset for a supported survey year.{% endif %}</p>
         </div>
         <a class="portal-hero-action" href="{{ url_for('main.import_batches') }}">
           Manage stored batches <span aria-hidden="true">→</span>
@@ -43,7 +43,11 @@
 
       <div class="import-safety-note" role="note">
         <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-        <p><strong>Your active dataset will not change.</strong> A passing bundle is stored as inactive until its assessments are prepared and an administrator activates it.</p>
+        {% if initial_setup %}
+          <p><strong>No dataset is active yet.</strong> A passing bundle is stored safely first. You will prepare and verify its assessments before activating it as the baseline dataset.</p>
+        {% else %}
+          <p><strong>Your active dataset will not change.</strong> A passing bundle is stored as inactive until its assessments are prepared and an administrator activates it.</p>
+        {% endif %}
       </div>
 
       <form method="post" action="{{ url_for('main.data_import') }}" enctype="multipart/form-data" class="import-form">
@@ -140,7 +144,7 @@
           <span class="import-result-badge import-result-badge-{{ 'pass' if report_passed else 'fail' }}">{{ 'Passed' if report_passed else 'Needs attention' }}</span>
         </div>
         {% if batch_id %}
-          <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>Stored survey year {{ survey_year_value }} as inactive batch {{ batch_id }}. Assessments have not been run and the active dataset is unchanged.</p></div>
+          <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>Stored survey year {{ survey_year_value }} as inactive batch {{ batch_id }}. Assessments have not been run. {% if initial_setup %}Prepare this batch before activating the first dataset.{% else %}The active dataset is unchanged.{% endif %}</p></div>
         {% elif error %}
           {# The error banner at the top of the page already explains why nothing was stored. #}
         {% elif report_passed %}

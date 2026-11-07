@@ -12,12 +12,14 @@
 
 .queue-status-cards a {
   display: block;
-  padding: 14px 16px;
+  padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-top: 3px solid var(--gold);
+  border-radius: 12px;
   background: var(--surface);
   text-decoration: none;
   color: var(--navy);
+  box-shadow: 0 8px 26px rgb(16 42 63 / 5%);
 }
 
 .queue-status-cards a:hover {
@@ -81,7 +83,7 @@
   padding: 4px;
   gap: 4px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface-muted);
 }
 

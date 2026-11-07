@@ -1,7 +1,20 @@
 /* Household identity and shared assessment metrics */
 .detail-header {
   gap: 10px;
-  margin-bottom: 0;
+  margin-bottom: 20px;
+  padding: 24px 28px 28px;
+  border: 1px solid #25465b;
+  border-left: 4px solid var(--gold);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 90% 15%, rgb(217 191 137 / 23%), transparent 28%),
+    linear-gradient(115deg, #102b3f 0%, #1d475d 100%);
+  box-shadow: 0 18px 38px rgb(16 42 63 / 13%);
+}
+
+.assessment-detail-hero .page-heading h1,
+.assessment-detail-hero .detail-head-name {
+  color: #fff;
 }
 
 .back-to-prioritization {
@@ -35,6 +48,18 @@
   text-decoration: none;
 }
 
+.assessment-detail-hero .context-navigation {
+  border-color: rgb(255 255 255 / 42%);
+  background: rgb(255 255 255 / 7%);
+  color: #fff;
+}
+
+.assessment-detail-hero .context-navigation:hover {
+  border-color: #fff;
+  background: rgb(255 255 255 / 14%);
+  color: #fff;
+}
+
 .context-navigation:focus-visible {
   outline: 3px solid #167eb5;
   outline-offset: 3px;
@@ -46,6 +71,10 @@
   font-weight: 700;
 }
 
+.assessment-detail-hero .detail-household-id {
+  color: #e7d4ad;
+}
+
 .household-identity {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -53,10 +82,10 @@
   gap: 16px 28px;
   margin-top: 8px;
   padding: 14px 18px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--gold-border);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-left: 3px solid var(--gold);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 7%);
 }
 
 .detail-head-name {
@@ -76,10 +105,10 @@
 
 .survey-year-panel {
   padding: 6px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid #e7d4ad;
   border-radius: 6px;
-  background: var(--surface-muted);
-  color: var(--navy);
+  background: #e7d4ad;
+  color: #183446;
   font-size: 0.9375rem;
   white-space: nowrap;
 }
@@ -110,11 +139,21 @@
   font-size: 0.875rem;
 }
 
+.assessment-detail-hero .household-records dt,
+.assessment-detail-hero .household-uuid dt {
+  color: #c5d5de;
+}
+
 .household-records dd,
 .household-uuid dd {
   margin: 2px 0 0;
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+.assessment-detail-hero .household-records dd,
+.assessment-detail-hero .household-uuid dd {
+  color: #fff;
 }
 
 .detail-record-id {
@@ -148,9 +187,10 @@
   min-width: 0;
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-top: 3px solid var(--gold);
+  border-radius: 12px;
   background: var(--surface);
-  box-shadow: 0 2px 8px rgb(16 42 63 / 5%);
+  box-shadow: 0 8px 26px rgb(16 42 63 / 5%);
 }
 
 .assessment-metrics dt {
@@ -255,8 +295,9 @@
   min-width: 0;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 14px;
   background: var(--surface);
+  box-shadow: 0 8px 26px rgb(16 42 63 / 4%);
 }
 
 .overview-layout .detail-section h2 {

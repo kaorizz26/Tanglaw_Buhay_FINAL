@@ -276,6 +276,87 @@ def find_matching_bundle(connection, bundle_sha256):
     return row[0] if row else None
 
 
+def lock_import_batch_for_deletion(connection, batch_id):
+    """Lock one batch and return only the metadata needed by deletion policy."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT id, survey_year, is_active, validation_status, source_provenance
+               FROM dataset_batches WHERE id = %s FOR UPDATE""",
+            (batch_id,),
+        ).fetchone()
+
+
+def import_batch_deletion_blockers(connection, batch_id):
+    """Report retained records that make permanent batch deletion unsafe."""
+    activation_exists, reviews_exist, accounts_exist = connection.execute(
+        """SELECT to_regclass('batch_activation_events') IS NOT NULL,
+                  to_regclass('staff_reviews') IS NOT NULL,
+                  to_regclass('citizen_accounts') IS NOT NULL""",
+    ).fetchone()
+    activation = (
+        """(SELECT count(*) FROM batch_activation_events
+             WHERE previous_batch_id = %(batch_id)s OR target_batch_id = %(batch_id)s)"""
+        if activation_exists else "0"
+    )
+    reviews = (
+        "(SELECT count(*) FROM staff_reviews WHERE batch_id = %(batch_id)s)"
+        if reviews_exist else "0"
+    )
+    accounts = (
+        "(SELECT count(*) FROM citizen_accounts WHERE batch_id = %(batch_id)s)"
+        if accounts_exist else "0"
+    )
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            f"""SELECT {activation} AS activation_events,
+                       {reviews} AS staff_reviews,
+                       {accounts} AS citizen_accounts,
+                       (SELECT count(*) FROM import_validation_events
+                        WHERE reference_batch_id = %(batch_id)s) AS reference_uses,
+                       (SELECT count(*) FROM import_validation_events
+                        WHERE batch_id = %(batch_id)s AND outcome = 'staged') AS audit_rows""",
+            {"batch_id": batch_id},
+        ).fetchone()
+
+
+def delete_import_batch_records(connection, batch_id, actor_id):
+    """Delete one approved batch graph after the service has locked and checked it."""
+    counts = connection.execute(
+        """SELECT (SELECT count(*) FROM households WHERE batch_id = %s),
+                  (SELECT count(*) FROM assessment_runs WHERE batch_id = %s)""",
+        (batch_id, batch_id),
+    ).fetchone()
+    audited = connection.execute(
+        """UPDATE import_validation_events
+           SET outcome = 'deleted', deleted_batch_id = batch_id, batch_id = NULL,
+               deleted_at = clock_timestamp(), deleted_by = %s
+           WHERE batch_id = %s AND outcome = 'staged'""",
+        (actor_id, batch_id),
+    ).rowcount
+    if audited != 1:
+        raise RuntimeError("batch_deletion_audit_missing")
+    connection.execute(
+        "DELETE FROM assessment_run_selections WHERE batch_id = %s", (batch_id,),
+    )
+    connection.execute(
+        "DELETE FROM household_assessments WHERE batch_id = %s", (batch_id,),
+    )
+    connection.execute("DELETE FROM assessment_runs WHERE batch_id = %s", (batch_id,))
+    for table in (
+            "member_health", "child_death_records", "household_members", "households",
+            "codebook_values", "mpi_code_mappings", "variable_definitions"):
+        connection.execute(
+            sql.SQL("DELETE FROM {} WHERE batch_id = %s").format(sql.Identifier(table)),
+            (batch_id,),
+        )
+    removed = connection.execute(
+        "DELETE FROM dataset_batches WHERE id = %s AND NOT is_active", (batch_id,),
+    ).rowcount
+    if removed != 1:
+        raise RuntimeError("batch_deletion_rejected")
+    return {"households": counts[0], "assessment_runs": counts[1]}
+
+
 def activate_batch(connection, batch_id):
     """Replace the active pointer; previous survey rows and references stay intact."""
     connection.execute("UPDATE dataset_batches SET is_active = false WHERE is_active")
@@ -407,3 +488,22 @@ def switch_prepared_batch(connection, previous_batch_id, target_batch_id,
     ).rowcount
     if previous != 1 or target != 1:
         raise RuntimeError("batch_switch_rejected")
+
+
+def activate_initial_prepared_batch(connection, target_batch_id, target_run_id):
+    """Set the first active pointer only while no other batch is active."""
+    changed = connection.execute(
+        """UPDATE dataset_batches b SET is_active = true
+           WHERE b.id = %s AND NOT b.is_active
+             AND b.validation_status = 'validated'
+             AND NOT EXISTS (SELECT 1 FROM dataset_batches WHERE is_active)
+             AND EXISTS (
+               SELECT 1 FROM assessment_run_selections s
+               JOIN assessment_runs r ON r.id = s.run_id AND r.batch_id = s.batch_id
+               WHERE s.batch_id = b.id AND s.run_id = %s
+                 AND r.status = 'completed' AND r.completed_at IS NOT NULL
+             )""",
+        (target_batch_id, target_run_id),
+    ).rowcount
+    if changed != 1:
+        raise RuntimeError("initial_activation_rejected")
