@@ -1,5 +1,14 @@
-<div class="program-statistics" data-statistics-tabs>
+<div class="program-statistics" data-statistics-tabs data-statistics-sections>
     <p class="program-statistics__subtitle" data-i18n="programData.sectionSubtitle">Tingnan ang mga tantiyang batay sa pananaliksik at mga available na estadistika ng pamahalaan tungkol sa naaabot ng programa at mga taong pinaglilingkuran nito.</p>
+
+    <div class="program-statistics__sections" role="tablist" aria-label="Pumili ng uri ng datos" data-i18n-aria-label="programData.sectionLabel">
+        <button id="{{ statistic_prefix }}-statistics-overview-tab" type="button" role="tab" aria-selected="true" aria-controls="{{ statistic_prefix }}-statistics-overview-panel" tabindex="0" data-statistics-section-tab="overview" data-i18n="programData.section.overview">Pangkalahatang bilang</button>
+        <button id="{{ statistic_prefix }}-statistics-demographics-tab" type="button" role="tab" aria-selected="false" aria-controls="{{ statistic_prefix }}-statistics-demographics-panel" tabindex="-1" data-statistics-section-tab="demographics" data-i18n="programData.section.demographics">Demograpiko</button>
+        <button id="{{ statistic_prefix }}-statistics-activities-tab" type="button" role="tab" aria-selected="false" aria-controls="{{ statistic_prefix }}-statistics-activities-panel" tabindex="-1" data-statistics-section-tab="activities" data-i18n="programData.section.activities">Mga aktibidad</button>
+        <button id="{{ statistic_prefix }}-statistics-achievements-tab" type="button" role="tab" aria-selected="false" aria-controls="{{ statistic_prefix }}-statistics-achievements-panel" tabindex="-1" data-statistics-section-tab="achievements" data-i18n="programData.section.achievements">Mga dokumentadong resulta</button>
+    </div>
+
+    <div id="{{ statistic_prefix }}-statistics-overview-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-statistics-overview-tab" data-statistics-section-panel="overview">
 
     <div class="program-statistics__geography" role="tablist" aria-label="Pumili ng saklaw ng lugar" data-i18n-aria-label="programData.geographyLabel">
         <button id="{{ statistic_prefix }}-geography-pozorrubio-tab" type="button" role="tab" aria-selected="true" aria-controls="{{ statistic_prefix }}-geography-pozorrubio-panel" tabindex="0" data-statistics-tab="pozorrubio" data-i18n="programData.geography.pozorrubio">Pozorrubio</button>
@@ -141,20 +150,41 @@
         </div>
     </div>
 {% endif %}
+{% set geography = "pozorrubio" %}
+{% set geography_data = public_overview[geography] %}
+{% include "public_program_verified_statistics.html" %}
+{% if not geography_data.records %}
+        <div class="program-statistics-empty program-statistics-empty--compact">
+            <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
+            <div>
+                <h3 data-i18n="programData.empty.localOfficialTitle">Wala pang beripikadong opisyal na bilang para sa Pozorrubio</h3>
+                <p data-i18n="programData.empty.localOfficialBody">Ang tantiya sa itaas ay nananatiling hiwalay sa opisyal na datos. Walang opisyal na bilang na ipinapakita hangga't hindi nakukumpirma ang pinagmulan at panahon ng ulat.</p>
+            </div>
+        </div>
+{% endif %}
     </div>
 
     <div id="{{ statistic_prefix }}-geography-pangasinan-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-geography-pangasinan-tab" tabindex="0" data-statistics-panel="pangasinan" hidden>
+{% set geography = "pangasinan" %}
+{% set geography_data = public_overview[geography] %}
+{% include "public_program_verified_statistics.html" %}
+{% if not geography_data.records %}
         <div class="program-statistics-empty">
             <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
             <div>
-                <h3 data-i18n="programData.empty.pangasinanTitle">Wala pang handang estadistika para sa Pangasinan</h3>
+                <h3 data-i18n="{% if geography_data.status == 'pending_verification' %}programData.empty.pendingTitle{% else %}programData.empty.pangasinanTitle{% endif %}">{% if geography_data.status == "pending_verification" %}Sinusuri pa ang estadistika para sa Pangasinan{% else %}Wala pang handang estadistika para sa Pangasinan{% endif %}</h3>
                 <p data-i18n="programData.empty.body">Hindi pa available ang beripikadong estadistika ng programa para sa saklaw na ito. Hindi kami awtomatikong gumagamit ng datos mula sa ibang lugar bilang kapalit.</p>
                 <button type="button" data-statistics-show="pozorrubio" data-i18n="programData.empty.action">Tingnan ang tantiya sa Pozorrubio</button>
             </div>
         </div>
+{% endif %}
     </div>
 
     <div id="{{ statistic_prefix }}-geography-region-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-geography-region-tab" tabindex="0" data-statistics-panel="region" hidden>
+{% set geography = "region" %}
+{% set geography_data = public_overview[geography] %}
+{% include "public_program_verified_statistics.html" %}
+{% if not geography_data.records %}
         <div class="program-statistics-empty">
             <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
             <div>
@@ -163,9 +193,14 @@
                 <button type="button" data-statistics-show="pozorrubio" data-i18n="programData.empty.action">Tingnan ang tantiya sa Pozorrubio</button>
             </div>
         </div>
+{% endif %}
     </div>
 
     <div id="{{ statistic_prefix }}-geography-philippines-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-geography-philippines-tab" tabindex="0" data-statistics-panel="philippines" hidden>
+{% set geography = "philippines" %}
+{% set geography_data = public_overview[geography] %}
+{% include "public_program_verified_statistics.html" %}
+{% if not geography_data.records %}
         <div class="program-statistics-empty">
             <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
             <div>
@@ -174,5 +209,41 @@
                 <button type="button" data-statistics-show="pozorrubio" data-i18n="programData.empty.action">Tingnan ang tantiya sa Pozorrubio</button>
             </div>
         </div>
+{% endif %}
     </div>
+
+        <section class="program-data-about" aria-labelledby="{{ statistic_prefix }}-data-method-title">
+            <div>
+                <p class="program-data-about__kicker" data-i18n="programData.aboutKicker">Pag-unawa sa mga bilang</p>
+                <h3 id="{{ statistic_prefix }}-data-method-title" data-i18n="programData.aboutOverviewTitle">Tungkol sa datos na ipinapakita</h3>
+            </div>
+            <ul>
+                <li data-i18n="programData.aboutPoint.verified">Ang beripikadong datos ng pamahalaan ay may malinaw na lugar, panahon ng ulat, yunit, at opisyal na pinagmulan.</li>
+                <li data-i18n="programData.aboutPoint.estimate">Ang mga tantiya sa Pozorrubio ay hiwalay at hindi itinuturing na opisyal na tala ng programa.</li>
+                <li data-i18n="programData.aboutPoint.missing">Kapag kulang ang datos, hindi ginagamit ang bilang mula sa ibang lugar bilang kapalit.</li>
+                <li data-i18n="programData.aboutPoint.eligibility">Ang mga bilang ay hindi nagpapatunay ng kasalukuyang eligibility, pag-apruba, o pagtanggap ng benepisyo.</li>
+            </ul>
+            <dl class="program-data-about__legend">
+                <div>
+                    <dt data-i18n="programData.classification.coverage">Saklaw ng programa</dt>
+                    <dd data-i18n="programData.classificationHelp.coverage">Bilang ng sambahayan o taong kasama sa naiulat na saklaw.</dd>
+                </div>
+                <div>
+                    <dt data-i18n="programData.classification.activity">Serbisyong naihatid</dt>
+                    <dd data-i18n="programData.classificationHelp.activity">Serbisyo, pondo, o partisipasyon na naitala; hindi awtomatikong epekto.</dd>
+                </div>
+                <div>
+                    <dt data-i18n="programData.classification.achievement">Dokumentadong resulta</dt>
+                    <dd data-i18n="programData.classificationHelp.achievement">Resultang tahasang iniulat ng opisyal na pinagmulan.</dd>
+                </div>
+            </dl>
+        </section>
+    </div>
+
+    {% for category in ("demographics", "activities", "achievements") %}
+    <div id="{{ statistic_prefix }}-statistics-{{ category }}-panel" role="tabpanel" aria-labelledby="{{ statistic_prefix }}-statistics-{{ category }}-tab" data-statistics-section-panel="{{ category }}" hidden>
+        {% set section_data = public_sections[category] %}
+        {% include "public_program_data_section.html" %}
+    </div>
+    {% endfor %}
 </div>

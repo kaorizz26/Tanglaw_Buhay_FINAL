@@ -4,6 +4,7 @@ from flask import Blueprint, abort, render_template
 
 from routes.main import require_fixture_source
 from services.public_programs import PUBLIC_PROGRAMS
+from services.public_statistics import get_public_overview, get_public_sections
 
 
 public = Blueprint("public", __name__)
@@ -31,6 +32,8 @@ def program(program_slug):
         program_templates.get(program_slug, "public_program.html"),
         program=details,
         program_slug=program_slug,
+        public_overview=get_public_overview(program_slug),
+        public_sections=get_public_sections(program_slug),
         other_programs={
             slug: item for slug, item in PUBLIC_PROGRAMS.items()
             if slug != program_slug

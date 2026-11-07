@@ -31,6 +31,180 @@ OVERLAPPING_GROUPS = "overlapping_groups"
 
 VERIFIED_ON = "2026-11-06"
 
+PUBLIC_GEOGRAPHIES = (
+    "pozorrubio",
+    "pangasinan",
+    "region",
+    "philippines",
+)
+
+# Bundle 2 publishes only source-verified overview figures that have a clear
+# citizen-facing meaning. Detailed provincial comparisons remain reserved for
+# the later visualization bundle.
+APPROVED_OVERVIEW_RECORD_IDS = frozenset({
+    "4ps-pozorrubio-active-households-2023",
+    "4ps-region1-active-households-2025",
+    "4ps-philippines-active-households-2025",
+    "spisc-region1-active-pensioners-2026",
+    "spisc-philippines-recipients-2025",
+    "spisc-monthly-entitlement-2025",
+    "spisc-quarterly-equivalent-2025",
+    "slp-philippines-cumulative-participants-2011-2026",
+    "slp-philippines-microenterprise-beneficiaries-2011-2026",
+    "slp-philippines-employment-facilitation-beneficiaries-2011-2026",
+    "tupad-pangasinan-workers-assisted-2025",
+    "tupad-region1-workers-assisted-2025",
+    "tupad-region1-wages-released-2025",
+    "tupad-philippines-workers-assisted-2026",
+    "tupad-philippines-assistance-2026",
+})
+
+APPROVED_DEMOGRAPHIC_RECORD_IDS = frozenset({
+    "4ps-region1-children-0-18-2025",
+    "4ps-region1-regular-curriculum-children-2025",
+    "4ps-region1-senior-members-2025",
+    "4ps-region1-children-age-0-2-2025",
+    "4ps-region1-children-age-3-5-2025",
+    "4ps-region1-children-age-6-14-2025",
+    "4ps-region1-children-age-15-18-2025",
+    "4ps-region1-education-kindergarten-2025",
+    "4ps-region1-education-elementary-2025",
+    "4ps-region1-education-junior-high-2025",
+    "4ps-region1-education-senior-high-2025",
+    "4ps-region1-geography-rural-2025",
+    "4ps-region1-geography-urban-2025",
+    "4ps-region1-geography-gida-2025",
+    "4ps-philippines-female-grantees-2025",
+    "4ps-philippines-male-grantees-2025",
+})
+
+APPROVED_ACTIVITY_RECORD_IDS = frozenset({
+    "4ps-region1-alkansssya-participants-2026",
+    "4ps-pozorrubio-exiting-family-ordinance-2025",
+    "spisc-region1-new-pensioners-2026",
+    "slp-philippines-microenterprise-grantees-2026",
+    "slp-pangasinan-project-participants-2025",
+    "slp-pangasinan-project-associations-2025",
+    "slp-pangasinan-project-seed-capital-2025",
+    "tupad-ilocos-norte-workers-assisted-2025",
+    "tupad-la-union-workers-assisted-2025",
+    "tupad-ilocos-sur-workers-assisted-2025",
+})
+
+APPROVED_ACHIEVEMENT_RECORD_IDS = frozenset({
+    "4ps-region1-self-sufficient-households-2025",
+    "4ps-region1-licensure-topnotchers-2017-2026",
+    "4ps-pangasinan-licensure-topnotchers-2017-2026",
+})
+
+APPROVED_PUBLIC_RECORD_IDS = (
+    APPROVED_OVERVIEW_RECORD_IDS
+    | APPROVED_DEMOGRAPHIC_RECORD_IDS
+    | APPROVED_ACTIVITY_RECORD_IDS
+    | APPROVED_ACHIEVEMENT_RECORD_IDS
+)
+
+PUBLIC_CHART_DEFINITIONS = (
+    {
+        "id": "4ps-age-groups",
+        "program_slug": "4ps",
+        "category": DEMOGRAPHICS,
+        "title_fil": "Mga bata ayon sa pangkat ng edad",
+        "description_fil": (
+            "Mga naiulat na bilang ng batang miyembro ng 4Ps sa Region I "
+            "noong Nobyembre 2025."
+        ),
+        "record_labels_fil": (
+            ("4ps-region1-children-age-0-2-2025", "Edad 0–2"),
+            ("4ps-region1-children-age-3-5-2025", "Edad 3–5"),
+            ("4ps-region1-children-age-6-14-2025", "Edad 6–14"),
+            ("4ps-region1-children-age-15-18-2025", "Edad 15–18"),
+        ),
+    },
+    {
+        "id": "4ps-education-levels",
+        "program_slug": "4ps",
+        "category": DEMOGRAPHICS,
+        "title_fil": "Mga bata ayon sa antas ng edukasyon",
+        "description_fil": (
+            "Mga batang nasa regular na K–12 curriculum sa Region I noong "
+            "Nobyembre 2025."
+        ),
+        "record_labels_fil": (
+            ("4ps-region1-education-kindergarten-2025", "Kindergarten"),
+            ("4ps-region1-education-elementary-2025", "Elementarya"),
+            ("4ps-region1-education-junior-high-2025", "Junior high school"),
+            ("4ps-region1-education-senior-high-2025", "Senior high school"),
+        ),
+    },
+    {
+        "id": "4ps-area-classification",
+        "program_slug": "4ps",
+        "category": DEMOGRAPHICS,
+        "title_fil": "Mga sambahayan ayon sa uri ng lugar",
+        "description_fil": (
+            "Mga aktibong sambahayang 4Ps sa Region I ayon sa rural, urban, "
+            "at GIDA classification noong Nobyembre 2025."
+        ),
+        "record_labels_fil": (
+            ("4ps-region1-geography-rural-2025", "Rural"),
+            ("4ps-region1-geography-urban-2025", "Urban"),
+            ("4ps-region1-geography-gida-2025", "GIDA"),
+        ),
+    },
+    {
+        "id": "4ps-grantee-sex",
+        "program_slug": "4ps",
+        "category": DEMOGRAPHICS,
+        "title_fil": "Mga itinalagang grantee ayon sa kasarian",
+        "description_fil": (
+            "Mga babaeng at lalaking itinalagang grantee ng aktibong "
+            "sambahayan sa buong bansa noong Nobyembre 2025."
+        ),
+        "record_labels_fil": (
+            ("4ps-philippines-female-grantees-2025", "Babae"),
+            ("4ps-philippines-male-grantees-2025", "Lalaki"),
+        ),
+    },
+    {
+        "id": "tupad-provincial-workers",
+        "program_slug": "tupad",
+        "category": ACTIVITIES,
+        "title_fil": "Mga manggagawang natulungan ayon sa lalawigan",
+        "description_fil": (
+            "Mga manggagawang nabigyan ng pansamantalang trabaho sa Region I "
+            "mula Enero hanggang Nobyembre 2025."
+        ),
+        "record_labels_fil": (
+            ("tupad-pangasinan-workers-assisted-2025", "Pangasinan"),
+            ("tupad-ilocos-norte-workers-assisted-2025", "Ilocos Norte"),
+            ("tupad-la-union-workers-assisted-2025", "La Union"),
+            ("tupad-ilocos-sur-workers-assisted-2025", "Ilocos Sur"),
+        ),
+    },
+)
+
+PUBLIC_CHART_RECORD_IDS = frozenset(
+    record_id
+    for chart in PUBLIC_CHART_DEFINITIONS
+    for record_id, _label in chart["record_labels_fil"]
+)
+
+PUBLIC_REPORTING_PERIOD_LABELS_FIL = {
+    "2023-12-31": "Disyembre 31, 2023",
+    "2025-11": "Nobyembre 2025",
+    "2026-09-23": "Setyembre 23, 2026",
+    "2025": "2025",
+    "2011-2026-05": "2011–Mayo 2026",
+    "2025-01/2025-11": "Enero–Nobyembre 2025",
+    "2026-01/2026-06": "Enero–Hunyo 2026",
+    "2017-2026-04-30": "2017–Abril 30, 2026",
+    "2026-03-25/2026-10-02": "Marso 25–Oktubre 2, 2026",
+    "2026 through 2026-09-23": "Enero–Setyembre 23, 2026",
+    "2026 through 2026-06-25": "Enero–Hunyo 25, 2026",
+    "2025-03-26": "Marso 26, 2025",
+}
+
 PUBLIC_STATISTIC_SOURCES = {
     "4ps_q4_2023": {
         "agency": "Department of Social Welfare and Development",
@@ -186,7 +360,7 @@ def _record(
         "limitations": tuple(limitations),
         "related_record_id": related_record_id,
         "supplied_value": supplied_value,
-        "approved_for_public_display": False,
+        "approved_for_public_display": record_id in APPROVED_PUBLIC_RECORD_IDS,
     }
 
 
@@ -635,12 +809,127 @@ def get_public_statistics(
     return tuple(records)
 
 
+def _present_public_record(record):
+    """Attach source and citizen-facing period details to one public record."""
+
+    return {
+        **record,
+        "source": PUBLIC_STATISTIC_SOURCES[record["source_id"]],
+        "reporting_period_display": PUBLIC_REPORTING_PERIOD_LABELS_FIL.get(
+            record["reporting_period"],
+            record["reporting_period"],
+        ),
+    }
+
+
+def get_public_overview(program_slug):
+    """Return approved overview records and honest gaps by geography."""
+
+    approved_records = get_public_statistics(
+        program_slug,
+        category=OVERVIEW,
+    )
+    overview = {}
+
+    for geography in PUBLIC_GEOGRAPHIES:
+        records = []
+        for record in approved_records:
+            if record["geography"] != geography:
+                continue
+            if record["id"] not in APPROVED_OVERVIEW_RECORD_IDS:
+                continue
+            records.append(_present_public_record(record))
+
+        matching_gap = next((
+            gap for gap in PUBLIC_STATISTIC_GAPS
+            if gap["program_slug"] == program_slug
+            and gap["category"] == OVERVIEW
+            and gap["geography"] == geography
+        ), None)
+        overview[geography] = {
+            "records": tuple(records),
+            "status": "available" if records else (
+                matching_gap["status"] if matching_gap else UNAVAILABLE
+            ),
+        }
+
+    return overview
+
+
+def _build_public_charts(program_slug, category, records_by_id):
+    """Build count-based charts without exposing derived percentages."""
+
+    charts = []
+    for definition in PUBLIC_CHART_DEFINITIONS:
+        if definition["program_slug"] != program_slug:
+            continue
+        if definition["category"] != category:
+            continue
+
+        chart_records = [
+            records_by_id[record_id]
+            for record_id, _label in definition["record_labels_fil"]
+            if record_id in records_by_id
+        ]
+        if len(chart_records) != len(definition["record_labels_fil"]):
+            continue
+
+        largest_value = max(record["value"] for record in chart_records)
+        items = []
+        for (record_id, label_fil), record in zip(
+                definition["record_labels_fil"], chart_records):
+            items.append({
+                **_present_public_record(record),
+                "label_fil": label_fil,
+                "bar_scale": round(record["value"] / largest_value * 100, 2),
+            })
+
+        charts.append({
+            **definition,
+            "items": tuple(items),
+            "source": items[0]["source"],
+            "reporting_period_display": items[0]["reporting_period_display"],
+        })
+
+    return tuple(charts)
+
+
+def get_public_sections(program_slug):
+    """Return approved non-overview content for the shared public interface."""
+
+    approved_records = {
+        record["id"]: record
+        for record in get_public_statistics(program_slug)
+    }
+    sections = {}
+
+    for category in (DEMOGRAPHICS, ACTIVITIES, ACHIEVEMENTS):
+        charts = _build_public_charts(
+            program_slug,
+            category,
+            approved_records,
+        )
+        records = tuple(
+            _present_public_record(record)
+            for record in approved_records.values()
+            if record["category"] == category
+            and record["id"] not in PUBLIC_CHART_RECORD_IDS
+        )
+        sections[category] = {
+            "records": records,
+            "charts": charts,
+            "available": bool(records or charts),
+        }
+
+    return sections
+
+
 def validate_public_statistic_registry():
     """Return human-readable integrity errors for the curated registry."""
 
     errors = []
     valid_programs = {"4ps", "spisc", "slp", "tupad"}
-    valid_geographies = {"pozorrubio", "pangasinan", "region", "philippines"}
+    valid_geographies = set(PUBLIC_GEOGRAPHIES)
     valid_categories = {OVERVIEW, DEMOGRAPHICS, ACTIVITIES, ACHIEVEMENTS}
     valid_classifications = {COVERAGE, ACTIVITY, ACHIEVEMENT, PROGRAM_INFORMATION}
     valid_statuses = {VERIFIED, PENDING_VERIFICATION, MISSING_SOURCE}

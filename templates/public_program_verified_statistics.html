@@ -1,0 +1,14 @@
+{% if geography_data.records %}
+<section class="program-verified" aria-labelledby="{{ statistic_prefix }}-{{ geography }}-verified-title">
+    <header class="program-verified__header">
+        <div>
+            <p class="program-verified__kicker" data-i18n="programData.verifiedKicker">Beripikadong datos ng pamahalaan</p>
+            <h3 id="{{ statistic_prefix }}-{{ geography }}-verified-title" data-i18n="programData.verifiedTitle">Mga opisyal na bilang para sa napiling lugar</h3>
+        </div>
+        <span class="program-verified__status" data-i18n="programData.verifiedStatus">Nasuri ang pinagmulan</span>
+    </header>
+
+    {% set statistic_records = geography_data.records %}
+    {% include "public_program_statistic_cards.html" %}
+</section>
+{% endif %}

@@ -1,0 +1,29 @@
+{% if section_data.available %}
+<section class="program-data-section" aria-labelledby="{{ statistic_prefix }}-{{ category }}-content-title">
+    <header class="program-data-section__header">
+        <div>
+            <p class="program-data-section__kicker" data-i18n="programData.sectionContent.{{ category }}.kicker">Beripikadong datos ng pamahalaan</p>
+            <h3 id="{{ statistic_prefix }}-{{ category }}-content-title" data-i18n="programData.sectionContent.{{ category }}.title">{% if category == "demographics" %}Sino ang kabilang sa naiulat na bilang{% elif category == "activities" %}Mga dokumentadong serbisyo at partisipasyon{% else %}Mga dokumentadong resulta{% endif %}</h3>
+            <p data-i18n="programData.sectionContent.{{ category }}.body">{% if category == "demographics" %}Ang mga breakdown na ito ay mula sa opisyal na ulat at hindi hinango sa tantiya para sa Pozorrubio.{% elif category == "activities" %}Ipinapakita rito ang mga serbisyong naihatid at partisipasyon, hindi patunay ng pangmatagalang epekto.{% else %}Ipinapakita lamang rito ang mga resultang malinaw na dokumentado ng pinagmulan.{% endif %}</p>
+        </div>
+        <span class="program-verified__status" data-i18n="programData.verifiedStatus">Nasuri ang pinagmulan</span>
+    </header>
+
+    {% if section_data.records %}
+        {% set statistic_records = section_data.records %}
+        {% include "public_program_statistic_cards.html" %}
+    {% endif %}
+
+    {% if section_data.charts %}
+        {% include "public_program_charts.html" %}
+    {% endif %}
+</section>
+{% else %}
+<div class="program-statistics-empty program-statistics-empty--section">
+    <span class="program-statistics-empty__icon" aria-hidden="true">i</span>
+    <div>
+        <h3 data-i18n="programData.sectionEmpty.{{ category }}.title">{% if category == "demographics" %}Wala pang handang demograpikong datos{% elif category == "activities" %}Wala pang handang dokumentadong aktibidad{% else %}Wala pang handang dokumentadong resulta{% endif %}</h3>
+        <p data-i18n="programData.sectionEmpty.{{ category }}.body">{% if category == "demographics" %}Hindi ipinapalagay ang edad, kasarian, edukasyon, o iba pang katangian mula sa kasalukuyang mga tantiya. Beripikadong breakdown lamang ang ilalagay dito.{% elif category == "activities" %}Magpapakita lamang dito ng mga serbisyo at partisipasyong may malinaw na saklaw at pinagmulan.{% else %}Magpapakita lamang dito ng mga resultang may sapat na dokumentasyon. Ang bilang ng serbisyo o kalahok ay hindi awtomatikong itinuturing na tagumpay o epekto.{% endif %}</p>
+    </div>
+</div>
+{% endif %}

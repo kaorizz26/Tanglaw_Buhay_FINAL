@@ -1,0 +1,49 @@
+<div class="program-verified__grid">
+    {% for statistic in statistic_records %}
+    <article class="program-verified-card">
+        <div class="program-verified-card__topline">
+            <span data-i18n="programData.classification.{{ statistic.classification }}">{% if statistic.classification == 'coverage' %}Saklaw ng programa{% elif statistic.classification == 'program_information' %}Impormasyon ng programa{% elif statistic.classification == 'achievement' %}Dokumentadong resulta{% else %}Serbisyong naihatid{% endif %}</span>
+            <small data-i18n="programData.qualifier.{{ statistic.value_qualifier }}">{% if statistic.value_qualifier == 'approximate' %}Tinatayang opisyal na bilang{% elif statistic.value_qualifier == 'at_least' %}Hindi bababa sa{% else %}Eksaktong naiulat{% endif %}</small>
+        </div>
+        {% if statistic.value is not none %}
+        <p class="program-verified-card__value">
+            {% if statistic.value_qualifier == 'approximate' %}<span aria-hidden="true">~</span>{% elif statistic.value_qualifier == 'at_least' %}<span aria-hidden="true">≥</span>{% endif %}{% if statistic.unit == 'pesos' %}₱{% endif %}{{ "{:,}".format(statistic.value) }}
+        </p>
+        {% else %}
+        <p class="program-verified-card__initiative" data-i18n="programData.initiativeLabel">Lokal na inisyatiba</p>
+        {% endif %}
+        <h4 data-i18n="publicStatistic.{{ statistic.id }}.title">{{ statistic.title }}</h4>
+        <p class="program-verified-card__definition" data-i18n="publicStatistic.{{ statistic.id }}.definition">{{ statistic.definition }}</p>
+
+        <dl class="program-verified-card__details">
+            <div>
+                <dt data-i18n="programData.geographyLabelShort">Lugar</dt>
+                <dd data-i18n="programData.geography.{{ statistic.geography }}">{% if statistic.geography == 'region' %}Region I{% elif statistic.geography == 'philippines' %}Pilipinas{% else %}{{ statistic.geography|title }}{% endif %}</dd>
+            </div>
+            <div>
+                <dt data-i18n="programData.reportingPeriodLabel">Panahon ng ulat</dt>
+                <dd data-i18n="publicStatistic.{{ statistic.id }}.period">{{ statistic.reporting_period_display }}</dd>
+            </div>
+            <div>
+                <dt data-i18n="programData.unitLabel">Binibilang na yunit</dt>
+                <dd data-i18n="programData.verifiedUnit.{{ statistic.unit }}">{{ statistic.unit|replace('_', ' ')|title }}</dd>
+            </div>
+        </dl>
+
+        {% if statistic.limitations %}
+        <div class="program-verified-card__limitation">
+            <strong data-i18n="programData.limitationLabel">Mahalagang paalala</strong>
+            {% for limitation in statistic.limitations %}
+            <p data-i18n="publicStatistic.{{ statistic.id }}.limitation.{{ loop.index0 }}">{{ limitation }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <footer class="program-verified-card__source">
+            <span><strong data-i18n="programData.sourceLabel">Pinagmulan</strong>: {{ statistic.source.agency }}</span>
+            <span>{{ statistic.source.title }}</span>
+            <a href="{{ statistic.source.url }}" data-i18n="programData.sourceLink">Buksan ang opisyal na ulat</a>
+        </footer>
+    </article>
+    {% endfor %}
+</div>

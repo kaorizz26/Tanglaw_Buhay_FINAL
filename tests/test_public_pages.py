@@ -206,9 +206,16 @@ class PublicPagesTests(unittest.TestCase):
                 self.assertNotIn("Datos sa Pozorrubio", page.text)
                 self.assertEqual(page.text.count("data-statistics-tab="), 4)
                 self.assertEqual(page.text.count("data-statistics-panel="), 4)
-                self.assertEqual(page.text.count('aria-selected="true"'), 1)
-                self.assertEqual(page.text.count('aria-selected="false"'), 3)
-                self.assertEqual(page.text.count("data-statistics-show="), 3)
+                self.assertEqual(
+                    page.text.count("data-statistics-section-tab="),
+                    4,
+                )
+                self.assertEqual(
+                    page.text.count("data-statistics-section-panel="),
+                    4,
+                )
+                self.assertEqual(page.text.count('aria-selected="true"'), 2)
+                self.assertEqual(page.text.count('aria-selected="false"'), 6)
 
                 for geography in expected_geographies:
                     self.assertIn(
@@ -221,10 +228,81 @@ class PublicPagesTests(unittest.TestCase):
                     )
 
                 self.assertIn(
-                    "Hindi kami awtomatikong gumagamit ng datos mula sa "
-                    "ibang lugar bilang kapalit.",
+                    "Kapag kulang ang datos, hindi ginagamit ang bilang mula "
+                    "sa ibang lugar bilang kapalit.",
                     page.text,
                 )
+
+    def test_verified_overview_is_source_bound_and_estimates_stay_separate(self):
+        expected_values = {
+            "4ps": ("2,687", "144,939", "3,076,256"),
+            "spisc": ("201,142", "4,112,895", "₱1,000"),
+            "slp": ("4,530,000", "3,760,000", "450,769"),
+            "tupad": ("63,086", "157,342", "₱5,550,000,000"),
+        }
+
+        for slug, values in expected_values.items():
+            with self.subTest(slug=slug):
+                page = self.client.get(f"/public/programs/{slug}")
+
+                self.assertEqual(page.status_code, 200)
+                self.assertIn("program-estimate-dashboard", page.text)
+                self.assertIn("program-verified", page.text)
+                self.assertIn("Beripikadong datos ng pamahalaan", page.text)
+                self.assertIn("Buksan ang opisyal na ulat", page.text)
+                for value in values:
+                    self.assertIn(value, page.text)
+
+        four_ps = self.client.get("/public/programs/4ps")
+        self.assertNotIn("145,564", four_ps.text)
+        self.assertIn("Sinusuri pa ang estadistika para sa Pangasinan", four_ps.text)
+
+    def test_final_sections_publish_supported_data_and_preserve_gaps(self):
+        four_ps = self.client.get("/public/programs/4ps")
+        self.assertIn("Mga bata ayon sa pangkat ng edad", four_ps.text)
+        self.assertIn("Mga bata ayon sa antas ng edukasyon", four_ps.text)
+        self.assertIn(
+            'data-i18n="publicStatistic.'
+            '4ps-region1-alkansssya-participants-2026.title"',
+            four_ps.text,
+        )
+        self.assertIn(
+            'data-i18n="publicStatistic.'
+            '4ps-region1-self-sufficient-households-2025.title"',
+            four_ps.text,
+        )
+        self.assertNotIn("16,119", four_ps.text)
+
+        expected_activities = {
+            "spisc": "16,263",
+            "slp": "₱38,000,000",
+            "tupad": "Mga manggagawang natulungan ayon sa lalawigan",
+        }
+        for slug, activity_text in expected_activities.items():
+            with self.subTest(slug=slug):
+                page = self.client.get(f"/public/programs/{slug}")
+
+                self.assertIn("Wala pang handang demograpikong datos", page.text)
+                self.assertIn(activity_text, page.text)
+                self.assertIn(
+                    "Wala pang handang dokumentadong resulta",
+                    page.text,
+                )
+
+    def test_charts_show_counts_and_accessible_text_without_estimated_percentages(self):
+        four_ps = self.client.get("/public/programs/4ps")
+        self.assertEqual(four_ps.text.count('class="program-chart"'), 4)
+        self.assertIn("186,740", four_ps.text)
+        self.assertIn("2,646,582", four_ps.text)
+        self.assertIn('aria-describedby="fourps-4ps-age-groups-description"', four_ps.text)
+
+        tupad = self.client.get("/public/programs/tupad")
+        self.assertEqual(tupad.text.count('class="program-chart"'), 1)
+        for value in ("63,086", "56,186", "23,131", "14,939"):
+            self.assertIn(value, tupad.text)
+
+        self.assertNotIn("<canvas", four_ps.text)
+        self.assertNotIn("<canvas", tupad.text)
 
     def test_unknown_program_and_fixture_boundary(self):
         self.assertEqual(self.client.get("/public/programs/unknown").status_code, 404)

@@ -1,0 +1,31 @@
+<div class="program-charts">
+    {% for chart in section_data.charts %}
+    <figure class="program-chart" aria-labelledby="{{ statistic_prefix }}-{{ chart.id }}-title" aria-describedby="{{ statistic_prefix }}-{{ chart.id }}-description">
+        <figcaption>
+            <p class="program-chart__kicker" data-i18n="programData.chartVerifiedKicker">Beripikadong bilang</p>
+            <h4 id="{{ statistic_prefix }}-{{ chart.id }}-title" data-i18n="programChart.{{ chart.id }}.title">{{ chart.title_fil }}</h4>
+            <p id="{{ statistic_prefix }}-{{ chart.id }}-description" data-i18n="programChart.{{ chart.id }}.description">{{ chart.description_fil }}</p>
+        </figcaption>
+
+        <ul class="program-chart__items">
+            {% for item in chart["items"] %}
+            <li>
+                <div class="program-chart__item-heading">
+                    <span data-i18n="programChart.{{ chart.id }}.{{ item.id }}.label">{{ item.label_fil }}</span>
+                    <strong>{% if item.unit == 'pesos' %}₱{% endif %}{{ "{:,}".format(item.value) }}</strong>
+                </div>
+                <div class="program-chart__track" aria-hidden="true">
+                    <span style="--chart-scale: {{ item.bar_scale }}%"></span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <footer class="program-chart__source">
+            <span><strong data-i18n="programData.reportingPeriodLabel">Panahon ng ulat</strong>: <span data-i18n="programChart.{{ chart.id }}.period">{{ chart.reporting_period_display }}</span></span>
+            <span><strong data-i18n="programData.sourceLabel">Pinagmulan</strong>: {{ chart.source.agency }}</span>
+            <a href="{{ chart.source.url }}" data-i18n="programData.sourceLink">Buksan ang opisyal na ulat</a>
+        </footer>
+    </figure>
+    {% endfor %}
+</div>

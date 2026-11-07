@@ -1,14 +1,17 @@
-"""Public statistic candidates remain source-bound and unpublished by default."""
+"""Public statistics remain source-bound and explicitly approved."""
 
 import unittest
 from urllib.parse import urlparse
 
 from services.public_statistics import (
+    APPROVED_PUBLIC_RECORD_IDS,
     MISSING_SOURCE,
     PUBLIC_STATISTIC_GAPS,
     PUBLIC_STATISTIC_RECORDS,
     PUBLIC_STATISTIC_SOURCES,
     VERIFIED,
+    get_public_overview,
+    get_public_sections,
     get_public_statistics,
     validate_public_statistic_registry,
 )
@@ -24,19 +27,80 @@ class PublicStatisticsTests(unittest.TestCase):
     def test_registry_has_no_integrity_errors(self):
         self.assertEqual(validate_public_statistic_registry(), ())
 
-    def test_new_records_are_not_published_before_ui_approval(self):
-        self.assertTrue(PUBLIC_STATISTIC_RECORDS)
-        self.assertTrue(all(
-            not record["approved_for_public_display"]
+    def test_only_explicitly_approved_verified_records_are_public(self):
+        approved_ids = {
+            record["id"]
             for record in PUBLIC_STATISTIC_RECORDS
-        ))
+            if record["approved_for_public_display"]
+        }
+
+        self.assertEqual(approved_ids, set(APPROVED_PUBLIC_RECORD_IDS))
         for program_slug in ("4ps", "spisc", "slp", "tupad"):
             with self.subTest(program_slug=program_slug):
-                self.assertEqual(get_public_statistics(program_slug), ())
+                published = get_public_statistics(program_slug)
+                self.assertTrue(published)
+                self.assertTrue(all(
+                    record["verification_status"] == VERIFIED
+                    and record["source_id"]
+                    for record in published
+                ))
                 self.assertTrue(get_public_statistics(
                     program_slug,
                     approved_only=False,
                 ))
+
+    def test_public_overview_groups_sources_and_missing_states(self):
+        four_ps = get_public_overview("4ps")
+        self.assertEqual(
+            four_ps["pozorrubio"]["records"][0]["value"],
+            2687,
+        )
+        self.assertIn(
+            "pantawid.dswd.gov.ph",
+            four_ps["pozorrubio"]["records"][0]["source"]["url"],
+        )
+        self.assertEqual(four_ps["pangasinan"]["records"], ())
+        self.assertEqual(
+            four_ps["pangasinan"]["status"],
+            "pending_verification",
+        )
+
+        spisc = get_public_overview("spisc")
+        self.assertEqual(spisc["pozorrubio"]["records"], ())
+        self.assertEqual(spisc["pozorrubio"]["status"], "unavailable")
+
+    def test_tupad_provincial_records_publish_only_in_activity_chart(self):
+        sections = get_public_sections("tupad")
+        charts = sections["activities"]["charts"]
+
+        self.assertEqual(len(charts), 1)
+        self.assertEqual(charts[0]["id"], "tupad-provincial-workers")
+        self.assertEqual(
+            tuple(item["value"] for item in charts[0]["items"]),
+            (63086, 56186, 23131, 14939),
+        )
+        overview = get_public_overview("tupad")
+        self.assertEqual(
+            tuple(record["id"] for record in overview["region"]["records"]),
+            (
+                "tupad-region1-workers-assisted-2025",
+                "tupad-region1-wages-released-2025",
+            ),
+        )
+
+    def test_final_sections_preserve_supported_and_missing_categories(self):
+        four_ps = get_public_sections("4ps")
+        self.assertTrue(four_ps["demographics"]["available"])
+        self.assertEqual(len(four_ps["demographics"]["charts"]), 4)
+        self.assertTrue(four_ps["activities"]["available"])
+        self.assertTrue(four_ps["achievements"]["available"])
+
+        for program_slug in ("spisc", "slp", "tupad"):
+            with self.subTest(program_slug=program_slug):
+                sections = get_public_sections(program_slug)
+                self.assertFalse(sections["demographics"]["available"])
+                self.assertTrue(sections["activities"]["available"])
+                self.assertFalse(sections["achievements"]["available"])
 
     def test_verified_records_use_registered_government_sources(self):
         allowed_domains = {
