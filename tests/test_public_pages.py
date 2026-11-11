@@ -24,12 +24,20 @@ class PublicPagesTests(unittest.TestCase):
             landing = self.client.get("/public")
             self.assertEqual(landing.status_code, 200)
             self.assertIn("Tanglaw-Buhay", landing.text)
+            self.assertIn("tanglaw-buhay-logo-dark.png", landing.text)
+            self.assertNotIn("assets/logos/logo_B.png", landing.text)
             self.assertNotIn("program-statistic-card", landing.text)
+            self.assertEqual(
+                landing.text.count('class="program-card__link"'),
+                len(PUBLIC_PROGRAMS),
+            )
             for slug in PUBLIC_PROGRAMS:
                 with self.subTest(slug=slug):
                     page = self.client.get(f"/public/programs/{slug}")
                     self.assertEqual(page.status_code, 200)
                     self.assertIn(PUBLIC_PROGRAMS[slug]["name"], page.text)
+                    self.assertIn("tanglaw-buhay-logo-dark.png", page.text)
+                    self.assertNotIn("assets/logos/logo_B.png", page.text)
                     self.assertIn('href="/public#programs"', page.text)
             connection.assert_not_called()
 
@@ -58,6 +66,26 @@ class PublicPagesTests(unittest.TestCase):
                 )
                 self.assertLess(header_start, button_position)
                 self.assertLess(button_position, heading_position)
+
+    def test_program_pages_use_one_help_panel_with_official_facebook_link(self):
+        facebook_url = "https://www.facebook.com/share/1EbibfythW/"
+
+        for slug in PUBLIC_PROGRAMS:
+            with self.subTest(slug=slug):
+                page = self.client.get(f"/public/programs/{slug}")
+                translation_key = "fourps" if slug == "4ps" else slug
+
+                self.assertEqual(page.status_code, 200)
+                self.assertEqual(page.text.count('class="fourps-help"'), 1)
+                self.assertNotIn("fourps-question", page.text)
+                self.assertNotIn("(075) 556-7015", page.text)
+                self.assertIn(f'href="{facebook_url}"', page.text)
+                self.assertIn('target="_blank"', page.text)
+                self.assertIn('rel="noopener noreferrer"', page.text)
+                self.assertIn(
+                    f'data-i18n="{translation_key}.help.facebookAction"',
+                    page.text,
+                )
 
     def test_research_estimates_are_clearly_labeled_and_published(self):
         expected_estimates = {
@@ -243,7 +271,8 @@ class PublicPagesTests(unittest.TestCase):
     def test_public_assets_are_served(self):
         paths = [
             "css/public.css", "js/public.js",
-            "assets/logos/logo_A.png", "assets/logos/logo_B.png",
+            "assets/logos/tanglaw-buhay-logo-light.png",
+            "assets/logos/tanglaw-buhay-logo-dark.png",
             "assets/images/header_backdrop.jpg",
             *(details["icon"] for details in PUBLIC_PROGRAMS.values()),
         ]

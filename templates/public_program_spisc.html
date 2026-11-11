@@ -2,7 +2,7 @@
 
 {% block page_kind %}program-spisc{% endblock %}
 {% block title %}SPISC | Tanglaw-Buhay{% endblock %}
-{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">{% endblock %}
+{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/tanglaw-buhay-logo-dark.png') }}" alt="">{% endblock %}
 
 {% block content %}
 <article class="fourps-page spisc-page" data-program-slug="spisc">
@@ -151,13 +151,13 @@
 
         <section class="fourps-help" id="help" aria-labelledby="help-title">
             <div class="fourps-help__content">
-                <h2 id="help-title" data-i18n="spisc.help.title">Kailangan ng Tulong?</h2>
-                <p data-i18n="spisc.help.body">Tumawag o bumisita sa Pozorrubio MSWDO desk para sa mga katanungan tungkol sa inyong aplikasyon sa Social Pension. Ang aming mga kawani ay handang tumulong tungkol sa bawat hakbang.</p>
+                <h2 id="help-title" data-i18n="spisc.help.title">Kailangan ng tulong o may karagdagang tanong?</h2>
+                <p data-i18n="spisc.help.body">Makipag-ugnayan sa Pozorrubio MSWDO para sa mga katanungan tungkol sa inyong aplikasyon sa Social Pension. Ang aming mga kawani ay handang gumabay sa bawat hakbang.</p>
             </div>
             <ul class="fourps-help__details">
                 <li>
-                    <span data-i18n="spisc.help.hotlineLabel">Hotline</span>
-                    <strong>(075) 556-7015</strong>
+                    <span data-i18n="spisc.help.facebookLabel">Opisyal na Facebook Page</span>
+                    <a href="https://www.facebook.com/share/1EbibfythW/" target="_blank" rel="noopener noreferrer" data-i18n="spisc.help.facebookAction">Buksan ang MSWDO Facebook Page</a>
                 </li>
                 <li>
                     <span data-i18n="spisc.help.scheduleLabel">Oras ng Opisina</span>
@@ -169,14 +169,6 @@
                 </li>
             </ul>
         </section>
-
-        <aside class="fourps-question" aria-labelledby="question-title">
-            <div>
-                <h2 id="question-title" data-i18n="spisc.question.title">May karagdagang katanungan?</h2>
-                <p data-i18n="spisc.question.body">Narito ang aming MSWDO staff upang sagutin ang inyong mga katanungan.</p>
-            </div>
-            <a class="public-button public-button--primary" href="#help" data-i18n="spisc.question.action">Bumisita sa MSWDO</a>
-        </aside>
     </div>
 </article>
 {% endblock %}

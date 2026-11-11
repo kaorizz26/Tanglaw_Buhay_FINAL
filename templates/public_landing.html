@@ -1,7 +1,7 @@
 {% extends "public_base.html" %}
 
 {% block title %}Tanglaw-Buhay | Gabay sa mga Programang Panlipunan{% endblock %}
-{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/logo_B.png') }}" alt="">{% endblock %}
+{% block header_logo %}<img src="{{ url_for('static', filename='assets/logos/tanglaw-buhay-logo-dark.png') }}" alt="">{% endblock %}
 
 {% block content %}
 <section class="public-hero" aria-labelledby="hero-title">
@@ -41,7 +41,7 @@
                 <p class="program-card__code">{{ program.code }}</p>
                 <h3>{{ program.name }}</h3>
                 <p class="program-card__description" data-i18n="program.{{ slug }}.cardDescription">{{ program.card_description }}</p>
-                <a href="{{ url_for('public.program', program_slug=slug) }}">
+                <a class="program-card__link" href="{{ url_for('public.program', program_slug=slug) }}">
                     <span data-i18n="actions.learnMore">Alamin Pa</span>
                     <span aria-hidden="true">&#8594;</span>
                 </a>

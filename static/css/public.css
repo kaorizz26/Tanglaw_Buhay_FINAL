@@ -1,20 +1,21 @@
 :root {
     color-scheme: light;
-    --public-navy-950: #071d36;
-    --public-navy-900: #0b2e55;
-    --public-navy-800: #123f70;
-    --public-blue-700: #1e5f9c;
-    --public-blue-600: #2877b5;
-    --public-blue-100: #e9f3fb;
-    --public-gold-500: #d4a52d;
-    --public-gold-100: #fbf3db;
-    --public-ink: #15283b;
-    --public-muted: #5e6f7f;
-    --public-line: #dce5ed;
-    --public-canvas: #f7f9fb;
+    --public-navy-950: #102b38;
+    --public-navy-900: #1a3a4a;
+    --public-navy-800: #254d5e;
+    --public-blue-700: #2d7a8a;
+    --public-blue-600: #398c9b;
+    --public-blue-100: #e8f3f4;
+    --public-gold-500: #e8a020;
+    --public-gold-100: #fbf1dc;
+    --public-sand-300: #e7d3a5;
+    --public-ink: #18333f;
+    --public-muted: #5c6e75;
+    --public-line: #d8e2e4;
+    --public-canvas: #f4f7f8;
     --public-white: #ffffff;
-    --public-shadow: 0 18px 44px rgb(10 45 80 / 10%);
-    --public-shadow-soft: 0 8px 24px rgb(10 45 80 / 8%);
+    --public-shadow: 0 18px 44px rgb(26 58 74 / 12%);
+    --public-shadow-soft: 0 8px 24px rgb(26 58 74 / 9%);
     --public-radius-lg: 24px;
     --public-radius-md: 16px;
     --public-container: 1180px;
@@ -94,7 +95,7 @@ p {
     position: sticky;
     z-index: 100;
     top: 0;
-    border-bottom: 1px solid rgb(11 46 85 / 9%);
+    border-bottom: 1px solid rgb(26 58 74 / 10%);
     background: rgb(255 255 255 / 94%);
     backdrop-filter: blur(14px);
 }
@@ -120,7 +121,7 @@ p {
     display: grid;
     width: 43px;
     height: 43px;
-    overflow: hidden;
+    overflow: visible;
     flex: 0 0 auto;
     place-items: center;
 }
@@ -130,7 +131,7 @@ p {
     width: 43px;
     height: 43px;
     object-fit: contain;
-    transform: scale(1.82);
+    filter: drop-shadow(0 4px 10px rgb(26 58 74 / 12%));
 }
 
 .public-brand span {
@@ -158,7 +159,7 @@ p {
 .public-nav a {
     position: relative;
     padding: 28px 0 24px;
-    color: #31475c;
+    color: #334f5b;
     font-size: 0.92rem;
     font-weight: 650;
     text-decoration: none;
@@ -190,9 +191,9 @@ p {
     align-items: center;
     justify-content: center;
     gap: 3px;
-    color: #7b8996;
-    background: #eef3f7;
-    border: 1px solid #dce5ed;
+    color: #718288;
+    background: #edf3f4;
+    border: 1px solid var(--public-line);
     border-radius: 999px;
 }
 
@@ -200,7 +201,7 @@ p {
     min-width: 42px;
     min-height: 32px;
     padding: 4px 8px;
-    color: #536576;
+    color: #4f656e;
     background: transparent;
     border: 0;
     border-radius: 999px;
@@ -213,13 +214,13 @@ p {
 .language-switcher button.is-active {
     color: var(--public-white);
     background: var(--public-navy-900);
-    box-shadow: 0 2px 8px rgb(7 29 54 / 18%);
+    box-shadow: 0 2px 8px rgb(26 58 74 / 18%);
 }
 
 html[data-page-kind="landing"] .public-header {
     position: sticky;
     border-bottom-color: rgb(255 255 255 / 12%);
-    background: var(--public-navy-900);
+    background: rgb(26 58 74 / 97%);
     backdrop-filter: none;
 }
 
@@ -228,13 +229,11 @@ html[data-page-kind="landing"] .public-brand {
 }
 
 html[data-page-kind="landing"] .public-brand__mark {
-    background: #1f3a93;
-    border-radius: 11px;
-    box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+    border-radius: 50%;
 }
 
 html[data-page-kind="landing"] .public-brand__mark img {
-    transform: scale(1.56);
+    filter: drop-shadow(0 4px 12px rgb(0 0 0 / 18%));
 }
 
 html[data-page-kind="landing"] .public-brand small {
@@ -248,7 +247,7 @@ html[data-page-kind="landing"] .public-nav a {
 
 html[data-page-kind="landing"] .language-switcher {
     color: rgb(255 255 255 / 58%);
-    background: rgb(7 29 54 / 28%);
+    background: rgb(16 43 56 / 54%);
     border-color: rgb(255 255 255 / 26%);
 }
 
@@ -258,7 +257,7 @@ html[data-page-kind="landing"] .language-switcher button {
 
 html[data-page-kind="landing"] .language-switcher button.is-active {
     color: var(--public-navy-950);
-    background: var(--public-gold-500);
+    background: #f0aa2d;
     box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
 }
 
@@ -269,23 +268,23 @@ html[data-page-kind="landing"] .language-switcher button.is-active {
 .program-card a:focus-visible,
 .public-footer a:focus-visible,
 .public-breadcrumb a:focus-visible {
-    outline: 3px solid #79b9ea;
+    outline: 3px solid #63b6c3;
     outline-offset: 4px;
 }
 
 html[data-page-kind="landing"] .public-brand:focus-visible,
 html[data-page-kind="landing"] .public-nav a:focus-visible,
 html[data-page-kind="landing"] .language-switcher button:focus-visible {
-    outline-color: #f3cf72;
+    outline-color: #f4c45f;
 }
 
 .public-hero {
     position: relative;
     min-height: 520px;
     overflow: hidden;
-    background-color: var(--public-navy-950);
+    background-color: var(--public-navy-900);
     background-image:
-        linear-gradient(90deg, rgb(7 29 54 / 88%) 0%, rgb(7 29 54 / 76%) 37%, rgb(7 29 54 / 48%) 66%, rgb(7 29 54 / 36%) 100%),
+        linear-gradient(90deg, rgb(16 43 56 / 94%) 0%, rgb(26 58 74 / 86%) 38%, rgb(26 58 74 / 58%) 68%, rgb(45 122 138 / 34%) 100%),
         url("../assets/images/header_backdrop.jpg");
     background-position: center 20%;
     background-repeat: no-repeat;
@@ -320,7 +319,7 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
 
 .public-hero .public-eyebrow {
     margin: 0;
-    color: #f0c65b;
+    color: #f4bd55;
 }
 
 .public-hero h1,
@@ -381,12 +380,12 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
 
 .public-hero .public-button--primary {
     color: var(--public-navy-950);
-    background: var(--public-gold-500);
+    background: #eeaa30;
     box-shadow: 0 10px 24px rgb(0 0 0 / 24%);
 }
 
 .public-hero .public-button--primary:hover {
-    background: #e2b847;
+    background: #f4b948;
     box-shadow: 0 13px 28px rgb(0 0 0 / 28%);
 }
 
@@ -408,19 +407,19 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
 
 .public-hero .public-button--secondary {
     color: var(--public-white);
-    background: rgb(7 29 54 / 28%);
+    background: rgb(16 43 56 / 48%);
     border-color: rgb(255 255 255 / 64%);
     box-shadow: 0 8px 22px rgb(0 0 0 / 12%);
 }
 
 .public-hero .public-button--secondary:hover {
-    background: rgb(7 29 54 / 48%);
+    background: rgb(16 43 56 / 68%);
     border-color: var(--public-white);
     box-shadow: 0 10px 26px rgb(0 0 0 / 18%);
 }
 
 .public-hero .public-button:focus-visible {
-    outline-color: #f3cf72;
+    outline-color: #f4c45f;
 }
 
 .public-hero__helper {
@@ -491,7 +490,7 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
     background: var(--public-white);
     border: 1px solid var(--public-line);
     border-radius: var(--public-radius-md);
-    box-shadow: 0 5px 18px rgb(10 45 80 / 6%);
+    box-shadow: 0 5px 18px rgb(26 58 74 / 7%);
     transition: transform 190ms ease, box-shadow 190ms ease, border-color 190ms ease;
 }
 
@@ -513,8 +512,8 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
 .program-card:hover,
 .program-card:focus-within {
     z-index: 1;
-    border-color: #b9ccdc;
-    box-shadow: 0 18px 38px rgb(10 45 80 / 12%);
+    border-color: #adc8cd;
+    box-shadow: 0 18px 38px rgb(26 58 74 / 14%);
     transform: translateY(-6px);
 }
 
@@ -524,8 +523,8 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
     height: 78px;
     margin-bottom: 23px;
     place-items: center;
-    background: #f7fafc;
-    border: 1px solid #e4ebf1;
+    background: #f6fafb;
+    border: 1px solid #e0e9eb;
     border-radius: 50%;
 }
 
@@ -558,7 +557,7 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
     line-height: 1.65;
 }
 
-.program-card > a {
+.program-card__link {
     display: inline-flex;
     width: fit-content;
     margin-top: auto;
@@ -570,16 +569,23 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
     text-decoration: none;
 }
 
-.program-card > a span:last-child {
+.program-card__link::before {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    content: "";
+}
+
+.program-card__link span:last-child {
     transition: transform 180ms ease;
 }
 
-.program-card > a:hover span:last-child {
+.program-card__link:hover span:last-child {
     transform: translateX(4px);
 }
 
 .how-section {
-    background: #f1f6fa;
+    background: #edf4f4;
 }
 
 .public-section-heading--compact {
@@ -602,7 +608,7 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
     padding: 27px 34px 26px 0;
     grid-template-columns: auto 1fr;
     gap: 17px;
-    border-top: 1px solid #bfcfdb;
+    border-top: 1px solid #b9ced2;
 }
 
 .steps-list li:not(:last-child)::after {
@@ -643,7 +649,7 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
 
 .public-notice-section {
     padding-block: 34px 82px;
-    background: #f1f6fa;
+    background: #edf4f4;
 }
 
 .public-info-notice {
@@ -651,9 +657,9 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
     padding: 20px 24px;
     align-items: flex-start;
     gap: 15px;
-    color: #425a6f;
-    background: #e6f1f8;
-    border: 1px solid #c9deec;
+    color: #405b65;
+    background: #e2f0f1;
+    border: 1px solid #c4dfe2;
     border-radius: 13px;
 }
 
@@ -684,7 +690,7 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
 .public-footer__mark {
     width: 48px;
     height: 48px;
-    overflow: hidden;
+    overflow: visible;
     flex: 0 0 auto;
     border: 1px solid rgb(255 255 255 / 16%);
     border-radius: 11px;
@@ -693,8 +699,8 @@ html[data-page-kind="landing"] .language-switcher button:focus-visible {
 .public-footer__mark img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    transform: scale(1.15);
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgb(0 0 0 / 20%));
 }
 
 .public-footer strong {
@@ -948,7 +954,7 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
 .fourps-back-button:focus-visible,
 .fourps-tabs a:focus-visible,
 .fourps-related-card a:focus-visible,
-.fourps-question a:focus-visible {
+.fourps-help a:focus-visible {
     outline: 3px solid #79b9ea;
     outline-offset: 4px;
 }
@@ -979,8 +985,7 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
 
 .fourps-card > h2,
 .fourps-section-heading h2,
-.fourps-help h2,
-.fourps-question h2 {
+.fourps-help h2 {
     margin: 0;
     color: var(--public-navy-950);
     font-size: clamp(1.55rem, 3vw, 2.1rem);
@@ -2021,29 +2026,19 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
     line-height: 1.5;
 }
 
-.fourps-question {
-    display: flex;
-    padding: 30px 34px;
-    align-items: center;
-    justify-content: space-between;
-    gap: 32px;
-    background: #eaf4fb;
-    border: 1px solid #cce3f2;
-    border-radius: var(--public-radius-md);
+.fourps-help__details a {
+    width: fit-content;
+    color: var(--public-white);
+    font-size: 0.94rem;
+    font-weight: 760;
+    line-height: 1.5;
+    text-decoration-color: rgb(255 255 255 / 52%);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
 }
 
-.fourps-question h2 {
-    font-size: 1.35rem;
-}
-
-.fourps-question p {
-    margin: 7px 0 0;
-    color: #536b7f;
-    font-size: 0.9rem;
-}
-
-.fourps-question .public-button {
-    flex: 0 0 auto;
+.fourps-help__details a:hover {
+    text-decoration-color: var(--public-gold-500);
 }
 
 /* SPISC reuses the 4Ps information-page structure with its own accent. */
@@ -2070,8 +2065,7 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
 
 .spisc-page .fourps-back-button:focus-visible,
 .spisc-page .fourps-tabs a:focus-visible,
-.spisc-page .fourps-related-card a:focus-visible,
-.spisc-page .fourps-question a:focus-visible {
+.spisc-page .fourps-related-card a:focus-visible {
     outline-color: #bd74b6;
 }
 
@@ -2106,25 +2100,6 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
     border-color: #f6e9f5;
 }
 
-.spisc-page .fourps-question {
-    background: #fbf1fa;
-    border-color: #ecd7ea;
-}
-
-.spisc-page .fourps-question p {
-    color: #67536a;
-}
-
-.spisc-page .fourps-question .public-button--primary {
-    background: #6c1e68;
-    box-shadow: 0 9px 20px rgb(76 19 82 / 18%);
-}
-
-.spisc-page .fourps-question .public-button--primary:hover {
-    background: #541360;
-    box-shadow: 0 12px 26px rgb(76 19 82 / 24%);
-}
-
 /* SLP reuses the information-page structure with a restrained green accent. */
 .slp-page .fourps-header,
 .slp-page .fourps-help {
@@ -2149,8 +2124,7 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
 
 .slp-page .fourps-back-button:focus-visible,
 .slp-page .fourps-tabs a:focus-visible,
-.slp-page .fourps-related-card a:focus-visible,
-.slp-page .fourps-question a:focus-visible {
+.slp-page .fourps-related-card a:focus-visible {
     outline-color: #63b38e;
 }
 
@@ -2185,25 +2159,6 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
     border-color: #e7f3ec;
 }
 
-.slp-page .fourps-question {
-    background: #ecf6f0;
-    border-color: #cee6d7;
-}
-
-.slp-page .fourps-question p {
-    color: #4c685a;
-}
-
-.slp-page .fourps-question .public-button--primary {
-    background: #116345;
-    box-shadow: 0 9px 20px rgb(7 69 49 / 18%);
-}
-
-.slp-page .fourps-question .public-button--primary:hover {
-    background: #0b5039;
-    box-shadow: 0 12px 26px rgb(7 69 49 / 24%);
-}
-
 /* TUPAD reuses the information-page structure with a restrained red accent. */
 .tupad-page .fourps-header,
 .tupad-page .fourps-help {
@@ -2234,8 +2189,7 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
 
 .tupad-page .fourps-back-button:focus-visible,
 .tupad-page .fourps-tabs a:focus-visible,
-.tupad-page .fourps-related-card a:focus-visible,
-.tupad-page .fourps-question a:focus-visible {
+.tupad-page .fourps-related-card a:focus-visible {
     outline-color: #df7777;
 }
 
@@ -2268,25 +2222,6 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
 
 .tupad-page .fourps-timeline__number {
     border-color: #faeaea;
-}
-
-.tupad-page .fourps-question {
-    background: #fff1f1;
-    border-color: #f1d2d2;
-}
-
-.tupad-page .fourps-question p {
-    color: #705454;
-}
-
-.tupad-page .fourps-question .public-button--primary {
-    background: #a71717;
-    box-shadow: 0 9px 20px rgb(118 9 9 / 18%);
-}
-
-.tupad-page .fourps-question .public-button--primary:hover {
-    background: #850d0d;
-    box-shadow: 0 12px 26px rgb(118 9 9 / 24%);
 }
 
 /* Program information pages */
@@ -2833,11 +2768,6 @@ html[data-page-kind="program-tupad"] .language-switcher button:focus-visible {
         padding: 28px 22px;
     }
 
-    .fourps-question {
-        align-items: flex-start;
-        flex-direction: column;
-        padding: 26px 22px;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
