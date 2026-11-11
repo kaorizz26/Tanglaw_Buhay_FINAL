@@ -381,7 +381,7 @@ class ImportRouteTests(unittest.TestCase):
                 "csrf_token": "synthetic-csrf", "padding": "x" * 1024,
             })
         self.assertEqual(response.status_code, 413)
-        self.assertIn(b"256 MiB upload limit", response.data)
+        self.assertIn(b"upload limit of about 268 MB", response.data)
         audit.assert_called_once_with(7)
 
     def test_admin_preparation_page_and_action_require_confirmation(self):

@@ -382,6 +382,7 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                      "Overall Vulnerability Score", "These findings do not confirm eligibility or approval.",
                      "The available historical records did not contain enough clear information"):
             self.assertIn(text, response.text)
+        self.assertIn('class="detail-section screening-summary-panel"', response.text)
         bars = re.findall(r'<meter.*?value="([^"]+)".*?</meter>', response.text, re.S)
         expected = details.prepare_assessment_detail(self.source)["dimensions"]
         self.assertEqual([float(value) for value in bars], [item["points"] for item in expected])

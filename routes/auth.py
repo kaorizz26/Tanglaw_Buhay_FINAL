@@ -1,14 +1,19 @@
-"""Minimal login and CSRF-protected logout endpoints."""
+"""Staff sign-in, password help, password setup and protected sign-out endpoints."""
 
-from flask import Blueprint, abort, g, redirect, render_template, request, url_for
+from time import time
+
+from flask import Blueprint, abort, g, redirect, render_template, request, session, url_for
 import psycopg
 
 from services.auth import (
     ADMIN_ROLE, authenticate, check_csrf, csrf_token, end_session, start_session,
 )
 from services.initial_password import InitialPasswordError, set_initial_password
+from services.staff_password_reset_requests import request_staff_password_reset
 
 auth = Blueprint("auth", __name__)
+FORGOT_REQUEST_LIMIT = 5
+FORGOT_REQUEST_WINDOW_SECONDS = 15 * 60
 
 
 def landing_page(user):
@@ -42,6 +47,40 @@ def login():
         error = "Invalid username or password."
     return render_template("auth/login.html", error=error, csrf_token=csrf_token()), (
         401 if error else 200
+    )
+
+
+def forgot_request_is_allowed():
+    """Apply a small browser-session limit without changing the neutral response."""
+    now = int(time())
+    attempts = session.get("staff_forgot_password_attempts", [])
+    if not isinstance(attempts, list):
+        attempts = []
+    attempts = [value for value in attempts
+                if type(value) is int and now - FORGOT_REQUEST_WINDOW_SECONDS < value <= now]
+    allowed = len(attempts) < FORGOT_REQUEST_LIMIT
+    if allowed:
+        attempts.append(now)
+    session["staff_forgot_password_attempts"] = attempts
+    return allowed
+
+
+@auth.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """Accept a username without revealing its role, activity or existence."""
+    if g.user is not None:
+        return redirect(url_for(landing_page(g.user)))
+    if request.method == "POST":
+        check_csrf()
+        if forgot_request_is_allowed():
+            try:
+                request_staff_password_reset(request.form.get("username", ""))
+            except (psycopg.Error, RuntimeError):
+                abort(503, description="Password help is unavailable. Please try again.")
+        return redirect(url_for("auth.forgot_password", sent=1), code=303)
+    return render_template(
+        "auth/forgot_password.html", sent=request.args.get("sent") == "1",
+        csrf_token=csrf_token(),
     )
 
 

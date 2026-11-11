@@ -250,6 +250,13 @@ class ScreeningRouteTests(unittest.TestCase):
             self.assertEqual(response.text.count(
                 'class="detail-section screening-program screening-program--'
             ), 4)
+            navigation = re.search(
+                r'<nav class="screening-program-links".*?</nav>', response.text, re.S,
+            )[0]
+            self.assertEqual(navigation.count('class="screening-program-link '), 4)
+            self.assertEqual(navigation.count('Automated screening finding:'), 4)
+            for program in ("4Ps", "SLP", "SPISC", "TUPAD"):
+                self.assertIn(f'href="#screening-{program.lower()}"', navigation)
             self.assertRegex(response.text, r'tab=screening[^>]+aria-current="page"')
             for href in re.findall(r'href="([^"]+)"', response.text):
                 url = urlsplit(unescape(href))

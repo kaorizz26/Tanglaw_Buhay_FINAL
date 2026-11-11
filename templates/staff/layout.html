@@ -86,15 +86,17 @@
                   {% set progression_active = request.endpoint in ('assessments.progression_index', 'assessments.progression_detail') %}
                   {# Prioritization owns the other Assessments pages, but never pages outside Assessments. #}
                   {% set prioritization_active = request.blueprint == 'assessments' and not queue_active and not progression_active %}
-                  <details class="navigation-group" {% if request.blueprint == 'assessments' %}open{% endif %}>
+                  <details class="navigation-group" open>
                     <summary class="navigation-item">
                       <img src="{{ url_for('static', filename='icons/' ~ icon ~ '.svg') }}" alt="" width="20" height="20">
                       <span>{{ label }}</span>
                       <span class="navigation-chevron" aria-hidden="true">›</span>
                     </summary>
                     <ul class="navigation-children">
-                      <li><a class="navigation-item{% if prioritization_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if prioritization_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
-                      <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>Review Queue</a></li>
+                      {% if not is_admin %}
+                        <li><a class="navigation-item{% if prioritization_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if prioritization_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
+                      {% endif %}
+                      <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>{{ 'Review Activity' if is_admin else 'Review Queue' }}</a></li>
                       <li><a class="navigation-item{% if progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.progression_index') }}" {% if progression_active %}aria-current="page"{% endif %}>Household Progression</a></li>
                     </ul>
                   </details>
@@ -105,7 +107,7 @@
                     <span>{{ label }}</span>
                   </a>
                 {% elif icon == 'administration' %}
-                  {% set accounts_open = request.endpoint in ('main.staff_accounts', 'main.staff_account_create', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %}
+                  {% set accounts_open = request.endpoint in ('main.staff_accounts', 'main.staff_account_create', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate', 'main.staff_password_reset_requests') %}
                   <details class="navigation-group" {% if accounts_open %}open{% endif %}>
                     <summary class="navigation-item">
                       <img src="{{ url_for('static', filename='icons/administration.svg') }}" alt="" width="20" height="20">
@@ -114,6 +116,7 @@
                     </summary>
                     <ul class="navigation-children">
                       <li><a class="navigation-item{% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_accounts') }}" {% if request.endpoint in ('main.staff_accounts', 'main.staff_account_deactivate', 'main.staff_account_reset_password', 'main.staff_account_reactivate') %}aria-current="page"{% endif %}>Account List</a></li>
+                      <li><a class="navigation-item{% if request.endpoint == 'main.staff_password_reset_requests' %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_password_reset_requests') }}" {% if request.endpoint == 'main.staff_password_reset_requests' %}aria-current="page"{% endif %}>Password Reset Requests</a></li>
                       <li><a class="navigation-item{% if request.endpoint == 'main.staff_account_create' %} navigation-item-active{% endif %}" href="{{ url_for('main.staff_account_create') }}" {% if request.endpoint == 'main.staff_account_create' %}aria-current="page"{% endif %}>Create Account</a></li>
                     </ul>
                   </details>
@@ -161,13 +164,15 @@
               <span class="visually-hidden">View profile</span>
             </a>
           {% else %}
-            <div class="staff-profile">
+            <a class="staff-profile staff-profile-link" href="{{ url_for('main.staff_profile') }}" {% if request.endpoint == 'main.staff_profile' %}aria-current="page"{% endif %}>
               <span class="staff-avatar" aria-hidden="true">{{ staff_display_name[0] | upper }}</span>
-              <div class="staff-details">
-                <p class="staff-name">{{ staff_display_name }}</p>
-                <p class="staff-role">{{ role_label }}</p>
-              </div>
-            </div>
+              <span class="staff-details">
+                <span class="staff-name">{{ staff_display_name }}</span>
+                <span class="staff-role">{{ role_label }}</span>
+              </span>
+              <span class="staff-profile-arrow" aria-hidden="true">›</span>
+              <span class="visually-hidden">View profile</span>
+            </a>
           {% endif %}
           <form method="post" action="{{ url_for('auth.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

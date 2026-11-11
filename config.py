@@ -15,7 +15,7 @@ class Config:
     STAFF_TEMP_PASSWORD_KEY = os.getenv("STAFF_TEMP_PASSWORD_KEY")
     # Dedicated secret for keyed hashes of citizen activation and reset credentials.
     CITIZEN_CREDENTIAL_KEY = os.getenv("CITIZEN_CREDENTIAL_KEY")
-    # Citizen emails. Values stay plain text here and are validated when mail is sent,
+    # Citizen and staff-account emails. Values stay plain text here and are validated when sent,
     # so a missing or wrong setting never stops the rest of the application starting.
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL")
     SMTP_HOST = os.getenv("SMTP_HOST")

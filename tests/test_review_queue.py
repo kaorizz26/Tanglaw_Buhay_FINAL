@@ -115,7 +115,13 @@ class QueueRouteTests(unittest.TestCase):
             page = self.client.get('/assessments/queue')
             self.assertEqual(page.status_code, 200)
             self.assertEqual(page.headers['Cache-Control'], 'no-store')
-            self.assertIn('Open Review', page.text)
+            if role == 'system_administrator':
+                self.assertIn('Staff Review Activity', page.text)
+                self.assertIn('View Activity', page.text)
+                self.assertNotIn('Open Review', page.text)
+            else:
+                self.assertIn('Review Queue', page.text)
+                self.assertIn('Open Review', page.text)
             self.assertNotIn('subsidy_mode', page.text)
             self.assertNotIn('Planned', page.text.split('<main', 1)[1])
             headings = re.findall(r'<th scope="col"[^>]*>(.*?)</th>', page.text)
@@ -179,31 +185,44 @@ class QueueRouteTests(unittest.TestCase):
                         '' if choice is None else '?scope=' + choice
                     ))
                     self.assertEqual(response.status_code, 200)
-                    scope = choice or default
+                    scope = 'all' if role == 'system_administrator' else choice or default
                     self.assertEqual(self.query.call_args.args[1].scope, scope)
-                    control = re.search(r'<nav[^>]*aria-label="Review assignment".*?</nav>',
-                                        response.text, re.S)[0]
-                    links = re.findall(r'<a\s.*?</a>', control, re.S)
-                    self.assertEqual(len(links), 2)
-                    self.assertIn('Assigned to Me', links[0])
-                    self.assertIn('All Staff Reviews', links[1])
-                    selected = next(link for link in links if 'aria-current="page"' in link)
-                    self.assertIn('scope=' + scope, selected)
                     self.assertNotIn('id="queue-scope"', response.text)
                     self.assertIn(f'name="scope" value="{scope}"', response.text)
-                    expected = (
-                        'Reviews assigned to you as the responsible staff member. '
-                        'Other authorized staff can also assist.' if scope == 'mine' else
-                        'Reviews assigned to authorized LGU personnel. '
-                        'Any authorized staff member can also assist.')
-                    self.assertIn(expected, response.text)
+                    if role == 'system_administrator':
+                        self.assertNotIn('aria-label="Review assignment"', response.text)
+                        self.assertNotIn('Assigned to Me', response.text)
+                        self.assertIn('All Staff Reviews', response.text)
+                        self.assertIn('Showing review activity recorded across all authorized '
+                                      'LGU personnel.', response.text)
+                        scope_marker = 'queue-admin-scope'
+                    else:
+                        control = re.search(
+                            r'<nav[^>]*aria-label="Review assignment".*?</nav>',
+                            response.text, re.S,
+                        )[0]
+                        links = re.findall(r'<a\s.*?</a>', control, re.S)
+                        self.assertEqual(len(links), 2)
+                        self.assertIn('Assigned to Me', links[0])
+                        self.assertIn('All Staff Reviews', links[1])
+                        selected = next(
+                            link for link in links if 'aria-current="page"' in link
+                        )
+                        self.assertIn('scope=' + scope, selected)
+                        expected = (
+                            'Reviews assigned to you as the responsible staff member. '
+                            'Other authorized staff can also assist.' if scope == 'mine' else
+                            'Reviews assigned to authorized LGU personnel. '
+                            'Any authorized staff member can also assist.')
+                        self.assertIn(expected, response.text)
+                        scope_marker = 'queue-scope-switch'
                     self.assertLess(response.text.index('queue-status-guide'),
-                                    response.text.index('queue-scope-switch'))
+                                    response.text.index(scope_marker))
                     for meaning in queue.STATUS_EXPLANATIONS.values():
                         self.assertIn(meaning, response.text)
                     self.assertIn('Staff recommendations do not mean subsidy approval '
                                   'or denial of eligibility.', response.text)
-                    self.assertLess(response.text.index('queue-scope-switch'),
+                    self.assertLess(response.text.index(scope_marker),
                                     response.text.index('Filter staff reviews'))
         for bad in ('scope=', 'scope=unknown', 'scope=mine&scope=all',
                     'scope=https://example.com'):

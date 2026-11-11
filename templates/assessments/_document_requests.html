@@ -1,26 +1,41 @@
 {# Document Requests section of the Household Assessment overview. LGU Staff only. #}
 {% set account = results.citizen_account %}
 {% set documents = results.document_requests %}
-{% if g.user['role'] == 'lgu_staff' and account and account.state in ('pending_activation', 'active', 'deactivated') %}
+{% if g.user['role'] == 'lgu_staff' %}
 <section class="citizen-account-panel" aria-labelledby="document-requests-heading">
   <div class="citizen-account-heading">
     <h2 id="document-requests-heading">Document Requests</h2>
+    {% if account and account.state in ('pending_activation', 'active', 'deactivated') and documents.state == 'ready' and documents.requests %}
+      <span class="document-count">{{ documents.requests|length }} {{ 'request' if documents.requests|length == 1 else 'requests' }}</span>
+    {% endif %}
   </div>
 
   {% for message in get_flashed_messages(category_filter=['document_requests']) %}
     <p class="citizen-account-notice" role="status">{{ message }}</p>
   {% endfor %}
 
-  {% if documents.state == 'unavailable' %}
+  {% if not account or account.state == 'unavailable' %}
+    <div class="document-empty-state" role="status">
+      <strong>Document request information is unavailable</strong>
+      <p>Please try again later.</p>
+    </div>
+  {% elif account.state == 'none' %}
+    <div class="document-empty-state document-empty-state-account" role="status">
+      <strong>Citizen Account required</strong>
+      <p>This household needs a Citizen Account before staff can request documents.</p>
+    </div>
+  {% elif documents.state == 'unavailable' %}
     <p class="citizen-account-text">Document requests are unavailable right now. Please try again later.</p>
   {% else %}
     {% if documents.requests %}
-      <ul class="document-list">
+      <ul class="document-list" aria-label="Document requests and their statuses">
         {% for document in documents.requests %}
-          <li class="document-item">
+          <li class="document-item document-item-{{ document.status }}">
             <div class="document-item-main">
-              <strong class="document-title">{{ document.title }}</strong>
-              <span class="account-status document-status document-status-{{ document.status }}">{{ document.status_label }}</span>
+              <div class="document-item-heading">
+                <strong class="document-title">{{ document.title }}</strong>
+                <span class="account-status document-status document-status-{{ document.status }}"><span class="visually-hidden">Status: </span>{{ document.status_label }}</span>
+              </div>
               <p class="document-next-step">{{ document.next_step }}</p>
             </div>
             <a class="account-button account-button-secondary" href="{{ url_for('document_requests.detail', request_id=document.id) }}">View Details<span class="visually-hidden"> for {{ document.title }}</span></a>

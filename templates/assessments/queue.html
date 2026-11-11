@@ -1,6 +1,6 @@
 {% extends 'staff/layout.html' %}
 
-{% block title %}Review Queue{% endblock %}
+{% block title %}{{ 'Staff Review Activity' if admin_activity_view else 'Review Queue' }}{% endblock %}
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/assessments.css') }}">
@@ -13,8 +13,8 @@
   <header class="page-header portal-hero assessment-page-hero">
     <div class="portal-hero-content">
       <div>
-        <h1>Review Queue</h1>
-        <p class="portal-hero-subtitle">Track subsidy reviews and recommendations recorded by LGU staff.</p>
+        <h1>{{ 'Staff Review Activity' if admin_activity_view else 'Review Queue' }}</h1>
+        <p class="portal-hero-subtitle">{{ 'View reviews, recommendations and recorded activity across all LGU staff.' if admin_activity_view else 'Track subsidy reviews and recommendations recorded by LGU staff.' }}</p>
       </div>
     </div>
   </header>
@@ -33,15 +33,22 @@
   </div>
 
   <div class="queue-scope-section">
-    <nav class="queue-scope-switch" aria-label="Review assignment">
-      {% for value, label in [('mine', 'Assigned to Me'), ('all', 'All Staff Reviews')] %}
-        <a
-          href="{{ url_for('assessments.queue', scope=value, **results.scope_filter_parameters) }}"
-          {% if results.filters.scope == value %}aria-current="page"{% endif %}
-        >{{ label }}</a>
-      {% endfor %}
-    </nav>
-    <p class="queue-scope-explanation">{{ 'Reviews assigned to you as the responsible staff member. Other authorized staff can also assist.' if results.filters.scope == 'mine' else 'Reviews assigned to authorized LGU personnel. Any authorized staff member can also assist.' }}</p>
+    {% if admin_activity_view %}
+      <div class="queue-admin-scope">
+        <strong>All Staff Reviews</strong>
+        <p>Showing review activity recorded across all authorized LGU personnel.</p>
+      </div>
+    {% else %}
+      <nav class="queue-scope-switch" aria-label="Review assignment">
+        {% for value, label in [('mine', 'Assigned to Me'), ('all', 'All Staff Reviews')] %}
+          <a
+            href="{{ url_for('assessments.queue', scope=value, **results.scope_filter_parameters) }}"
+            {% if results.filters.scope == value %}aria-current="page"{% endif %}
+          >{{ label }}</a>
+        {% endfor %}
+      </nav>
+      <p class="queue-scope-explanation">{{ 'Reviews assigned to you as the responsible staff member. Other authorized staff can also assist.' if results.filters.scope == 'mine' else 'Reviews assigned to authorized LGU personnel. Any authorized staff member can also assist.' }}</p>
+    {% endif %}
   </div>
 
   {% for message in get_flashed_messages() %}
@@ -183,8 +190,8 @@
                     review_program=review.program, review_id=review.id,
                     **results.return_parameters
                   ) }}"
-                  aria-label="{{ 'Open' if results.filters.status == 'in-review' else 'View' }} {{ review.program }} review for {{ review.household_reference_id }}"
-                >{{ 'Open Review' if results.filters.status == 'in-review' else 'View Review' }}</a>
+                  aria-label="{{ 'View activity for' if admin_activity_view else ('Open' if results.filters.status == 'in-review' else 'View') }} {{ review.program }} review for {{ review.household_reference_id }}"
+                >{{ 'View Activity' if admin_activity_view else ('Open Review' if results.filters.status == 'in-review' else 'View Review') }}</a>
               </td>
             </tr>
           {% else %}

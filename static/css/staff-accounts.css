@@ -355,9 +355,112 @@
   min-height: 44px;
 }
 
+.accounts-modal > .accounts-success {
+  margin-top: 16px;
+  color: #245a3b;
+}
+
+.accounts-delivery-form {
+  margin-top: 20px;
+}
+
+.accounts-delivery-options {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.accounts-delivery-options legend {
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.accounts-delivery-choice,
+.accounts-delivery-verification {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.accounts-delivery-choice {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.accounts-delivery-choice input,
+.accounts-delivery-verification input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.accounts-delivery-choice span {
+  display: grid;
+  gap: 3px;
+}
+
+.accounts-delivery-choice small {
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.accounts-delivery-email-fields {
+  display: grid;
+  gap: 14px;
+  padding: 4px 12px 10px 34px;
+}
+
+.accounts-delivery-verification {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
 .accounts-directory {
   max-width: none;
   margin-bottom: 24px;
+}
+
+.accounts-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.accounts-section-heading h2 {
+  margin-top: 3px;
+}
+
+.accounts-request-count {
+  display: inline-grid;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px 10px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--navy);
+  color: white;
+  font-weight: 750;
+}
+
+.accounts-username {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.accounts-request-empty {
+  padding: 36px 20px;
+}
+
+.accounts-history-empty {
+  color: var(--text-muted);
 }
 
 .accounts-summary {

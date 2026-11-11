@@ -7,7 +7,15 @@
     </p>
     <nav class="screening-program-links" aria-label="Jump to a subsidy program">
       {% for program in results.screening_programs %}
-        <a href="#screening-{{ program.code | lower }}">{{ program.code }}</a>
+        {% set link_status_class = program.guidance.display_status_class if program.code == 'SPISC' else program.status_class %}
+        {% set link_status_label = program.guidance.display_status_label if program.code == 'SPISC' else program.status_label %}
+        <a class="screening-program-link screening-program-link--{{ link_status_class }}" href="#screening-{{ program.code | lower }}">
+          <span class="screening-program-link-heading">
+            <strong>{{ program.code }}</strong>
+          </span>
+          <span class="screening-program-link-name">{{ program.name }}</span>
+          <span class="screening-status screening-status--{{ link_status_class }}"><span class="visually-hidden">Automated screening finding: </span>{{ link_status_label }}</span>
+        </a>
       {% endfor %}
     </nav>
   </div>

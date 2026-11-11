@@ -123,6 +123,24 @@
   font-size: 0.9375rem;
 }
 
+.queue-admin-scope {
+  max-width: 620px;
+  padding: 13px 16px;
+  border-left: 4px solid var(--gold);
+  border-radius: 0 7px 7px 0;
+  background: #f7f3e9;
+}
+
+.queue-admin-scope strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.queue-admin-scope p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .queue-filters {
   padding-top: 18px;
 }

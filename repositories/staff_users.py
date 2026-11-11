@@ -67,6 +67,19 @@ def update_admin_password(connection, user_id, password_hash):
         ).fetchone()
 
 
+def update_staff_password(connection, user_id, password_hash):
+    """Change an LGU Staff password and revoke every older session."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """UPDATE staff_users
+               SET password_hash = %s, session_version = session_version + 1
+               WHERE id = %s AND role = 'lgu_staff' AND is_active
+                 AND NOT must_change_password
+               RETURNING id, role, session_version""",
+            (password_hash, user_id),
+        ).fetchone()
+
+
 def complete_initial_password_change(connection, user_id, password_hash):
     """Store the new hash and revoke older sessions atomically."""
     with connection.cursor(row_factory=dict_row) as cursor:

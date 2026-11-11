@@ -78,7 +78,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                          {"status": "ok", "application": "Tanglaw-Buhay"})
 
     def test_anonymous_staff_routes_redirect_and_login_has_no_staff_navigation(self):
-        for path in ("/", "/administration", "/administration/import",
+        for path in ("/", "/profile", "/administration", "/administration/import",
                      "/administration/accounts", "/logout", "/households", "/households/PRIVATE_ID",
                      "/assessments", "/assessments/PRIVATE_ID?tab=mpi"):
             page = self.client.get(path)
@@ -114,7 +114,7 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                 self.assertIn('href="/administration/accounts"', page.text)
                 self.assertIn("Data Import", page.text)
                 self.assertIn("Staff Accounts", page.text)
-                self.assertIn("Review Queue", page.text)
+                self.assertIn("Review Activity", page.text)
                 self.assertNotIn("Submissions", page.text)
                 self.assertEqual(client.get("/").location, "/administration")
             else:
@@ -281,6 +281,74 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
             staff_page = staff.get("/")
         self.assertNotIn('href="/administration/profile"', staff_page.text)
 
+    def test_staff_profile_keeps_identity_read_only_and_shows_password_form(self):
+        path = "/profile"
+        self.assertEqual(self.client.get(path).location, "/login")
+        self._login("synthetic_staff")
+        page = self.client.get(path)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("<h1>Profile Settings</h1>", page.text)
+        self.assertIn('href="/profile" aria-current="page"', page.text)
+        self.assertIn("Synthetic Staff Member", page.text)
+        self.assertIn("synthetic_staff", page.text)
+        self.assertIn("Display name", page.text)
+        self.assertIn("Account role", page.text)
+        self.assertNotIn("Change picture", page.text)
+        self.assertNotIn("Change username", page.text)
+        self.assertIn('action="/profile/password"', page.text)
+        self.assertIn('name="current_password"', page.text)
+        self.assertIn('name="new_password"', page.text)
+        self.assertIn('name="confirm_password"', page.text)
+        self.assertIn('type="submit">Update password</button>', page.text)
+        settings = page.text.split('id="staff-profile-settings"', 1)[1].split(
+            "</section>", 1
+        )[0]
+        self.assertNotIn(" disabled", settings)
+        self.assertEqual(settings.count("<form"), 1)
+        self.assertEqual(self.client.post(path).status_code, 405)
+        self.assertEqual(self.client.get("/profile/password").status_code, 405)
+        self.assertEqual(self.client.post("/profile/password").status_code, 400)
+        with patch.dict(self.app.extensions["development_workspace"],
+                        source_kind="actual_cbms"):
+            self.assertEqual(self.client.get(path).status_code, 403)
+
+        admin = self.app.test_client()
+        self._login("synthetic_admin", admin)
+        self.assertEqual(admin.get(path).status_code, 403)
+        self.assertEqual(admin.post("/profile/password").status_code, 403)
+
+    def test_staff_profile_password_change_refreshes_session(self):
+        self._login("synthetic_staff")
+        account = self.users["synthetic_staff"]
+        old_cookie = self.client.get_cookie(self.app.config["SESSION_COOKIE_NAME"]).value
+
+        def change_password(user, current, new, confirmation):
+            self.assertEqual(user["id"], account["id"])
+            self.assertEqual((current, new, confirmation), (
+                self.password, "a different secure password",
+                "a different secure password",
+            ))
+            account["session_version"] += 1
+            return {
+                "id": account["id"], "role": account["role"],
+                "session_version": account["session_version"],
+            }
+
+        with patch("routes.main.change_staff_password", side_effect=change_password):
+            response = self.client.post("/profile/password", data={
+                "csrf_token": self._token("/profile"),
+                "current_password": self.password,
+                "new_password": "a different secure password",
+                "confirm_password": "a different secure password",
+            })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, "/profile")
+        self.assertIn("Password changed successfully.", self.client.get("/profile").text)
+
+        replay = self.app.test_client()
+        replay.set_cookie(self.app.config["SESSION_COOKIE_NAME"], old_cookie)
+        self.assertEqual(replay.get("/profile").location, "/login")
+
     def test_admin_profile_applies_credentials_and_reminds_admin(self):
         self._login("synthetic_admin")
         account = self.users["synthetic_admin"]
@@ -331,9 +399,22 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         self._login("synthetic_admin")
         with patch("routes.main.get_active_dashboard_summary", return_value=None):
             page = self.client.get("/administration")
-        self.assertIn('href="/assessments"', page.text)
-        self.assertIn('href="/assessments/queue"', page.text)
+        navigation = page.text.split('id="staff-navigation"', 1)[1].split("</nav>", 1)[0]
+        self.assertNotIn("Household Prioritization", navigation)
+        self.assertIn('href="/assessments/queue"', navigation)
+        self.assertIn("Review Activity", navigation)
+        self.assertNotIn("Review Queue", navigation)
+        self.assertIn('href="/assessments/progression"', navigation)
         self.assertNotEqual(self.client.get("/assessments").status_code, 403)
+
+        staff = self.app.test_client()
+        self._login("synthetic_staff", staff)
+        with patch("routes.main.get_active_dashboard_summary", return_value=None):
+            staff_page = staff.get("/")
+        staff_navigation = staff_page.text.split(
+            'id="staff-navigation"', 1,
+        )[1].split("</nav>", 1)[0]
+        self.assertIn("Household Prioritization", staff_navigation)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import create_app
+from services.email_delivery import EmailDeliveryError
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,7 +46,8 @@ class StaffAccountCreationTests(unittest.TestCase):
                 )
                 for migration in ("0002_staff_authentication.sql", "0009_staff_display_name.sql",
                                   "0010_staff_password_change_required.sql",
-                                  "0011_staff_temporary_password.sql"):
+                                  "0011_staff_temporary_password.sql",
+                                  "0020_staff_password_reset_requests.sql"):
                     connection.execute((ROOT / "migrations" / migration).read_text())
                 connection.execute(
                     """CREATE TABLE staff_reviews (
@@ -65,6 +67,12 @@ class StaffAccountCreationTests(unittest.TestCase):
         self.app = create_app({
             "TESTING": True, "SECRET_KEY": token_urlsafe(48), "DATABASE_URL": self.url,
             "STAFF_TEMP_PASSWORD_KEY": Fernet.generate_key().decode("ascii"),
+            "PUBLIC_BASE_URL": "https://tanglaw.example.test",
+            "SMTP_HOST": "smtp.example.test", "SMTP_PORT": "587",
+            "SMTP_SECURITY": "starttls", "SMTP_USERNAME": "sender@example.test",
+            "SMTP_PASSWORD": "synthetic-smtp-password",
+            "SMTP_FROM": "Tanglaw-Buhay <sender@example.test>",
+            "SMTP_RECIPIENT_MODE": "any", "SMTP_ALLOWED_RECIPIENTS": "",
         })
         self.client = self.app.test_client()
 
@@ -102,7 +110,7 @@ class StaffAccountCreationTests(unittest.TestCase):
         self.assertIn("Ana Dela Cruz", response.text)
         self.assertEqual(response.headers["Cache-Control"], "no-store")
         initial_password = re.search(r'<code id="created-temp-password">([^<]+)</code>', response.text).group(1)
-        self.assertRegex(initial_password, r"^[A-Za-z0-9_-]{32}$")
+        self.assertRegex(initial_password, r"^[A-Za-z0-9_-]{16}$")
         with psycopg.connect(self.url) as connection:
             account = connection.execute(
                 """SELECT display_name, username, password_hash, role, is_active,
@@ -137,6 +145,36 @@ class StaffAccountCreationTests(unittest.TestCase):
             from services.auth import authenticate
             authenticated = authenticate("ana.dela.cruz", initial_password)
             self.assertNotIn("temporary_password_encrypted", authenticated)
+
+    def test_admin_can_email_initial_password_without_storing_staff_email(self):
+        self._login()
+        token = self._csrf(self.client, "/administration/accounts")
+        with patch("routes.main.send_staff_temporary_password_email") as send_email:
+            response = self.client.post("/administration/accounts/create", data={
+                "csrf_token": token, "display_name": "Email Setup Staff",
+                "username": "email.setup.staff", "delivery_method": "email",
+                "recipient_email": "Setup.Staff@Example.com",
+                "confirm_recipient_email": "setup.staff@example.com",
+                "verified_in_person": "yes",
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("email server accepted", response.text)
+        temporary_password = re.search(
+            r'<code id="created-temp-password">([^<]+)</code>', response.text,
+        ).group(1)
+        send_email.assert_called_once_with(
+            "setup.staff@example.com", temporary_password, account_action="created",
+        )
+        self.assertNotIn("setup.staff@example.com", response.text.lower())
+        with psycopg.connect(self.url) as connection:
+            columns = {
+                row[0] for row in connection.execute(
+                    """SELECT column_name FROM information_schema.columns
+                       WHERE table_schema = current_schema() AND table_name = 'staff_users'"""
+                ).fetchall()
+            }
+        self.assertNotIn("email", columns)
 
     def test_creation_rejects_duplicate_invalid_and_unauthorized_requests(self):
         self.assertEqual(self.client.post("/administration/accounts").location, "/login")
@@ -576,6 +614,101 @@ class StaffAccountCreationTests(unittest.TestCase):
                 (staff_id,),
             ).fetchone()[0]
         self.assertIsNone(encrypted_after_setup)
+
+    def test_admin_can_email_reset_password_to_in_person_verified_address(self):
+        self._login()
+        token = self._csrf(self.client, "/administration/accounts")
+        with psycopg.connect(self.url) as connection:
+            staff_id = connection.execute(
+                "SELECT id FROM staff_users WHERE username = 'synthetic_staff'",
+            ).fetchone()[0]
+        url = f"/administration/accounts/{staff_id}/reset-password"
+
+        with patch("routes.main.send_staff_temporary_password_email") as send_email:
+            response = self.client.post(url, data={
+                "csrf_token": token, "delivery_method": "email",
+                "recipient_email": "Staff.Member@Example.com",
+                "confirm_recipient_email": "staff.member@example.com",
+                "verified_in_person": "yes",
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("email server accepted", response.text)
+        temporary_password = re.search(
+            r'<code id="recovery-temp-password">([^<]+)</code>', response.text,
+        ).group(1)
+        send_email.assert_called_once_with(
+            "staff.member@example.com", temporary_password, account_action="reset",
+        )
+        self.assertNotIn("staff.member@example.com", response.text.lower())
+        with psycopg.connect(self.url) as connection:
+            password_hash, must_change = connection.execute(
+                "SELECT password_hash, must_change_password FROM staff_users WHERE id = %s",
+                (staff_id,),
+            ).fetchone()
+        self.assertTrue(check_password_hash(password_hash, temporary_password))
+        self.assertTrue(must_change)
+
+    def test_email_reset_validation_happens_before_password_changes(self):
+        self._login()
+        token = self._csrf(self.client, "/administration/accounts")
+        with psycopg.connect(self.url) as connection:
+            staff_id, original_hash, original_version = connection.execute(
+                """SELECT id, password_hash, session_version FROM staff_users
+                   WHERE username = 'synthetic_staff'""",
+            ).fetchone()
+        url = f"/administration/accounts/{staff_id}/reset-password"
+
+        with patch("routes.main.send_staff_temporary_password_email") as send_email:
+            response = self.client.post(url, data={
+                "csrf_token": token, "delivery_method": "email",
+                "recipient_email": "first@example.com",
+                "confirm_recipient_email": "different@example.com",
+                "verified_in_person": "yes",
+            })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("same staff email address", response.text)
+        send_email.assert_not_called()
+        with psycopg.connect(self.url) as connection:
+            current_hash, current_version, must_change = connection.execute(
+                """SELECT password_hash, session_version, must_change_password
+                   FROM staff_users WHERE id = %s""", (staff_id,),
+            ).fetchone()
+        self.assertEqual((current_hash, current_version, must_change),
+                         (original_hash, original_version, False))
+
+    def test_email_failure_keeps_reset_and_shows_direct_handoff_fallback(self):
+        self._login()
+        token = self._csrf(self.client, "/administration/accounts")
+        with psycopg.connect(self.url) as connection:
+            staff_id = connection.execute(
+                "SELECT id FROM staff_users WHERE username = 'synthetic_staff'",
+            ).fetchone()[0]
+        url = f"/administration/accounts/{staff_id}/reset-password"
+
+        failure = EmailDeliveryError("connection_failed")
+        with patch("routes.main.send_staff_temporary_password_email", side_effect=failure):
+            response = self.client.post(url, data={
+                "csrf_token": token, "delivery_method": "email",
+                "recipient_email": "staff@example.com",
+                "confirm_recipient_email": "staff@example.com",
+                "verified_in_person": "yes",
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("password reset still took effect", response.text.lower())
+        self.assertIn("directly to the staff member", response.text)
+        temporary_password = re.search(
+            r'<code id="recovery-temp-password">([^<]+)</code>', response.text,
+        ).group(1)
+        with psycopg.connect(self.url) as connection:
+            password_hash, version = connection.execute(
+                "SELECT password_hash, session_version FROM staff_users WHERE id = %s",
+                (staff_id,),
+            ).fetchone()
+        self.assertTrue(check_password_hash(password_hash, temporary_password))
+        self.assertEqual(version, 2)
 
     def test_reactivation_replaces_unknown_pending_password(self):
         account_id, token, old_password = self._create_pending_account()

@@ -1,5 +1,7 @@
 """Authenticated HTTP presentation of the explicitly selected stored assessment."""
 
+from dataclasses import replace
+
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 from services.assessment_queries import AssessmentQueryError
@@ -140,17 +142,22 @@ def _add_review_origin(navigation, household_uuid, review_origin, review_history
 @assessments.get('/assessments/queue')
 def queue():
     """Read explicit staff work through the existing staff authorization guard."""
+    admin_activity_view = g.user['role'] == ADMIN_ROLE
     try:
         page, filters = parse_queue_arguments(
-            request.args, default_scope='all' if g.user['role'] == ADMIN_ROLE else 'mine',
+            request.args, default_scope='all' if admin_activity_view else 'mine',
         )
+        if admin_activity_view and filters.scope != 'all':
+            filters = replace(filters, scope='all')
         results = get_review_queue_page(page, filters, staff_id=g.user['id'])
     except InvalidAssessmentFilters:
         abort(400, description='Choose valid review status and filter values.')
     except AssessmentQueryError as failure:
         if is_no_active_dataset(failure):
             return render_dataset_setup(
-                "Review Queue",
+                "Staff Review Activity" if admin_activity_view else "Review Queue",
+                "View staff review activity from the active survey dataset."
+                if admin_activity_view else
                 "Manage household subsidy reviews from the active survey dataset.",
             )
         abort(503, description='Staff reviews are unavailable. Please try again later.')
@@ -159,6 +166,7 @@ def queue():
         return redirect(url_for('assessments.queue', page=1, **filters.parameters), code=303)
     return render_template(
         'assessments/queue.html', results=results,
+        admin_activity_view=admin_activity_view,
         role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
         staff_username=g.user['username'], csrf_token=csrf_token(),
     )

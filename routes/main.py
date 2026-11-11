@@ -8,7 +8,8 @@ import psycopg
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from services.auth import (
-    ADMIN_ROLE, admin_required, check_csrf, csrf_token, start_session,
+    ADMIN_ROLE, admin_required, check_csrf, csrf_token, lgu_staff_required,
+    start_session,
 )
 from services.admin_profile import (
     AdminProfileInputError, change_admin_password, change_admin_username,
@@ -38,7 +39,13 @@ from services.staff_account_management import (
     StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
     deactivate_staff_account, get_staff_account_for_recovery,
     get_staff_account_to_deactivate, get_staff_accounts, recover_staff_account,
-    reveal_temporary_password,
+    prepare_temporary_password_email, reveal_temporary_password,
+)
+from services.email_delivery import EmailDeliveryError, send_staff_temporary_password_email
+from services.staff_profile import StaffProfileInputError, change_staff_password
+from services.staff_password_reset_requests import (
+    mark_reset_request_email_accepted, password_reset_request_overview,
+    pending_password_reset_count,
 )
 
 main = Blueprint("main", __name__)
@@ -67,7 +74,8 @@ def dashboard_reviews():
         return None
 
 
-def render_dashboard(role_label, *, with_reviews, initial_setup=False):
+def render_dashboard(role_label, *, with_reviews, initial_setup=False,
+                     pending_reset_count=0):
     require_fixture_source()
     supplied = request.args.getlist("barangay")
     if len(supplied) > 1:
@@ -78,6 +86,7 @@ def render_dashboard(role_label, *, with_reviews, initial_setup=False):
         show_reviews=with_reviews, reviews=dashboard_reviews() if with_reviews else None,
         welcome_name=(g.user.get("display_name") or g.user["username"]),
         initial_setup=initial_setup,
+        pending_reset_count=pending_reset_count,
         role_label=role_label, staff_username=g.user["username"],
         csrf_token=csrf_token(),
     )
@@ -99,8 +108,13 @@ def administration():
             initial_setup = not active_dataset_exists()
         except BatchActivationError:
             pass
+    try:
+        reset_count = pending_password_reset_count()
+    except (psycopg.Error, RuntimeError):
+        reset_count = 0
     return render_dashboard(
         "System Administrator", with_reviews=False, initial_setup=initial_setup,
+        pending_reset_count=reset_count,
     )
 
 
@@ -113,6 +127,45 @@ def admin_profile():
         "staff/admin_profile.html", role_label="System Administrator",
         staff_username=g.user["username"], csrf_token=csrf_token(),
     )
+
+
+def render_staff_profile_error(message=None):
+    response = render_template(
+        "staff/staff_profile.html", role_label="LGU Staff",
+        staff_username=g.user["username"],
+        staff_display_name=g.user.get("display_name") or g.user["username"],
+        csrf_token=csrf_token(), error=message,
+    )
+    return (response, 400) if message else response
+
+
+@main.get("/profile")
+@lgu_staff_required
+def staff_profile():
+    """Show LGU Staff identity and self-service password settings."""
+    require_fixture_source()
+    return render_staff_profile_error()
+
+
+@main.post("/profile/password")
+@lgu_staff_required
+def staff_profile_password():
+    """Apply a signed-in LGU Staff password change immediately."""
+    require_fixture_source()
+    check_csrf()
+    try:
+        updated_user = change_staff_password(
+            g.user, request.form.get("current_password", ""),
+            request.form.get("new_password", ""),
+            request.form.get("confirm_password", ""),
+        )
+    except StaffProfileInputError as exc:
+        return render_staff_profile_error(str(exc))
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Password changes are unavailable. Please try again.")
+    start_session(updated_user)
+    flash("Password changed successfully.", "profile")
+    return redirect(url_for("main.staff_profile"))
 
 
 def render_admin_profile_error(message, *, username_value=None, password_error=False):
@@ -217,7 +270,7 @@ def data_import():
                 record_oversized_attempt(g.user["id"])
             except ImportValidationUnavailable:
                 abort(503, description="Data validation is unavailable. Please try again.")
-            error = "The four files exceed the 256 MiB upload limit."
+            error = "The four files exceed the upload limit of about 268 MB."
             status = 413
         except ImportValidationUnavailable as exc:
             if str(exc) == "system_reference_package_unavailable":
@@ -408,6 +461,8 @@ def staff_accounts():
     show_create = request.endpoint == "main.staff_account_create"
     error = None
     created_account = None
+    created_delivery_sent = False
+    created_delivery_error = None
     revealed_account = None
     display_name = ""
     username = ""
@@ -420,8 +475,27 @@ def staff_accounts():
             if action is None and (show_create or "display_name" in request.form):
                 action = "create"
             if action == "create":
+                delivery_method = request.form.get("delivery_method", "display")
+                if delivery_method not in ("display", "email"):
+                    raise StaffAccountInputError("Choose how to give the temporary password.")
+                recipient = None
+                if delivery_method == "email":
+                    recipient = prepare_temporary_password_email(
+                        request.form.get("recipient_email", ""),
+                        request.form.get("confirm_recipient_email", ""),
+                        request.form.get("verified_in_person", ""),
+                    )
                 created_account = create_staff_account(display_name, username)
                 show_create = True
+                if recipient:
+                    try:
+                        send_staff_temporary_password_email(
+                            recipient, created_account["temporary_password"],
+                            account_action="created",
+                        )
+                        created_delivery_sent = True
+                    except EmailDeliveryError as exc:
+                        created_delivery_error = str(exc)
             elif action == "reveal" and not show_create:
                 revealed_account = reveal_temporary_password(
                     request.form.get("account_id", type=int),
@@ -440,6 +514,8 @@ def staff_accounts():
         abort(503, description="Staff accounts are unavailable. Please try again.")
     return render_template(
         "staff/staff_accounts.html", error=error, created_account=created_account,
+        created_delivery_sent=created_delivery_sent,
+        created_delivery_error=created_delivery_error,
         accounts=accounts, revealed_account=revealed_account, show_create=show_create,
         display_name=display_name, username=username,
         role_label="System Administrator", staff_username=g.user["username"],
@@ -504,21 +580,81 @@ def staff_account_deactivate(account_id):
 def staff_account_recovery(account_id, *, reactivate):
     """Confirm and complete one administrator credential action."""
     require_fixture_source()
+    delivery_error = None
+    delivery_sent = False
+    form_error = None
     try:
         if request.method == "POST":
             check_csrf()
-            account = recover_staff_account(account_id, reactivate=reactivate)
+            delivery_method = request.form.get("delivery_method", "display")
+            if delivery_method not in ("display", "email"):
+                raise StaffAccountInputError("Choose how to give the temporary password.")
+            recipient = None
+            if delivery_method == "email":
+                recipient = prepare_temporary_password_email(
+                    request.form.get("recipient_email", ""),
+                    request.form.get("confirm_recipient_email", ""),
+                    request.form.get("verified_in_person", ""),
+                )
+            account = recover_staff_account(
+                account_id, reactivate=reactivate, administrator_id=g.user["id"],
+                delivery_method=("email" if delivery_method == "email"
+                                 else "direct_handoff"),
+            )
             completed = True
+            if recipient:
+                try:
+                    send_staff_temporary_password_email(
+                        recipient, account["temporary_password"],
+                        account_action=("reactivated" if reactivate else "reset"),
+                    )
+                    delivery_sent = True
+                    try:
+                        mark_reset_request_email_accepted(
+                            account["completed_request_ids"],
+                        )
+                    except (psycopg.Error, RuntimeError):
+                        pass  # Sending succeeded; audit recovery must not hide the credential result.
+                except EmailDeliveryError as exc:
+                    delivery_error = str(exc)
         else:
             account = get_staff_account_for_recovery(account_id, reactivate=reactivate)
             completed = False
-    except StaffAccountInputError:
-        abort(404, description="This staff account is not available for this action.")
+    except StaffAccountInputError as exc:
+        if request.method == "POST":
+            try:
+                account = get_staff_account_for_recovery(account_id, reactivate=reactivate)
+            except StaffAccountInputError:
+                abort(404, description="This staff account is not available for this action.")
+            completed = False
+            form_error = str(exc)
+        else:
+            abort(404, description="This staff account is not available for this action.")
     except (psycopg.Error, RuntimeError):
         abort(503, description="This account action is unavailable. Please try again.")
     return render_account_list_dialog(
         "staff/recover_staff_account.html", account=account,
-        reactivate=reactivate, completed=completed,
+        reactivate=reactivate, completed=completed, form_error=form_error,
+        delivery_sent=delivery_sent, delivery_error=delivery_error,
+        recipient_email="", confirm_recipient_email="",
+        return_to_requests=request.args.get("source") == "requests",
+        status=(400 if form_error else 200),
+    )
+
+
+@main.get("/administration/accounts/password-reset-requests")
+@admin_required
+def staff_password_reset_requests():
+    """Show pending Staff Portal password help and recent completion history."""
+    require_fixture_source()
+    try:
+        overview = password_reset_request_overview()
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Password reset requests are unavailable. Apply migration 0020.")
+    return render_template(
+        "staff/password_reset_requests.html", overview=overview,
+        role_label="System Administrator", staff_username=g.user["username"],
+        csrf_token=csrf_token(),
     )
 
 

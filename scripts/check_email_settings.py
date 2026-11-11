@@ -1,4 +1,4 @@
-"""Check the citizen email settings. Nothing is sent unless you explicitly confirm.
+"""Check the Tanglaw-Buhay email settings. Nothing is sent unless explicitly confirmed.
 
 Without options it only validates the settings in .env and prints a summary
 (no passwords, usernames or full addresses). To send one plain test message:

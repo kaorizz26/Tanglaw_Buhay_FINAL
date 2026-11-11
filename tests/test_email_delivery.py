@@ -261,6 +261,22 @@ class LinkTests(DeliveryTestCase):
                          f"https://portal.example.org/portal/activate/{TOKEN}")
         self.assertEqual(delivery.build_password_reset_link(TOKEN),
                          f"https://portal.example.org/portal/reset/{TOKEN}")
+        self.assertEqual(delivery.build_staff_login_link(),
+                         "https://portal.example.org/login")
+
+    def test_staff_temporary_password_email_uses_login_link_without_username(self):
+        temporary_password = "synthetic-temporary-password"
+        delivery.send_staff_temporary_password_email(
+            "staff@example.com", temporary_password, account_action="reset",
+        )
+        message = self.server.send_message.call_args.args[0]
+        body = message.get_content()
+        self.assertEqual(message["Subject"],
+                         "Your Tanglaw-Buhay Staff Portal temporary password")
+        self.assertIn(temporary_password, body)
+        self.assertIn("https://portal.example.org/login", body)
+        self.assertIn("existing username", body)
+        self.assertNotIn("staff@example.com", body)
 
     def test_links_ignore_the_request_host_header(self):
         with self.app.test_request_context(

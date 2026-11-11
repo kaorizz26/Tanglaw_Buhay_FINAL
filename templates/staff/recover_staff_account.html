@@ -1,12 +1,19 @@
 {% set action_label = 'Reactivate account' if reactivate else 'Reset password' %}
 {% set action_endpoint = 'main.staff_account_reactivate' if reactivate else 'main.staff_account_reset_password' %}
-<dialog class="accounts-modal" id="account-action-dialog" aria-labelledby="account-action-heading" aria-describedby="account-action-description" data-account-id="{{ account.id }}" data-action="{{ 'reactivate' if reactivate else 'reset' }}" data-return-url="{{ url_for('main.staff_accounts') }}" open>
+{% set action_url = url_for(action_endpoint, account_id=account.id, source='requests') if return_to_requests else url_for(action_endpoint, account_id=account.id) %}
+{% set return_url = url_for('main.staff_password_reset_requests') if return_to_requests else url_for('main.staff_accounts') %}
+<dialog class="accounts-modal" id="account-action-dialog" aria-labelledby="account-action-heading" aria-describedby="account-action-description" data-account-id="{{ account.id }}" data-action="{{ 'reactivate' if reactivate else 'reset' }}" data-return-url="{{ return_url }}" open>
   <p class="accounts-kicker">{{ 'Account ready' if completed else 'Confirm account action' }}</p>
   <h2 id="account-action-heading">{{ action_label }} for {{ account.display_name or account.username }}</h2>
   <p id="account-action-description">Username: <strong>{{ account.username }}</strong></p>
 
   {% if completed %}
     <p>{{ 'The account is active again.' if reactivate else 'The old password is no longer valid, and earlier sessions have ended.' }} Share the temporary password privately. The staff member must set their own password at sign-in.</p>
+    {% if delivery_sent %}
+      <p class="accounts-success" role="status">The email server accepted the temporary-password message. Ask the staff member to check their inbox now and complete password setup while they are with you.</p>
+    {% elif delivery_error %}
+      <p class="accounts-error" role="alert">{{ delivery_error }} The password reset still took effect. Give the temporary password directly to the staff member instead.</p>
+    {% endif %}
     <dl class="accounts-credentials">
       <div>
         <dt>Temporary password</dt>
@@ -23,14 +30,16 @@
     </form>
   {% else %}
     <p>{{ 'This will restore sign-in access with a new temporary password.' if reactivate else 'This will replace the current password and end the staff member’s existing sessions.' }} The staff member must set their own password at the next sign-in.</p>
-    <div class="accounts-modal-actions">
-      <form method="dialog">
-        <button class="accounts-copy-button" type="submit">Cancel</button>
-      </form>
-      <form method="post" action="{{ url_for(action_endpoint, account_id=account.id) }}">
+    {% if form_error %}
+      <p class="accounts-error" role="alert">{{ form_error }}</p>
+    {% endif %}
+    <form class="accounts-delivery-form" method="post" action="{{ action_url }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="accounts-button" type="submit">{{ action_label }}</button>
-      </form>
-    </div>
+        {% include 'staff/temporary_password_delivery_fields.html' %}
+        <div class="accounts-modal-actions">
+          <button class="accounts-copy-button" type="submit" formmethod="dialog" formnovalidate>Cancel</button>
+          <button class="accounts-button" type="submit">{{ action_label }}</button>
+        </div>
+    </form>
   {% endif %}
 </dialog>

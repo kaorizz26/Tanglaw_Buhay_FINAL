@@ -34,6 +34,44 @@
   background: var(--navy-active);
 }
 
+.dashboard-account-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+  padding: 18px 20px;
+  border: 1px solid #d8b768;
+  border-left: 4px solid var(--gold);
+  border-radius: 10px;
+  background: #fffaf0;
+}
+
+.dashboard-account-alert-label {
+  color: #725410;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-account-alert h2 {
+  margin-top: 3px;
+  font-size: 1.05rem;
+}
+
+.dashboard-account-alert p:last-child {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.dashboard-account-alert a {
+  flex: 0 0 auto;
+  color: var(--navy);
+  font-weight: 700;
+}
+
 .dashboard-historical-note {
   display: flex;
   align-items: flex-start;
@@ -336,7 +374,7 @@ a.dashboard-bar-row:focus-visible {
 }
 
 .dashboard-household {
-  margin-top: 32px;
+  margin-top: 48px;
 }
 
 .dashboard-household-heading {
@@ -570,10 +608,7 @@ a.dashboard-bar-row:focus-visible {
   color: var(--text-muted);
 }
 
-.dashboard-reviews,
-.dashboard-statistics-heading {
-  margin-bottom: 28px;
-}
+.dashboard-reviews { margin-bottom: 48px; }
 
 .dashboard-section-heading {
   display: flex;
@@ -826,6 +861,7 @@ a.dashboard-bar-row:focus-visible {
 @media (max-width: 760px) {
   .dashboard-welcome { font-size: 1.25rem; }
   .dashboard-review-cards { grid-template-columns: 1fr; }
+  .dashboard-account-alert,
   .dashboard-section-heading,
   .dashboard-recent-list li { align-items: flex-start; flex-direction: column; }
   .dashboard-primary-link { white-space: normal; }
@@ -891,7 +927,7 @@ a.dashboard-bar-row:focus-visible {
 }
 
 /* Household Assessment Patterns */
-.dashboard-patterns { margin-top: 28px; }
+.dashboard-patterns { margin-top: 48px; }
 
 .pattern-areas {
   display: grid;

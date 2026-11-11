@@ -1,0 +1,127 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-profile.css') }}">
+{% endblock %}
+
+{% block content %}
+  <header class="page-header profile-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('main.index') }}">Dashboard</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">My Profile</span>
+    </nav>
+    <h1>Profile Settings</h1>
+    <p>View your staff account and manage your password.</p>
+  </header>
+
+  {% for message in get_flashed_messages(category_filter=['profile']) %}
+    <p class="profile-notice profile-notice-success" role="status">{{ message }}</p>
+  {% endfor %}
+
+  <div class="profile-layout">
+    <section class="profile-card" aria-labelledby="staff-account-heading">
+      <div class="profile-card-heading">
+        <h2 id="staff-account-heading">My Account</h2>
+      </div>
+      <div class="profile-card-body" id="staff-profile-settings">
+        <div class="profile-identity-summary" aria-label="Staff account identity">
+          <span class="profile-avatar-preview" aria-hidden="true">{{ staff_display_name[0] | upper }}</span>
+          <div class="profile-identity-details">
+            <div>
+              <span class="profile-label">Display name</span>
+              <p class="profile-identity-name">{{ staff_display_name }}</p>
+            </div>
+            <div>
+              <span class="profile-label">Username</span>
+              <p class="profile-identity-username">{{ staff_username }}</p>
+            </div>
+            <div>
+              <span class="profile-label">Account role</span>
+              <p>LGU Staff</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-setting-section" aria-labelledby="staff-password-heading">
+          <h3 id="staff-password-heading">Password</h3>
+          <p class="profile-help">Enter your current password before choosing a new one. Other signed-in sessions will end after the change.</p>
+          {% if error %}
+            <p class="profile-notice profile-notice-error" id="staff-password-error" role="alert">{{ error }}</p>
+          {% endif %}
+          <form method="post" action="{{ url_for('main.staff_profile_password') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="profile-password-fields">
+              <div>
+                <label class="profile-label" for="staff-current-password">Current password</label>
+                <input class="profile-input" id="staff-current-password" name="current_password"
+                       type="password" autocomplete="current-password" maxlength="1024" required>
+              </div>
+              <div>
+                <label class="profile-label" for="staff-new-password">New password</label>
+                <input class="profile-input" id="staff-new-password" name="new_password"
+                       type="password" autocomplete="new-password" minlength="12"
+                       maxlength="1024" aria-describedby="staff-password-guidance" required>
+              </div>
+              <div>
+                <label class="profile-label" for="staff-confirm-password">Confirm new password</label>
+                <input class="profile-input" id="staff-confirm-password" name="confirm_password"
+                       type="password" autocomplete="new-password" minlength="12"
+                       maxlength="1024" {% if error %}aria-describedby="staff-password-error" aria-invalid="true"{% endif %} required>
+              </div>
+            </div>
+            <p class="profile-help profile-password-guidance" id="staff-password-guidance">Use at least 12 characters and choose a password different from your current one.</p>
+            <button class="profile-primary-button" type="submit">Update password</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="profile-card" aria-labelledby="staff-system-information-heading">
+      <div class="profile-card-heading">
+        <h2 id="staff-system-information-heading">About the System</h2>
+      </div>
+      <div class="profile-card-body">
+        <div class="profile-system-notices" aria-label="Important reminders">
+          <div class="profile-system-notice profile-system-notice-important">
+            <strong>Findings reminder</strong>
+            <p>Results support staff decisions and do not confirm eligibility, approval or benefit allocation.</p>
+          </div>
+          <div class="profile-system-notice">
+            <strong>Privacy reminder</strong>
+            <p>Household information must only be used for authorized LGU work.</p>
+          </div>
+        </div>
+
+        <dl class="profile-system-grid">
+          <div class="profile-system-wide">
+            <dt>System name</dt>
+            <dd>Tanglaw-Buhay</dd>
+          </div>
+          <div>
+            <dt>Organization</dt>
+            <dd>Municipality of Pozorrubio</dd>
+          </div>
+          <div>
+            <dt>Your role</dt>
+            <dd>LGU Staff</dd>
+          </div>
+          <div class="profile-system-wide">
+            <dt>Purpose</dt>
+            <dd>Support household assessment and program-review work.</dd>
+          </div>
+          <div class="profile-system-wide">
+            <dt>Main sections</dt>
+            <dd>Dashboard, Household Records, Assessments and Submissions.</dd>
+          </div>
+          <div class="profile-system-wide">
+            <dt>Information covered</dt>
+            <dd>Historical household records and survey-based assessment findings.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  </div>
+{% endblock %}

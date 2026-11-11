@@ -27,8 +27,8 @@ administrator-only. Imported CBMS records are read-only for everyone.
 
 | Feature | Available functionality |
 | --- | --- |
-| Authentication and Roles | Database-backed login/logout, sessions, CSRF protection, role guards, and a shared branded sign-in page. There is no self-registration. |
-| Staff Accounts | Administrators create LGU Staff accounts, view their status, reveal and copy a pending temporary password, deactivate accounts after resolving active reviews, reset passwords, and reactivate inactive staff. A new or reset password requires staff to set their own password at sign-in. |
+| Authentication and Roles | Database-backed login/logout, sessions, CSRF protection, role guards, and a shared branded sign-in page. Active LGU Staff can request password help by username without exposing whether an account exists; there is no self-registration. |
+| Staff Accounts | Administrators create LGU Staff accounts, view their status, reveal and copy a pending temporary password, deactivate accounts after resolving active reviews, handle staff password-reset requests, reset passwords, and reactivate inactive staff. For account creation, reset, and reactivation, the temporary password can be sent through the configured Tanglaw-Buhay email account to an address confirmed in person; the address is not saved to the staff profile. A new or reset password requires staff to set their own password at sign-in. |
 | Dashboard | Historical household statistics for the designated completed run, with a Barangay filter, per-program “For Review” counts, and household assessment patterns for the 16 indicators. LGU Staff also see **My Subsidy Reviews**. The administrator Dashboard shows statistics only. |
 | Household Records | Read-only directory with household ID/head search, barangay filter, pagination, and focused pages with household answers, the member roster, and a link to the assessment. |
 | Household Prioritization | Stored municipal ranks with search, barangay and other filters, and pagination (25 households per page). Filters never change a rank. |
@@ -46,7 +46,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 
 | Module | Current state |
 | --- | --- |
-| Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, and administrator password reset are implemented. Account editing is not implemented. |
+| Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, staff forgot-password requests, and administrator password reset are implemented. Account editing is not implemented. |
 | Data Import interface | Administrators select a survey year from the two-year cycle beginning in 2022, validate four structure-compatible CSVs using the system-installed references, store a passing bundle as inactive, prepare its assessments, and activate it as the first baseline or switch between later batches. Migrations 0013–0015 and 0018–0019 are required before use. End-to-end authorized-data pilot verification remains. |
 | Assessment-run management | Administrators can prepare and designate a completed run for a staged inactive import. The current 2022 Run 3 and its history remain unchanged. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
@@ -309,6 +309,13 @@ not run migrations. From the project directory, use your own local database role
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0011_staff_temporary_password.sql"
 ```
 
+Staff forgot-password requests additionally require migration 0020. Check that
+`staff_password_reset_requests` is absent, then apply it once:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0020_staff_password_reset_requests.sql"
+```
+
 If using an existing development database, check `staff_users` first and run only
 the missing migration(s). Do not reapply a migration whose column already exists:
 
@@ -418,7 +425,11 @@ account. The System Administrator opens `/administration` (the Dashboard) and ca
 create LGU Staff accounts under Staff Accounts. Give a new or reactivated staff member their
 generated temporary password privately; an administrator can reveal it again only until the
 staff member sets their own password. An administrator reset also issues a new temporary
-password and ends older sessions. Staff sign in at `/login` and must set a new password before
+password and ends older sessions. On creation, reset or reactivation, the administrator may enter an
+email address confirmed with the staff member in person and have the system send the password,
+or use the direct on-screen handoff. Configure the dedicated sender once in `.env` using the
+`SMTP_*` settings from `.env.example`; use an email-provider app password rather than the
+mailbox's normal password. Staff sign in at `/login` and must set a new password before
 opening staff pages. Both roles can open Household Records, Household Prioritization,
 assessments, and the Review Queue (it opens on Assigned to Me for LGU Staff and
 All Staff Reviews for administrators). The queue starts empty because the handoff intentionally

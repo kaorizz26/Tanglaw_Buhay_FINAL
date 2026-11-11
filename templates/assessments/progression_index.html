@@ -16,6 +16,14 @@
     </div>
   </header>
 
+  {% if results.ready_years | length >= 2 or results.batches %}
+    <nav class="progression-section-nav" aria-label="Household Progression sections">
+      {% if results.ready_years | length >= 2 %}<a href="#progression-period-heading">Set Survey Years</a>{% endif %}
+      <a href="#progression-dashboard-heading">Progression Overview</a>
+      {% if results.batches %}<a href="#progression-search-heading">Find a Household</a>{% endif %}
+    </nav>
+  {% endif %}
+
   <section class="progression-context-bar" aria-labelledby="progression-years-heading">
     <div>
       <h2 id="progression-years-heading">Survey year context</h2>
@@ -34,38 +42,40 @@
   </section>
 
   {% if results.ready_years | length >= 2 %}
-    <section class="progression-panel" aria-labelledby="progression-period-heading">
+    <section class="progression-major-section" aria-labelledby="progression-period-heading">
       <div class="progression-section-heading">
         <div>
           <h2 id="progression-period-heading">Choose survey years</h2>
           <p>Compare two different survey years. The latest two are selected automatically when each year has one dataset.</p>
         </div>
       </div>
-      <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-period-form">
-        <div>
-          <label for="progression-earlier">Earlier survey dataset</label>
-          <select id="progression-earlier" name="earlier" required>
-            <option value="">Choose earlier year</option>
-            {% for batch in results.batches %}
-              <option value="{{ batch.batch_id }}"{% if results.earlier and results.earlier.batch_id == batch.batch_id %} selected{% endif %}>{{ batch.display_label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label for="progression-later">Later survey dataset</label>
-          <select id="progression-later" name="later" required>
-            <option value="">Choose later year</option>
-            {% for batch in results.batches %}
-              <option value="{{ batch.batch_id }}"{% if results.later and results.later.batch_id == batch.batch_id %} selected{% endif %}>{{ batch.display_label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <button type="submit">Update comparison</button>
-      </form>
+      <div class="progression-panel">
+        <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-period-form">
+          <div>
+            <label for="progression-earlier">Earlier survey dataset</label>
+            <select id="progression-earlier" name="earlier" required>
+              <option value="">Choose earlier year</option>
+              {% for batch in results.batches %}
+                <option value="{{ batch.batch_id }}"{% if results.earlier and results.earlier.batch_id == batch.batch_id %} selected{% endif %}>{{ batch.display_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="progression-later">Later survey dataset</label>
+            <select id="progression-later" name="later" required>
+              <option value="">Choose later year</option>
+              {% for batch in results.batches %}
+                <option value="{{ batch.batch_id }}"{% if results.later and results.later.batch_id == batch.batch_id %} selected{% endif %}>{{ batch.display_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit">Update comparison</button>
+        </form>
+      </div>
     </section>
   {% endif %}
 
-  <section class="progression-panel" aria-labelledby="progression-dashboard-heading">
+  <section class="progression-major-section" aria-labelledby="progression-dashboard-heading">
     <div class="progression-section-heading">
       <div>
         <h2 id="progression-dashboard-heading">Municipal progression overview</h2>
@@ -77,24 +87,35 @@
       </div>
     </div>
 
-    {% if results.dashboard %}
-      <div class="progression-stat-grid">
-        <article class="progression-stat-card"><span>{{ results.earlier.display_label }} households</span><strong>{{ results.dashboard.households.earlier }}</strong></article>
-        <article class="progression-stat-card"><span>{{ results.later.display_label }} households</span><strong>{{ results.dashboard.households.later }}</strong></article>
-        <article class="progression-stat-card progression-stat-primary"><span>Matched households</span><strong>{{ results.dashboard.households.matched }}</strong></article>
-        <article class="progression-stat-card progression-stat-improved"><span>Improved</span><strong>{{ results.dashboard.outcomes['Improved'] }}</strong></article>
-        <article class="progression-stat-card progression-stat-worsened"><span>Worsened</span><strong>{{ results.dashboard.outcomes['Worsened'] }}</strong></article>
-        <article class="progression-stat-card"><span>Unchanged</span><strong>{{ results.dashboard.outcomes['Unchanged'] }}</strong></article>
-        <article class="progression-stat-card progression-stat-insufficient"><span>Insufficient Data</span><strong>{{ results.dashboard.outcomes['Insufficient Data'] }}</strong></article>
-      </div>
-      <p class="progression-reconciliation">
+    <div class="progression-panel">
+      {% if results.dashboard %}
+        <div class="progression-stat-dashboard">
+        <div class="progression-stat-group" role="group" aria-labelledby="progression-coverage-heading">
+          <h3 id="progression-coverage-heading" class="progression-stat-group-heading">Household coverage</h3>
+          <div class="progression-stat-grid progression-stat-grid-households">
+            <article class="progression-stat-card"><span>{{ results.earlier.display_label }} households</span><strong>{{ results.dashboard.households.earlier }}</strong></article>
+            <article class="progression-stat-card"><span>{{ results.later.display_label }} households</span><strong>{{ results.dashboard.households.later }}</strong></article>
+            <article class="progression-stat-card progression-stat-primary"><span>Matched households</span><strong>{{ results.dashboard.households.matched }}</strong></article>
+          </div>
+        </div>
+        <div class="progression-stat-group" role="group" aria-labelledby="progression-outcomes-heading">
+          <h3 id="progression-outcomes-heading" class="progression-stat-group-heading">Matched household outcomes</h3>
+          <div class="progression-stat-grid progression-stat-grid-outcomes">
+            <article class="progression-stat-card progression-stat-improved"><span>Improved</span><strong>{{ results.dashboard.outcomes['Improved'] }}</strong></article>
+            <article class="progression-stat-card progression-stat-worsened"><span>Worsened</span><strong>{{ results.dashboard.outcomes['Worsened'] }}</strong></article>
+            <article class="progression-stat-card progression-stat-unchanged"><span>Unchanged</span><strong>{{ results.dashboard.outcomes['Unchanged'] }}</strong></article>
+            <article class="progression-stat-card progression-stat-insufficient"><span>Insufficient Data</span><strong>{{ results.dashboard.outcomes['Insufficient Data'] }}</strong></article>
+          </div>
+        </div>
+        </div>
+        <p class="progression-reconciliation">
         {{ results.dashboard.households.earlier_only }} found only in {{ results.earlier.display_label }};
         {{ results.dashboard.households.later_only }} found only in {{ results.later.display_label }}.
         Of the matched households, {{ results.dashboard.comparable }} had enough comparable information for an overall change.
       </p>
-      {% if not results.dashboard.method_compatible %}
-        <p class="progression-alert" role="status">The selected datasets use different or incomplete assessment-method records. Change claims are therefore shown as Insufficient Data.</p>
-      {% endif %}
+        {% if not results.dashboard.method_compatible %}
+          <p class="progression-alert" role="status">The selected datasets use different or incomplete assessment-method records. Change claims are therefore shown as Insufficient Data.</p>
+        {% endif %}
 
       <div class="progression-indicator-heading">
         <div>
@@ -118,8 +139,8 @@
           </tbody>
         </table>
       </div>
-    {% else %}
-      <div class="progression-empty-dashboard">
+      {% else %}
+        <div class="progression-empty-dashboard">
         <div class="progression-empty-stats" aria-hidden="true">
           {% for label in ('Matched households', 'Improved', 'Worsened', 'Unchanged', 'Insufficient Data') %}
             <div><span>{{ label }}</span><strong>—</strong></div>
@@ -137,19 +158,21 @@
           <p>At least two different survey years with completed designated assessments are required for progression statistics.</p>
           {% if is_admin %}<a class="progression-action" href="{{ url_for('main.data_import') }}">Import another survey year</a>{% else %}<p>Ask a system administrator to import and prepare another survey year.</p>{% endif %}
         {% endif %}
-      </div>
-    {% endif %}
+        </div>
+      {% endif %}
+    </div>
   </section>
 
   {% if results.batches %}
-    <section class="progression-panel" aria-labelledby="progression-search-heading">
+    <section class="progression-major-section" aria-labelledby="progression-search-heading">
       <div class="progression-section-heading">
         <div>
           <h2 id="progression-search-heading">Find a household</h2>
           <p>Search within the available comparison records. UUID is recommended because names may repeat or change.</p>
         </div>
       </div>
-      <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-search" role="search">
+      <div class="progression-panel">
+        <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-search" role="search">
         {% if results.selected %}
           <input type="hidden" name="earlier" value="{{ results.earlier.batch_id }}">
           <input type="hidden" name="later" value="{{ results.later.batch_id }}">
@@ -176,7 +199,7 @@
           <button type="submit">Search history</button>
           {% if results.selected %}<a href="{{ url_for('assessments.progression_index', earlier=results.earlier.batch_id, later=results.later.batch_id) }}">Clear filters</a>{% else %}<a href="{{ url_for('assessments.progression_index') }}">Clear filters</a>{% endif %}
         </div>
-      </form>
+        </form>
 
       {% if results.filters.query or results.filters.barangay %}
         {% if results.matches %}
@@ -200,7 +223,8 @@
           <p class="progression-no-results" role="status">No household assessments match the selected search and barangay.</p>
         {% endif %}
       {% endif %}
-      <p class="progression-reminder">Progression results are historical decision support. They do not show subsidy application, eligibility, approval, or receipt of assistance.</p>
+        <p class="progression-reminder">Progression results are historical decision support. They do not show subsidy application, eligibility, approval, or receipt of assistance.</p>
+      </div>
     </section>
   {% endif %}
 {% endblock %}

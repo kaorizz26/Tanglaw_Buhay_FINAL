@@ -64,6 +64,11 @@
       <p class="accounts-kicker">Account created</p>
       <h2 id="created-heading">{{ created_account.display_name }}</h2>
       <p>The staff member can sign in with these details. They must set their own password before using staff pages.</p>
+      {% if created_delivery_sent %}
+        <p class="accounts-success" role="status">The email server accepted the temporary-password message. Ask the staff member to check their inbox now and complete password setup while they are with you.</p>
+      {% elif created_delivery_error %}
+        <p class="accounts-error" role="alert">{{ created_delivery_error }} The account was still created. Give the temporary password directly to the staff member instead.</p>
+      {% endif %}
       <dl class="accounts-credentials">
         <div><dt>Username</dt><dd>{{ created_account.username }}</dd></div>
         <div>
@@ -214,7 +219,7 @@
         </div>
       </div>
 
-      <form class="accounts-form" method="post" action="{{ url_for('main.staff_account_create') }}">
+      <form class="accounts-form accounts-delivery-form" method="post" action="{{ url_for('main.staff_account_create') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="action" value="create">
         <div class="accounts-field">
@@ -229,6 +234,7 @@
                  pattern="[a-z0-9][a-z0-9_.-]{2,63}" aria-describedby="username-hint" required>
           <p id="username-hint">Suggested from the name. You can change it; use 3–64 lowercase letters, numbers, dots, dashes or underscores.</p>
         </div>
+        {% include 'staff/temporary_password_delivery_fields.html' %}
         <div class="accounts-form-footer">
           <p>A temporary password will be generated. You can reveal it until the staff member completes password setup.</p>
           <button class="accounts-button" type="submit">Create Staff Account</button>

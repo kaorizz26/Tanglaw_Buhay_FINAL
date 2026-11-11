@@ -1,4 +1,4 @@
-"""Send citizen account emails through a configurable SMTP server.
+"""Send Tanglaw-Buhay account emails through a configurable SMTP server.
 
 The module never logs and never puts message text, addresses, passwords or
 tokens into an error. Callers receive only a fixed error code, so a failed send
@@ -20,6 +20,7 @@ from services.citizen_credentials import ACTIVATION_LIFETIME, PASSWORD_RESET_LIF
 SMTP_TIMEOUT_SECONDS = 10
 ACTIVATION_PATH = "/portal/activate/"
 PASSWORD_RESET_PATH = "/portal/reset/"
+STAFF_LOGIN_PATH = "/login"
 LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "::1")
 ADDRESS_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
@@ -102,6 +103,11 @@ def build_activation_link(token):
 def build_password_reset_link(token):
     """Return the full password-reset link for a token."""
     return public_base_url() + PASSWORD_RESET_PATH + quote(token, safe="")
+
+
+def build_staff_login_link():
+    """Return the configured Staff Portal sign-in address."""
+    return public_base_url() + STAFF_LOGIN_PATH
 
 
 def recipient_policy():
@@ -246,3 +252,25 @@ def send_password_changed_email(to_address):
         "Tanglaw-Buhay\n"
     )
     send_email(to_address, "Your Tanglaw-Buhay password was changed", body)
+
+
+def send_staff_temporary_password_email(to_address, temporary_password, *, account_action):
+    """Send a newly issued Staff Portal password to an in-person verified address."""
+    action_text = {
+        "created": "created your Tanglaw-Buhay Staff Portal account",
+        "reset": "reset your Tanglaw-Buhay Staff Portal account password",
+        "reactivated": "reactivated your Tanglaw-Buhay Staff Portal account",
+    }[account_action]
+    body = (
+        "Hello,\n\n"
+        f"An LGU System Administrator {action_text} while assisting you in person.\n\n"
+        f"Temporary password: {temporary_password}\n\n"
+        "Sign in with your existing username at:\n"
+        f"{build_staff_login_link()}\n\n"
+        "You will be required to replace this temporary password immediately after signing in. "
+        "Do not forward or share this message.\n\n"
+        "If you did not request this account action, contact your System Administrator and do "
+        "not use the temporary password.\n\n"
+        "Tanglaw-Buhay\n"
+    )
+    send_email(to_address, "Your Tanglaw-Buhay Staff Portal temporary password", body)

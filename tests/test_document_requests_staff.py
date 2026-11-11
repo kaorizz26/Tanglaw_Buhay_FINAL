@@ -432,9 +432,12 @@ class RequestFormTests(DocumentRouteCase):
         text = self.main_text(self.client.get(NEW_URL))
         self.assertEqual(text.count('name="document_title"'), 3)
         self.assertEqual(text.count('name="document_instructions"'), 3)
+        self.assertEqual(text.count('class="document-row-fields"'), 3)
         for words in ("Request Documents", "Document 1", "Document 3", "(optional)",
-                      "does not approve a subsidy or start a Staff Review"):
+                      "does not approve a subsidy or start a Staff Review",
+                      "Back to Household Assessment"):
             self.assertIn(words, text)
+        self.assertIn('class="page-header portal-hero document-request-header"', text)
         self.assertIn("HH-0008", text)
 
     def test_other_account_states_return_to_the_assessment_with_a_message(self):
@@ -620,11 +623,17 @@ class AssessmentSectionTests(DocumentRouteCase):
             self.assertNotIn(NEW_URL, text)
             self.assertIn("Valid ID", text)
 
-    def test_administrators_and_households_without_an_account_see_no_section(self):
+    def test_administrators_do_not_see_the_section(self):
         self.assertEqual(self.section(requests=[request_row()], role="system_administrator"), "")
+
+    def test_a_household_without_an_account_sees_an_account_required_notice(self):
         self.source["citizen_account"] = None
         self.sign_in()
-        self.assertNotIn("document-requests-heading", self.text(self.client.get(ASSESSMENT)))
+        text = self.text(self.client.get(ASSESSMENT))
+        self.assertIn("document-requests-heading", text)
+        self.assertIn("Citizen Account required", text)
+        self.assertIn("needs a Citizen Account before staff can request documents", text)
+        self.assertNotIn(NEW_URL, text)
 
     def test_unavailable_document_requests_do_not_break_the_page(self):
         self.source["citizen_account"] = account_row("active")

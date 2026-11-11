@@ -221,6 +221,45 @@ class ProgressionRouteTests(unittest.TestCase):
         self.assertIn('href="/administration/import"', response.text)
         self.assertIn("Import another survey year", response.text)
 
+    def test_progression_dashboard_groups_coverage_and_outcomes(self):
+        self._sign_in()
+        earlier = {"survey_year": 2022, "batch_id": 1, "run_id": 11,
+                   "display_label": "2022", "is_active": False}
+        later = {"survey_year": 2024, "batch_id": 2, "run_id": 12,
+                 "display_label": "2024", "is_active": True}
+        result = {
+            **index_result(), "batches": [earlier, later], "ready_years": [2022, 2024],
+            "active": later, "selected": (1, 2), "earlier": earlier, "later": later,
+            "state": "ready", "dashboard": {
+                "households": {"earlier": 20, "later": 22, "matched": 18,
+                               "earlier_only": 2, "later_only": 4},
+                "outcomes": {"Improved": 5, "Worsened": 3, "Unchanged": 8,
+                             "Insufficient Data": 2},
+                "comparable": 16, "indicators": [], "method_compatible": True,
+            },
+        }
+        with patch("routes.assessments.get_progression_index", return_value=result):
+            response = self.client.get("/assessments/progression")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Household coverage", response.text)
+        self.assertIn("Matched household outcomes", response.text)
+        self.assertIn("progression-stat-grid-households", response.text)
+        self.assertIn("progression-stat-grid-outcomes", response.text)
+        self.assertEqual(response.text.count('class="progression-stat-card'), 7)
+        self.assertEqual(response.text.count('class="progression-major-section"'), 3)
+        overview = response.text.split('aria-labelledby="progression-dashboard-heading"', 1)[1]
+        self.assertLess(overview.index('id="progression-dashboard-heading"'),
+                        overview.index('class="progression-panel"'))
+        section_nav = response.text.split('class="progression-section-nav"', 1)[1].split(
+            "</nav>", 1
+        )[0]
+        for target, label in (
+            ("#progression-period-heading", "Set Survey Years"),
+            ("#progression-dashboard-heading", "Progression Overview"),
+            ("#progression-search-heading", "Find a Household"),
+        ):
+            self.assertIn(f'href="{target}">{label}</a>', section_nav)
+
     def test_invalid_comparison_query_is_rejected(self):
         self._sign_in()
         response = self.client.get(

@@ -34,6 +34,25 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
   });
 });
 
+document.querySelectorAll(".accounts-delivery-form").forEach((form) => {
+  const emailFields = form.querySelector(".accounts-delivery-email-fields");
+  const emailInputs = emailFields?.querySelectorAll('input[type="email"]') || [];
+  const verification = emailFields?.querySelector('input[type="checkbox"]');
+  const deliveryChoices = form.querySelectorAll('input[name="delivery_method"]');
+
+  const updateDeliveryFields = () => {
+    const emailSelected = form.querySelector(
+      'input[name="delivery_method"]:checked'
+    )?.value === "email";
+    if (emailFields) emailFields.hidden = !emailSelected;
+    emailInputs.forEach((input) => { input.required = emailSelected; });
+    if (verification) verification.required = emailSelected;
+  };
+
+  deliveryChoices.forEach((choice) => choice.addEventListener("change", updateDeliveryFields));
+  updateDeliveryFields();
+});
+
 document.querySelectorAll(".accounts-modal[open]").forEach((dialog) => {
   // The open attribute leaves the details accessible if dialog scripting fails.
   if (typeof dialog.showModal === "function") {

@@ -476,11 +476,13 @@ frontend reset; that history remains in Git at `9a6b24c`.
 
 | Route | Who can open it | Current behavior and code |
 |---|---|---|
-| `/login`, `/logout`, `/change-password` | Everyone / signed-in staff | Shared sign-in, CSRF-protected sign-out, and first-login password setup. `routes/auth.py` |
+| `/login`, `/forgot-password`, `/logout`, `/change-password` | Everyone / signed-in staff | Shared sign-in, neutral staff password-help request, CSRF-protected sign-out, and first-login password setup. `routes/auth.py` |
 | `/` | LGU Staff | Dashboard with My Subsidy Reviews. An administrator is redirected to `/administration`. `routes/main.py` |
+| `/profile`, `/profile/password` | LGU Staff | Read-only staff identity and current-password-verified self-service password change. `routes/main.py` |
 | `/administration` | System Administrator | Dashboard with statistics only. |
 | `/administration/import` | System Administrator | Placeholder page; no import controls. |
 | `/administration/accounts`, `/administration/accounts/create` | System Administrator | List LGU Staff accounts, reveal pending temporary passwords, and create accounts. `routes/main.py` |
+| `/administration/accounts/password-reset-requests` | System Administrator | Review pending staff password-help requests and recent completion metadata. `routes/main.py` |
 | `/administration/accounts/<account_id>/deactivate`, `/reset-password`, `/reactivate` | System Administrator | Confirm account actions over the list. Deactivation keeps the staff row; reset and reactivation issue a new temporary password. `routes/main.py` |
 | `/households`, `/households/<household_uuid>` | Both roles | Read-only Household Records list and detail. `routes/households.py` |
 | `/assessments` | Both roles | Household Prioritization. `routes/assessments.py::prioritization` |
@@ -2473,6 +2475,7 @@ unchanged). The two sets do not depend on each other. Databases were checked rea
 | `0017_document_requests.sql` (was 0015) | Digital Dropbox | not applied | applied as 0015 |
 | `0018_import_batch_deletion_audit.sql` | Data Import | applied | not applied |
 | `0019_initial_dataset_activation.sql` | Data Import | applied | not applied |
+| `0020_staff_password_reset_requests.sql` | Staff Accounts | applied 2026-11-11 | not applied |
 
 Never apply a migration whose tables already exist. Use `psql -1 -v ON_ERROR_STOP=1` so a
 mistaken re-run rolls back completely.
@@ -2605,6 +2608,12 @@ information is unavailable right now" and the account pages return 503.
   is not a server-side guarantee against someone replaying an older copy of the cookie.
 - Real email is configured only through environment settings (see `.env.example`) and
   checked with `scripts/check_email_settings.py`. Automated tests mock SMTP.
+- The same SMTP sender supports administrator-issued Staff Portal temporary passwords.
+  Account creation, reset and reactivation forms require the recipient address twice plus an in-person
+  confirmation. The recipient is used only for that send and is not stored on `staff_users`.
+  Recipient and sender settings are validated before the credential change. If SMTP fails
+  after the transaction commits, the reset remains in effect and the administrator receives
+  a direct-handoff fallback; SMTP acceptance is not presented as inbox delivery.
 
 ## Digital Dropbox: storage and data foundation (Task 3A)
 

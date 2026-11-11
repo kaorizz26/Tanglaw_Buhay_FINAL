@@ -49,17 +49,18 @@
   {% else %}
     <div class="staff-review-list">
       {% for program in results.staff_reviews %}
-        <article class="staff-review-card" aria-labelledby="review-{{ program.name | lower }}">
-          <div class="review-program-heading">
+        <article class="staff-review-card" data-screening-status="{{ program.status_class }}" aria-labelledby="review-{{ program.name | lower }}">
+          <header class="review-program-heading">
+            <span class="review-program-eyebrow">Subsidy program</span>
             <h3 id="review-{{ program.name | lower }}">{{ program.name }}</h3>
             <p>{{ program.full_name }}</p>
-          </div>
+          </header>
           <dl class="review-findings">
-            <div>
+            <div class="review-finding-block">
               <dt>{{ 'Automated Screening Finding (current age)' if program.name == 'SPISC' else 'Automated Screening Finding' }}</dt>
               <dd><span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span></dd>
             </div>
-            <div>
+            <div class="review-finding-block review-finding-block--staff">
               <dt>{{ 'Staff Review Status' if not program.latest or program.latest.status != 'Closed' else 'Staff Recommendation' }}</dt>
               <dd>
                 {% if program.latest and program.latest.withdrawn %}
@@ -78,39 +79,46 @@
               </dd>
             </div>
           </dl>
-          {% if program.review %}
-            <p class="review-attribution">Started by <strong>{{ program.review.username }}</strong> on <time datetime="{{ program.review.created_at.isoformat() }}">{{ program.review.created_at | pht_date }}</time>.</p>
-            {% if program.review.starting_reason %}
-              <p class="review-starting-reason"><strong>Starting reason</strong><br>{{ program.review.starting_reason }}</p>
-            {% endif %}
-            <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.review.id, **detail_parameters) }}">Open Review<span class="visually-hidden"> for {{ program.name }}</span></a>
-          {% else %}
-            {% if program.latest %}
-              {% if program.latest.withdrawn %}
-                <p class="review-outcome-copy">The completed review remains in history. You can start a new review.</p>
-              {% elif program.latest.status == 'Closed' %}
-                <p class="review-starting-reason">{{ program.latest.effective_explanation }}</p>
-              {% else %}
-                <p class="review-outcome-copy">This review ended without a recommendation.</p>
+          <div class="review-card-body">
+            {% if program.review %}
+              <p class="review-attribution">Started by <strong>{{ program.review.username }}</strong> on <time datetime="{{ program.review.created_at.isoformat() }}">{{ program.review.created_at | pht_date }}</time>.</p>
+              {% if program.review.starting_reason %}
+                <p class="review-starting-reason"><strong>Starting reason</strong><br>{{ program.review.starting_reason }}</p>
+              {% endif %}
+            {% else %}
+              {% if program.latest %}
+                {% if program.latest.withdrawn %}
+                  <p class="review-outcome-copy">The completed review remains in history. You can start a new review.</p>
+                {% elif program.latest.status == 'Closed' %}
+                  <p class="review-starting-reason">{{ program.latest.effective_explanation }}</p>
+                {% else %}
+                  <p class="review-outcome-copy">This review ended without a recommendation.</p>
+                {% endif %}
               {% endif %}
             {% endif %}
-            {% if program.latest and program.latest.status == 'Closed' and not program.latest.withdrawn %}
-              <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.latest.id, **detail_parameters) }}">View Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+          </div>
+          <footer class="review-card-footer">
+            {% if program.review %}
+              <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.review.id, **detail_parameters) }}">Open Review<span class="visually-hidden"> for {{ program.name }}</span></a>
             {% else %}
-              <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **detail_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+              {% if program.latest and program.latest.status == 'Closed' and not program.latest.withdrawn %}
+                <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.latest.id, **detail_parameters) }}">View Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+              {% else %}
+                <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **detail_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
+              {% endif %}
             {% endif %}
-          {% endif %}
-          {% set previous = program.history | rejectattr('status', 'equalto', 'In Review') | list %}
-          {% if previous %}
-            <details class="review-history">
-              <summary>View Review History ({{ previous | length }})</summary>
-              <ol>
-                {% for saved in previous %}
-                  <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **detail_parameters) }}">{{ saved.created_at | pht_date }} — {{ 'Recommendation Withdrawn' if saved.withdrawn else saved.effective_recommendation or 'Cancelled' }}</a></li>
-                {% endfor %}
-              </ol>
-            </details>
-          {% endif %}
+            {% set previous = program.history | rejectattr('status', 'equalto', 'In Review') | list %}
+            {% if previous %}
+              <details class="review-history">
+                <summary>View Review History ({{ previous | length }})</summary>
+                <ol>
+                  {% for saved in previous %}
+                    <li><a href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=saved.id, **detail_parameters) }}">{{ saved.created_at | pht_date }} — {{ 'Recommendation Withdrawn' if saved.withdrawn else saved.effective_recommendation or 'Cancelled' }}</a></li>
+                  {% endfor %}
+                </ol>
+              </details>
+            {% endif %}
+          </footer>
         </article>
       {% endfor %}
     </div>

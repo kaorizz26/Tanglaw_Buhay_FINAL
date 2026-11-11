@@ -94,6 +94,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments?completeness=unknown"', response.text)
         self.assertIn('href="/assessments?program=4Ps"', response.text)
         self.assertIn('href="/assessments/queue"', response.text)
+        self.assertIn('<details class="navigation-group" open>', response.text)
         section_nav = response.text.split('class="dashboard-section-nav"', 1)[1].split(
             "</nav>", 1
         )[0]

@@ -23,6 +23,17 @@
     </div>
   </header>
 
+  {% if pending_reset_count %}
+    <aside class="dashboard-account-alert" aria-labelledby="password-help-heading">
+      <div>
+        <p class="dashboard-account-alert-label">Staff account request</p>
+        <h2 id="password-help-heading">{{ pending_reset_count }} password reset request{{ '' if pending_reset_count == 1 else 's' }} waiting</h2>
+        <p>Confirm the staff member’s identity in person before issuing a temporary password.</p>
+      </div>
+      <a href="{{ url_for('main.staff_password_reset_requests') }}">Review requests <span aria-hidden="true">→</span></a>
+    </aside>
+  {% endif %}
+
   {% if show_reviews or summary %}
     <nav class="dashboard-section-nav" aria-label="Dashboard sections">
       {% if show_reviews %}<a href="#reviews-heading">My Subsidy Reviews</a>{% endif %}

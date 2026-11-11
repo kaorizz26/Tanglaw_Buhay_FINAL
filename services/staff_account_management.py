@@ -9,7 +9,14 @@ from flask import current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import get_connection
-from repositories import staff_users
+from repositories import staff_password_resets, staff_users
+from services.email_delivery import (
+    EmailDeliveryError, build_staff_login_link, check_recipient, load_email_settings,
+)
+
+
+# Twelve random bytes encode to exactly 16 URL-safe characters without padding.
+TEMPORARY_PASSWORD_BYTES = 12
 
 
 class StaffAccountInputError(ValueError):
@@ -18,6 +25,24 @@ class StaffAccountInputError(ValueError):
 
 class StaffAccountHasActiveReviews(StaffAccountInputError):
     """The staff member must be relieved of active reviews first."""
+
+
+def prepare_temporary_password_email(address, confirmation, verified_in_person):
+    """Validate a one-time recipient without storing it on the staff account."""
+    if verified_in_person != "yes":
+        raise StaffAccountInputError(
+            "Confirm that the staff member provided this email address in person."
+        )
+    address_text = address.strip() if isinstance(address, str) else ""
+    confirmation_text = confirmation.strip() if isinstance(confirmation, str) else ""
+    if not address_text or address_text.lower() != confirmation_text.lower():
+        raise StaffAccountInputError("Enter the same staff email address in both fields.")
+    try:
+        load_email_settings()
+        build_staff_login_link()
+        return check_recipient(address_text)
+    except EmailDeliveryError as exc:
+        raise StaffAccountInputError(str(exc)) from None
 
 
 def temporary_password_cipher():
@@ -44,7 +69,7 @@ def get_staff_accounts():
 
 def new_temporary_credentials():
     """Create a login hash and an encrypted copy of one new password."""
-    password = token_urlsafe(24)
+    password = token_urlsafe(TEMPORARY_PASSWORD_BYTES)
     encrypted = temporary_password_cipher().encrypt(password.encode("utf-8")).decode("ascii")
     return password, generate_password_hash(password, method="scrypt"), encrypted
 
@@ -144,10 +169,14 @@ def get_staff_account_for_recovery(user_id, *, reactivate):
     return account
 
 
-def recover_staff_account(user_id, *, reactivate):
+def recover_staff_account(user_id, *, reactivate, administrator_id=None,
+                          delivery_method=None):
     """Reset or reactivate staff with a fresh temporary password."""
     if not isinstance(user_id, int) or not 0 < user_id <= 9223372036854775807:
         raise StaffAccountInputError("Choose a valid staff account.")
+    if ((administrator_id is None) != (delivery_method is None)
+            or delivery_method not in (None, "email", "direct_handoff")):
+        raise StaffAccountInputError("Choose a valid password-delivery method.")
     with get_connection() as connection:
         with connection.transaction():
             account = staff_users.find_staff_for_recovery(
@@ -159,7 +188,13 @@ def recover_staff_account(user_id, *, reactivate):
             staff_users.replace_staff_password(
                 connection, user_id, password_hash, encrypted, reactivate=reactivate,
             )
+            completed_requests = []
+            if administrator_id is not None:
+                completed_requests = staff_password_resets.complete_pending(
+                    connection, user_id, administrator_id, delivery_method,
+                )
     return {
         "id": account["id"], "display_name": account["display_name"] or account["username"],
         "username": account["username"], "temporary_password": password,
+        "completed_request_ids": [item["id"] for item in completed_requests],
     }

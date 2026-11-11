@@ -31,7 +31,18 @@
       {% if results.review_summary %}
         <ul class="review-status-list">
           {% for review in results.review_summary %}
-            <li class="review-status-item">
+            {% if review.withdrawn %}
+              {% set review_tone = 'withdrawn' %}
+            {% elif review.status == 'In Review' %}
+              {% set review_tone = 'active' %}
+            {% elif review.status == 'Closed' and review.effective_recommendation == 'For LGU Follow-Up' %}
+              {% set review_tone = 'follow-up' %}
+            {% elif review.status == 'Closed' %}
+              {% set review_tone = 'no-action' %}
+            {% else %}
+              {% set review_tone = 'cancelled' %}
+            {% endif %}
+            <li class="review-status-item review-status-item--{{ review_tone }}">
               <div class="review-status-item-heading">
                 <strong>{{ review.program }}</strong>
                 {% if review.withdrawn %}
@@ -110,8 +121,10 @@
     </section>
   </div>
 
-  <section class="detail-section" aria-labelledby="screening-heading">
-    <h2 id="screening-heading">Subsidy Screening Summary</h2>
+  <section class="detail-section screening-summary-panel" aria-labelledby="screening-heading">
+    <div class="section-heading-row">
+      <h2 id="screening-heading">Subsidy Screening Summary</h2>
+    </div>
     <p class="section-helper">
       Based on the household's recorded CBMS information, the system identifies subsidy programs
       that may warrant further staff review. SPISC includes current-age guidance.

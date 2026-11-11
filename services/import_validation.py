@@ -101,7 +101,9 @@ def _save_files(files, root):
                 size += len(chunk)
                 total += len(chunk)
                 if total > UPLOAD_BYTES:
-                    raise ImportUploadError("The four files exceed the 256 MiB upload limit.")
+                    raise ImportUploadError(
+                        "The four files exceed the upload limit of about 268 MB."
+                    )
                 target.write(chunk)
                 digest.update(chunk)
         metadata[name] = {"bytes": size, "sha256": digest.hexdigest()}

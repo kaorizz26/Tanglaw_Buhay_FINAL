@@ -101,7 +101,8 @@ def protect_staff_routes():
         load_session_user()
     except (psycopg.Error, RuntimeError):
         abort(503, description="Staff authentication is unavailable.")
-    if request.endpoint != "auth.login" and g.user is None:
+    public_auth_endpoints = ("auth.login", "auth.forgot_password")
+    if request.endpoint not in public_auth_endpoints and g.user is None:
         return redirect(url_for("auth.login"))
     if (g.user is not None and g.user.get("must_change_password")
             and request.endpoint not in ("auth.change_password", "auth.logout")):
