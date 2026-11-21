@@ -1,4 +1,4 @@
-"""Read-only CSV preflight checks; reports contain fixed labels and counts only."""
+"""Read-only CSV preflight checks with aggregate and safe schema diagnostics."""
 
 import csv
 from hashlib import sha256
@@ -53,9 +53,11 @@ def validate_csv_bundle(data_dir: str | Path = DATA_DIR, *, reference_frames=Non
     """Return aggregate errors/warnings for four source and three reference CSVs.
 
     Files use the existing raw/reference directory layout, with source filenames
-    changed to <dataset>.csv. No records, paths, raw headers or parser exceptions
-    are returned. Passing preflight permits further import work; it neither
-    inserts a batch nor establishes survey provenance or staff authorization.
+    changed to <dataset>.csv. No source records, paths, unexpected uploaded
+    headers or parser exceptions are returned. Missing expected schema names may
+    be returned because they come from the approved system definitions. Passing
+    preflight permits further import work; it neither inserts a batch nor
+    establishes survey provenance or staff authorization.
     """
     _, _, report = load_csv_bundle(data_dir, reference_frames=reference_frames)
     return report
@@ -120,9 +122,12 @@ def load_reference_csv_bundle(reference_dir: str | Path):
     return references, report
 
 
-def _issue(report, severity, source, code, count=1):
-    """Add a fixed diagnostic code and aggregate count, never source values."""
-    report[severity].append({"source": source, "code": code, "count": int(count)})
+def _issue(report, severity, source, code, count=1, *, columns=None):
+    """Add a fixed diagnostic without exposing source-row values."""
+    issue = {"source": source, "code": code, "count": int(count)}
+    if columns:
+        issue["columns"] = list(columns)
+    report[severity].append(issue)
 
 
 def _read_group(paths, report, group):
@@ -283,7 +288,10 @@ def _check_definition_coverage(datasets, references, report):
         missing = declared - set(frame.columns)
         extra = set(frame.columns) - declared
         if missing:
-            _issue(report, "errors", name, "missing_defined_columns", len(missing))
+            _issue(
+                report, "errors", name, "missing_defined_columns", len(missing),
+                columns=sorted(missing),
+            )
         if extra:
             _issue(report, "warnings", name, "columns_without_definitions", len(extra))
     known = set(definitions["variable_name"])

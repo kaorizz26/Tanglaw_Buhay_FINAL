@@ -276,6 +276,46 @@ def find_matching_bundle(connection, bundle_sha256):
     return row[0] if row else None
 
 
+def find_matching_source_files(connection, files):
+    """Find a stored dataset with the same four source-file hashes."""
+    try:
+        hashes = tuple(files[name]["sha256"] for name in SOURCE_TABLES)
+    except (KeyError, TypeError):
+        raise RuntimeError("invalid_source_file_identity") from None
+    if any(type(value) is not str or len(value) != 64 for value in hashes):
+        raise RuntimeError("invalid_source_file_identity")
+    conditions = " AND ".join(
+        f"source_provenance #>> '{{files,{name},sha256}}' = %s"
+        for name in SOURCE_TABLES
+    )
+    return connection.execute(
+        f"""SELECT id, survey_year FROM dataset_batches
+            WHERE validation_status = 'validated' AND {conditions}
+            ORDER BY id LIMIT 1""",
+        hashes,
+    ).fetchone()
+
+
+def count_validated_batches_for_year(connection, survey_year):
+    """Count stored, successful imports for one declared survey year."""
+    return connection.execute(
+        """SELECT count(*) FROM dataset_batches
+           WHERE survey_year = %s AND validation_status = 'validated'""",
+        (survey_year,),
+    ).fetchone()[0]
+
+
+def validated_survey_year_counts(connection):
+    """Return aggregate stored-batch counts for the import form warning."""
+    rows = connection.execute(
+        """SELECT survey_year, count(*)
+           FROM dataset_batches
+           WHERE validation_status = 'validated'
+           GROUP BY survey_year ORDER BY survey_year""",
+    ).fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
 def lock_import_batch_for_deletion(connection, batch_id):
     """Lock one batch and return only the metadata needed by deletion policy."""
     with connection.cursor(row_factory=dict_row) as cursor:

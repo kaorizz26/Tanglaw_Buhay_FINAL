@@ -1,13 +1,3 @@
-"""Historical SPISC screening: senior age triggers review; disability is context.
-
-A07 is the member's age at the survey; age 60+ is the only screening trigger.
-L15 records whether the household has a member with disability. It does not
-identify that member. L16 is a provisional member disability response; senior
-attribution requires that senior's joined L16=1 and household L15=1.
-
-Disability evidence and warnings never change the age-based screening status.
-These historical signals do not establish pension or subsidy eligibility.
-"""
 
 from .common import (
     all_joined_answers_are_no, as_integer, household_evidence, is_missing,

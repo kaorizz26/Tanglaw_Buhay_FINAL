@@ -80,6 +80,19 @@ class CsvPreflightTests(unittest.TestCase):
         path.unlink()
         self.assertIn(("household", "missing_file"), self._codes(validate_csv_bundle(self.root)))
 
+    def test_missing_defined_column_reports_its_safe_schema_name(self):
+        self.datasets["section_l02_to_l41"].drop(columns=["barangay"]).to_csv(
+            self._source_path("section_l02_to_l41"), index=False,
+        )
+        report = validate_csv_bundle(self.root)
+        issue = next(
+            item for item in report["errors"]
+            if item["source"] == "section_l02_to_l41"
+            and item["code"] == "missing_defined_columns"
+        )
+        self.assertEqual(issue["columns"], ["barangay"])
+        self.assertNotIn(FIRST_HOUSEHOLD_ID, json.dumps(report))
+
     def test_blank_and_duplicate_join_keys_block(self):
         for name in EXCEL_FILES:
             with self.subTest(source=name, case="blank"):

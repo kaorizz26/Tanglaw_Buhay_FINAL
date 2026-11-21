@@ -1,8 +1,8 @@
 """Protected staff dashboard, retired URLs and an independent health check."""
 
 from flask import (
-    Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template,
-    request, url_for,
+    Blueprint, Response, abort, current_app, flash, g, jsonify, redirect,
+    render_template, request, url_for,
 )
 import psycopg
 from werkzeug.exceptions import RequestEntityTooLarge
@@ -19,9 +19,15 @@ from services.assessment_queries import AssessmentQueryError, get_active_dashboa
 from services.dashboard_patterns import select_area
 from services.review_queue import get_dashboard_reviews
 from services.import_validation import (
-    ImportValidationUnavailable, record_oversized_attempt, validate_admin_upload,
+    FILE_UPLOAD_BYTES, FILE_UPLOAD_MB, ImportPreviewError,
+    ImportValidationUnavailable, create_import_preview_token,
+    record_oversized_attempt, stored_survey_year_counts, validate_admin_upload,
+    verify_import_preview_token,
 )
-from services.import_validation_presentation import present_report
+from services.import_history import (
+    ImportHistoryUnavailable, export_import_history, get_import_history,
+)
+from services.import_validation_presentation import present_import_result, present_report
 from services.import_assessment_preparation import (
     AssessmentPreparationError, list_import_batches, prepare_import_batch,
 )
@@ -232,7 +238,10 @@ def data_import():
     batch_id = None
     survey_year_value = ""
     status = 200
+    action = "check"
+    preview_token = None
     initial_setup = True
+    stored_year_counts = {}
     if current_app.config.get("DATABASE_URL"):
         try:
             initial_setup = not active_dataset_exists()
@@ -255,16 +264,37 @@ def data_import():
                 )
                 status = 400
             else:
-                result = validate_admin_upload(
-                    request.files, g.user["id"], survey_year,
-                    store_inactive=action == "store",
-                    authorization_confirmed=request.form.get("authorized_source") == "yes",
-                )
-                report = result["report"]
-                error = result["error"]
-                batch_id = result.get("batch_id")
-                if error or (report and not report["passed"]):
-                    status = 400
+                expected_preview_digest = None
+                if action == "store":
+                    try:
+                        expected_preview_digest = verify_import_preview_token(
+                            request.form.get("preview_token", ""),
+                            g.user["id"], survey_year,
+                        )
+                    except ImportPreviewError as exc:
+                        error = str(exc)
+                        status = 400
+                if error:
+                    result = None
+                else:
+                    result = validate_admin_upload(
+                        request.files, g.user["id"], survey_year,
+                        store_inactive=action == "store",
+                        authorization_confirmed=request.form.get("authorized_source") == "yes",
+                        same_year_confirmed=request.form.get("confirm_same_year") == "yes",
+                        expected_preview_digest=expected_preview_digest,
+                    )
+                if result is not None:
+                    report = result["report"]
+                    error = result["error"]
+                    batch_id = result.get("batch_id")
+                    if (action == "check" and report and report["passed"]
+                            and not error and result.get("preview_digest")):
+                        preview_token = create_import_preview_token(
+                            g.user["id"], survey_year, result["preview_digest"],
+                        )
+                    if error or (report and not report["passed"]):
+                        status = 400
         except RequestEntityTooLarge:
             try:
                 record_oversized_attempt(g.user["id"])
@@ -278,17 +308,87 @@ def data_import():
                     "The system reference package is unavailable. Ask the system "
                     "installer to configure the approved codebook and mappings."
                 )
-                status = 503
+            elif str(exc) == "import_storage_unavailable":
+                error = (
+                    "The files passed validation, but the dataset could not be stored. "
+                    "No existing data was changed. Try again."
+                )
             else:
-                abort(503, description="Data validation is unavailable. Please try again.")
+                error = (
+                    "The files could not be validated because the import service is "
+                    "temporarily unavailable. Nothing was stored. Try again."
+                )
+            status = 503
+    if current_app.config.get("DATABASE_URL"):
+        try:
+            stored_year_counts = stored_survey_year_counts()
+        except ImportValidationUnavailable:
+            abort(503, description="Dataset setup status is unavailable. Please try again.")
+    presented_report = present_report(report)
+    import_result = present_import_result(presented_report, batch_id)
+    if (request.method == "POST" and action == "check"
+            and request.headers.get("X-Requested-With") == "fetch"):
+        return jsonify({
+            "preview_html": render_template(
+                "staff/_import_preview.html",
+                report=presented_report, error=error, batch_id=None,
+                survey_year_value=survey_year_value,
+                selected_year_count=(
+                    stored_year_counts.get(int(survey_year_value), 0)
+                    if survey_year_value.isdecimal() else 0
+                ),
+                preview_token=preview_token,
+                allow_confirmation=bool(preview_token),
+                interactive_preview=True,
+                import_result=None,
+                import_action="check",
+                initial_setup=initial_setup,
+            ),
+        }), status
+    import_history = []
+    history_error = None
+    if current_app.config.get("DATABASE_URL"):
+        try:
+            import_history = get_import_history(limit=25)
+        except ImportHistoryUnavailable:
+            history_error = "Import history is temporarily unavailable."
     return render_template(
-        "staff/data_import.html", report=present_report(report), error=error,
+        "staff/data_import.html", report=presented_report, error=error,
         batch_id=batch_id, survey_year_value=survey_year_value,
         survey_year_options=supported_survey_years(),
+        stored_year_counts=stored_year_counts,
+        max_upload_file_bytes=FILE_UPLOAD_BYTES,
+        max_upload_file_mb=FILE_UPLOAD_MB,
+        preview_token=preview_token, allow_confirmation=False,
+        import_result=import_result,
+        import_action=action,
         initial_setup=initial_setup,
+        import_history=import_history, history_error=history_error,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), status
+
+
+@main.get("/administration/import/history.csv")
+@admin_required
+def import_history_export():
+    """Download retained aggregate import history without source record contents."""
+    require_fixture_source()
+    try:
+        contents = export_import_history()
+    except ImportHistoryUnavailable:
+        abort(503, description="Import history is unavailable. Please try again.")
+    return Response(
+        "\ufeff" + contents,
+        content_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="tanglaw-buhay-import-history.csv"'
+            ),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @main.route("/administration/import/batches", methods=["GET", "POST"])

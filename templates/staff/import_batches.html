@@ -4,10 +4,11 @@
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/data-import.css') }}">
+  <script src="{{ url_for('static', filename='js/import-operations.js') }}" defer></script>
 {% endblock %}
 
 {% block content %}
-  <div class="import-batches-page">
+  <div class="import-batches-page" data-import-operation-page>
     <header class="page-header portal-hero import-batches-hero">
       <div class="portal-hero-content">
         <div>
@@ -111,7 +112,7 @@
                     <strong>Prepare this batch</strong>
                     <p>This may take several minutes. Keep the page open until a result appears.</p>
                   </div>
-                  <form method="post" action="{{ url_for('main.import_batches') }}" class="import-prepare-form">
+                  <form method="post" action="{{ url_for('main.import_batches') }}" class="import-prepare-form" data-import-operation-form data-processing-title="Running and verifying assessments…" data-processing-message="Please keep this page open. Assessment results are being calculated, stored and verified for Batch {{ batch.id }}.">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="batch_id" value="{{ batch.id }}">
                     <label class="import-prepare-confirmation">
@@ -145,7 +146,7 @@
                         <strong>Permanently delete Batch {{ batch.id }}</strong>
                         <p>This removes its imported source records and all prepared assessment results. It cannot be undone; the original files would need to be imported again. The deletion audit is retained.</p>
                       </div>
-                      <form method="post" action="{{ url_for('main.delete_stored_import_batch', batch_id=batch.id) }}" class="import-delete-form">
+                      <form method="post" action="{{ url_for('main.delete_stored_import_batch', batch_id=batch.id) }}" class="import-delete-form" data-import-operation-form data-processing-title="Deleting stored batch…" data-processing-message="Please keep this page open while Batch {{ batch.id }} and its eligible stored results are deleted. The deletion audit will be retained.">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <label for="delete-batch-{{ batch.id }}">Type <strong>DELETE BATCH {{ batch.id }}</strong></label>
                         <input id="delete-batch-{{ batch.id }}" name="delete_confirmation" type="text" required autocomplete="off" pattern="DELETE BATCH {{ batch.id }}">
@@ -172,4 +173,5 @@
       {% endif %}
     </section>
   </div>
+  {% include 'staff/_import_operation_overlay.html' %}
 {% endblock %}

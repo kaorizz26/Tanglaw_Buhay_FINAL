@@ -1,14 +1,4 @@
-"""Historical 4Ps screening with child and pregnancy review signals.
 
-L01 records household pregnancy history and controls pregnancy-question skips.
-L06 records current household pregnancy; L06=1 triggers review unless L01=2
-contradicts it. L07 is a provisional member pregnancy response: attribution
-requires consistent household answers and a joined female member aged 10+.
-
-The supporting_evidence output holds the accepted trigger records. Warnings
-describe data issues; unresolved information records gaps or conflicts. Neither
-is a trigger. A valid trigger takes precedence without discarding warnings.
-"""
 
 from .common import (
     all_joined_answers_are_no, as_integer,

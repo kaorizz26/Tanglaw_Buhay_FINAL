@@ -183,7 +183,8 @@ class StaffAuthenticationTests(unittest.TestCase):
             if username == "synthetic_admin":
                 self.assertEqual(client.get("/assessments").status_code, 503)
                 self.assertEqual(client.get("/").location, "/administration")
-                with patch("routes.main.active_dataset_exists", return_value=False):
+                with patch("routes.main.active_dataset_exists", return_value=False), \
+                        patch("routes.main.stored_survey_year_counts", return_value={}):
                     self.assertEqual(
                         client.get("/administration/import").status_code, 200,
                     )

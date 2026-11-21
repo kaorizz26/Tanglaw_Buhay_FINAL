@@ -4,10 +4,11 @@
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/data-import.css') }}">
+  <script src="{{ url_for('static', filename='js/data-import.js') }}" defer></script>
 {% endblock %}
 
 {% block content %}
-  <div class="import-upload-page">
+  <div class="import-upload-page" id="import-upload-page">
     <header class="page-header portal-hero import-upload-hero">
       <div class="portal-hero-content">
         <div>
@@ -24,13 +25,6 @@
     {% set current_import_step = 1 %}
     {% include 'staff/_import_steps.html' %}
 
-    {% if error %}
-      <div class="import-page-alert import-page-alert-error" role="alert">
-        <span class="import-alert-icon" aria-hidden="true">!</span>
-        <div><strong>Import could not continue</strong><p>{{ error }}</p></div>
-      </div>
-    {% endif %}
-
     <section class="import-upload-panel" aria-labelledby="upload-heading">
       <div class="import-panel-heading">
         <div>
@@ -38,7 +32,9 @@
           <h2 id="upload-heading">Upload CBMS source files</h2>
           <p>Select the official survey year and the four required CSV files. The system supplies the approved codebook, indicator mapping and field definitions.</p>
         </div>
-        <span class="import-required-count">4 CSV files required</span>
+        <div class="import-panel-tools">
+          <span class="import-required-count">4 CSV files required</span>
+        </div>
       </div>
 
       <div class="import-safety-note" role="note">
@@ -50,7 +46,7 @@
         {% endif %}
       </div>
 
-      <form method="post" action="{{ url_for('main.data_import') }}" enctype="multipart/form-data" class="import-form">
+      <form method="post" action="{{ url_for('main.data_import') }}" enctype="multipart/form-data" class="import-form" id="import-upload-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
         <div class="import-form-section import-files-section">
@@ -63,9 +59,11 @@
               <select id="survey-year" name="survey_year" required>
                 <option value="">Select a year</option>
                 {% for year in survey_year_options %}
-                  <option value="{{ year }}"{% if year|string == survey_year_value %} selected{% endif %}>{{ year }}</option>
+                  {% set stored_count = stored_year_counts.get(year, 0) %}
+                  <option value="{{ year }}" data-stored-count="{{ stored_count }}"{% if year|string == survey_year_value %} selected{% endif %}>{{ year }}{% if stored_count %} — {{ stored_count }} stored {{ 'batch' if stored_count == 1 else 'batches' }}{% endif %}</option>
                 {% endfor %}
               </select>
+              <p id="survey-year-hint">Years marked with a stored batch require confirmation before another dataset can be stored.</p>
             </div>
           </div>
           <div class="import-fields">
@@ -75,9 +73,11 @@
                   <label for="household-csv">Households</label>
                   <span class="import-filename">household.csv</span>
                 </div>
-                <p class="import-file-description">Main household-level and dwelling records.</p>
+                <p class="import-file-description" id="household-description">Main household-level and dwelling records.</p>
               </div>
-              <input id="household-csv" name="household" type="file" accept=".csv,text/csv" required>
+              <input id="household-csv" name="household" type="file" accept=".csv,text/csv" required aria-describedby="household-description household-limit household-size-error" data-required-filename="household.csv" data-max-bytes="{{ max_upload_file_bytes }}" data-max-mb="{{ max_upload_file_mb }}">
+              <p class="import-file-limit" id="household-limit">Maximum file size: {{ max_upload_file_mb }} MB.</p>
+              <p class="import-file-size-error" id="household-size-error" role="alert" hidden></p>
             </div>
             <div class="import-field">
               <div class="import-file-details">
@@ -85,9 +85,11 @@
                   <label for="members-csv">Household members</label>
                   <span class="import-filename">section_a_e_indiv.csv</span>
                 </div>
-                <p class="import-file-description">Individual member records from survey Sections A–E.</p>
+                <p class="import-file-description" id="members-description">Individual member records from survey Sections A–E.</p>
               </div>
-              <input id="members-csv" name="section_a_e_indiv" type="file" accept=".csv,text/csv" required>
+              <input id="members-csv" name="section_a_e_indiv" type="file" accept=".csv,text/csv" required aria-describedby="members-description members-limit members-size-error" data-required-filename="section_a_e_indiv.csv" data-max-bytes="{{ max_upload_file_bytes }}" data-max-mb="{{ max_upload_file_mb }}">
+              <p class="import-file-limit" id="members-limit">Maximum file size: {{ max_upload_file_mb }} MB.</p>
+              <p class="import-file-size-error" id="members-size-error" role="alert" hidden></p>
             </div>
             <div class="import-field">
               <div class="import-file-details">
@@ -95,9 +97,11 @@
                   <label for="health-csv">Member health records</label>
                   <span class="import-filename">section_l02_to_l41.csv</span>
                 </div>
-                <p class="import-file-description">Health responses from survey Sections L02–L41.</p>
+                <p class="import-file-description" id="health-description">Health responses from survey Sections L02–L41.</p>
               </div>
-              <input id="health-csv" name="section_l02_to_l41" type="file" accept=".csv,text/csv" required>
+              <input id="health-csv" name="section_l02_to_l41" type="file" accept=".csv,text/csv" required aria-describedby="health-description health-limit health-size-error" data-required-filename="section_l02_to_l41.csv" data-max-bytes="{{ max_upload_file_bytes }}" data-max-mb="{{ max_upload_file_mb }}">
+              <p class="import-file-limit" id="health-limit">Maximum file size: {{ max_upload_file_mb }} MB.</p>
+              <p class="import-file-size-error" id="health-size-error" role="alert" hidden></p>
             </div>
             <div class="import-field">
               <div class="import-file-details">
@@ -105,81 +109,108 @@
                   <label for="child-csv">Child death records</label>
                   <span class="import-filename">section_l11_to_l14.csv</span>
                 </div>
-                <p class="import-file-description">Child mortality responses from survey Sections L11–L14.</p>
+                <p class="import-file-description" id="child-description">Child mortality responses from survey Sections L11–L14.</p>
               </div>
-              <input id="child-csv" name="section_l11_to_l14" type="file" accept=".csv,text/csv" required>
+              <input id="child-csv" name="section_l11_to_l14" type="file" accept=".csv,text/csv" required aria-describedby="child-description child-limit child-size-error" data-required-filename="section_l11_to_l14.csv" data-max-bytes="{{ max_upload_file_bytes }}" data-max-mb="{{ max_upload_file_mb }}">
+              <p class="import-file-limit" id="child-limit">Maximum file size: {{ max_upload_file_mb }} MB.</p>
+              <p class="import-file-size-error" id="child-size-error" role="alert" hidden></p>
             </div>
           </div>
         </div>
 
-        <div class="import-confirmation-panel">
-          <label class="import-confirmation">
-            <input name="authorized_source" type="checkbox" value="yes">
-            <span><strong>Confirm the source before storing</strong>I confirm these are authorized Pozorrubio CBMS files for the survey year selected above. This is required only when storing a batch.</span>
-          </label>
+        {% set selected_year_count = stored_year_counts.get(survey_year_value|int, 0) if survey_year_value else 0 %}
+        <div id="duplicate-year-warning" class="import-duplicate-warning" role="status"{% if not selected_year_count %} hidden{% endif %}>
+          <span class="import-alert-icon" aria-hidden="true">!</span>
+          <div>
+            <strong>Dataset already stored for <span data-duplicate-year>{{ survey_year_value }}</span></strong>
+            <p><span data-duplicate-summary>{{ selected_year_count }} stored {{ 'batch exists' if selected_year_count == 1 else 'batches exist' }}</span> for this survey year. A confirmed re-upload creates a separate inactive batch; it does not replace, activate or change existing data. Exact duplicate files will still be blocked.</p>
+          </div>
         </div>
 
         <div class="import-form-footer">
           <div class="import-limit-note">
             <strong>Upload limit</strong>
-            <p>All four files together must be under about 268 MB. Checking and storage may take a few minutes.</p>
+            <p>Each CSV must be {{ max_upload_file_mb }} MB or smaller, and all four files together must be under about 268 MB. Previewing validates the files but does not store a dataset.</p>
           </div>
           <div class="import-actions">
-            <button type="submit" name="action" value="check" class="import-secondary">Check files only</button>
-            <button type="submit" name="action" value="store">Check and store bundle</button>
+            <button type="submit" name="action" value="check">Preview and validate files</button>
           </div>
         </div>
       </form>
     </section>
 
-    {% if report %}
-      <section class="import-results-panel" aria-labelledby="result-heading" aria-live="polite">
-        {# A stopped import (for example a duplicate bundle) is never reported as passed. #}
-        {% set report_passed = report.passed and not error %}
-        <div class="import-results-heading">
-          <div>
-            <p class="import-panel-kicker">Validation report</p>
-            <h2 id="result-heading">File check results</h2>
-          </div>
-          <span class="import-result-badge import-result-badge-{{ 'pass' if report_passed else 'fail' }}">{{ 'Passed' if report_passed else 'Needs attention' }}</span>
-        </div>
-        {% if batch_id %}
-          <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>Stored survey year {{ survey_year_value }} as inactive batch {{ batch_id }}. Assessments have not been run. {% if initial_setup %}Prepare this batch before activating the first dataset.{% else %}The active dataset is unchanged.{% endif %}</p></div>
-        {% elif error %}
-          {# The error banner at the top of the page already explains why nothing was stored. #}
-        {% elif report_passed %}
-          <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>The survey year {{ survey_year_value }} files passed validation. No dataset has been added or activated.</p></div>
-        {% else %}
-          <div class="import-page-alert import-page-alert-error"><span class="import-alert-icon" aria-hidden="true">!</span><p>Correct the issues below before preparing this dataset. The active dataset is unchanged.</p></div>
-        {% endif %}
+    <div id="import-preview-host" aria-live="polite">
+      {% if report or error %}
+        {% set interactive_preview = false %}
+        {% set selected_year_count = stored_year_counts.get(survey_year_value|int, 0) if survey_year_value else 0 %}
+        {% include 'staff/_import_preview.html' %}
+      {% endif %}
+    </div>
 
-        <h3 class="import-results-subheading">Records checked</h3>
-        <ul class="import-counts">
-          {% for source in report.sources %}
-            <li><span>{{ source.name }}</span><strong>{{ source.records if source.records is not none else 'Could not read' }}</strong></li>
-          {% endfor %}
-        </ul>
-        {% if report.errors %}
-          <div class="import-issue-section import-issue-errors">
-            <h3>Issues to fix <span>{{ report.errors|length }}</span></h3>
-            <ul class="import-issues">
-              {% for issue in report.errors %}
-                <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
+    <section class="import-history-panel" aria-labelledby="import-history-heading">
+      <div class="import-history-heading">
+        <div>
+          <p class="import-panel-kicker">Audit trail</p>
+          <h2 id="import-history-heading">Import history</h2>
+          <p>Review the latest aggregate validation, storage and deletion events. Household records and file hashes are never displayed here.</p>
+        </div>
+        <a class="import-history-export" href="{{ url_for('main.import_history_export') }}">Download full history <span aria-hidden="true">↓</span></a>
+      </div>
+
+      {% if history_error %}
+        <div class="import-page-alert import-page-alert-error" role="alert">
+          <span class="import-alert-icon" aria-hidden="true">!</span>
+          <p>{{ history_error }}</p>
+        </div>
+      {% elif import_history %}
+        <p class="import-history-limit-note">Showing the 25 most recent retained events. Download the CSV for the complete history.</p>
+        <div class="import-history-table-wrap">
+          <table class="import-history-table">
+            <thead>
+              <tr>
+                <th scope="col">Action time</th>
+                <th scope="col">Result</th>
+                <th scope="col">Survey year</th>
+                <th scope="col">Batch</th>
+                <th scope="col">Administrator</th>
+                <th scope="col">Records</th>
+                <th scope="col">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for event in import_history %}
+                <tr>
+                  <td data-label="Action time"><time datetime="{{ event.action_at.isoformat() }}">{{ event.action_at|pht_datetime }}</time></td>
+                  <td data-label="Result"><span class="import-history-status import-history-status-{{ event.outcome }}">{{ event.outcome_label }}</span></td>
+                  <td data-label="Survey year">{{ event.survey_year or '—' }}</td>
+                  <td data-label="Batch">{{ event.batch_id or '—' }}</td>
+                  <td data-label="Administrator"><strong>{{ event.action_by }}</strong>{% if event.action_by != event.uploaded_by %}<small>Uploaded by {{ event.uploaded_by }}</small>{% endif %}</td>
+                  <td data-label="Records">{{ '{:,}'.format(event.total_records) if event.total_records is not none else '—' }}</td>
+                  <td data-label="Description">
+                    <span>{{ event.description }}</span>
+                    <small>{{ event.error_count }} blocking {{ 'issue' if event.error_count == 1 else 'issues' }} · {{ event.warning_count }} {{ 'warning' if event.warning_count == 1 else 'warnings' }}{% if event.same_year_reupload %} · Same-year re-upload{% endif %}</small>
+                  </td>
+                </tr>
               {% endfor %}
-            </ul>
-          </div>
-        {% endif %}
-        {% if report.warnings %}
-          <div class="import-issue-section import-issue-warnings">
-            <h3>Items to review <span>{{ report.warnings|length }}</span></h3>
-            <ul class="import-issues">
-              {% for issue in report.warnings %}
-                <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
-              {% endfor %}
-            </ul>
-          </div>
-        {% endif %}
-      </section>
-    {% endif %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="import-history-empty">
+          <h3>No import activity yet</h3>
+          <p>Validation and storage attempts will appear here after the administrator previews the first file bundle.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="import-processing-overlay" id="import-processing-overlay" role="status" aria-live="assertive" aria-atomic="true" tabindex="-1" hidden>
+    <div class="import-processing-card">
+      <span class="import-processing-spinner" aria-hidden="true"></span>
+      <p class="import-panel-kicker">Data import in progress</p>
+      <h2 id="import-processing-title">Checking CSV files…</h2>
+      <p id="import-processing-message">Please keep this page open. Upload controls and navigation are temporarily locked while the files are processed.</p>
+      <div class="import-processing-bar" aria-hidden="true"><span></span></div>
+    </div>
   </div>
 {% endblock %}

@@ -1,0 +1,120 @@
+<section class="import-results-panel" aria-labelledby="result-heading">
+  {% set report_passed = report and report.passed and not error %}
+  <div class="import-results-heading">
+    <div>
+      <p class="import-panel-kicker">{{ 'Import complete' if batch_id else 'Import preview' }}</p>
+      <h2 id="result-heading">{{ 'Import stored successfully' if batch_id else 'Review files before storage' }}</h2>
+      <p>{% if batch_id %}Review the aggregate storage results below. Household information is not displayed.{% else %}Only filenames, record totals and detected issues are shown. Household information is not displayed.{% endif %}</p>
+    </div>
+    <span class="import-result-badge import-result-badge-{{ 'pass' if report_passed else 'fail' }}">{% if batch_id %}Stored{% else %}{{ 'Ready to confirm' if report_passed else 'Needs attention' }}{% endif %}</span>
+  </div>
+
+  {% if batch_id %}
+    <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>Stored the previewed files as inactive batch {{ batch_id }}. Assessments have not been run. {% if initial_setup %}Prepare this batch before activating the first dataset.{% else %}The active dataset is unchanged.{% endif %}</p></div>
+  {% elif error %}
+    <div class="import-page-alert import-page-alert-error" role="alert"><span class="import-alert-icon" aria-hidden="true">!</span><div><strong>{{ 'Import could not be stored' if import_action == 'store' else 'Preview could not continue' }}</strong><p>{{ error }}</p></div></div>
+  {% elif report_passed %}
+    <div class="import-page-alert import-page-alert-success"><span class="import-alert-icon" aria-hidden="true">✓</span><p>All four files passed validation. Review the totals and warnings before confirming storage.</p></div>
+  {% elif report %}
+    <div class="import-page-alert import-page-alert-error"><span class="import-alert-icon" aria-hidden="true">!</span><p>Correct the blocking issues below, then preview the selected files again.</p></div>
+  {% endif %}
+
+  {% if import_result %}
+    <section class="import-result-summary" aria-labelledby="import-result-summary-heading">
+      <div>
+        <p class="import-panel-kicker">Import results</p>
+        <h3 id="import-result-summary-heading">Stored record summary</h3>
+        <p>The bundle was stored as one complete unit. No individual records were skipped or partially accepted.</p>
+      </div>
+      <dl class="import-result-counts">
+        <div><dt>Successfully imported</dt><dd>{{ import_result.imported }}</dd></div>
+        <div><dt>Duplicate or skipped</dt><dd>{{ import_result.duplicate_or_skipped }}</dd></div>
+        <div><dt>Rejected records</dt><dd>{{ import_result.rejected }}</dd></div>
+        <div><dt>Records with validation errors</dt><dd>{{ import_result.validation_errors }}</dd></div>
+      </dl>
+    </section>
+  {% endif %}
+
+  {% if report %}
+    <div class="import-preview-table-wrap">
+      <table class="import-preview-table">
+        <thead>
+          <tr><th scope="col">Required file</th><th scope="col">Filename</th><th scope="col">Records</th><th scope="col">Detected issues</th></tr>
+        </thead>
+        <tbody>
+          {% for source in report.sources %}
+            <tr>
+              <th scope="row" data-label="Required file">{{ source.name }}</th>
+              <td data-label="Filename"><span class="import-preview-filename">{{ source.filename }}</span></td>
+              <td data-label="Records">{{ source.records if source.records is not none else 'Could not read' }}</td>
+              <td data-label="Detected issues">
+                {% if source.errors %}<span class="import-preview-status import-preview-status-error">{{ source.errors }} blocking</span>{% endif %}
+                {% if source.warnings %}<span class="import-preview-status import-preview-status-warning">{{ source.warnings }} {{ 'warning' if source.warnings == 1 else 'warnings' }}</span>{% endif %}
+                {% if not source.errors and not source.warnings %}<span class="import-preview-status import-preview-status-ready">None detected</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if report.errors %}
+      <div class="import-issue-section import-issue-errors">
+        <h3>Blocking issues <span>{{ report.errors|length }}</span></h3>
+        <ul class="import-issues">
+          {% for issue in report.errors %}
+            <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}{% if issue.columns %} <span class="import-column-list">{% for column in issue.columns %}<code>{{ column }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span><b>{{ issue.count }}</b></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    {% if report.coverage_notes %}
+      <div class="import-issue-section import-issue-information">
+        <h3>Data coverage note <span>{{ report.coverage_notes|length }}</span></h3>
+        <ul class="import-issues">
+          {% for issue in report.coverage_notes %}
+            <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    {% if report.warnings %}
+      <div class="import-issue-section import-issue-warnings">
+        <h3>Warnings to review <span>{{ report.warnings|length }}</span></h3>
+        <ul class="import-issues">
+          {% for issue in report.warnings %}
+            <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  {% if interactive_preview %}
+    {% if allow_confirmation %}
+      <div class="import-confirmation-panel import-preview-confirmations">
+        <input type="hidden" name="preview_token" value="{{ preview_token }}" form="import-upload-form">
+        <label class="import-confirmation">
+          <input name="authorized_source" type="checkbox" value="yes" form="import-upload-form" required>
+          <span><strong>Confirm the source before storing</strong>I confirm these are authorized Pozorrubio CBMS files for the selected survey year.</span>
+        </label>
+        {% if selected_year_count %}
+          <div class="import-reupload-warning" role="alert">
+            <span class="import-alert-icon" aria-hidden="true">!</span>
+            <p><strong>This is a same-year re-upload.</strong> Confirming creates a separate inactive batch. It will not replace, activate or change the existing dataset.</p>
+          </div>
+          <label class="import-confirmation import-duplicate-confirmation">
+            <input name="confirm_same_year" type="checkbox" value="yes" form="import-upload-form" required>
+            <span><strong>Confirm intentional re-upload</strong>I understand that this survey year already has stored data and confirm these files are a different dataset.</span>
+          </label>
+        {% endif %}
+      </div>
+    {% endif %}
+    <div class="import-preview-actions">
+      <button type="button" class="import-secondary" data-change-import-files>{{ 'Change files' if allow_confirmation else 'Correct selected files' }}</button>
+      {% if allow_confirmation %}
+        <button type="submit" name="action" value="store" form="import-upload-form">{{ 'Confirm and store separate batch' if selected_year_count else 'Confirm and store bundle' }}</button>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>

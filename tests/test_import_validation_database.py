@@ -12,13 +12,16 @@ import psycopg
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.types.json import Jsonb
+from flask import g
 from werkzeug.datastructures import FileStorage, MultiDict
 from werkzeug.security import generate_password_hash
 
 from app import create_app
 from repositories import import_validation_events
 from cbms_csv_fixtures import synthetic_csv_frames, write_csv_fixture
-from services.cbms_import import DuplicateImportBundle, stage_validated_snapshot
+from services.cbms_import import (
+    DuplicateImportBundle, DuplicateSurveyYear, stage_validated_snapshot,
+)
 from services.cbms_preflight import load_csv_bundle
 from services.data_loader import REFERENCE_FILES
 from services.import_references import load_import_references
@@ -132,6 +135,13 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             self.assertEqual(event[1], 2024)
             self.assertEqual(event[2]["household"]["bytes"], 42)
             self.assertEqual(event[3:], (0, 1))
+            history = import_validation_events.list_history(connection)
+            self.assertEqual(history[0]["outcome"], "passed")
+            self.assertEqual(history[0]["uploaded_by"], "synthetic_admin")
+            self.assertEqual(history[0]["action_by"], "synthetic_admin")
+            self.assertIsNone(history[0]["deleted_at"])
+            self.assertEqual(history[0]["survey_year"], 2024)
+            self.assertEqual(history[0]["file_metadata"]["household"]["bytes"], 42)
             connection.execute(
                 """UPDATE import_validation_events
                    SET attempted_at = CURRENT_TIMESTAMP - INTERVAL '91 days'
@@ -202,20 +212,38 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                     sql.SQL("SELECT count(*) FROM {} WHERE batch_id = %s").format(
                         sql.Identifier(table)), (staged,),
                 ).fetchone()[0], len(references[name]))
+            # Source-file equality is year-independent: relabelling the same files
+            # as a later survey cannot create another stored dataset.
             with self.assertRaises(DuplicateImportBundle), connection.transaction():
                 stage_validated_snapshot(
-                    connection, datasets, references, provenance, 2024,
+                    connection, datasets, references, provenance, 2026,
+                )
+            different_provenance = {
+                **provenance,
+                "declared": {**provenance["declared"], "bundle_sha256": "d" * 64},
+                "files": {
+                    **files,
+                    "household": {**files["household"], "sha256": "d" * 64},
+                },
+            }
+            with self.assertRaises(DuplicateSurveyYear), connection.transaction():
+                stage_validated_snapshot(
+                    connection, datasets, references, different_provenance, 2024,
                 )
             failure_provenance = {
                 **provenance,
                 "declared": {**provenance["declared"], "bundle_sha256": "c" * 64},
+                "files": {
+                    **files,
+                    "household": {**files["household"], "sha256": "c" * 64},
+                },
             }
             with patch("services.cbms_import.repository.verify_batch_counts",
                        side_effect=RuntimeError("synthetic mismatch")):
                 with self.assertRaises(RuntimeError), connection.transaction():
                     stage_validated_snapshot(
                         connection, datasets, references, failure_provenance,
-                        2024,
+                        2024, same_year_confirmed=True,
                     )
             self.assertEqual(connection.execute(
                 "SELECT count(*) FROM dataset_batches",
@@ -233,6 +261,9 @@ class ImportValidationDatabaseTests(unittest.TestCase):
 
     def test_upload_service_stores_only_inactive_synthetic_batch(self):
         datasets, references = synthetic_csv_frames()
+        datasets["household"].insert(
+            3, "contact_number", ["09990000001", "+639990000002"],
+        )
         with TemporaryDirectory() as directory:
             root = Path(directory)
             write_csv_fixture(root, datasets, references)
@@ -246,11 +277,12 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             app = create_app({
                 "TESTING": True, "DATABASE_URL": self.url,
                 "IMPORT_STAGING_DIR": str(root / "staging"),
+                "IMPORT_REFERENCE_DIR": None,
             })
             with app.app_context():
                 result = validate_admin_upload(
                     uploads, self.actor_id, 2024, store_inactive=True,
-                    authorization_confirmed=True,
+                    authorization_confirmed=True, same_year_confirmed=True,
                 )
             self.assertEqual(list((root / "staging").iterdir()), [])
         self.assertTrue(result["report"]["passed"], result)
@@ -328,6 +360,11 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                 (batch_id,),
             ).fetchone()
             self.assertEqual(audit, ("deleted", None, batch_id, True, self.actor_id))
+            history = import_validation_events.list_history(connection)
+            deleted = next(row for row in history if row["outcome"] == "deleted")
+            self.assertEqual(deleted["uploaded_by"], "synthetic_admin")
+            self.assertEqual(deleted["action_by"], "synthetic_admin")
+            self.assertIsNotNone(deleted["deleted_at"])
             connection.execute(
                 """UPDATE import_validation_events SET attempted_at =
                    CURRENT_TIMESTAMP - INTERVAL '91 days'
@@ -361,11 +398,12 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             app = create_app({
                 "TESTING": True, "DATABASE_URL": self.url,
                 "IMPORT_STAGING_DIR": str(root / "staging"),
+                "IMPORT_REFERENCE_DIR": None,
             })
             with app.app_context():
                 result = validate_admin_upload(
                     uploads, self.actor_id, 2024, store_inactive=True,
-                    authorization_confirmed=True,
+                    authorization_confirmed=True, same_year_confirmed=True,
                 )
         self.assertTrue(result["report"]["passed"], result)
         with psycopg.connect(self.url) as connection:
@@ -401,6 +439,7 @@ class ImportValidationDatabaseTests(unittest.TestCase):
             app = create_app({
                 "TESTING": True, "DATABASE_URL": self.url,
                 "IMPORT_STAGING_DIR": str(root / "staging"),
+                "IMPORT_REFERENCE_DIR": None,
             })
             with psycopg.connect(self.url) as connection:
                 before = connection.execute(
@@ -434,6 +473,10 @@ class ImportValidationDatabaseTests(unittest.TestCase):
         }
 
         def stage(bundle_hash):
+            distinct_files = {
+                **files,
+                "household": {**files["household"], "sha256": bundle_hash},
+            }
             provenance = {
                 "declared": {
                     "source": "administrator_uploaded_compatible_csv",
@@ -441,11 +484,12 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                     "bundle_sha256": bundle_hash,
                     "reference_version": "synthetic-reference-v1",
                 },
-                "files": files,
+                "files": distinct_files,
             }
             with psycopg.connect(self.url) as connection:
                 return stage_validated_snapshot(
                     connection, datasets, references, provenance, 2024,
+                    same_year_confirmed=True,
                 )
 
         prepared_batch = stage("d" * 64)
@@ -594,3 +638,57 @@ class FirstDatasetDatabaseTests(unittest.TestCase):
             ).fetchone(), (
                 "initial_activate", None, None, batch_id, prepared["run_id"],
             ))
+
+    def test_route_returns_json_for_exact_names_with_a_missing_column(self):
+        datasets, references = synthetic_csv_frames()
+        datasets["section_l02_to_l41"] = datasets["section_l02_to_l41"].drop(
+            columns=["barangay"],
+        )
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_csv_fixture(root, datasets, references)
+            app = create_app({
+                "TESTING": True,
+                "DATABASE_URL": self.url,
+                "SECRET_KEY": "synthetic-route-secret",
+                "IMPORT_STAGING_DIR": str(root / "staging"),
+                "IMPORT_REFERENCE_DIR": str(ROOT / "data" / "reference"),
+                "IMPORT_REFERENCE_BATCH_ID": None,
+            })
+            client = app.test_client()
+
+            def load_user():
+                g.user = {
+                    "id": self.actor_id,
+                    "username": "first_admin",
+                    "role": "system_administrator",
+                }
+
+            with patch("services.auth.authentication_configured", return_value=True), \
+                 patch("services.auth.load_session_user", side_effect=load_user):
+                with client.session_transaction() as session:
+                    session["csrf_token"] = "synthetic-csrf"
+                response = client.post(
+                    "/administration/import",
+                    data={
+                        "csrf_token": "synthetic-csrf",
+                        "survey_year": "2022",
+                        **{
+                            name: (
+                                BytesIO((root / "raw" / f"{name}.csv").read_bytes()),
+                                f"{name}.csv",
+                            )
+                            for name in datasets
+                        },
+                    },
+                    headers={
+                        "X-Requested-With": "fetch",
+                        "Accept": "application/json",
+                    },
+                )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.mimetype, "application/json")
+        preview = response.get_json()["preview_html"]
+        self.assertIn("blocking", preview)
+        self.assertIn("Missing required column", preview)
+        self.assertIn("<code>barangay</code>", preview)

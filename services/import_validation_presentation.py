@@ -54,28 +54,89 @@ ISSUE_LABELS = {
     "identical_child_death_rows": "Some child death records are identical.",
 }
 
+SECTION_L_COVERAGE_NOTE = ("section_l_to_members", "missing_related_records")
+
 
 def present_report(report):
     """Expose only fixed wording and aggregate counts from the safe report."""
     if report is None:
         return None
 
-    def issues(severity):
-        return [
-            {
-                "source": SOURCE_LABELS.get(item["source"], "Related records"),
-                "message": ISSUE_LABELS.get(item["code"], "This file needs review."),
-                "count": item["count"],
-            }
-            for item in report[severity]
-        ]
+    def present_issue(item):
+        columns = item.get("columns", [])
+        safe_columns = (
+            columns
+            if (item.get("code") == "missing_defined_columns"
+                and isinstance(columns, list)
+                and all(isinstance(column, str) for column in columns))
+            else []
+        )
+        message = ISSUE_LABELS.get(item["code"], "This file needs review.")
+        if safe_columns:
+            message = (
+                "Missing required column:"
+                if len(safe_columns) == 1 else "Missing required columns:"
+            )
+        return {
+            "source": SOURCE_LABELS.get(item["source"], "Related records"),
+            "message": message,
+            "count": item["count"],
+            "columns": safe_columns,
+        }
+
+    warning_items = report["warnings"]
+    coverage_items = [
+        item for item in warning_items
+        if (item.get("source"), item.get("code")) == SECTION_L_COVERAGE_NOTE
+    ]
+    review_warning_items = [
+        item for item in warning_items
+        if (item.get("source"), item.get("code")) != SECTION_L_COVERAGE_NOTE
+    ]
+
+    presented_errors = [present_issue(item) for item in report["errors"]]
+    presented_warnings = [present_issue(item) for item in review_warning_items]
+    coverage_notes = [{
+        "source": "Member health records",
+        "message": (
+            "Household members without a matching row in "
+            "section_l02_to_l41.csv. This does not block import."
+        ),
+        "count": item["count"],
+        "columns": [],
+    } for item in coverage_items]
+    sources = []
+    for name in EXCEL_FILES:
+        label = SOURCE_LABELS[name]
+        source_errors = sum(1 for issue in presented_errors if issue["source"] == label)
+        source_warnings = sum(1 for issue in presented_warnings if issue["source"] == label)
+        sources.append({
+            "name": label,
+            "filename": f"{name}.csv",
+            "records": report["datasets"].get(name, {}).get("records"),
+            "errors": source_errors,
+            "warnings": source_warnings,
+        })
 
     return {
         "passed": report["passed"],
-        "sources": [
-            {"name": SOURCE_LABELS[name], "records": report["datasets"].get(name, {}).get("records")}
-            for name in EXCEL_FILES
-        ],
-        "errors": issues("errors"),
-        "warnings": issues("warnings"),
+        "sources": sources,
+        "errors": presented_errors,
+        "warnings": presented_warnings,
+        "coverage_notes": coverage_notes,
+    }
+
+
+def present_import_result(report, batch_id):
+    """Summarize an atomically stored bundle without implying partial imports."""
+    if not batch_id or not report or not report.get("passed"):
+        return None
+    records = [source.get("records") for source in report.get("sources", [])]
+    if len(records) != len(EXCEL_FILES) or any(type(value) is not int for value in records):
+        return None
+    return {
+        "imported": sum(records),
+        "duplicate_or_skipped": 0,
+        "rejected": 0,
+        "validation_errors": 0,
     }

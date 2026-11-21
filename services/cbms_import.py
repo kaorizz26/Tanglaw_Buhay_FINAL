@@ -14,14 +14,24 @@ class DuplicateImportBundle(RuntimeError):
     """The same four-source and reference version is already stored."""
 
 
-def stage_validated_snapshot(connection, datasets, references, provenance, survey_year):
+class DuplicateSurveyYear(RuntimeError):
+    """A different validated dataset already uses the declared survey year."""
+
+
+def stage_validated_snapshot(connection, datasets, references, provenance, survey_year,
+                             *, same_year_confirmed=False):
     """Store a passing snapshot as validated and inactive; caller owns rollback."""
     if not is_supported_survey_year(survey_year):
         raise RuntimeError("invalid_import_survey_year")
     repository.lock_dataset_imports(connection)
+    if repository.find_matching_source_files(connection, provenance.get("files")):
+        raise DuplicateImportBundle("duplicate_import_bundle")
     if repository.find_matching_bundle(
             connection, provenance["declared"]["bundle_sha256"]):
         raise DuplicateImportBundle("duplicate_import_bundle")
+    if (repository.count_validated_batches_for_year(connection, survey_year)
+            and same_year_confirmed is not True):
+        raise DuplicateSurveyYear("duplicate_survey_year")
     frames = {**datasets, **references}
     columns = {name: list(frame.columns) for name, frame in frames.items()}
     batch_id = repository.create_batch(

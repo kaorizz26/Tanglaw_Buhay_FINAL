@@ -5,10 +5,11 @@
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/data-import.css') }}">
   <script src="{{ url_for('static', filename='js/import-activation.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/import-operations.js') }}" defer></script>
 {% endblock %}
 
 {% block content %}
-  <div class="import-activation-page">
+  <div class="import-activation-page" data-import-operation-page>
     <header class="page-header portal-hero import-activation-hero">
       <div class="portal-hero-content">
         <div>
@@ -127,7 +128,7 @@
               </div>
 
               {% if not overview.in_progress_reviews and not citizen_blocked %}
-                <form method="post" action="{{ url_for('main.import_activation') }}" class="import-candidate-switch-form">
+                <form method="post" action="{{ url_for('main.import_activation') }}" class="import-candidate-switch-form" data-import-operation-form data-processing-title="Activating dataset…" data-processing-message="Please keep this page open. The system is checking the selected batch again before making it available to staff.">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="target_batch_id" value="{{ batch.id }}">
                   <input type="hidden" name="expected_active_batch_id" value="{{ overview.active.id if overview.active else '' }}">
@@ -184,4 +185,5 @@
       </div>
     </dialog>
   </div>
+  {% include 'staff/_import_operation_overlay.html' %}
 {% endblock %}
