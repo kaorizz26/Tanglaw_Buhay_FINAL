@@ -477,19 +477,20 @@ frontend reset; that history remains in Git at `9a6b24c`.
 | Route | Who can open it | Current behavior and code |
 |---|---|---|
 | `/login`, `/forgot-password`, `/logout`, `/change-password` | Everyone / signed-in staff | Shared sign-in, neutral staff password-help request, CSRF-protected sign-out, and first-login password setup. `routes/auth.py` |
-| `/` | LGU Staff | Dashboard with My Subsidy Reviews. An administrator is redirected to `/administration`. `routes/main.py` |
+| `/` | LGU Staff | Dashboard; module links and My Subsidy Reviews appear only when the account has their required permissions. An administrator is redirected to `/administration`. `routes/main.py` |
 | `/profile`, `/profile/password` | LGU Staff | Read-only staff identity and current-password-verified self-service password change. `routes/main.py` |
 | `/administration` | System Administrator | Dashboard with statistics only. |
 | `/administration/import` | System Administrator | Placeholder page; no import controls. |
 | `/administration/accounts`, `/administration/accounts/create` | System Administrator | List LGU Staff accounts, reveal pending temporary passwords, and create accounts. `routes/main.py` |
+| `/administration/accounts/<account_id>/access` | System Administrator | View or replace one active LGU Staff account's permissions and review retained permission-change history. The POST is CSRF-protected and revokes existing sessions. `routes/main.py` |
 | `/administration/accounts/password-reset-requests` | System Administrator | Review pending staff password-help requests and recent completion metadata. `routes/main.py` |
 | `/administration/accounts/<account_id>/deactivate`, `/reset-password`, `/reactivate` | System Administrator | Confirm account actions over the list. Deactivation keeps the staff row; reset and reactivation issue a new temporary password. `routes/main.py` |
-| `/households`, `/households/<household_uuid>` | Both roles | Read-only Household Records list and detail. `routes/households.py` |
-| `/assessments` | Both roles | Household Prioritization. `routes/assessments.py::prioritization` |
-| `/assessments/<household_uuid>` | Both roles | Household Assessment; `?tab=overview`, `mpi`, `screening` or `reviews`. |
-| `/assessments/queue` | Both roles | Review Queue. |
-| `/assessments/<household_uuid>/reviews/<program>` | Both roles | Start Review confirmation (GET) and creation (POST). `<program>` is `4Ps`, `SLP`, `SPISC` or `TUPAD`. |
-| `/assessments/<household_uuid>/reviews/<program>/<review_id>` | Both roles | Focused review workspace; POST saves a note. `?action=finish`, `cancel`, `reassign`, `correct` or `withdraw` selects the other forms. Correct and withdraw are handled by `routes/recommendation_changes.py`. |
+| `/households`, `/households/<household_uuid>` | Administrator or `households.view` | Read-only Household Records list and detail. `routes/households.py` |
+| `/assessments` | Administrator or `assessments.view` | Household Prioritization. `routes/assessments.py::prioritization` |
+| `/assessments/<household_uuid>` | Administrator or `assessments.view` | Household Assessment; `?tab=overview`, `mpi`, or `screening`. The `reviews` tab additionally requires `reviews.view`. |
+| `/assessments/queue` | Administrator or `reviews.view` | Review Queue. |
+| `/assessments/<household_uuid>/reviews/<program>` | Administrator or `reviews.manage` | Start Review confirmation (GET) and creation (POST). `<program>` is `4Ps`, `SLP`, `SPISC` or `TUPAD`. |
+| `/assessments/<household_uuid>/reviews/<program>/<review_id>` | Administrator or `reviews.view` | Read the focused review workspace. POST and action forms (`finish`, `cancel`, `reassign`, `correct`, `withdraw`) additionally require `reviews.manage`. Correct and withdraw are handled by `routes/recommendation_changes.py`. |
 | `/public`, `/public/programs/<slug>` | Anyone, no sign-in | Public information pages; `<slug>` is `4ps`, `spisc`, `slp` or `tupad`. `routes/public.py` |
 | `/test` | Anyone, no sign-in | JSON health check; independent of the database. |
 
@@ -502,9 +503,11 @@ holds rules, validation and presentation; `repositories/` holds the SQL;
 `templates/` has `staff/` (layout, Dashboard, administration), `households/`,
 `assessments/`, `auth/` and the `public_*.html` pages; styles are in
 `static/css/<feature>.css` and small scripts in `static/js/`. The staff sidebar
-is `templates/staff/layout.html`: Dashboard, Household Records, an expandable
-Assessments group (Household Prioritization and Review Queue), then Submissions
-(disabled, planned) for LGU Staff or Data Import and Staff Accounts for administrators.
+is `templates/staff/layout.html`. Administrators receive their complete
+administration navigation. LGU Staff always receive Dashboard; Household Records,
+Assessments, Review Queue, and Submissions are rendered only when the account has
+the corresponding view permission. Route guards remain authoritative when a URL
+is requested directly.
 
 The development boundary holds only a source-kind marker, not a calculated
 workspace. `require_fixture_source()` blocks the Dashboard, administration pages and
@@ -516,8 +519,10 @@ scores or screening findings.
 Test files by feature: `test_dashboard*.py`, `test_prioritization*.py`,
 `test_household_records.py`, `test_assessment_details.py`, `test_staff_reviews.py`,
 `test_review_queue.py`, `test_review_responsibility.py`,
-`test_recommendation_changes.py`, `test_staff_account_creation.py`, `test_auth.py`
-and `test_public_pages.py`. `tests/test_frontend_reset.py` still checks the retired
+`test_recommendation_changes.py`, `test_staff_account_creation.py`, `test_auth.py`,
+`test_staff_access_management.py`, `test_staff_access_permissions_database.py`,
+`test_staff_access_routes.py`, `test_staff_permission_routes.py`, and
+`test_public_pages.py`. `tests/test_frontend_reset.py` still checks the retired
 URLs and authentication boundaries with generated accounts and mocked account SQL.
 Database tests need `TANGLAW_TEST_DATABASE_URL` and run only in disposable
 schemas of `tanglaw_buhay_test`; do not treat skipped database tests as verified.
@@ -2457,6 +2462,38 @@ an active account and reactivating an inactive one each generate a fresh tempora
 password, set the setup flag, and invalidate earlier sessions. Their POST routes
 remain administrator-only and CSRF-protected. Account editing is not implemented.
 
+### LGU Staff access control
+
+Migration `0021_staff_access_permissions.sql` defines the permission catalog,
+per-account grants, and append-only permission events. It backfills every LGU
+Staff account that exists when the migration runs with the full permission set;
+the insert trigger gives later LGU Staff accounts `dashboard.view` only. System
+Administrators do not receive grant rows: `services.auth.has_permission()` keeps
+their existing full access through the administrator role.
+
+The permission codes are `dashboard.view`, `households.view`,
+`assessments.view`, `reviews.view`, `reviews.manage`, `submissions.view`, and
+`submissions.manage`. Dashboard is mandatory. `reviews.view` depends on
+`assessments.view`; `reviews.manage` depends on `reviews.view`; and
+`submissions.manage` depends on `submissions.view`. The database constraint
+trigger and `services/staff_access.py` both enforce these rules. UI dependency
+handling is a convenience and is not the security boundary.
+
+`repositories/staff_permissions.py` reads the catalog, replaces grants in one
+transaction, records one event for each grant or removal, and increments
+`staff_users.session_version` when the effective set changes. The increment
+revokes existing sessions so the next request cannot continue with stale access.
+`services/auth.permission_required()` protects direct route access, while
+templates use the same loaded permission set to omit unavailable navigation and
+actions. View permissions expose read-only information; review and submission
+changes require their matching manage permission. Citizen Account and Document
+Request management also retain their LGU-Staff-only role boundary.
+
+The administrator-only, CSRF-protected Manage Access page is
+`/administration/accounts/<account_id>/access`. It supports predefined profiles
+or a custom set, shows retained audit history, and is read-only for inactive
+accounts. Reactivation does not silently replace the retained permission set.
+
 ### Public information pages
 
 `routes/public.py` serves `/public` and `/public/programs/<slug>` from the Filipino
@@ -2476,6 +2513,8 @@ applying each missing migration once; never rewrite or reapply one already used:
 | `0010_staff_password_change_required.sql` | `must_change_password boolean NOT NULL DEFAULT false`; accounts created by an administrator set it to true until first password setup. |
 | `0011_staff_temporary_password.sql` | Nullable encrypted copy with a check that it belongs only to an LGU Staff account awaiting password setup. Existing hashes cannot be decrypted or recovered. |
 | `0012_staff_account_deletion.sql` | Adds nullable `deleted_at`; retained unchanged because it was already applied in a local development database. Current deactivation uses `is_active` and does not read or write `deleted_at`. |
+| `0020_staff_password_reset_requests.sql` | Stores neutral LGU Staff password-help requests and their completion metadata. |
+| `0021_staff_access_permissions.sql` | Adds the permission catalog, per-account grants, required dependency constraints, default Dashboard grant, existing-staff full-access backfill, and append-only administrator audit history. |
 
 The Data Import branch introduces `0013_import_validation_audit.sql`, which creates
 `import_validation_events` with `actor_id` referencing `staff_users.id`. Since
@@ -2506,9 +2545,18 @@ unchanged). The two sets do not depend on each other. Databases were checked rea
 | `0018_import_batch_deletion_audit.sql` | Data Import | applied | not applied |
 | `0019_initial_dataset_activation.sql` | Data Import | applied | not applied |
 | `0020_staff_password_reset_requests.sql` | Staff Accounts | applied 2026-11-11 | not applied |
+| `0021_staff_access_permissions.sql` | Staff Access Control | applied 2026-11-22 with explicit owner authorization | not checked |
 
 Never apply a migration whose tables already exist. Use `psql -1 -v ON_ERROR_STOP=1` so a
 mistaken re-run rolls back completely.
+
+Before applying 0021, confirm that `to_regclass()` returns null for
+`public.staff_permissions`, `public.staff_user_permissions`, and
+`public.staff_permission_events`. If any object exists, inspect the schema and
+migration history instead of rerunning the file. Application startup never
+applies 0021. Automated verification creates and drops isolated schemas only in
+the configured `tanglaw_buhay_test` database; it must not migrate or reset the
+development database.
 
 Migration 0018 supports permanent deletion of an unused inactive administrator import
 without deleting its accountability record. The service serializes import preparation,
@@ -2533,6 +2581,15 @@ applied transactionally to local development on 2026-11-07; all existing batches
 activation events were retained.
 
 ### Verification record
+
+On 2026-11-22, the Staff Access Control change set passed all 1,355 tests in the
+full regression suite using isolated synthetic schemas in the local
+`tanglaw_buhay_test` database. There were zero failures, errors, or skips. The
+run emitted four unclosed-temporary-file `ResourceWarning`s from existing PDF and
+temporary-file tests; they did not change test outcomes. The suite did not migrate
+the development database. Migration 0021 was applied there separately on
+2026-11-22 after explicit owner authorization, then protected administrator and
+LGU Staff requests both returned HTTP 200.
 
 On 2026-11-05 the Staff Accounts PR branch passed the full synthetic regression
 suite: 594 passed, 0 failures, 0 errors, 0 skips. A separate disposable-schema

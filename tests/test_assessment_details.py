@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from app import create_app
+from services.staff_access import PERMISSION_CODES
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
 from services import assessment_details as details
 from services.assessment_queries import AssessmentQueryError
@@ -296,7 +297,8 @@ class AssessmentDetailRouteTests(unittest.TestCase):
         self.app = create_app({"TESTING": True, "SECRET_KEY": token_urlsafe(48), "DATABASE_URL": None})
         self.client = self.app.test_client()
         self.user = {"id": 1, "username": "synthetic_staff", "role": "lgu_staff",
-                     "is_active": True, "session_version": 1}
+                     "is_active": True, "session_version": 1,
+                     "permissions": PERMISSION_CODES}
         patches = (
             patch("psycopg.connect", side_effect=AssertionError("No real database connections")),
             patch("services.auth.get_connection", return_value=MagicMock()),

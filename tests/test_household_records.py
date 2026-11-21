@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 from app import create_app
+from services.staff_access import PERMISSION_CODES
 from services import household_records as records
 from services.assessment_queries import AssessmentQueryError
 from services.household_records import InvalidRecordFilters, RecordFilters, parse_record_arguments
@@ -23,7 +24,8 @@ class HouseholdRecordRouteTests(unittest.TestCase):
                                "DATABASE_URL": None})
         self.client = self.app.test_client()
         self.user = {"id": 1, "username": "synthetic_staff", "role": "lgu_staff",
-                     "is_active": True, "session_version": 1}
+                     "is_active": True, "session_version": 1,
+                     "permissions": PERMISSION_CODES}
         for patcher in (
             patch("services.auth.get_connection", return_value=MagicMock()),
             patch("repositories.staff_users.find_by_id", side_effect=lambda *args: dict(self.user)),

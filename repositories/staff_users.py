@@ -18,7 +18,13 @@ def find_by_id(connection, user_id):
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             """SELECT id, username, display_name, role, is_active, session_version,
-                      must_change_password
+                      must_change_password,
+                      ARRAY(
+                          SELECT permission_code
+                          FROM staff_user_permissions
+                          WHERE staff_id = staff_users.id
+                          ORDER BY permission_code
+                      ) AS permissions
                FROM staff_users WHERE id = %s""", (user_id,),
         ).fetchone()
 

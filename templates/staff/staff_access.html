@@ -1,0 +1,120 @@
+{% extends 'staff/layout.html' %}
+
+{% block title %}Manage Staff Access{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-accounts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/staff-access.css') }}">
+  <script src="{{ url_for('static', filename='js/staff-access.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  {% set account = access.account %}
+  <header class="page-header portal-hero access-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('main.administration') }}">Administration</a>
+      <span aria-hidden="true">/</span>
+      <a href="{{ url_for('main.staff_accounts') }}">Staff Accounts</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Manage Access</span>
+    </nav>
+    <div class="portal-hero-content">
+      <div>
+        <p class="access-eyebrow">Staff permissions</p>
+        <h1>Manage access for {{ account.display_name or account.username }}</h1>
+        <p class="portal-hero-subtitle">{{ account.username }} · {{ 'Active' if account.is_active else 'Inactive' }}</p>
+      </div>
+      <a class="portal-hero-action" href="{{ url_for('main.staff_accounts') }}">Return to account list</a>
+    </div>
+  </header>
+
+  {% for message in get_flashed_messages(category_filter=['staff_access']) %}
+    <p class="access-notice access-notice-success" role="status">{{ message }}</p>
+  {% endfor %}
+
+  <div class="access-layout">
+    <section class="access-card" aria-labelledby="access-settings-heading">
+      <div class="access-card-heading">
+        <div>
+          <p class="access-eyebrow">Account access</p>
+          <h2 id="access-settings-heading">Available staff features</h2>
+          <p>Choose only the features needed for this staff member’s assigned work.</p>
+        </div>
+        <span class="access-status access-status-{{ 'active' if account.is_active else 'inactive' }}">{{ 'Active' if account.is_active else 'Inactive' }}</span>
+      </div>
+
+      {% if not account.is_active %}
+        <div class="access-notice access-notice-warning" role="note">
+          <strong>This account is inactive.</strong>
+          <p>Its existing permissions are retained. Reactivate the account before changing access.</p>
+        </div>
+      {% else %}
+        <div class="access-session-warning" role="note">
+          <strong>Saving a change signs this staff member out.</strong>
+          <p>They must sign in again before the updated access takes effect.</p>
+        </div>
+        {% if error %}<p class="access-notice access-notice-error" id="access-error" role="alert">{{ error }}</p>{% endif %}
+
+        <div class="access-presets" aria-labelledby="access-presets-heading" data-access-presets>
+          <h3 id="access-presets-heading">Quick access profiles</h3>
+          <p>Select a profile, then adjust individual permissions if needed.</p>
+          <div class="access-preset-buttons">
+            {% for preset in presets %}
+              <button type="button" data-permissions='{{ preset.permissions | tojson }}'>{{ preset.label }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <form method="post" class="access-form" data-access-form {% if error %}aria-describedby="access-error"{% endif %}>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="permissions" value="dashboard.view">
+          <fieldset>
+            <legend>Individual permissions</legend>
+            <div class="access-permission-list">
+              {% for permission in access.permissions %}
+                <label class="access-permission{% if permission.code == 'dashboard.view' %} access-permission-required{% endif %}">
+                  <input type="checkbox"
+                         {% if permission.code != 'dashboard.view' %}name="permissions" value="{{ permission.code }}"{% endif %}
+                         data-permission="{{ permission.code }}"
+                         {% if permission.code in selected %}checked{% endif %}
+                         {% if permission.code == 'dashboard.view' %}disabled{% endif %}>
+                  <span>
+                    <strong>{{ permission.label }}{% if permission.code == 'dashboard.view' %} <small>Required</small>{% endif %}</strong>
+                    <span>{{ permission.description }}</span>
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+          <div class="access-form-actions">
+            <button class="accounts-button" type="submit">Save access</button>
+            <a href="{{ url_for('main.staff_accounts') }}">Cancel</a>
+          </div>
+        </form>
+      {% endif %}
+    </section>
+
+    <aside class="access-card access-history" aria-labelledby="access-history-heading">
+      <div class="access-card-heading">
+        <div>
+          <p class="access-eyebrow">Audit history</p>
+          <h2 id="access-history-heading">Recent access changes</h2>
+          <p>Administrator grants and removals are retained here.</p>
+        </div>
+      </div>
+      {% if history.events %}
+        <ol class="access-history-list">
+          {% for event in history.events %}
+            <li>
+              <span class="access-history-action access-history-action-{{ event.action }}">{{ 'Granted' if event.action == 'granted' else 'Removed' }}</span>
+              <strong>{{ event.label }}</strong>
+              <p>{{ event.administrator_name }} · <time datetime="{{ event.changed_at.isoformat() }}">{{ event.changed_at | pht_datetime }}</time></p>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="access-history-empty">No administrator access changes have been recorded yet.</p>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock %}

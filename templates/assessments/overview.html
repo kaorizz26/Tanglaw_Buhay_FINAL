@@ -23,7 +23,7 @@
 
 <div class="overview-layout">
   <div class="overview-left">
-    <section class="detail-section review-status-panel" aria-labelledby="review-status-heading">
+    {% if can_view_reviews %}<section class="detail-section review-status-panel" aria-labelledby="review-status-heading">
       <div class="review-status-panel-heading">
         <h2 id="review-status-heading">Staff Review Status</h2>
         <a class="review-button" href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab='reviews', _anchor='staff-reviews-heading', **detail_parameters) }}">View Staff Reviews →</a>
@@ -77,7 +77,7 @@
           <p>LGU staff have not yet started a subsidy review for this household. You can examine the screening findings before deciding whether to begin.</p>
         </div>
       {% endif %}
-    </section>
+    </section>{% endif %}
 
     <section class="detail-section overview-main" aria-labelledby="overview-heading">
       <div class="section-heading-row">

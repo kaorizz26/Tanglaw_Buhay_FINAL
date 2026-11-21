@@ -1,6 +1,7 @@
 {# Document Requests section of the Household Assessment overview. LGU Staff only. #}
 {% set account = results.citizen_account %}
 {% set documents = results.document_requests %}
+{% set can_manage = can_manage_submissions if can_manage_submissions is defined else ('submissions.manage' in g.user.get('permissions', [])) %}
 {% if g.user['role'] == 'lgu_staff' %}
 <section class="citizen-account-panel" aria-labelledby="document-requests-heading">
   <div class="citizen-account-heading">
@@ -45,11 +46,11 @@
     {% elif account.state == 'active' %}
       <p class="citizen-account-text">No documents have been requested yet.</p>
     {% endif %}
-    {% if account.state == 'active' %}
+    {% if account.state == 'active' and can_manage %}
       <div class="account-actions">
         <a class="account-button" href="{{ url_for('document_requests.create', household_uuid=results.household_uuid) }}">Request Documents</a>
       </div>
-    {% else %}
+    {% elif account.state != 'active' %}
       <p class="citizen-account-text">Documents can be requested while the Citizen Account is Active.</p>
     {% endif %}
   {% endif %}

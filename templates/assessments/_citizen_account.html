@@ -1,6 +1,7 @@
 {# Citizen Account section of the Household Assessment overview. #}
 {% set account = results.citizen_account %}
-{% set can_manage = g.user['role'] == 'lgu_staff' %}
+{% set has_manage_permission = can_manage_submissions if can_manage_submissions is defined else ('submissions.manage' in g.user.get('permissions', [])) %}
+{% set can_manage = g.user['role'] == 'lgu_staff' and has_manage_permission %}
 <section class="citizen-account-panel" aria-labelledby="citizen-account-heading">
   <div class="citizen-account-heading">
     <h2 id="citizen-account-heading">Citizen Account</h2>
@@ -67,10 +68,14 @@
         {% if account.can_change_email %}
           <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.change_email', household_uuid=household) }}">Change Email</a>
         {% endif %}
-        <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.history', household_uuid=household) }}">Account History</a>
         {% if account.can_deactivate %}
           <a class="account-button account-button-danger-outline" href="{{ url_for('citizen_accounts.deactivate', household_uuid=household) }}">Deactivate Account</a>
         {% endif %}
+      </div>
+    {% endif %}
+    {% if g.user['role'] == 'lgu_staff' %}
+      <div class="account-actions">
+        <a class="account-button account-button-secondary" href="{{ url_for('citizen_accounts.history', household_uuid=results.household_uuid) }}">Account History</a>
       </div>
     {% endif %}
   {% endif %}

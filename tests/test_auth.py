@@ -123,6 +123,11 @@ class StaffAuthenticationTests(unittest.TestCase):
                        VALUES (%s, %s, %s)""",
                     (username, generate_password_hash(self.password), role),
                 )
+            # Applying access control after the legacy account exists verifies the
+            # migration's full-access backfill for current staff.
+            connection.execute(
+                (ROOT / "migrations/0021_staff_access_permissions.sql").read_text(),
+            )
         self.client = self.app.test_client()
 
     def _drop_schema(self):
@@ -261,8 +266,10 @@ class StaffAuthenticationTests(unittest.TestCase):
         self.assertEqual(admin_client.get("/administration").status_code, 200)
         with psycopg.connect(self.url) as connection:
             connection.execute("UPDATE staff_users SET role = 'lgu_staff'")
-        self.assertEqual(admin_client.get("/synthetic-admin-check").status_code, 403)
-        self.assertEqual(admin_client.get("/administration").status_code, 403)
+        # A role changed outside the supported account flow has no required
+        # Dashboard grant, so the session fails closed instead of becoming staff.
+        self.assertEqual(admin_client.get("/synthetic-admin-check").location, "/login")
+        self.assertEqual(admin_client.get("/administration").location, "/login")
 
     def test_session_is_replaced_and_cookie_has_security_flags(self):
         token = self._token()
@@ -329,6 +336,7 @@ class StaffAuthenticationTests(unittest.TestCase):
 
     def test_bootstrap_hashes_password_and_cannot_replace_accounts(self):
         with psycopg.connect(self.url) as connection:
+            connection.execute("DELETE FROM staff_user_permissions")
             connection.execute("DELETE FROM staff_users")
         with self.app.app_context():
             create_initial_admin("Synthetic_Bootstrap", self.password)
@@ -346,7 +354,7 @@ class StaffAuthenticationTests(unittest.TestCase):
         self.assertTrue(check_password_hash(rows[0][1], self.password))
 
     def test_schema_rejects_plaintext_duplicate_accounts_and_invalid_roles(self):
-        # Both numbered migrations coexist; authentication adds no survey columns.
+        # Authentication and access-control tables coexist with the survey schema.
         with psycopg.connect(self.url) as connection:
             connection.execute(
                 (ROOT / "migrations/0001_database_foundation.sql").read_text(),
@@ -354,7 +362,7 @@ class StaffAuthenticationTests(unittest.TestCase):
             self.assertEqual(connection.execute(
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = %s",
                 (self.schema,),
-            ).fetchone()[0], 9)
+            ).fetchone()[0], 12)
             self.assertEqual(
                 connection.execute("SELECT count(*) FROM dataset_batches").fetchone()[0], 0,
             )

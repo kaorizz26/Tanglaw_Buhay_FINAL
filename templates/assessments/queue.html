@@ -191,7 +191,7 @@
                     **results.return_parameters
                   ) }}"
                   aria-label="{{ 'View activity for' if admin_activity_view else ('Open' if results.filters.status == 'in-review' else 'View') }} {{ review.program }} review for {{ review.household_reference_id }}"
-                >{{ 'View Activity' if admin_activity_view else ('Open Review' if results.filters.status == 'in-review' else 'View Review') }}</a>
+                >{{ 'View Activity' if admin_activity_view else ('Open Review' if 'reviews.manage' in g.user.permissions and results.filters.status == 'in-review' else 'View Review') }}</a>
               </td>
             </tr>
           {% else %}

@@ -176,6 +176,7 @@
                 </td>
                 <td>
                   <div class="accounts-row-actions">
+                    <a class="accounts-button accounts-access-button" href="{{ url_for('main.staff_account_access', account_id=account.id) }}" aria-label="Manage access for {{ account.display_name or account.username }}">Manage access</a>
                     {% if account.is_active %}
                       <form method="get" action="{{ url_for('main.staff_account_reset_password', account_id=account.id) }}">
                         <button class="accounts-copy-button accounts-action-trigger" type="submit" data-account-id="{{ account.id }}" data-action="reset" aria-label="Reset password for {{ account.display_name or account.username }}">Reset password</button>
@@ -219,7 +220,10 @@
         </div>
       </div>
 
-      <form class="accounts-form accounts-delivery-form" method="post" action="{{ url_for('main.staff_account_create') }}">
+      <form class="accounts-form accounts-delivery-form" method="post" action="{{ url_for('main.staff_account_create') }}"
+            data-email-processing
+            data-email-processing-title="Creating account and sending email…"
+            data-email-processing-message="Please keep this page open while the staff account is created and the temporary password is sent.">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="action" value="create">
         <div class="accounts-field">
@@ -242,4 +246,16 @@
       </form>
     </section>
   {% endif %}
+
+  <dialog class="accounts-processing-dialog" id="account-email-processing-overlay"
+          aria-labelledby="account-email-processing-title"
+          aria-describedby="account-email-processing-message" tabindex="-1">
+    <div role="status" aria-live="assertive" aria-atomic="true">
+      <span class="accounts-processing-spinner" aria-hidden="true"></span>
+      <p class="accounts-kicker">Staff account request in progress</p>
+      <h2 id="account-email-processing-title">Sending temporary password…</h2>
+      <p id="account-email-processing-message">Please keep this page open until the operation finishes.</p>
+      <div class="accounts-processing-bar" aria-hidden="true"><span></span></div>
+    </div>
+  </dialog>
 {% endblock %}

@@ -11,6 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import get_connection
 from repositories import staff_users
+from services.staff_access import DASHBOARD_PERMISSION, PERMISSION_CODES
 
 ADMIN_ROLE = "system_administrator"
 STAFF_ROLE = "lgu_staff"
@@ -84,6 +85,16 @@ def load_session_user():
             or user["session_version"] != session.get("session_version")):
         session.clear()
         return
+    permissions = user.get("permissions", ())
+    if user["role"] == STAFF_ROLE:
+        permission_set = frozenset(permissions)
+        if (permission_set - PERMISSION_CODES
+                or DASHBOARD_PERMISSION not in permission_set):
+            session.clear()
+            return
+        user["permissions"] = permission_set
+    else:
+        user["permissions"] = frozenset()
     g.user = user
 
 
@@ -121,6 +132,40 @@ def admin_required(view):
             abort(403)
         return view(*args, **kwargs)
     return guarded
+
+
+def has_permission(permission):
+    """Return whether the signed-in account may use one staff capability."""
+    if permission not in PERMISSION_CODES:
+        raise RuntimeError(f"Unknown staff permission: {permission}")
+    user = getattr(g, "user", None)
+    if user is None:
+        return False
+    if user["role"] == ADMIN_ROLE:
+        return True
+    return user["role"] == STAFF_ROLE and permission in user.get("permissions", ())
+
+
+def require_permission(permission):
+    """Stop direct requests that lack a required module or action permission."""
+    if not has_permission(permission):
+        abort(403, description="Your account does not have access to this feature.")
+
+
+def permission_required(permission):
+    """Protect a route while retaining the administrator's existing full access."""
+    if permission not in PERMISSION_CODES:
+        raise RuntimeError(f"Unknown staff permission: {permission}")
+
+    def decorate(view):
+        @wraps(view)
+        def guarded(*args, **kwargs):
+            if getattr(g, "user", None) is None:
+                return redirect(url_for("auth.login"))
+            require_permission(permission)
+            return view(*args, **kwargs)
+        return guarded
+    return decorate
 
 
 def lgu_staff_required(view):

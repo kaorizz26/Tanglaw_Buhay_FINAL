@@ -1,0 +1,333 @@
+.access-header .breadcrumb {
+  margin-bottom: 18px;
+  color: #d9e5ea;
+}
+
+.access-header .breadcrumb a,
+.access-header .breadcrumb [aria-current] {
+  color: #fff;
+}
+
+.access-eyebrow {
+  margin: 0 0 6px;
+  color: var(--gold-text);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.access-header .access-eyebrow {
+  color: #f4cc74;
+}
+
+.access-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.access-card {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 10px 28px rgb(16 42 63 / 5%);
+}
+
+.access-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.access-card-heading h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 1.35rem;
+}
+
+.access-card-heading p:not(.access-eyebrow) {
+  margin-top: 7px;
+  color: var(--text-muted);
+}
+
+.access-status {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.access-status-active {
+  background: #e5f3ea;
+  color: #245a3b;
+}
+
+.access-status-inactive {
+  background: #edf0f2;
+  color: #58666e;
+}
+
+.access-notice,
+.access-session-warning {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid;
+  border-radius: 9px;
+}
+
+.access-notice p,
+.access-session-warning p {
+  margin-top: 4px;
+}
+
+.access-notice-success {
+  border-color: #81b495;
+  background: #e8f4ed;
+  color: #245a3b;
+}
+
+.access-notice-warning,
+.access-session-warning {
+  border-color: #e1bf74;
+  background: #fff8e8;
+  color: #674c18;
+}
+
+.access-notice-error {
+  border-color: #c46d6d;
+  background: #fff1f1;
+  color: #8a2929;
+}
+
+.access-card > .access-notice,
+.access-card > .access-session-warning {
+  margin-top: 22px;
+}
+
+.access-presets {
+  margin-top: 24px;
+  padding: 18px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.access-presets h3 {
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+.access-presets > p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.access-preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.access-preset-buttons button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #9fb2bd;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.access-preset-buttons button[aria-pressed="true"] {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: #fff;
+}
+
+.access-form {
+  margin-top: 24px;
+}
+
+.access-form fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.access-form legend {
+  margin-bottom: 13px;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.access-permission-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.access-permission {
+  display: flex;
+  gap: 12px;
+  min-height: 104px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.access-permission:has(input:checked) {
+  border-color: #4f7b91;
+  background: #f1f7fa;
+  box-shadow: inset 4px 0 0 var(--gold);
+}
+
+.access-permission-required {
+  cursor: default;
+}
+
+.access-permission input {
+  width: 19px;
+  height: 19px;
+  margin: 2px 0 0;
+  accent-color: var(--navy);
+}
+
+.access-permission > span,
+.access-permission strong,
+.access-permission strong + span {
+  display: block;
+}
+
+.access-permission strong {
+  color: var(--navy);
+}
+
+.access-permission strong small {
+  margin-left: 5px;
+  color: var(--gold-text);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+}
+
+.access-permission strong + span {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.access-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.access-form-actions > a {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.access-history-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.access-history-list li {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.access-history-list li:last-child {
+  border-bottom: 0;
+}
+
+.access-history-action {
+  display: inline-block;
+  margin-bottom: 7px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.access-history-action-granted {
+  background: #e5f3ea;
+  color: #245a3b;
+}
+
+.access-history-action-revoked {
+  background: #f7e7e7;
+  color: #843131;
+}
+
+.access-history-list strong {
+  display: block;
+  color: var(--navy);
+}
+
+.access-history-list p,
+.access-history-empty {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.access-history-empty {
+  padding-top: 20px;
+}
+
+.accounts-access-button {
+  background: #315d73;
+}
+
+@media (max-width: 1100px) {
+  .access-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .access-history {
+    max-width: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .access-card {
+    padding: 20px;
+  }
+
+  .access-card-heading,
+  .access-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .access-permission-list {
+    grid-template-columns: 1fr;
+  }
+
+  .access-preset-buttons button,
+  .access-form-actions .accounts-button {
+    width: 100%;
+  }
+}

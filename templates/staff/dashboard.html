@@ -17,9 +17,11 @@
           {% if initial_setup %}Complete the first dataset import before household statistics become available{% elif show_reviews %}Your subsidy reviews and household statistics for Pozorrubio{% else %}Household statistics for Pozorrubio{% endif %}
         </p>
       </div>
-      <a class="dashboard-primary-link" href="{{ url_for('main.data_import') if initial_setup else url_for('assessments.prioritization', barangay=barangay_arg) }}">
-        {{ 'Import first dataset' if initial_setup else 'Explore households' }} <span aria-hidden="true">→</span>
-      </a>
+      {% if dashboard_primary_url %}
+        <a class="dashboard-primary-link" href="{{ dashboard_primary_url }}">
+          {{ dashboard_primary_label }} <span aria-hidden="true">→</span>
+        </a>
+      {% endif %}
     </div>
   </header>
 
@@ -91,7 +93,7 @@
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority['all']) }}</p>
         <p class="dashboard-metric-caption">Households evaluated by the system</p>
       </div>
-      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary', barangay=barangay_arg) }}">
+      {% if can_view_assessments %}<a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='primary', barangay=barangay_arg) }}">{% else %}<div class="dashboard-metric">{% endif %}
         <span class="dashboard-metric-heading">
           <span class="dashboard-metric-marker dashboard-metric-marker-primary" aria-hidden="true"></span>
           <p class="dashboard-metric-label">Primary Priority</p>
@@ -99,8 +101,8 @@
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.primary) }}</p>
         <p class="dashboard-metric-caption">Higher vulnerability score with a program flagged for review</p>
         <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
-      </a>
-      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary', barangay=barangay_arg) }}">
+      {% if can_view_assessments %}</a>{% else %}</div>{% endif %}
+      {% if can_view_assessments %}<a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', priority='secondary', barangay=barangay_arg) }}">{% else %}<div class="dashboard-metric">{% endif %}
         <span class="dashboard-metric-heading">
           <span class="dashboard-metric-marker dashboard-metric-marker-secondary" aria-hidden="true"></span>
           <p class="dashboard-metric-label">Secondary Priority</p>
@@ -108,8 +110,8 @@
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.priority.secondary) }}</p>
         <p class="dashboard-metric-caption">Moderate vulnerability score with a program flagged for review</p>
         <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
-      </a>
-      <a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown', barangay=barangay_arg) }}">
+      {% if can_view_assessments %}</a>{% else %}</div>{% endif %}
+      {% if can_view_assessments %}<a class="dashboard-metric dashboard-metric-link" href="{{ url_for('assessments.prioritization', completeness='unknown', barangay=barangay_arg) }}">{% else %}<div class="dashboard-metric">{% endif %}
         <span class="dashboard-metric-heading">
           <span class="dashboard-metric-marker dashboard-metric-marker-unknown" aria-hidden="true"></span>
           <p class="dashboard-metric-label">Households with Undetermined Results</p>
@@ -117,7 +119,7 @@
         <p class="dashboard-metric-value">{{ '{:,}'.format(summary.findings.needs_attention) }}</p>
         <p class="dashboard-metric-caption">Some survey information was missing or unclear</p>
         <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
-      </a>
+      {% if can_view_assessments %}</a>{% else %}</div>{% endif %}
     </section>
 
     {% include 'staff/_dashboard_patterns.html' %}
@@ -135,15 +137,15 @@
           {% for code, field in [('4Ps', 'four_ps'), ('SLP', 'slp'), ('SPISC', 'spisc'), ('TUPAD', 'tupad')] %}
             {% set count = summary.findings[field] %}
             {% set percent = (count / summary.priority['all'] * 100) | round(1) if summary.priority['all'] else 0 %}
-              <a class="dashboard-bar-row" href="{{ url_for('assessments.prioritization', program=code, barangay=barangay_arg) }}">
+              {% if can_view_assessments %}<a class="dashboard-bar-row" href="{{ url_for('assessments.prioritization', program=code, barangay=barangay_arg) }}">{% else %}<div class="dashboard-bar-row">{% endif %}
               <span class="dashboard-bar-label">{{ code }}</span>
               <span class="dashboard-bar-value"><strong>{{ '{:,}'.format(count) }}</strong><span>{{ percent }}%</span></span>
               <span class="dashboard-track"><span class="dashboard-fill dashboard-fill-program" style="width: {{ percent }}%"></span></span>
-            </a>
+              {% if can_view_assessments %}</a>{% else %}</div>{% endif %}
           {% endfor %}
         </div>
         
-          <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization', barangay=barangay_arg) }}">Explore screening findings <span aria-hidden="true">→</span></a>
+          {% if can_view_assessments %}<a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization', barangay=barangay_arg) }}">Explore screening findings <span aria-hidden="true">→</span></a>{% endif %}
         
       </section>
     </div>
@@ -211,19 +213,22 @@
       <h2 id="unavailable-heading">{{ 'No active dataset yet' if initial_setup else 'Assessment summary unavailable' }}</h2>
       <p>{% if initial_setup %}Upload the authorized first dataset, prepare its assessments, and activate it as the baseline.{% else %}The municipal summary could not be loaded right now. Please try again later.{% endif %}</p>
       
-        <a class="dashboard-primary-link" href="{{ url_for('main.data_import') if initial_setup else url_for('assessments.prioritization') }}">{{ 'Go to Data Import' if initial_setup else 'Open Household Prioritization' }} <span aria-hidden="true">→</span></a>
+        {% if dashboard_primary_url %}<a class="dashboard-primary-link" href="{{ dashboard_primary_url }}">{{ dashboard_primary_label }} <span aria-hidden="true">→</span></a>{% endif %}
       
     </section>
   {% endif %}
 
+  {% if can_view_households or can_view_assessments or can_view_reviews %}
   <section class="dashboard-work" aria-labelledby="work-heading">
     <div>
-      <h2 id="work-heading">Staff assessment pages</h2>
-      <p>Open the household list or the Review Queue.</p>
+      <h2 id="work-heading">Available staff work</h2>
+      <p>{% if can_view_households and can_view_reviews %}Open the household list or the Review Queue.{% else %}Open a section assigned to your staff account.{% endif %}</p>
     </div>
     <div class="dashboard-work-links">
-      <a href="{{ url_for('assessments.prioritization', barangay=barangay_arg) }}">Household Prioritization <span aria-hidden="true">→</span></a>
-      <a href="{{ url_for('assessments.queue') }}">Review Queue <span aria-hidden="true">→</span></a>
+      {% if can_view_households %}<a href="{{ url_for('households.index') }}">Household Records <span aria-hidden="true">→</span></a>{% endif %}
+      {% if can_view_assessments %}<a href="{{ url_for('assessments.prioritization', barangay=barangay_arg) }}">Household Prioritization <span aria-hidden="true">→</span></a>{% endif %}
+      {% if can_view_reviews %}<a href="{{ url_for('assessments.queue') }}">Review Queue <span aria-hidden="true">→</span></a>{% endif %}
     </div>
   </section>
+  {% endif %}
 {% endblock %}

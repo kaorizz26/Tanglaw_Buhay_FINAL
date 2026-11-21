@@ -33,7 +33,10 @@
     {% if form_error %}
       <p class="accounts-error" role="alert">{{ form_error }}</p>
     {% endif %}
-    <form class="accounts-delivery-form" method="post" action="{{ action_url }}">
+    <form class="accounts-delivery-form" method="post" action="{{ action_url }}"
+          {% if reactivate %}data-email-processing
+          data-email-processing-title="Reactivating account and sending email…"
+          data-email-processing-message="Please keep this page open while access is restored and the temporary password is sent."{% endif %}>
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         {% include 'staff/temporary_password_delivery_fields.html' %}
         <div class="accounts-modal-actions">

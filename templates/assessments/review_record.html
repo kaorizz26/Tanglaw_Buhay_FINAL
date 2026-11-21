@@ -34,7 +34,7 @@
         <p class="review-preserved-text">{{ review.effective_explanation }}</p>
         <p class="review-attribution">{{ 'Corrected' if review.recommendation_version else 'Finished' }} by <strong>{{ review.effective_username }}</strong> on <time datetime="{{ review.effective_at.isoformat() }}">{{ review.effective_at | pht_datetime }}</time>.</p>
       {% endif %}
-      {% if review.can_change_recommendation and not review_mode %}
+      {% if can_manage_reviews and review.can_change_recommendation and not review_mode %}
         <div class="review-action-buttons">
           <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='correct', **detail_parameters) }}">Correct Recommendation</a>
           <a class="review-secondary-link" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='withdraw', **detail_parameters) }}">Withdraw Recommendation</a>
@@ -81,7 +81,7 @@
           <a class="review-keep-link" href="{{ record_url }}">Keep Reviewing</a>
         </div>
       </form>
-    {% else %}
+    {% elif can_manage_reviews %}
       <div class="review-action-buttons">
         <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='finish', **detail_parameters) }}">Finish Review</a>
         <a class="review-button review-button--secondary" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=review.program, review_id=review.id, action='cancel', **detail_parameters) }}">Cancel Review</a>
@@ -143,7 +143,7 @@
       <div class="review-record-section">{% include 'assessments/review_screening_guidance.html' %}</div>
     {% endwith %}
 
-    {% if review.status == 'In Review' and not review_mode %}
+    {% if can_manage_reviews and review.status == 'In Review' and not review_mode %}
       <section class="review-record-section review-add-note" aria-labelledby="add-note-heading">
         <h3 id="add-note-heading">Add Note</h3>
         <p id="note-help" class="section-helper">Record observations, information examined, or actions taken. Saved notes cannot be edited or deleted. Up to 2,000 characters.</p>

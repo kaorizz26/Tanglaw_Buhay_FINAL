@@ -6,7 +6,10 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 
 from services.assessment_queries import AssessmentQueryError
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
-from services.auth import ADMIN_ROLE, check_csrf, csrf_token
+from services.auth import (
+    ADMIN_ROLE, check_csrf, csrf_token, has_permission, permission_required,
+    require_permission,
+)
 from services.household_records import (
     InvalidRecordFilters, parse_record_return, record_return_parameters,
 )
@@ -32,6 +35,7 @@ assessments = Blueprint("assessments", __name__)
 
 
 @assessments.get("/assessments/progression")
+@permission_required("assessments.view")
 def progression_index():
     """Show municipal progression statistics and find historical households."""
     allowed = {"q", "search_by", "barangay", "earlier", "later"}
@@ -57,6 +61,7 @@ def progression_index():
 
 
 @assessments.get("/assessments/progression/<uuid:household_uuid>")
+@permission_required("assessments.view")
 def progression_detail(household_uuid):
     """Compare one household's selected historical assessments read-only."""
     allowed = {"earlier", "later"}
@@ -140,6 +145,7 @@ def _add_review_origin(navigation, household_uuid, review_origin, review_history
 
 
 @assessments.get('/assessments/queue')
+@permission_required("reviews.view")
 def queue():
     """Read explicit staff work through the existing staff authorization guard."""
     admin_activity_view = g.user['role'] == ADMIN_ROLE
@@ -173,6 +179,7 @@ def queue():
 
 
 @assessments.get("/assessments")
+@permission_required("assessments.view")
 def prioritization():
     """Render one stored summary page after the application's staff authorization."""
     if "view" in request.args:
@@ -211,18 +218,40 @@ def prioritization():
 
 
 @assessments.get("/assessments/<uuid:household_uuid>")
+@permission_required("assessments.view")
 def detail(household_uuid):
     """Show one stored household only after the unchanged staff authorization guard."""
+    can_view_reviews = has_permission("reviews.view")
+    can_manage_reviews = has_permission("reviews.manage")
+    can_view_submissions = has_permission("submissions.view")
+    can_manage_submissions = has_permission("submissions.manage")
     try:
         tab, navigation = _assessment_navigation(request.args)
         review_origin = parse_review_origin(
             request.args, opened_from_queue=navigation['queue_return_url'] is not None,
         )
         if tab == "reviews":
+            require_permission("reviews.view")
             results = get_staff_review_detail(str(household_uuid))
         else:
             results = get_assessment_detail(str(household_uuid))
+            if not can_view_reviews:
+                # Assessment viewers may inspect findings without receiving staff
+                # decisions or review-history metadata in the rendered response.
+                results = {
+                    **results,
+                    "review_history": [],
+                    "review_summary": [],
+                    "staff_reviews": [],
+                }
+            if not can_view_submissions:
+                results = {
+                    **results,
+                    "citizen_account": None,
+                    "document_requests": [],
+                }
         if review_origin:
+            require_permission("reviews.view")
             navigation = _add_review_origin(
                 navigation, household_uuid, review_origin, results['review_history'],
             )
@@ -237,12 +266,16 @@ def detail(household_uuid):
         "assessments/detail.html", results=results, tab=tab,
         **navigation, role_label=role_label,
         staff_username=g.user["username"], csrf_token=csrf_token(),
+        can_view_reviews=can_view_reviews, can_manage_reviews=can_manage_reviews,
+        can_view_submissions=can_view_submissions,
+        can_manage_submissions=can_manage_submissions,
     )
 
 
 @assessments.route(
     "/assessments/<uuid:household_uuid>/reviews/<review_program>", methods=["GET", "POST"],
 )
+@permission_required("reviews.manage")
 def start_review(household_uuid, review_program):
     """Confirm and explicitly initiate a review using the authenticated staff ID."""
     program = review_program
@@ -351,10 +384,12 @@ def start_review(household_uuid, review_program):
     '/assessments/<uuid:household_uuid>/reviews/<review_program>/<int:review_id>',
     methods=['GET', 'POST'],
 )
+@permission_required("reviews.view")
 def review_record(household_uuid, review_program, review_id):
     """Read history or perform one explicit, authenticated review action."""
     program = review_program
     if request.method == 'POST':
+        require_permission("reviews.manage")
         check_csrf()
     if program not in PROGRAM_NAMES or review_id < 1:
         abort(404)
@@ -366,6 +401,8 @@ def review_record(household_uuid, review_program, review_id):
     if len(request.args.getlist('action')) > 1 or mode not in (
             '', 'finish', 'cancel', 'reassign', 'correct', 'withdraw'):
         abort(400, description='Choose a valid review action.')
+    if mode:
+        require_permission("reviews.manage")
     if mode in ('correct', 'withdraw'):
         return recommendation_form(household_uuid, program, review_id, mode, navigation)
     error = None

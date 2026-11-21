@@ -3,7 +3,7 @@
 from flask import Blueprint, abort, g, render_template, request, url_for
 
 from services.assessment_queries import AssessmentQueryError
-from services.auth import ADMIN_ROLE, csrf_token
+from services.auth import ADMIN_ROLE, csrf_token, permission_required
 from services.household_records import (
     InvalidRecordFilters, get_record_detail, get_record_page, parse_record_arguments,
     record_return_parameters,
@@ -22,6 +22,7 @@ def _staff_context():
 
 
 @households.get("/households")
+@permission_required("households.view")
 def index():
     try:
         page, filters = parse_record_arguments(request.args)
@@ -43,6 +44,7 @@ def index():
 
 
 @households.get("/households/<uuid:household_uuid>")
+@permission_required("households.view")
 def detail(household_uuid):
     try:
         page, filters = parse_record_arguments(request.args)

@@ -21,6 +21,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.security import generate_password_hash
 
 from app import create_app, pht_date, pht_datetime
+from services.staff_access import PERMISSION_CODES
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source, screening_source
 from repositories import assessment_runs, staff_reviews as repository
 from services import staff_reviews as service
@@ -46,7 +47,8 @@ class StaffReviewRouteTests(unittest.TestCase):
         })
         self.client = self.app.test_client()
         self.user = {'id': 7, 'username': 'synthetic_staff', 'role': 'lgu_staff',
-                     'is_active': True, 'session_version': 1}
+                     'is_active': True, 'session_version': 1,
+                     'permissions': PERMISSION_CODES}
         patches = (
             patch('psycopg.connect', side_effect=AssertionError('Real connection blocked')),
             patch('services.auth.get_connection', return_value=MagicMock()),
@@ -578,6 +580,13 @@ class StaffReviewDatabaseTests(unittest.TestCase):
                     'INSERT INTO staff_users (username, password_hash, role) VALUES (%s, %s, %s) RETURNING id',
                     (username, password_hash, role),
                 ).fetchone()[0])
+            connection.execute(
+                """INSERT INTO staff_user_permissions
+                   (staff_id, permission_code, granted_by, grant_source)
+                   SELECT %s, code, %s, 'administrator' FROM staff_permissions
+                   ON CONFLICT (staff_id, permission_code) DO NOTHING""",
+                (self.staff_ids[1], self.staff_ids[0]),
+            )
             self.batch_id, self.run_id = self.make_batch(connection, active=True)
             self.other_batch, self.other_run = self.make_batch(connection, active=False)
             self.originals = self.snapshot(connection)

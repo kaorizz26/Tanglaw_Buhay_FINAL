@@ -103,7 +103,7 @@
             {% else %}
               {% if program.latest and program.latest.status == 'Closed' and not program.latest.withdrawn %}
                 <a class="review-button" href="{{ url_for('assessments.review_record', household_uuid=results.household_uuid, review_program=program.name, review_id=program.latest.id, **detail_parameters) }}">View Review<span class="visually-hidden"> for {{ program.name }}</span></a>
-              {% else %}
+              {% elif can_manage_reviews %}
                 <a class="review-button" href="{{ url_for('assessments.start_review', household_uuid=results.household_uuid, review_program=program.name, **detail_parameters) }}">Start Review<span class="visually-hidden"> for {{ program.name }}</span></a>
               {% endif %}
             {% endif %}

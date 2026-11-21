@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from app import create_app
+from services.staff_access import PERMISSION_CODES
 from assessment_detail_fixtures import HOUSEHOLD_UUID, screening_source
 from services import assessment_details
 from services.mpi_evidence import build_evidence_index
@@ -221,7 +222,8 @@ class ScreeningRouteTests(unittest.TestCase):
     def setUp(self):
         self.source = screening_source()
         self.user = {"id": 1, "username": "synthetic_staff", "role": "lgu_staff",
-                     "is_active": True, "session_version": 1}
+                     "is_active": True, "session_version": 1,
+                     "permissions": PERMISSION_CODES}
         self.app = create_app({"TESTING": True, "SECRET_KEY": token_urlsafe(48), "DATABASE_URL": None})
         self.client = self.app.test_client()
         for patcher in (

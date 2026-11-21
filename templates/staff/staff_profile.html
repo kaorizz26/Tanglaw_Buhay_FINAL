@@ -114,7 +114,9 @@
           </div>
           <div class="profile-system-wide">
             <dt>Main sections</dt>
-            <dd>Dashboard, Household Records, Assessments and Submissions.</dd>
+            <dd>
+              Dashboard{% if 'households.view' in g.user.permissions %}, Household Records{% endif %}{% if 'assessments.view' in g.user.permissions %}, Assessments{% endif %}{% if 'submissions.view' in g.user.permissions %}, Submissions{% endif %}.
+            </dd>
           </div>
           <div class="profile-system-wide">
             <dt>Information covered</dt>

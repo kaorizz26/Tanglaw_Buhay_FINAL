@@ -16,6 +16,7 @@ from psycopg.conninfo import conninfo_to_dict
 from psycopg.types.json import Jsonb
 
 from app import create_app
+from services.staff_access import PERMISSION_CODES
 from assessment_detail_fixtures import HOUSEHOLD_UUID, detail_source
 from repositories import assessment_evidence
 from services import assessment_details as details
@@ -81,7 +82,8 @@ class ContactNumberPageTests(unittest.TestCase):
         )
         self.client = self.app.test_client()
         self.user = {"id": 1, "username": "synthetic_staff", "role": "lgu_staff",
-                     "is_active": True, "session_version": 1}
+                     "is_active": True, "session_version": 1,
+                     "permissions": PERMISSION_CODES}
         patches = (
             patch("psycopg.connect", side_effect=AssertionError("No real database connections")),
             patch("services.auth.get_connection", return_value=MagicMock()),

@@ -8,8 +8,8 @@ import psycopg
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from services.auth import (
-    ADMIN_ROLE, admin_required, check_csrf, csrf_token, lgu_staff_required,
-    start_session,
+    ADMIN_ROLE, admin_required, check_csrf, csrf_token, has_permission,
+    lgu_staff_required, start_session,
 )
 from services.admin_profile import (
     AdminProfileInputError, change_admin_password, change_admin_username,
@@ -53,8 +53,21 @@ from services.staff_password_reset_requests import (
     mark_reset_request_email_accepted, password_reset_request_overview,
     pending_password_reset_count,
 )
+from services.staff_access import (
+    ACCESS_PRESETS, StaffAccessInputError, get_staff_access,
+    get_staff_access_history, update_staff_access,
+)
 
 main = Blueprint("main", __name__)
+
+ACCESS_PRESET_LABELS = {
+    "dashboard_only": "Dashboard only",
+    "household_viewer": "Household Records Viewer",
+    "assessment_viewer": "Assessment Viewer",
+    "case_reviewer": "Case Reviewer",
+    "submissions_officer": "Submissions Officer",
+    "select_all": "Select All",
+}
 
 
 def require_fixture_source():
@@ -86,14 +99,39 @@ def render_dashboard(role_label, *, with_reviews, initial_setup=False,
     supplied = request.args.getlist("barangay")
     if len(supplied) > 1:
         abort(400, description="Choose a valid barangay.")
+    summary = dashboard_summary(supplied[0] if supplied else None)
+    can_view_households = has_permission("households.view")
+    can_view_assessments = has_permission("assessments.view")
+    can_view_reviews = has_permission("reviews.view")
+    can_view_submissions = has_permission("submissions.view")
+    if initial_setup:
+        primary_url = url_for("main.data_import")
+        primary_label = "Go to Data Import"
+    elif can_view_assessments:
+        primary_url = url_for(
+            "assessments.prioritization",
+            barangay=(summary.get("barangay") or None) if summary else None,
+        )
+        primary_label = "Explore households"
+    elif can_view_households:
+        primary_url = url_for("households.index")
+        primary_label = "Open Household Records"
+    else:
+        primary_url = None
+        primary_label = None
     return render_template(
-        "staff/dashboard.html", summary=dashboard_summary(supplied[0] if supplied else None),
+        "staff/dashboard.html", summary=summary,
         selected_area=select_area(request.args.get("area")),
         show_reviews=with_reviews, reviews=dashboard_reviews() if with_reviews else None,
         welcome_name=(g.user.get("display_name") or g.user["username"]),
         initial_setup=initial_setup,
         pending_reset_count=pending_reset_count,
         role_label=role_label, staff_username=g.user["username"],
+        can_view_households=can_view_households,
+        can_view_assessments=can_view_assessments,
+        can_view_reviews=can_view_reviews,
+        can_view_submissions=can_view_submissions,
+        dashboard_primary_url=primary_url, dashboard_primary_label=primary_label,
         csrf_token=csrf_token(),
     )
 
@@ -102,7 +140,7 @@ def render_dashboard(role_label, *, with_reviews, initial_setup=False,
 def index():
     if g.user["role"] == ADMIN_ROLE:
         return redirect(url_for("main.administration"))
-    return render_dashboard("LGU Staff", with_reviews=True)
+    return render_dashboard("LGU Staff", with_reviews=has_permission("reviews.view"))
 
 
 @main.get("/administration")
@@ -621,6 +659,56 @@ def staff_accounts():
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), (400 if error else 200)
+
+
+def render_staff_access_page(account_id, *, selected=None, error=None, status=200):
+    """Render one account's access selection and recent administrator changes."""
+    try:
+        access = get_staff_access(account_id)
+        history = get_staff_access_history(account_id)
+    except StaffAccessInputError:
+        abort(404, description="This staff account is unavailable.")
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Staff access management is unavailable. Apply migration 0021.")
+    presets = [
+        {
+            "key": key,
+            "label": ACCESS_PRESET_LABELS[key],
+            "permissions": sorted(permissions),
+        }
+        for key, permissions in ACCESS_PRESETS.items()
+    ]
+    return render_template(
+        "staff/staff_access.html", access=access, history=history,
+        selected=set(access["selected"] if selected is None else selected),
+        presets=presets, error=error, role_label="System Administrator",
+        staff_username=g.user["username"], csrf_token=csrf_token(),
+    ), status
+
+
+@main.route("/administration/accounts/<int:account_id>/access", methods=["GET", "POST"])
+@admin_required
+def staff_account_access(account_id):
+    """View or replace an active LGU Staff account's module permissions."""
+    require_fixture_source()
+    if request.method == "GET":
+        return render_staff_access_page(account_id)
+    check_csrf()
+    selected = request.form.getlist("permissions")
+    try:
+        result = update_staff_access(g.user["id"], account_id, selected)
+    except StaffAccessInputError as exc:
+        return render_staff_access_page(
+            account_id, selected=selected, error=str(exc), status=400,
+        )
+    except (psycopg.Error, RuntimeError):
+        abort(503, description="Staff access management is unavailable. Apply migration 0021.")
+    flash(
+        "Staff access updated. The staff member must sign in again."
+        if result["changed"] else "Staff access was already up to date.",
+        "staff_access",
+    )
+    return redirect(url_for("main.staff_account_access", account_id=account_id), code=303)
 
 
 def render_account_list_dialog(template, *, status=200, **dialog_context):

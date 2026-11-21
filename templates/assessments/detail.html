@@ -11,6 +11,11 @@
 {% endblock %}
 
 {% block content %}
+  {% set staff_permissions = g.user.get('permissions', []) %}
+  {% set can_view_reviews = can_view_reviews if can_view_reviews is defined else (g.user.role == 'system_administrator' or 'reviews.view' in staff_permissions) %}
+  {% set can_manage_reviews = can_manage_reviews if can_manage_reviews is defined else (g.user.role == 'system_administrator' or 'reviews.manage' in staff_permissions) %}
+  {% set can_view_submissions = can_view_submissions if can_view_submissions is defined else ('submissions.view' in staff_permissions) %}
+  {% set can_manage_submissions = can_manage_submissions if can_manage_submissions is defined else ('submissions.manage' in staff_permissions) %}
   {% set focused_review = review_record is defined and review_record %}
   {# Where the staff member came from decides the Back link. #}
   {% if review_return_url %}
@@ -70,10 +75,9 @@
 
   {% if not focused_review %}
     <nav class="assessment-tabs detail-tabs" aria-label="Household assessment sections">
-      {% for value, label in [
-        ('overview', 'Overview'), ('mpi', 'MPI Indicators'),
-        ('screening', 'Subsidy Screening'), ('reviews', 'Staff Reviews')
-      ] %}
+      {% set detail_tabs = [('overview', 'Overview'), ('mpi', 'MPI Indicators'), ('screening', 'Subsidy Screening')] %}
+      {% if can_view_reviews %}{% set detail_tabs = detail_tabs + [('reviews', 'Staff Reviews')] %}{% endif %}
+      {% for value, label in detail_tabs %}
         <a
           href="{{ url_for('assessments.detail', household_uuid=results.household_uuid, tab=value, **detail_parameters) }}"
           {% if tab == value %}aria-current="page"{% endif %}
@@ -89,8 +93,10 @@
   {% elif tab == 'reviews' %}
     {% include 'assessments/staff_reviews.html' %}
   {% else %}
-    {% include 'assessments/_citizen_account.html' %}
-    {% include 'assessments/_document_requests.html' %}
+    {% if can_view_submissions %}
+      {% include 'assessments/_citizen_account.html' %}
+      {% include 'assessments/_document_requests.html' %}
+    {% endif %}
     {% include 'assessments/overview.html' %}
   {% endif %}
 {% endblock %}

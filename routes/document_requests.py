@@ -10,7 +10,7 @@ from flask import (
 
 from routes.staff_forms import context_ids, issue_form_number, staff_context, use_form_number
 from services.assessment_queries import AssessmentQueryError
-from services.auth import check_csrf, lgu_staff_required
+from services.auth import check_csrf, lgu_staff_required, permission_required
 from services.citizen_accounts import CitizenAccountError, get_household_account_page
 from services.submissions import InvalidDirectoryFilters, parse_return
 from services.document_reviews import accept_document, open_file_for_staff, request_correction
@@ -108,6 +108,7 @@ def _render_request_form(page, household_uuid, rows, errors, status=200):
     "/document-requests/household/<uuid:household_uuid>/new", methods=["GET", "POST"],
 )
 @lgu_staff_required
+@permission_required("submissions.manage")
 def create(household_uuid):
     """Show the Request Documents form and save every document on it together."""
     if request.method == "POST":
@@ -139,6 +140,7 @@ def create(household_uuid):
 
 @document_requests.route("/document-requests/<int:request_id>")
 @lgu_staff_required
+@permission_required("submissions.view")
 def detail(request_id):
     """Show one request: its status, what to do next and its history."""
     try:
@@ -157,6 +159,7 @@ def detail(request_id):
 
 @document_requests.route("/document-requests/<int:request_id>/cancel", methods=["GET", "POST"])
 @lgu_staff_required
+@permission_required("submissions.manage")
 def cancel(request_id):
     """Confirm and cancel an open request; the reason is shown to the citizen."""
     if request.method == "POST":
@@ -232,6 +235,7 @@ def _send_stored_file(stored, *, as_attachment):
 
 @document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>")
 @lgu_staff_required
+@permission_required("submissions.view")
 def download_file(request_id, file_id):
     """Download one uploaded file."""
     stored = _open_stored_file(request_id, file_id)
@@ -240,6 +244,7 @@ def download_file(request_id, file_id):
 
 @document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>/view")
 @lgu_staff_required
+@permission_required("submissions.view")
 def view_file(request_id, file_id):
     """Show one uploaded file inside the preview page, or in its own tab for a PDF."""
     stored = _open_stored_file(request_id, file_id)
@@ -248,6 +253,7 @@ def view_file(request_id, file_id):
 
 @document_requests.get("/document-requests/<int:request_id>/files/<int:file_id>/preview")
 @lgu_staff_required
+@permission_required("submissions.view")
 def preview_file(request_id, file_id):
     """Show one uploaded version (latest or earlier) on a page with Download and Back."""
     stored = _open_stored_file(request_id, file_id)
@@ -301,6 +307,7 @@ def _review_page(template, request_id, decide, success_message):
 
 @document_requests.route("/document-requests/<int:request_id>/accept", methods=["GET", "POST"])
 @lgu_staff_required
+@permission_required("submissions.manage")
 def accept(request_id):
     """Confirm and accept the newest uploaded file. Accepted is final."""
     def decide(page, file_id):
@@ -314,6 +321,7 @@ def accept(request_id):
 
 @document_requests.route("/document-requests/<int:request_id>/correction", methods=["GET", "POST"])
 @lgu_staff_required
+@permission_required("submissions.manage")
 def correction(request_id):
     """Ask the representative for a corrected file; the reason is shown to them."""
     def decide(page, file_id):

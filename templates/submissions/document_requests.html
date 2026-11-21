@@ -61,7 +61,7 @@
                 <td data-label="Status"><span class="account-status document-status document-status-{{ item.status }}">{{ item.status_label }}</span></td>
                 <td data-label="Last updated">{{ item.updated_at|pht_date }}</td>
                 <td class="records-action" data-label="Action">
-                  <a class="{{ 'records-row-link' if item.awaiting_review else 'submissions-link-secondary' }}" href="{{ url_for('document_requests.detail', request_id=item.id, **return_parameters) }}">{{ 'Review' if item.awaiting_review else 'View' }}<span class="visually-hidden"> {{ item.title }}</span></a>
+                  <a class="{{ 'records-row-link' if item.awaiting_review and 'submissions.manage' in g.user.permissions else 'submissions-link-secondary' }}" href="{{ url_for('document_requests.detail', request_id=item.id, **return_parameters) }}">{{ 'Review' if item.awaiting_review and 'submissions.manage' in g.user.permissions else 'View' }}<span class="visually-hidden"> {{ item.title }}</span></a>
                 </td>
               </tr>
             {% endfor %}

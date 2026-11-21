@@ -16,6 +16,7 @@ from psycopg.conninfo import conninfo_to_dict
 from psycopg.types.json import Jsonb
 
 from app import create_app
+from services.staff_access import PERMISSION_CODES
 from services import household_progression as progression
 from repositories import household_progression as repository
 from services.vulnerability.scoring import INDICATOR_WEIGHTS
@@ -172,7 +173,8 @@ class ProgressionRouteTests(unittest.TestCase):
                                "DATABASE_URL": None})
         self.client = self.app.test_client()
         self.user = {"id": 1, "username": "synthetic_staff", "role": "lgu_staff",
-                     "is_active": True, "session_version": 1}
+                     "is_active": True, "session_version": 1,
+                     "permissions": PERMISSION_CODES}
         for patcher in (
             patch("services.auth.get_connection", return_value=MagicMock()),
             patch("repositories.staff_users.find_by_id", side_effect=lambda *args: dict(self.user)),

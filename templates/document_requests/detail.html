@@ -8,6 +8,7 @@
 
 {% block content %}
   {% set document = page.request %}
+  {% set can_manage_submissions = 'submissions.manage' in g.user.get('permissions', []) %}
   <header class="page-header account-header">
     {% if list_url %}
       <a class="account-back" href="{{ list_url }}"><span aria-hidden="true">←</span> Back to Document Requests</a>
@@ -38,7 +39,7 @@
       <p class="document-instructions">{{ document.instructions }}</p>
     {% endif %}
     <div class="account-actions">
-      {% if document.can_cancel %}
+      {% if can_manage_submissions and document.can_cancel %}
         <a class="account-button account-button-danger-outline" href="{{ url_for('document_requests.cancel', request_id=document.id) }}">Cancel Request</a>
       {% endif %}
       <a class="account-button account-button-secondary" href="{{ assessment_url }}">Back to Household Assessment</a>
@@ -66,7 +67,7 @@
     {% else %}
       <p class="citizen-account-text">No file has been uploaded yet.</p>
     {% endif %}
-    {% if document.can_review %}
+    {% if can_manage_submissions and document.can_review %}
       <h3 class="account-subheading">Review the latest file</h3>
       <p class="citizen-account-text">Download and check the latest file, then choose what happens next.</p>
       <div class="account-actions">

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from app import create_app
+from services.staff_access import PERMISSION_CODES
 from services.assessment_queries import AssessmentQueryError
 from services.assessment_filters import AssessmentFilters
 from services import prioritization
@@ -72,6 +73,7 @@ class PrioritizationTests(unittest.TestCase):
         self.user = {
             "id": 1, "username": "synthetic_staff", "role": "lgu_staff",
             "is_active": True, "session_version": 1,
+            "permissions": PERMISSION_CODES,
         }
         self.csrf = token_urlsafe(32)
         patches = (

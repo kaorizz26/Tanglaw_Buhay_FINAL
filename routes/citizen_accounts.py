@@ -10,7 +10,7 @@ from routes.staff_forms import (
     ALREADY_DONE_MESSAGE, context_ids, issue_form_number, staff_context, use_form_number,
 )
 from services.assessment_queries import AssessmentQueryError
-from services.auth import check_csrf, lgu_staff_required
+from services.auth import check_csrf, lgu_staff_required, permission_required
 from services.citizen_accounts import (
     CitizenAccountError, CitizenAccountInputError, change_account_email,
     create_citizen_account, deactivate_account, get_household_account_page,
@@ -97,6 +97,7 @@ def _render_form(page, household_uuid, values, errors, status=200):
     "/citizen-accounts/household/<uuid:household_uuid>/new", methods=["GET", "POST"],
 )
 @lgu_staff_required
+@permission_required("submissions.manage")
 def create(household_uuid):
     """Show the Create Citizen Account form and save it."""
     if request.method == "POST":
@@ -144,6 +145,7 @@ def create(household_uuid):
     "/citizen-accounts/household/<uuid:household_uuid>/resend", methods=["GET", "POST"],
 )
 @lgu_staff_required
+@permission_required("submissions.manage")
 def resend(household_uuid):
     """Confirm and send a new activation link and code, replacing the old pair."""
     if request.method == "POST":
@@ -262,6 +264,7 @@ def _show_result(heading):
     "/citizen-accounts/household/<uuid:household_uuid>/deactivate", methods=["GET", "POST"],
 )
 @lgu_staff_required
+@permission_required("submissions.manage")
 def deactivate(household_uuid):
     """Confirm and deactivate the account."""
     def finish(result, page):
@@ -279,6 +282,7 @@ def deactivate(household_uuid):
     "/citizen-accounts/household/<uuid:household_uuid>/reactivate", methods=["GET", "POST"],
 )
 @lgu_staff_required
+@permission_required("submissions.manage")
 def reactivate(household_uuid):
     """Confirm and reactivate a Deactivated account with a new activation email."""
     return _management_form(
@@ -293,6 +297,7 @@ def reactivate(household_uuid):
     "/citizen-accounts/household/<uuid:household_uuid>/change-email", methods=["GET", "POST"],
 )
 @lgu_staff_required
+@permission_required("submissions.manage")
 def change_email(household_uuid):
     """Confirm and change the registered email, then require activation again."""
     return _management_form(
@@ -306,6 +311,7 @@ def change_email(household_uuid):
 
 @citizen_accounts.route("/citizen-accounts/household/<uuid:household_uuid>/history")
 @lgu_staff_required
+@permission_required("submissions.view")
 def history(household_uuid):
     """Show the account's staff actions, newest first."""
     page = _load_page(household_uuid, with_history=True)

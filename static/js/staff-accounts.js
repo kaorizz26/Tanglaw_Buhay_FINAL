@@ -53,6 +53,61 @@ document.querySelectorAll(".accounts-delivery-form").forEach((form) => {
   updateDeliveryFields();
 });
 
+(() => {
+  const overlay = document.getElementById("account-email-processing-overlay");
+  const title = document.getElementById("account-email-processing-title");
+  const message = document.getElementById("account-email-processing-message");
+  const forms = Array.from(document.querySelectorAll("[data-email-processing]"));
+  let isProcessing = false;
+
+  if (!overlay || !forms.length) return;
+
+  const reset = () => {
+    isProcessing = false;
+    document.body.removeAttribute("aria-busy");
+    forms.forEach((form) => {
+      form.querySelectorAll('button[type="submit"]').forEach((button) => {
+        button.disabled = false;
+        button.removeAttribute("aria-disabled");
+      });
+    });
+    if (overlay.open) overlay.close();
+  };
+
+  forms.forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      if (event.defaultPrevented
+          || event.submitter?.getAttribute("formmethod") === "dialog") return;
+      const emailSelected = form.querySelector(
+        'input[name="delivery_method"]:checked'
+      )?.value === "email";
+      if (!emailSelected) return;
+      if (isProcessing) {
+        event.preventDefault();
+        return;
+      }
+
+      isProcessing = true;
+      document.body.setAttribute("aria-busy", "true");
+      forms.forEach((candidate) => {
+        candidate.querySelectorAll('button[type="submit"]').forEach((button) => {
+          button.disabled = true;
+          button.setAttribute("aria-disabled", "true");
+        });
+      });
+      title.textContent = form.dataset.emailProcessingTitle
+        || "Sending temporary password…";
+      message.textContent = form.dataset.emailProcessingMessage
+        || "Please keep this page open until the operation finishes.";
+      if (typeof overlay.showModal === "function") overlay.showModal();
+      else overlay.setAttribute("open", "");
+      window.requestAnimationFrame(() => overlay.focus());
+    });
+  });
+
+  window.addEventListener("pageshow", reset);
+})();
+
 document.querySelectorAll(".accounts-modal[open]").forEach((dialog) => {
   // The open attribute leaves the details accessible if dialog scripting fails.
   if (typeof dialog.showModal === "function") {

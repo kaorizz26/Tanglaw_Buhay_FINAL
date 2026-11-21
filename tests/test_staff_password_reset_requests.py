@@ -46,6 +46,7 @@ class StaffPasswordResetRequestTests(unittest.TestCase):
                     "0010_staff_password_change_required.sql",
                     "0011_staff_temporary_password.sql",
                     "0020_staff_password_reset_requests.sql",
+                    "0021_staff_access_permissions.sql",
                 ):
                     connection.execute((ROOT / "migrations" / migration).read_text("utf-8"))
 

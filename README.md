@@ -18,17 +18,19 @@ workflows are implemented and verified; several administration and citizen
 modules are still partial or planned. **A navigation item or placeholder does not
 mean a feature is complete.**
 
-Both roles, **System Administrator** and **LGU Staff**, sign in at `/login` and
-may use the Dashboard, Household Records, Household Prioritization, Household
-Assessment, Staff Reviews, and Review Queue. Data Import and Staff Accounts are
-administrator-only. Imported CBMS records are read-only for everyone.
+Both roles, **System Administrator** and **LGU Staff**, sign in at `/login`.
+System Administrators retain access to the Dashboard, Household Records,
+assessments, reviews, Data Import, and Staff Accounts. Every LGU Staff account
+can open the Dashboard; the administrator grants its Household Records,
+assessment, review, and submission access separately. Imported CBMS records are
+read-only for everyone.
 
 ### Completed Features
 
 | Feature | Available functionality |
 | --- | --- |
 | Authentication and Roles | Database-backed login/logout, sessions, CSRF protection, role guards, and a shared branded sign-in page. Active LGU Staff can request password help by username without exposing whether an account exists; there is no self-registration. |
-| Staff Accounts | Administrators create LGU Staff accounts, view their status, reveal and copy a pending temporary password, deactivate accounts after resolving active reviews, handle staff password-reset requests, reset passwords, and reactivate inactive staff. For account creation, reset, and reactivation, the temporary password can be sent through the configured Tanglaw-Buhay email account to an address confirmed in person; the address is not saved to the staff profile. A new or reset password requires staff to set their own password at sign-in. |
+| Staff Accounts | Administrators create LGU Staff accounts, view their status, assign feature access, review permission-change history, reveal and copy a pending temporary password, deactivate accounts after resolving active reviews, handle staff password-reset requests, reset passwords, and reactivate inactive staff. For account creation, reset, and reactivation, the temporary password can be sent through the configured Tanglaw-Buhay email account to an address confirmed in person; the address is not saved to the staff profile. A new or reset password requires staff to set their own password at sign-in. |
 | Dashboard | Historical household statistics for the designated completed run, with a Barangay filter, per-program “For Review” counts, and household assessment patterns for the 16 indicators. LGU Staff also see **My Subsidy Reviews**. The administrator Dashboard shows statistics only. |
 | Household Records | Read-only directory with household ID/head search, barangay filter, pagination, and focused pages with household answers, the member roster, and a link to the assessment. |
 | Household Prioritization | Stored municipal ranks with search, barangay and other filters, and pagination (25 households per page). Filters never change a rank. |
@@ -46,7 +48,7 @@ administrator-only. Imported CBMS records are read-only for everyone.
 
 | Module | Current state |
 | --- | --- |
-| Staff Accounts lifecycle | Listing, creation, pending temporary-password reveal, deactivation, reactivation, staff forgot-password requests, and administrator password reset are implemented. Account editing is not implemented. |
+| Staff Accounts lifecycle | Listing, creation, permission management and audit history, pending temporary-password reveal, deactivation, reactivation, staff forgot-password requests, and administrator password reset are implemented. Account editing is not implemented. |
 | Data Import interface | Administrators select a survey year from the two-year cycle beginning in 2022, preview and validate four structure-compatible CSVs using the system-installed references, and explicitly store a passing bundle as inactive. Same-year re-uploads create separate inactive batches and never replace existing data; exact duplicates are blocked. Aggregate audit export identifies upload and later action actors/times without exposing household data. Administrators can then prepare assessments and activate the first baseline or switch between later batches. Migrations 0013–0015 and 0018–0019 are required before use. End-to-end authorized-data pilot verification remains. |
 | Assessment-run management | Administrators can prepare and designate a completed run for a staged inactive import. The current 2022 Run 3 and its history remain unchanged. |
 | Public portal | Information pages only. Citizen identity, access codes, and submissions are not implemented. |
@@ -68,6 +70,9 @@ administrator-only. Imported CBMS records are read-only for everyone.
 - After the wording correction at commit `3778780`, **83 focused tests** passed
   (staff reviews, Review Queue, review responsibility, SPISC integration, and
   recommendation changes). The full suite has **not** been rerun since.
+- On 2026-11-22, the Staff Access Control change set passed the complete
+  **1,355-test regression suite** against isolated synthetic schemas in the local
+  `tanglaw_buhay_test` database, with zero failures, errors, or skips.
 - The integrated staff workflow was verified separately using isolated synthetic
   data, not real CBMS records.
 
@@ -316,6 +321,28 @@ Staff forgot-password requests additionally require migration 0020. Check that
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0020_staff_password_reset_requests.sql"
 ```
 
+Per-account LGU Staff access requires migration 0021. Before applying it, verify
+that all three objects below are absent. If any already exists, stop and inspect
+the target schema instead of rerunning the migration:
+
+```sql
+SELECT to_regclass('public.staff_permissions'),
+       to_regclass('public.staff_user_permissions'),
+       to_regclass('public.staff_permission_events');
+```
+
+Apply the migration once only when all three results are null:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0021_staff_access_permissions.sql"
+```
+
+Migration 0021 preserves existing LGU Staff access by granting all current
+permissions to accounts already in the database. Accounts created after the
+migration begin with Dashboard access only. An administrator then uses **Staff
+Accounts → Account List → Manage access** to grant the features required for the
+staff member's work.
+
 If using an existing development database, check `staff_users` first and run only
 the missing migration(s). Do not reapply a migration whose column already exists:
 
@@ -360,6 +387,39 @@ share it privately, clear it from the clipboard after use, and keep screenshots,
 logs and messages containing it out of Git. Keep the encryption key private and
 available to every app instance; replacing or losing it makes existing pending
 copies unreadable even though their login hashes remain valid.
+
+### Configure LGU Staff feature access
+
+Open **Staff Accounts → Account List**, then choose **Manage access** for one
+account. Dashboard is required for every LGU Staff account. The administrator may
+grant Household Records, Assessment Results, Staff Review History, Manage Staff
+Reviews, Submissions, and Manage Submissions. Review History requires Assessment
+Results; Manage Staff Reviews requires Review History; Manage Submissions requires
+Submissions. The page enforces those dependencies and offers common access
+profiles as shortcuts.
+
+Saving a change records the administrator, time, permission, and whether access
+was granted or removed. It also increments the staff account's session version,
+so existing sessions end and the staff member must sign in again. Inactive
+accounts retain their permissions but the Manage Access page is read-only until
+reactivation. Hiding a navigation item is only a usability aid: protected routes
+also check the required permission and return HTTP 403 when access is missing.
+
+For a manual check, use a synthetic LGU Staff account:
+
+1. Save **Dashboard only**, sign in as that staff member, and confirm that no
+   module navigation is shown and a direct module URL returns HTTP 403.
+2. Save **Household Records Viewer** and confirm Household Records appears but
+   assessment links and actions do not.
+3. Save **Assessment Viewer** and confirm findings are readable but Review Queue
+   and review actions remain unavailable.
+4. Save **Case Reviewer** and confirm Review Queue and review actions appear.
+5. Compare **Submissions** without **Manage Submissions** against the
+   **Submissions Officer** profile; the former is read-only and the latter shows
+   permitted management controls.
+6. Confirm every saved change signs the staff account out and appears in Recent
+   access changes. Deactivate the synthetic account and confirm Manage Access is
+   read-only while its saved permissions remain visible.
 
 ## 6. Configure your private `.env`
 
@@ -430,9 +490,11 @@ email address confirmed with the staff member in person and have the system send
 or use the direct on-screen handoff. Configure the dedicated sender once in `.env` using the
 `SMTP_*` settings from `.env.example`; use an email-provider app password rather than the
 mailbox's normal password. Staff sign in at `/login` and must set a new password before
-opening staff pages. Both roles can open Household Records, Household Prioritization,
-assessments, and the Review Queue (it opens on Assigned to Me for LGU Staff and
-All Staff Reviews for administrators). The queue starts empty because the handoff intentionally
+opening staff pages. Administrators can open Household Records, Household
+Prioritization, assessments, and the Review Queue. LGU Staff can open only the
+modules assigned in Manage Access; their Review Queue opens on Assigned to Me,
+while the administrator queue opens on All Staff Reviews. The queue starts empty
+because the handoff intentionally
 excludes staff reviews. `/public` shows the public program information pages
 without signing in. `/test` is only a health check; it does not verify the
 database. Stop the server with **Ctrl+C**.

@@ -47,7 +47,8 @@ class StaffAccountCreationTests(unittest.TestCase):
                 for migration in ("0002_staff_authentication.sql", "0009_staff_display_name.sql",
                                   "0010_staff_password_change_required.sql",
                                   "0011_staff_temporary_password.sql",
-                                  "0020_staff_password_reset_requests.sql"):
+                                  "0020_staff_password_reset_requests.sql",
+                                  "0021_staff_access_permissions.sql"):
                     connection.execute((ROOT / "migrations" / migration).read_text())
                 connection.execute(
                     """CREATE TABLE staff_reviews (
@@ -101,6 +102,8 @@ class StaffAccountCreationTests(unittest.TestCase):
         page = self.client.get("/administration/accounts/create")
         self.assertIn("Create staff account", page.text)
         self.assertIn('src="/static/js/staff-accounts.js"', page.text)
+        self.assertIn('id="account-email-processing-overlay"', page.text)
+        self.assertIn('data-email-processing-title="Creating account and sending email…"', page.text)
         response = self.client.post("/administration/accounts/create", data={
             "csrf_token": token, "display_name": "  Ana   Dela Cruz  ",
             "username": "Ana.Dela.Cruz", "role": "system_administrator",
@@ -362,6 +365,12 @@ class StaffAccountCreationTests(unittest.TestCase):
         self.assertNotIn("scrypt:", page.text)
         self.assertEqual(table.count('name="action" value="reveal"'), 1)
         with psycopg.connect(self.url) as connection:
+            connection.execute(
+                """DELETE FROM staff_user_permissions
+                   WHERE staff_id IN (
+                       SELECT id FROM staff_users WHERE role = 'lgu_staff'
+                   )""",
+            )
             connection.execute("DELETE FROM staff_users WHERE role = 'lgu_staff'")
         self.assertIn("No staff accounts yet", self.client.get("/administration/accounts").text)
 
@@ -720,8 +729,11 @@ class StaffAccountCreationTests(unittest.TestCase):
         directory = self.client.get("/administration/accounts")
         self.assertIn(f'action="{reactivate_url}"', directory.text)
         self.assertNotIn(old_password, directory.text)
-        self.assertIn("Reactivate account", self.client.get(reactivate_url).text)
-        self.assertIn('data-action="reactivate"', self.client.get(reactivate_url).text)
+        confirmation = self.client.get(reactivate_url)
+        self.assertIn("Reactivate account", confirmation.text)
+        self.assertIn('data-action="reactivate"', confirmation.text)
+        self.assertIn('data-email-processing-title="Reactivating account and sending email…"',
+                      confirmation.text)
 
         response = self.client.post(reactivate_url, data={"csrf_token": token})
         self.assertEqual(response.status_code, 200)

@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from services.auth import admin_required
+from services.staff_access import PERMISSION_CODES
 
 
 class MinimalStaffInterfaceTests(unittest.TestCase):
@@ -16,8 +17,12 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         self.password = token_urlsafe(32)
         password_hash = generate_password_hash(self.password)
         self.users = {
-            "synthetic_admin": {"id": 1, "role": "system_administrator"},
-            "synthetic_staff": {"id": 2, "role": "lgu_staff"},
+            "synthetic_admin": {
+                "id": 1, "role": "system_administrator", "permissions": PERMISSION_CODES,
+            },
+            "synthetic_staff": {
+                "id": 2, "role": "lgu_staff", "permissions": PERMISSION_CODES,
+            },
         }
         for username, user in self.users.items():
             user.update(username=username, password_hash=password_hash,
@@ -116,6 +121,18 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
                 self.assertIn("Staff Accounts", page.text)
                 self.assertIn("Review Activity", page.text)
                 self.assertNotIn("Submissions", page.text)
+                assessments_label = page.text.index("<span>Assessments</span>")
+                assessments_start = page.text.rfind("<details", 0, assessments_label)
+                assessments_opening = page.text[
+                    assessments_start:page.text.index(">", assessments_start) + 1
+                ]
+                accounts_label = page.text.index("<span>Staff Accounts</span>")
+                accounts_start = page.text.rfind("<details", 0, accounts_label)
+                accounts_opening = page.text[
+                    accounts_start:page.text.index(">", accounts_start) + 1
+                ]
+                self.assertNotIn(" open", assessments_opening)
+                self.assertIn(" open", accounts_opening)
                 self.assertEqual(client.get("/").location, "/administration")
             else:
                 self.assertNotIn('href="/administration"', page.text)

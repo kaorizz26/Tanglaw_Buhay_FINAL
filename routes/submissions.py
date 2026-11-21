@@ -9,7 +9,7 @@ from flask import Blueprint, abort, redirect, render_template, request, url_for
 from routes.dataset_setup import is_no_active_dataset, render_dataset_setup
 from routes.staff_forms import staff_context
 from services.assessment_queries import AssessmentQueryError
-from services.auth import lgu_staff_required
+from services.auth import lgu_staff_required, permission_required
 from services.submissions import (
     STATUS_OPTIONS, InvalidDirectoryFilters, get_account_detail, get_account_directory,
     get_request_directory, parse_directory_arguments, return_parameters,
@@ -46,6 +46,7 @@ def _read_directory(read, page, filters):
 
 @submissions.get("/document-requests")
 @lgu_staff_required
+@permission_required("submissions.view")
 def document_requests():
     """List every document request; requests waiting for review come first."""
     page, filters = _read_arguments("document_requests")
@@ -66,6 +67,7 @@ def document_requests():
 
 @submissions.get("/citizen-accounts")
 @lgu_staff_required
+@permission_required("submissions.view")
 def citizen_accounts():
     """List every Citizen Account with its status."""
     page, filters = _read_arguments("citizen_accounts")
@@ -86,6 +88,7 @@ def citizen_accounts():
 
 @submissions.get("/citizen-accounts/household/<uuid:household_uuid>")
 @lgu_staff_required
+@permission_required("submissions.view")
 def account_detail(household_uuid):
     """Show one Citizen Account with the existing account actions and its document requests."""
     page, filters = _read_arguments("citizen_accounts")
