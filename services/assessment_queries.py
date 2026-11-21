@@ -21,6 +21,7 @@ from services.spisc_age_progression import current_spisc_status, philippine_asse
 
 
 DASHBOARD_CACHE_SECONDS = 1800
+BARANGAY_CHART_LIMIT = 10
 PRIORITIZATION_CACHE_SECONDS = 300
 # Priority groups whose card count uses the same rule as the page filter, so the
 # card count can serve as the page total. "other" is a negated rule (a missing
@@ -187,6 +188,51 @@ def get_active_dashboard_summary(
             lambda: _read_dashboard_summary(connection, context, assessed, barangay),
         )
     return {**summary, "barangay": barangay, "barangays": barangays}
+
+
+def get_active_barangay_priority_summary(
+    *, connection_factory=get_connection, assessment_date=None,
+):
+    """Return a municipal, size-normalized barangay priority comparison."""
+    assessed = assessment_date if assessment_date is not None else philippine_assessment_date()
+    with _read_context(connection_factory) as (connection, context):
+        key = ("dashboard-barangays", *_cache_scope(connection, context, assessed))
+        rows = read_cache.cached(
+            key, DASHBOARD_CACHE_SECONDS,
+            lambda: assessment_runs.count_priority_groups_by_barangay(
+                connection, context["run_id"],
+                **_current_age_statuses(connection, context, assessed),
+            ),
+        )
+    if sum(row["households"] for row in rows) != context["household_count"]:
+        raise AssessmentQueryError("assessment_count_mismatch")
+    items = []
+    unrecorded = 0
+    for row in rows:
+        if row["barangay"] is None:
+            unrecorded += row["households"]
+            continue
+        priority_count = row["primary_group"] + row["secondary_group"]
+        items.append({
+            "barangay": row["barangay"],
+            "households": row["households"],
+            "primary": row["primary_group"],
+            "secondary": row["secondary_group"],
+            "priority_count": priority_count,
+            "primary_percent": round(row["primary_group"] / row["households"] * 100, 1),
+            "secondary_percent": round(row["secondary_group"] / row["households"] * 100, 1),
+            "priority_percent": round(priority_count / row["households"] * 100, 1),
+        })
+    items.sort(key=lambda item: (
+        -item["priority_percent"], -item["priority_count"], item["barangay"],
+    ))
+    return {
+        "context": context,
+        "items": items[:BARANGAY_CHART_LIMIT],
+        "recorded_barangays": len(items),
+        "shown_barangays": min(len(items), BARANGAY_CHART_LIMIT),
+        "unrecorded_households": unrecorded,
+    }
 
 
 def _read_dashboard_summary(connection, context, assessed, barangay):

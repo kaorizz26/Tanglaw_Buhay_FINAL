@@ -826,6 +826,37 @@ class StaffReviewDatabaseTests(unittest.TestCase):
             self.assertEqual(len(repository.list_active(connection, self.batch_id, HOUSEHOLD_UUID)), 1)
             self.assertEqual(self.snapshot(connection), self.originals)
 
+    def test_admin_dashboard_summary_matches_current_review_queue_states(self):
+        from services.review_queue import get_admin_review_dashboard_summary
+
+        active = self.legacy_start('4Ps')
+        follow_up = self.legacy_start('SLP')
+        no_action = self.legacy_start('SPISC')
+        cancelled = self.legacy_start('TUPAD')
+        self.act(
+            follow_up, 'finish', program='SLP',
+            recommendation='For LGU Follow-Up', text='Recommend office follow-up.',
+        )
+        self.act(
+            no_action, 'finish', program='SPISC',
+            recommendation='No Further Action', text='No further action at this time.',
+        )
+        self.act(cancelled, 'cancel', program='TUPAD', text='Started by mistake.')
+
+        summary = get_admin_review_dashboard_summary(connection_factory=self.connect)
+
+        self.assertEqual(summary['total'], 3)
+        self.assertEqual(summary['active_total'], 1)
+        self.assertEqual(
+            {item['key']: item['count'] for item in summary['statuses']},
+            {'in-review': 1, 'follow-up': 1, 'no-action': 1},
+        )
+        self.assertEqual(
+            {item['code']: item['count'] for item in summary['programs']},
+            {'4Ps': 1, 'SLP': 0, 'SPISC': 0, 'TUPAD': 0},
+        )
+        self.assertIsInstance(active, int)
+
     def test_invalid_actions_associations_and_required_fields_write_nothing(self):
         review_id = self.start()
         cases = [

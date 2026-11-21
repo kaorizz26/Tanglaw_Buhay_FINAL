@@ -291,7 +291,8 @@ def _priority_condition(priority, current_spisc=False):
     return (f"NOT {rule}" if priority == "other" else rule), parameters
 
 
-def _summary_selection(run_id, filters, *, spisc_age_statuses=None, batch_id=None):
+def _summary_selection(run_id, filters, *, spisc_age_statuses=None, batch_id=None,
+                       include_source=False):
     """Build shared count/page predicates from trusted SQL and bound values.
 
     Source filters use batch/UUID joins. No source or engine finding is changed,
@@ -326,7 +327,7 @@ def _summary_selection(run_id, filters, *, spisc_age_statuses=None, batch_id=Non
             ) current_spisc ON true
         """
         parameters = [Jsonb(spisc_age_statuses), batch_id, *parameters]
-    if position is not None or filters.barangay:
+    if include_source or position is not None or filters.barangay:
         joins += """
             JOIN households source
               ON source.batch_id = h.batch_id AND source.uuid = h.household_uuid
@@ -370,6 +371,33 @@ def _summary_selection(run_id, filters, *, spisc_age_statuses=None, batch_id=Non
         conditions.append(rule)
         parameters.extend(values)
     return joins + " WHERE " + " AND ".join(conditions), tuple(parameters)
+
+
+def count_priority_groups_by_barangay(
+    connection, run_id, *, spisc_age_statuses=None, batch_id=None,
+):
+    """Count municipal priority groups by recorded barangay in one stored-run query."""
+    selection, parameters = _summary_selection(
+        run_id, AssessmentFilters(), spisc_age_statuses=spisc_age_statuses,
+        batch_id=batch_id, include_source=True,
+    )
+    dynamic = spisc_age_statuses is not None
+    primary, primary_values = _priority_condition("primary", dynamic)
+    secondary, secondary_values = _priority_condition("secondary", dynamic)
+    barangay = """CASE
+        WHEN btrim(source.responses ->> 'barangay') IS NULL
+          OR btrim(source.responses ->> 'barangay') IN ('', 'NA') THEN NULL
+        ELSE btrim(source.responses ->> 'barangay') END"""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            f"""SELECT {barangay} AS barangay,
+                       count(*) AS households,
+                       count(*) FILTER (WHERE {primary}) AS primary_group,
+                       count(*) FILTER (WHERE {secondary}) AS secondary_group
+                {selection}
+                GROUP BY {barangay}""",
+            (*primary_values, *secondary_values, *parameters),
+        ).fetchall()
 
 
 def count_assessment_summaries(

@@ -179,6 +179,33 @@ class StaffAccountCreationTests(unittest.TestCase):
             }
         self.assertNotIn("email", columns)
 
+    def test_admin_dashboard_account_summary_uses_aggregate_staff_statuses(self):
+        password_hash = generate_password_hash(token_urlsafe(32), method="scrypt")
+        with psycopg.connect(self.url) as connection:
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """INSERT INTO staff_users
+                       (username, password_hash, role, is_active, must_change_password)
+                       VALUES (%s, %s, 'lgu_staff', %s, %s)""",
+                    [
+                        ("pending.setup", password_hash, True, True),
+                        ("inactive.staff", password_hash, False, True),
+                    ],
+                )
+        with self.app.app_context():
+            from services.staff_account_management import (
+                get_staff_account_dashboard_summary,
+            )
+
+            summary = get_staff_account_dashboard_summary()
+        self.assertEqual(summary, {
+            "total": 3,
+            "active": 2,
+            "inactive": 1,
+            "pending_setup": 1,
+            "setup_complete": 1,
+        })
+
     def test_creation_rejects_duplicate_invalid_and_unauthorized_requests(self):
         self.assertEqual(self.client.post("/administration/accounts").location, "/login")
         self._login()

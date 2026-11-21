@@ -39,6 +39,17 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
             patch("repositories.staff_users.find_by_id", side_effect=self._by_id),
             patch("repositories.staff_users.invalidate_sessions", side_effect=self._revoke),
             patch("routes.main.get_staff_accounts", return_value=[]),
+            patch("routes.main.get_staff_account_dashboard_summary", return_value={
+                "total": 0, "active": 0, "inactive": 0,
+                "pending_setup": 0, "setup_complete": 0,
+            }),
+            patch("routes.main.get_admin_review_dashboard_summary", return_value={
+                "statuses": [], "programs": [], "total": 0, "active_total": 0,
+            }),
+            patch("routes.main.get_import_dashboard_summary", return_value={
+                "active": None, "statuses": [], "years": [], "total": 0,
+            }),
+            patch("routes.main.get_active_barangay_priority_summary", return_value=None),
         )
         for patcher in patches:
             patcher.start()

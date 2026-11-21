@@ -67,6 +67,18 @@ def get_staff_accounts():
     return accounts
 
 
+def get_staff_account_dashboard_summary():
+    """Return reconciled aggregate account counts for the admin dashboard."""
+    with get_connection() as connection:
+        summary = dict(staff_users.count_staff_account_statuses(connection))
+    if (
+        summary["total"] != summary["active"] + summary["inactive"]
+        or summary["active"] != summary["pending_setup"] + summary["setup_complete"]
+    ):
+        raise RuntimeError("Staff account summary counts do not reconcile.")
+    return summary
+
+
 def new_temporary_credentials():
     """Create a login hash and an encrypted copy of one new password."""
     password = token_urlsafe(TEMPORARY_PASSWORD_BYTES)

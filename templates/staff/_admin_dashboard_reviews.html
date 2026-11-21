@@ -1,0 +1,70 @@
+<section class="admin-review-overview" aria-labelledby="review-workload-heading">
+  <div class="dashboard-section-heading">
+    <div>
+      <h2 id="review-workload-heading">Review Workload Overview</h2>
+      <p class="admin-dashboard-section-description">Current all-staff subsidy reviews from the active dataset.</p>
+    </div>
+    <a class="admin-dashboard-heading-link" href="{{ url_for('assessments.queue', scope='all') }}">Open Review Queue <span aria-hidden="true">→</span></a>
+  </div>
+
+  <div class="admin-review-chart-grid">
+    <article class="dashboard-panel admin-review-chart-card" aria-labelledby="review-status-chart-heading">
+      <div class="admin-dashboard-chart-heading">
+        <div>
+          <p class="dashboard-panel-kicker">Workflow status</p>
+          <h3 id="review-status-chart-heading">Current review queue</h3>
+        </div>
+        <span>{{ admin_review_summary.total }} current</span>
+      </div>
+      <p class="admin-dashboard-chart-description">Only current reviews shown in the Review Queue are counted. Cancelled and withdrawn review history is not included.</p>
+      {% if admin_review_summary.total %}
+        <div class="admin-review-status-chart"
+             role="img"
+             aria-label="{% for item in admin_review_summary.statuses %}{{ item.label }}: {{ item.count }} review{{ '' if item.count == 1 else 's' }}{{ '. ' if not loop.last else '.' }}{% endfor %}">
+          {% for item in admin_review_summary.statuses if item.count %}
+            <span class="admin-review-status-segment admin-review-status-{{ item.key }}" style="flex-grow: {{ item.count }}"></span>
+          {% endfor %}
+        </div>
+        <ul class="admin-dashboard-legend admin-review-status-legend" aria-label="Review status details">
+          {% for item in admin_review_summary.statuses %}
+            {% set percent = (item.count / admin_review_summary.total * 100) | round(1) %}
+            <li>
+              <span class="admin-dashboard-swatch admin-review-swatch-{{ item.key }}" aria-hidden="true"></span>
+              <a href="{{ url_for('assessments.queue', scope='all', status=item.key) }}">{{ item.label }}</a>
+              <strong>{{ item.count }} <small>{{ percent }}%</small></strong>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="admin-account-empty-message">No current subsidy reviews have been started.</p>
+      {% endif %}
+    </article>
+
+    <article class="dashboard-panel admin-review-chart-card" aria-labelledby="review-program-chart-heading">
+      <div class="admin-dashboard-chart-heading">
+        <div>
+          <p class="dashboard-panel-kicker">Active work</p>
+          <h3 id="review-program-chart-heading">In Review by program</h3>
+        </div>
+        <span>{{ admin_review_summary.active_total }} active</span>
+      </div>
+      <p class="admin-dashboard-chart-description">Reviews started by staff that have not yet been finished or cancelled.</p>
+      {% if admin_review_summary.active_total %}
+        <ul class="admin-review-program-list" aria-label="Active reviews by subsidy program">
+          {% for item in admin_review_summary.programs %}
+            {% set percent = (item.count / admin_review_summary.active_total * 100) | round(1) %}
+            <li>
+              <a href="{{ url_for('assessments.queue', scope='all', status='in-review', program=item.code) }}">
+                <span class="admin-review-program-label">{{ item.code }}</span>
+                <span class="admin-review-program-value"><strong>{{ item.count }}</strong> {{ percent }}%</span>
+                <span class="admin-review-program-track" aria-hidden="true"><span style="width: {{ percent }}%"></span></span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="admin-account-empty-message">There are no unfinished subsidy reviews.</p>
+      {% endif %}
+    </article>
+  </div>
+</section>

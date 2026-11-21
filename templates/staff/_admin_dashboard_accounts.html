@@ -1,0 +1,95 @@
+{% set account_total = staff_account_summary.total %}
+{% set active_accounts = staff_account_summary.active %}
+{% set inactive_accounts = staff_account_summary.inactive %}
+{% set pending_setup = staff_account_summary.pending_setup %}
+{% set setup_complete = staff_account_summary.setup_complete %}
+{% set active_percent = (active_accounts / account_total * 100) | round(1) if account_total else 0 %}
+{% set inactive_percent = (inactive_accounts / account_total * 100) | round(1) if account_total else 0 %}
+{% set setup_complete_percent = (setup_complete / active_accounts * 100) | round(1) if active_accounts else 0 %}
+{% set pending_setup_percent = (pending_setup / active_accounts * 100) | round(1) if active_accounts else 0 %}
+
+<section class="admin-account-overview" aria-labelledby="staff-account-overview-heading">
+  <div class="dashboard-section-heading">
+    <div>
+      <h2 id="staff-account-overview-heading">Staff Account Overview</h2>
+      <p class="admin-dashboard-section-description">Current LGU Staff account availability and password setup progress.</p>
+    </div>
+    <a class="admin-dashboard-heading-link" href="{{ url_for('main.staff_accounts') }}">Manage accounts <span aria-hidden="true">→</span></a>
+  </div>
+
+  {% if account_total %}
+    <div class="admin-account-chart-grid">
+      <article class="dashboard-panel admin-account-chart-card" aria-labelledby="account-status-chart-heading">
+        <div class="admin-dashboard-chart-heading">
+          <div>
+            <p class="dashboard-panel-kicker">Account availability</p>
+            <h3 id="account-status-chart-heading">Active and inactive accounts</h3>
+          </div>
+          <span>{{ account_total }} total</span>
+        </div>
+        <div class="admin-account-status-layout">
+          <div class="admin-account-donut"
+               style="--active-account-share: {{ active_percent }}%;"
+               role="img"
+               aria-label="Active accounts: {{ active_accounts }}, {{ active_percent }} percent. Inactive accounts: {{ inactive_accounts }}, {{ inactive_percent }} percent.">
+            <div class="admin-priority-donut-center">
+              <strong>{{ account_total }}</strong>
+              <span>accounts</span>
+            </div>
+          </div>
+          <ul class="admin-dashboard-legend" aria-label="Staff account status details">
+            <li>
+              <span class="admin-dashboard-swatch admin-account-swatch-active" aria-hidden="true"></span>
+              <span>Active</span>
+              <strong>{{ active_accounts }} <small>{{ active_percent }}%</small></strong>
+            </li>
+            <li>
+              <span class="admin-dashboard-swatch admin-account-swatch-inactive" aria-hidden="true"></span>
+              <span>Inactive</span>
+              <strong>{{ inactive_accounts }} <small>{{ inactive_percent }}%</small></strong>
+            </li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="dashboard-panel admin-account-chart-card" aria-labelledby="password-setup-chart-heading">
+        <div class="admin-dashboard-chart-heading">
+          <div>
+            <p class="dashboard-panel-kicker">First sign-in</p>
+            <h3 id="password-setup-chart-heading">Password setup progress</h3>
+          </div>
+          <span>{{ active_accounts }} active</span>
+        </div>
+        <p class="admin-dashboard-chart-description">Pending accounts must replace their temporary password before entering the staff portal.</p>
+        {% if active_accounts %}
+          <div class="admin-account-setup-chart"
+               role="img"
+               aria-label="Password setup complete: {{ setup_complete }}, {{ setup_complete_percent }} percent. Pending password setup: {{ pending_setup }}, {{ pending_setup_percent }} percent.">
+            {% if setup_complete %}<span class="admin-account-setup-complete" style="flex-grow: {{ setup_complete }}"></span>{% endif %}
+            {% if pending_setup %}<span class="admin-account-setup-pending" style="flex-grow: {{ pending_setup }}"></span>{% endif %}
+          </div>
+          <ul class="admin-dashboard-legend admin-account-setup-legend" aria-label="Password setup details">
+            <li>
+              <span class="admin-dashboard-swatch admin-account-swatch-complete" aria-hidden="true"></span>
+              <span>Setup complete</span>
+              <strong>{{ setup_complete }} <small>{{ setup_complete_percent }}%</small></strong>
+            </li>
+            <li>
+              <span class="admin-dashboard-swatch admin-account-swatch-pending" aria-hidden="true"></span>
+              <span>Pending setup</span>
+              <strong>{{ pending_setup }} <small>{{ pending_setup_percent }}%</small></strong>
+            </li>
+          </ul>
+        {% else %}
+          <p class="admin-account-empty-message">There are no active staff accounts to complete password setup.</p>
+        {% endif %}
+      </article>
+    </div>
+  {% else %}
+    <div class="dashboard-unavailable admin-account-empty">
+      <h3>No staff accounts yet</h3>
+      <p>Create the first LGU Staff account when a staff member is ready to receive their sign-in details.</p>
+      <a class="dashboard-primary-link" href="{{ url_for('main.staff_account_create') }}">Create staff account <span aria-hidden="true">→</span></a>
+    </div>
+  {% endif %}
+</section>

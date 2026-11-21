@@ -1,0 +1,92 @@
+{% set total_households = summary.priority['all'] %}
+{% set primary_count = summary.priority.primary %}
+{% set secondary_count = summary.priority.secondary %}
+{% set other_count = total_households - primary_count - secondary_count %}
+{% set attention_count = summary.findings.needs_attention %}
+{% set complete_count = total_households - attention_count %}
+{% set primary_percent = (primary_count / total_households * 100) | round(1) if total_households else 0 %}
+{% set secondary_percent = (secondary_count / total_households * 100) | round(1) if total_households else 0 %}
+{% set other_percent = (other_count / total_households * 100) | round(1) if total_households else 0 %}
+{% set attention_percent = (attention_count / total_households * 100) | round(1) if total_households else 0 %}
+{% set complete_percent = (complete_count / total_households * 100) | round(1) if total_households else 0 %}
+
+<section class="admin-dashboard-overview" aria-labelledby="admin-overview-heading">
+  <div class="dashboard-section-heading">
+    <div>
+      <h2 id="admin-overview-heading">Administrative Overview</h2>
+      <p class="admin-dashboard-section-description">Visual summary of stored assessment results for {{ area }}.</p>
+    </div>
+  </div>
+
+  <div class="admin-dashboard-chart-grid">
+    <article class="dashboard-panel admin-dashboard-chart-card" aria-labelledby="priority-chart-heading">
+      <div class="admin-dashboard-chart-heading">
+        <div>
+          <p class="dashboard-panel-kicker">Priority distribution</p>
+          <h3 id="priority-chart-heading">Assessed households by priority group</h3>
+        </div>
+        <span>{{ summary.context.survey_year }} survey</span>
+      </div>
+      <p class="admin-dashboard-chart-description">Municipal priority groups from the stored assessment run. These are decision-support findings, not benefit approvals.</p>
+      <div class="admin-priority-chart-layout">
+        <div class="admin-priority-donut"
+             style="--primary-share: {{ primary_percent }}%; --secondary-end: {{ primary_percent + secondary_percent }}%;"
+             role="img"
+             aria-label="Primary Priority: {{ primary_count }} households, {{ primary_percent }} percent. Secondary Priority: {{ secondary_count }} households, {{ secondary_percent }} percent. Other assessed households: {{ other_count }}, {{ other_percent }} percent.">
+          <div class="admin-priority-donut-center">
+            <strong>{{ '{:,}'.format(total_households) }}</strong>
+            <span>assessed</span>
+          </div>
+        </div>
+        <ul class="admin-dashboard-legend" aria-label="Priority distribution details">
+          <li>
+            <span class="admin-dashboard-swatch admin-dashboard-swatch-primary" aria-hidden="true"></span>
+            <span>Primary Priority</span>
+            <strong>{{ '{:,}'.format(primary_count) }} <small>{{ primary_percent }}%</small></strong>
+          </li>
+          <li>
+            <span class="admin-dashboard-swatch admin-dashboard-swatch-secondary" aria-hidden="true"></span>
+            <span>Secondary Priority</span>
+            <strong>{{ '{:,}'.format(secondary_count) }} <small>{{ secondary_percent }}%</small></strong>
+          </li>
+          <li>
+            <span class="admin-dashboard-swatch admin-dashboard-swatch-other" aria-hidden="true"></span>
+            <span>Other assessed</span>
+            <strong>{{ '{:,}'.format(other_count) }} <small>{{ other_percent }}%</small></strong>
+          </li>
+        </ul>
+      </div>
+      <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization', barangay=barangay_arg) }}">Open Household Prioritization <span aria-hidden="true">→</span></a>
+    </article>
+
+    <article class="dashboard-panel admin-dashboard-chart-card" aria-labelledby="quality-chart-heading">
+      <div class="admin-dashboard-chart-heading">
+        <div>
+          <p class="dashboard-panel-kicker">Data completeness</p>
+          <h3 id="quality-chart-heading">Assessment result coverage</h3>
+        </div>
+        <span>{{ '{:,}'.format(total_households) }} households</span>
+      </div>
+      <p class="admin-dashboard-chart-description">A result needs attention when one or more survey answers required by the assessment were missing or unclear.</p>
+      <div class="admin-quality-chart"
+           role="img"
+           aria-label="Complete results: {{ complete_count }} households, {{ complete_percent }} percent. Results needing attention: {{ attention_count }} households, {{ attention_percent }} percent.">
+        {% if complete_count %}<span class="admin-quality-segment admin-quality-complete" style="flex-grow: {{ complete_count }}"></span>{% endif %}
+        {% if attention_count %}<span class="admin-quality-segment admin-quality-attention" style="flex-grow: {{ attention_count }}"></span>{% endif %}
+      </div>
+      <ul class="admin-dashboard-legend admin-quality-legend" aria-label="Assessment coverage details">
+        <li>
+          <span class="admin-dashboard-swatch admin-dashboard-swatch-complete" aria-hidden="true"></span>
+          <span>Complete results</span>
+          <strong>{{ '{:,}'.format(complete_count) }} <small>{{ complete_percent }}%</small></strong>
+        </li>
+        <li>
+          <span class="admin-dashboard-swatch admin-dashboard-swatch-attention" aria-hidden="true"></span>
+          <span>Needs attention</span>
+          <strong>{{ '{:,}'.format(attention_count) }} <small>{{ attention_percent }}%</small></strong>
+        </li>
+      </ul>
+      <a class="dashboard-panel-link" href="{{ url_for('assessments.prioritization', completeness='unknown', barangay=barangay_arg) }}">Review undetermined results <span aria-hidden="true">→</span></a>
+    </article>
+  </div>
+</section>

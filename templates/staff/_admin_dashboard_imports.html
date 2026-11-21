@@ -1,0 +1,86 @@
+<section class="admin-import-overview" aria-labelledby="dataset-status-heading">
+  <div class="dashboard-section-heading">
+    <div>
+      <h2 id="dataset-status-heading">Dataset and Import Overview</h2>
+      <p class="admin-dashboard-section-description">Stored survey datasets and their assessment-preparation state.</p>
+    </div>
+    <a class="admin-dashboard-heading-link" href="{{ url_for('main.data_import') }}">Open Data Import <span aria-hidden="true">→</span></a>
+  </div>
+
+  {% if import_dashboard_summary.total %}
+    <div class="admin-import-active-card">
+      {% if import_dashboard_summary.active %}
+        <div>
+          <p class="dashboard-panel-kicker">Active dataset</p>
+          <h3>{{ import_dashboard_summary.active.survey_year }} survey</h3>
+          <p>Batch {{ import_dashboard_summary.active.id }} · {{ '{:,}'.format(import_dashboard_summary.active.households) }} households</p>
+        </div>
+        <span class="admin-import-active-badge">Available to staff</span>
+      {% else %}
+        <div>
+          <p class="dashboard-panel-kicker">Initial setup</p>
+          <h3>No active dataset</h3>
+          <p>Prepare and activate a stored batch before household statistics become available.</p>
+        </div>
+        <a href="{{ url_for('main.import_batches') }}">Review stored batches <span aria-hidden="true">→</span></a>
+      {% endif %}
+    </div>
+
+    <div class="admin-import-chart-grid">
+      <article class="dashboard-panel admin-import-chart-card" aria-labelledby="dataset-readiness-chart-heading">
+        <div class="admin-dashboard-chart-heading">
+          <div>
+            <p class="dashboard-panel-kicker">Dataset readiness</p>
+            <h3 id="dataset-readiness-chart-heading">Stored batch status</h3>
+          </div>
+          <span>{{ import_dashboard_summary.total }} stored</span>
+        </div>
+        <p class="admin-dashboard-chart-description">Validated datasets remain inactive until their assessments are prepared and an administrator activates one.</p>
+        <div class="admin-import-status-chart"
+             role="img"
+             aria-label="{% for item in import_dashboard_summary.statuses %}{{ item.label }}: {{ item.count }} batch{{ '' if item.count == 1 else 'es' }}{{ '. ' if not loop.last else '.' }}{% endfor %}">
+          {% for item in import_dashboard_summary.statuses if item.count %}
+            <span class="admin-import-status-segment admin-import-status-{{ item.key }}" style="flex-grow: {{ item.count }}"></span>
+          {% endfor %}
+        </div>
+        <ul class="admin-dashboard-legend admin-import-status-legend" aria-label="Stored batch status details">
+          {% for item in import_dashboard_summary.statuses %}
+            {% set percent = (item.count / import_dashboard_summary.total * 100) | round(1) %}
+            <li>
+              <span class="admin-dashboard-swatch admin-import-swatch-{{ item.key }}" aria-hidden="true"></span>
+              <span>{{ item.label }}</span>
+              <strong>{{ item.count }} <small>{{ percent }}%</small></strong>
+            </li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="dashboard-panel admin-import-chart-card" aria-labelledby="dataset-year-chart-heading">
+        <div class="admin-dashboard-chart-heading">
+          <div>
+            <p class="dashboard-panel-kicker">Survey coverage</p>
+            <h3 id="dataset-year-chart-heading">Stored batches by survey year</h3>
+          </div>
+          <span>{{ import_dashboard_summary.years | length }} year{{ '' if import_dashboard_summary.years | length == 1 else 's' }}</span>
+        </div>
+        <p class="admin-dashboard-chart-description">A survey year may contain more than one stored batch when an administrator confirms a re-upload.</p>
+        <ul class="admin-import-year-list" aria-label="Stored batches by survey year">
+          {% for item in import_dashboard_summary.years %}
+            {% set percent = (item.count / import_dashboard_summary.total * 100) | round(1) %}
+            <li>
+              <span class="admin-import-year-label">{{ item.year }}</span>
+              <span class="admin-import-year-value"><strong>{{ item.count }}</strong> {{ 'batch' if item.count == 1 else 'batches' }}</span>
+              <span class="admin-import-year-track" aria-hidden="true"><span style="width: {{ percent }}%"></span></span>
+            </li>
+          {% endfor %}
+        </ul>
+      </article>
+    </div>
+  {% else %}
+    <div class="dashboard-unavailable admin-import-empty">
+      <h3>No dataset has been stored</h3>
+      <p>Upload and validate the first supported CBMS file bundle to begin dataset setup.</p>
+      <a class="dashboard-primary-link" href="{{ url_for('main.data_import') }}">Start Data Import <span aria-hidden="true">→</span></a>
+    </div>
+  {% endif %}
+</section>

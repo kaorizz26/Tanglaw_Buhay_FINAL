@@ -142,6 +142,24 @@ def list_staff_accounts(connection):
         ).fetchall()
 
 
+def count_staff_account_statuses(connection):
+    """Return aggregate LGU Staff account and first-login setup counts."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT count(*) AS total,
+                      count(*) FILTER (WHERE is_active) AS active,
+                      count(*) FILTER (WHERE NOT is_active) AS inactive,
+                      count(*) FILTER (
+                          WHERE is_active AND must_change_password
+                      ) AS pending_setup,
+                      count(*) FILTER (
+                          WHERE is_active AND NOT must_change_password
+                      ) AS setup_complete
+               FROM staff_users
+               WHERE role = 'lgu_staff'""",
+        ).fetchone()
+
+
 def find_active_staff(connection, user_id, *, lock=False):
     """Find an active LGU Staff account, optionally locking its access state."""
     with connection.cursor(row_factory=dict_row) as cursor:

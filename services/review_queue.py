@@ -209,3 +209,40 @@ def get_dashboard_reviews(staff_id, *, connection_factory=get_connection):
         ))
     return {'cards': cards, 'recent': recent,
             'return_parameters': queue_return_parameters(1, recent_filters)}
+
+
+def get_admin_review_dashboard_summary(*, connection_factory=get_connection):
+    """Return current all-staff Review Queue counts for admin charts."""
+    status_filters = {
+        status: QueueFilters(status=status, scope='all')
+        for status, _ in STATUS_OPTIONS
+    }
+    program_filters = {
+        program: QueueFilters(status='in-review', programs=(program,), scope='all')
+        for program in PROGRAM_ORDER
+    }
+    with _read_context(connection_factory) as (connection, context):
+        statuses = [{
+            'key': status,
+            'label': label,
+            'count': staff_reviews.count_queue(
+                connection, context['batch_id'], context['run_id'],
+                status_filters[status],
+            ),
+        } for status, label in STATUS_OPTIONS]
+        programs = [{
+            'code': program,
+            'count': staff_reviews.count_queue(
+                connection, context['batch_id'], context['run_id'],
+                program_filters[program],
+            ),
+        } for program in PROGRAM_ORDER]
+    active_total = statuses[0]['count']
+    if sum(item['count'] for item in programs) != active_total:
+        raise AssessmentQueryError('review_dashboard_count_mismatch')
+    return {
+        'statuses': statuses,
+        'programs': programs,
+        'total': sum(item['count'] for item in statuses),
+        'active_total': active_total,
+    }

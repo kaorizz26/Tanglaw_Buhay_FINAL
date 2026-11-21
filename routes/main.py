@@ -11,13 +11,19 @@ from services.auth import (
     ADMIN_ROLE, admin_required, check_csrf, csrf_token, has_permission,
     lgu_staff_required, start_session,
 )
+from services.admin_dashboard import (
+    AdminDashboardSummaryError, get_import_dashboard_summary,
+)
 from services.admin_profile import (
     AdminProfileInputError, change_admin_password, change_admin_username,
 )
 from services.assessment_filters import InvalidAssessmentFilters
-from services.assessment_queries import AssessmentQueryError, get_active_dashboard_summary
+from services.assessment_queries import (
+    AssessmentQueryError, get_active_barangay_priority_summary,
+    get_active_dashboard_summary,
+)
 from services.dashboard_patterns import select_area
-from services.review_queue import get_dashboard_reviews
+from services.review_queue import get_admin_review_dashboard_summary, get_dashboard_reviews
 from services.import_validation import (
     FILE_UPLOAD_BYTES, FILE_UPLOAD_MB, ImportPreviewError,
     ImportValidationUnavailable, create_import_preview_token,
@@ -44,8 +50,9 @@ from services.batch_activation import (
 from services.staff_account_management import (
     StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
     deactivate_staff_account, get_staff_account_for_recovery,
-    get_staff_account_to_deactivate, get_staff_accounts, recover_staff_account,
-    prepare_temporary_password_email, reveal_temporary_password,
+    get_staff_account_dashboard_summary, get_staff_account_to_deactivate,
+    get_staff_accounts, recover_staff_account, prepare_temporary_password_email,
+    reveal_temporary_password,
 )
 from services.email_delivery import EmailDeliveryError, send_staff_temporary_password_email
 from services.staff_profile import StaffProfileInputError, change_staff_password
@@ -94,7 +101,9 @@ def dashboard_reviews():
 
 
 def render_dashboard(role_label, *, with_reviews, initial_setup=False,
-                     pending_reset_count=0):
+                     pending_reset_count=0, is_admin_dashboard=False,
+                     staff_account_summary=None, admin_review_summary=None,
+                     import_dashboard_summary=None, admin_barangay_summary=None):
     require_fixture_source()
     supplied = request.args.getlist("barangay")
     if len(supplied) > 1:
@@ -126,6 +135,11 @@ def render_dashboard(role_label, *, with_reviews, initial_setup=False,
         welcome_name=(g.user.get("display_name") or g.user["username"]),
         initial_setup=initial_setup,
         pending_reset_count=pending_reset_count,
+        is_admin_dashboard=is_admin_dashboard,
+        staff_account_summary=staff_account_summary,
+        admin_review_summary=admin_review_summary,
+        import_dashboard_summary=import_dashboard_summary,
+        admin_barangay_summary=admin_barangay_summary,
         role_label=role_label, staff_username=g.user["username"],
         can_view_households=can_view_households,
         can_view_assessments=can_view_assessments,
@@ -156,9 +170,29 @@ def administration():
         reset_count = pending_password_reset_count()
     except (psycopg.Error, RuntimeError):
         reset_count = 0
+    try:
+        account_summary = get_staff_account_dashboard_summary()
+    except (psycopg.Error, RuntimeError):
+        account_summary = None
+    try:
+        review_summary = get_admin_review_dashboard_summary()
+    except (AssessmentQueryError, InvalidAssessmentFilters):
+        review_summary = None
+    try:
+        import_summary = get_import_dashboard_summary()
+    except AdminDashboardSummaryError:
+        import_summary = None
+    try:
+        barangay_summary = get_active_barangay_priority_summary()
+    except AssessmentQueryError:
+        barangay_summary = None
     return render_dashboard(
         "System Administrator", with_reviews=False, initial_setup=initial_setup,
-        pending_reset_count=reset_count,
+        pending_reset_count=reset_count, is_admin_dashboard=True,
+        staff_account_summary=account_summary,
+        admin_review_summary=review_summary,
+        import_dashboard_summary=import_summary,
+        admin_barangay_summary=barangay_summary,
     )
 
 

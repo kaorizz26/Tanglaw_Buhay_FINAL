@@ -424,6 +424,25 @@ def list_batches_with_completed_selections(connection):
         ).fetchall()
 
 
+def list_admin_dashboard_batches(connection):
+    """List aggregate stored-batch readiness without reading source responses."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """SELECT b.id, b.survey_year, b.is_active,
+                      count(DISTINCT h.uuid) AS households,
+                      r.id AS run_id
+               FROM dataset_batches b
+               LEFT JOIN households h ON h.batch_id = b.id
+               LEFT JOIN assessment_run_selections s ON s.batch_id = b.id
+               LEFT JOIN assessment_runs r ON r.id = s.run_id
+                   AND r.batch_id = b.id AND r.status = 'completed'
+                   AND r.completed_at IS NOT NULL
+               WHERE b.validation_status = 'validated'
+               GROUP BY b.id, r.id
+               ORDER BY b.is_active DESC, b.survey_year DESC, b.id DESC""",
+        ).fetchall()
+
+
 def lock_switch_batches(connection, target_batch_id):
     """Serialize switches and lock outgoing context before counting open reviews."""
     with connection.cursor(row_factory=dict_row) as cursor:

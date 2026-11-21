@@ -167,6 +167,39 @@ class BatchActivationDatabaseTests(unittest.TestCase):
                 "SELECT count(*) FROM household_assessments",
             ).fetchone()[0], 2 * len(self.findings))
 
+    def test_admin_dashboard_summarizes_dataset_readiness_and_survey_years(self):
+        from services.admin_dashboard import get_import_dashboard_summary
+
+        household_uuid = next(iter(self.findings))
+        with self._factory() as connection:
+            awaiting_batch = connection.execute(
+                """INSERT INTO dataset_batches
+                   (survey_year, municipality, source_columns, source_provenance,
+                    validation_status, is_active)
+                   VALUES (2022, 'Pozorrubio', %s, %s, 'validated', false)
+                   RETURNING id""",
+                (Jsonb({"household": ["uuid"]}), Jsonb({
+                    "declared": {"source": "administrator_uploaded_compatible_csv"},
+                })),
+            ).fetchone()[0]
+            connection.execute(
+                """INSERT INTO households
+                   (batch_id, uuid, source_row_number, responses)
+                   VALUES (%s, %s, 1, %s)""",
+                (awaiting_batch, household_uuid, Jsonb({"uuid": household_uuid})),
+            )
+
+        summary = get_import_dashboard_summary(connection_factory=self._factory)
+
+        self.assertEqual(summary["total"], 3)
+        self.assertEqual(summary["active"]["id"], self.old_batch)
+        self.assertEqual(summary["active"]["households"], len(self.findings))
+        self.assertEqual(
+            {item["key"]: item["count"] for item in summary["statuses"]},
+            {"active": 1, "ready": 1, "awaiting": 1},
+        )
+        self.assertEqual(summary["years"], [{"year": 2022, "count": 3}])
+
     def test_first_prepared_batch_can_become_initial_active_dataset(self):
         with self._factory() as connection:
             connection.execute(

@@ -14,7 +14,7 @@
         <h1>Dashboard</h1>
         {% if show_reviews %}<p class="dashboard-welcome">Welcome back, {{ welcome_name }}!</p>{% endif %}
         <p class="portal-hero-subtitle">
-          {% if initial_setup %}Complete the first dataset import before household statistics become available{% elif show_reviews %}Your subsidy reviews and household statistics for Pozorrubio{% else %}Household statistics for Pozorrubio{% endif %}
+          {% if initial_setup %}Complete the first dataset import before household statistics become available{% elif is_admin_dashboard %}Administrative overview of historical household assessment findings{% elif show_reviews %}Your subsidy reviews and household statistics for Pozorrubio{% else %}Household statistics for Pozorrubio{% endif %}
         </p>
       </div>
       {% if dashboard_primary_url %}
@@ -36,18 +36,29 @@
     </aside>
   {% endif %}
 
-  {% if show_reviews or summary %}
+  {% if show_reviews or summary or (is_admin_dashboard and (staff_account_summary is not none or admin_review_summary is not none or import_dashboard_summary is not none or admin_barangay_summary is not none)) %}
     <nav class="dashboard-section-nav" aria-label="Dashboard sections">
       {% if show_reviews %}<a href="#reviews-heading">My Subsidy Reviews</a>{% endif %}
+      {% if is_admin_dashboard and import_dashboard_summary is not none %}<a href="#dataset-status-heading">Dataset Status</a>{% endif %}
       {% if summary %}
         <a href="#statistics-heading">Historical household statistics</a>
+        {% if is_admin_dashboard %}<a href="#admin-overview-heading">Overview charts</a>{% endif %}
+        {% if is_admin_dashboard and admin_barangay_summary is not none %}<a href="#barangay-priority-heading">Barangay Comparison</a>{% endif %}
+        <a href="#patterns-heading">Assessment Patterns</a>
         <a href="#household-heading">Household Snapshot</a>
       {% endif %}
+      {% if is_admin_dashboard and admin_barangay_summary is not none and not summary %}<a href="#barangay-priority-heading">Barangay Comparison</a>{% endif %}
+      {% if is_admin_dashboard and admin_review_summary is not none %}<a href="#review-workload-heading">Review Workload</a>{% endif %}
+      {% if is_admin_dashboard and staff_account_summary is not none %}<a href="#staff-account-overview-heading">Staff Accounts</a>{% endif %}
     </nav>
   {% endif %}
 
   {% if show_reviews %}
     {% include 'staff/_dashboard_reviews.html' %}
+  {% endif %}
+
+  {% if is_admin_dashboard and import_dashboard_summary is not none %}
+    {% include 'staff/_admin_dashboard_imports.html' %}
   {% endif %}
 
   {% if summary %}
@@ -83,6 +94,10 @@
       <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
       <p>Historical findings only. These are not an official poverty classification, subsidy eligibility or approval.</p>
     </div>
+
+    {% if is_admin_dashboard %}
+      {% include 'staff/_admin_dashboard_overview.html' %}
+    {% endif %}
 
     <section class="dashboard-metrics" aria-label="Assessment summary">
       <div class="dashboard-metric dashboard-metric-total">
@@ -121,6 +136,10 @@
         <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
       {% if can_view_assessments %}</a>{% else %}</div>{% endif %}
     </section>
+
+    {% if is_admin_dashboard and admin_barangay_summary is not none %}
+      {% include 'staff/_admin_dashboard_barangays.html' %}
+    {% endif %}
 
     {% include 'staff/_dashboard_patterns.html' %}
 
@@ -216,6 +235,17 @@
         {% if dashboard_primary_url %}<a class="dashboard-primary-link" href="{{ dashboard_primary_url }}">{{ dashboard_primary_label }} <span aria-hidden="true">→</span></a>{% endif %}
       
     </section>
+    {% if is_admin_dashboard and admin_barangay_summary is not none %}
+      {% include 'staff/_admin_dashboard_barangays.html' %}
+    {% endif %}
+  {% endif %}
+
+  {% if is_admin_dashboard and admin_review_summary is not none %}
+    {% include 'staff/_admin_dashboard_reviews.html' %}
+  {% endif %}
+
+  {% if is_admin_dashboard and staff_account_summary is not none %}
+    {% include 'staff/_admin_dashboard_accounts.html' %}
   {% endif %}
 
   {% if can_view_households or can_view_assessments or can_view_reviews %}

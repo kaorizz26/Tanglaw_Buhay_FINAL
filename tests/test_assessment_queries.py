@@ -940,6 +940,41 @@ class AssessmentQueryPostgresTests(unittest.TestCase):
             )
         self.assertEqual(len(findings), 32)
 
+    def test_admin_barangay_priority_summary_matches_filtered_priority_counts(self):
+        self._filter_fixture()
+        comparison = service.get_active_barangay_priority_summary(
+            connection_factory=self._factory,
+        )
+        self.assertEqual(comparison["recorded_barangays"], 2)
+        self.assertEqual(comparison["shown_barangays"], 2)
+        self.assertEqual(comparison["unrecorded_households"], 2)
+        indexed = {item["barangay"]: item for item in comparison["items"]}
+        self.assertEqual(set(indexed), {"Synthetic East", "Synthetic West"})
+        for barangay, item in indexed.items():
+            dashboard = service.get_active_dashboard_summary(
+                barangay=barangay, connection_factory=self._factory,
+            )
+            self.assertEqual(item["households"], dashboard["priority"]["all"])
+            self.assertEqual(item["primary"], dashboard["priority"]["primary"])
+            self.assertEqual(item["secondary"], dashboard["priority"]["secondary"])
+            self.assertEqual(
+                item["priority_count"],
+                dashboard["priority"]["primary"] + dashboard["priority"]["secondary"],
+            )
+            self.assertEqual(
+                item["priority_percent"],
+                round(item["priority_count"] / item["households"] * 100, 1),
+            )
+        self.assertEqual(
+            comparison["items"],
+            sorted(
+                comparison["items"],
+                key=lambda item: (
+                    -item["priority_percent"], -item["priority_count"], item["barangay"],
+                ),
+            ),
+        )
+
     def test_indicator_counts_match_stored_flags_and_barangay_scope(self):
         findings = self._filter_fixture()
         before = self.connection.execute(

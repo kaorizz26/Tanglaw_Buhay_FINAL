@@ -336,14 +336,92 @@ class DashboardRouteTests(unittest.TestCase):
     def test_admin_dashboard_shares_summary_and_assessment_links(self):
         self.user["role"] = "system_administrator"
         self._sign_in()
-        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary) as query:
+        account_summary = {
+            "total": 8, "active": 6, "inactive": 2,
+            "pending_setup": 2, "setup_complete": 4,
+        }
+        review_summary = {
+            "statuses": [
+                {"key": "in-review", "label": "In Review", "count": 5},
+                {"key": "follow-up", "label": "For LGU Follow-Up", "count": 3},
+                {"key": "no-action", "label": "No Further Action", "count": 2},
+            ],
+            "programs": [
+                {"code": "4Ps", "count": 2},
+                {"code": "SLP", "count": 1},
+                {"code": "SPISC", "count": 1},
+                {"code": "TUPAD", "count": 1},
+            ],
+            "total": 10,
+            "active_total": 5,
+        }
+        import_summary = {
+            "active": {"id": 4, "survey_year": 2022, "households": 32, "run_id": 9},
+            "statuses": [
+                {"key": "active", "label": "Active", "count": 1},
+                {"key": "ready", "label": "Ready to activate", "count": 1},
+                {"key": "awaiting", "label": "Awaiting preparation", "count": 1},
+            ],
+            "years": [
+                {"year": 2024, "count": 2},
+                {"year": 2022, "count": 1},
+            ],
+            "total": 3,
+        }
+        barangay_summary = {
+            "context": {"survey_year": 2022},
+            "items": [
+                {"barangay": "Synthetic East", "households": 20,
+                 "primary": 5, "secondary": 3, "priority_count": 8,
+                 "primary_percent": 25.0, "secondary_percent": 15.0,
+                 "priority_percent": 40.0},
+                {"barangay": "Synthetic West", "households": 10,
+                 "primary": 1, "secondary": 2, "priority_count": 3,
+                 "primary_percent": 10.0, "secondary_percent": 20.0,
+                 "priority_percent": 30.0},
+            ],
+            "recorded_barangays": 2, "shown_barangays": 2,
+            "unrecorded_households": 2,
+        }
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary) as query, \
+                patch("routes.main.get_staff_account_dashboard_summary",
+                      return_value=account_summary), \
+                patch("routes.main.get_admin_review_dashboard_summary",
+                      return_value=review_summary), \
+                patch("routes.main.get_import_dashboard_summary",
+                      return_value=import_summary), \
+                patch("routes.main.get_active_barangay_priority_summary",
+                      return_value=barangay_summary):
             response = self.client.get("/administration")
         self.assertEqual(response.status_code, 200)
         query.assert_called_once_with(barangay=None)
         for text in ("Dashboard", "Survey Year", "Primary Priority",
                      "Secondary Priority", "Household Snapshot", "Main water source",
-                     "Household Assessment Patterns", "Findings marked"):
+                     "Household Assessment Patterns", "Findings marked",
+                     "Administrative Overview", "Assessed households by priority group",
+                     "Assessment result coverage", "Other assessed", "Complete results",
+                     "Staff Account Overview", "Active and inactive accounts",
+                     "Password setup progress", "Pending setup",
+                     "Review Workload Overview", "Current review queue",
+                     "In Review by program", "Dataset and Import Overview",
+                     "Stored batch status", "Stored batches by survey year",
+                     "Barangay Priority Comparison", "Priority-group share by barangay"):
             self.assertIn(text, response.text)
+        ordered_admin_sections = [
+            "Dataset and Import Overview",
+            "Historical household statistics",
+            "Administrative Overview",
+            "Barangay Priority Comparison",
+            "Household Assessment Patterns",
+            "Household Snapshot",
+            "Review Workload Overview",
+            "Staff Account Overview",
+        ]
+        dashboard_body = response.text.split('aria-label="Dashboard sections"', 1)[1].split(
+            "</nav>", 1
+        )[1]
+        section_positions = [dashboard_body.index(text) for text in ordered_admin_sections]
+        self.assertEqual(section_positions, sorted(section_positions))
         self.assertIn('href="/administration" aria-current="page"', response.text)
         self.assertIn('href="/households"', response.text)
         self.assertIn('href="/assessments?priority=primary"', response.text)
@@ -353,13 +431,73 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertNotIn("My Subsidy Reviews", response.text)
         self.assertNotIn("Welcome back", response.text)
         self.assertIn("<h1>Dashboard</h1>", response.text)
+        self.assertIn('href="#admin-overview-heading"', response.text)
+        self.assertIn('href="#staff-account-overview-heading"', response.text)
+        self.assertIn('href="#review-workload-heading"', response.text)
+        self.assertIn('href="#dataset-status-heading"', response.text)
+        self.assertIn('href="#barangay-priority-heading"', response.text)
+        self.assertIn("Active accounts: 6, 75.0 percent", response.text)
+        self.assertIn("Inactive accounts: 2, 25.0 percent", response.text)
+        self.assertIn("Password setup complete: 4, 66.7 percent", response.text)
+        self.assertIn("Pending password setup: 2, 33.3 percent", response.text)
+        self.assertIn("In Review: 5 reviews", response.text)
+        self.assertIn("For LGU Follow-Up: 3 reviews", response.text)
+        self.assertIn("No Further Action: 2 reviews", response.text)
+        self.assertIn('href="/assessments/queue?scope=all&amp;status=in-review&amp;program=4Ps"',
+                      response.text)
+        self.assertIn("Active: 1 batch", response.text)
+        self.assertIn("Ready to activate: 1 batch", response.text)
+        self.assertIn("Awaiting preparation: 1 batch", response.text)
+        self.assertIn("Batch 4 · 32 households", response.text)
+        self.assertIn("Barangay Synthetic East: Primary Priority 5 households, 25.0 percent",
+                      response.text)
+        self.assertIn("combined 8 of 20 households, 40.0 percent", response.text)
+        self.assertIn('href="/assessments?barangay=Synthetic+East"', response.text)
+        self.assertIn("2 assessed households had no clear recorded barangay", response.text)
+        self.assertIn("Primary Priority: 4 households, 12.5 percent", response.text)
+        self.assertIn("Secondary Priority: 7 households, 21.9 percent", response.text)
+        self.assertIn("Other assessed households: 21, 65.6 percent", response.text)
+        self.assertIn("Complete results: 29 households, 90.6 percent", response.text)
+        self.assertIn("Results needing attention: 3 households, 9.4 percent", response.text)
 
         with patch("routes.main.get_active_dashboard_summary",
-                   side_effect=AssessmentQueryError("private_database_details")):
+                   side_effect=AssessmentQueryError("private_database_details")), \
+                patch("routes.main.get_staff_account_dashboard_summary",
+                      return_value=account_summary), \
+                patch("routes.main.get_admin_review_dashboard_summary",
+                      return_value=review_summary), \
+                patch("routes.main.get_import_dashboard_summary",
+                      return_value=import_summary), \
+                patch("routes.main.get_active_barangay_priority_summary",
+                      return_value=barangay_summary):
             unavailable = self.client.get("/administration")
         self.assertEqual(unavailable.status_code, 200)
         self.assertIn("Assessment summary unavailable", unavailable.text)
+        self.assertIn("Staff Account Overview", unavailable.text)
+        self.assertIn("Review Workload Overview", unavailable.text)
+        self.assertIn("Dataset and Import Overview", unavailable.text)
+        self.assertIn("Barangay Priority Comparison", unavailable.text)
         self.assertNotIn("private_database_details", unavailable.text)
+
+    def test_staff_dashboard_does_not_show_administrator_overview(self):
+        self._sign_in()
+        with patch("routes.main.get_active_dashboard_summary", return_value=self.summary), \
+                patch("routes.main.get_staff_account_dashboard_summary") as account_query, \
+                patch("routes.main.get_admin_review_dashboard_summary") as review_query, \
+                patch("routes.main.get_import_dashboard_summary") as import_query, \
+                patch("routes.main.get_active_barangay_priority_summary") as barangay_query:
+            response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("Administrative Overview", response.text)
+        self.assertNotIn('href="#admin-overview-heading"', response.text)
+        self.assertNotIn("Assessed households by priority group", response.text)
+        self.assertNotIn("Staff Account Overview", response.text)
+        self.assertNotIn("Dataset and Import Overview", response.text)
+        self.assertNotIn("Barangay Priority Comparison", response.text)
+        account_query.assert_not_called()
+        review_query.assert_not_called()
+        import_query.assert_not_called()
+        barangay_query.assert_not_called()
 
 
 if __name__ == "__main__":

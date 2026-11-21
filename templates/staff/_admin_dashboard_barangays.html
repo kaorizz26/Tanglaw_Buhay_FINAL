@@ -1,0 +1,53 @@
+<section class="admin-barangay-overview" aria-labelledby="barangay-priority-heading">
+  <div class="dashboard-section-heading">
+    <div>
+      <h2 id="barangay-priority-heading">Barangay Priority Comparison</h2>
+      <p class="admin-dashboard-section-description">Highest combined Primary and Secondary Priority share in the active {{ admin_barangay_summary.context.survey_year }} assessment.</p>
+    </div>
+  </div>
+
+  <div class="dashboard-panel admin-barangay-chart-card">
+    <div class="admin-barangay-chart-header">
+      <div>
+        <p class="dashboard-panel-kicker">Size-normalized comparison</p>
+        <h3>Priority-group share by barangay</h3>
+      </div>
+      <p>Showing {{ admin_barangay_summary.shown_barangays }} of {{ admin_barangay_summary.recorded_barangays }} recorded barangay{{ '' if admin_barangay_summary.recorded_barangays == 1 else 's' }}</p>
+    </div>
+    <p class="admin-dashboard-chart-description">Percentages use each barangay’s assessed households as the denominator. Municipal ranks remain unchanged.</p>
+    <dl class="admin-barangay-legend" aria-label="Barangay chart legend">
+      <div><span class="admin-dashboard-swatch admin-barangay-swatch-primary" aria-hidden="true"></span><dt>Primary Priority</dt></div>
+      <div><span class="admin-dashboard-swatch admin-barangay-swatch-secondary" aria-hidden="true"></span><dt>Secondary Priority</dt></div>
+      <div><span class="admin-dashboard-swatch admin-barangay-swatch-other" aria-hidden="true"></span><dt>Other assessed</dt></div>
+    </dl>
+
+    {% if admin_barangay_summary['items'] %}
+      <ol class="admin-barangay-list">
+        {% for item in admin_barangay_summary['items'] %}
+          <li>
+            <a href="{{ url_for('assessments.prioritization', barangay=item.barangay) }}">
+              <span class="admin-barangay-rank" aria-label="Rank {{ loop.index }}">{{ loop.index }}</span>
+              <span class="admin-barangay-name">{{ item.barangay }}</span>
+              <span class="admin-barangay-total"><strong>{{ item.priority_count }}</strong> of {{ item.households }} <small>{{ item.priority_percent }}%</small></span>
+              <span class="admin-barangay-track"
+                    role="img"
+                    aria-label="Barangay {{ item.barangay }}: Primary Priority {{ item.primary }} households, {{ item.primary_percent }} percent; Secondary Priority {{ item.secondary }} households, {{ item.secondary_percent }} percent; combined {{ item.priority_count }} of {{ item.households }} households, {{ item.priority_percent }} percent.">
+                {% if item.primary %}<span class="admin-barangay-primary" style="width: {{ item.primary_percent }}%"></span>{% endif %}
+                {% if item.secondary %}<span class="admin-barangay-secondary" style="width: {{ item.secondary_percent }}%"></span>{% endif %}
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+      </ol>
+      {% if admin_barangay_summary.recorded_barangays > admin_barangay_summary.shown_barangays %}
+        <p class="admin-barangay-chart-note">The chart shows the 10 highest combined shares. Use the barangay filter in Household Prioritization to inspect every recorded barangay.</p>
+      {% endif %}
+    {% else %}
+      <p class="admin-account-empty-message">No recorded barangay values are available for comparison.</p>
+    {% endif %}
+
+    {% if admin_barangay_summary.unrecorded_households %}
+      <p class="admin-barangay-unclear">{{ admin_barangay_summary.unrecorded_households }} assessed household{{ '' if admin_barangay_summary.unrecorded_households == 1 else 's' }} had no clear recorded barangay and {{ 'is' if admin_barangay_summary.unrecorded_households == 1 else 'are' }} not included in this comparison.</p>
+    {% endif %}
+  </div>
+</section>
