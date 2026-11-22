@@ -54,6 +54,7 @@ def present_citizen_request(row, latest_file, staff_message):
         "id": row["id"], "title": row["title"], "instructions": row["instructions"],
         "status": status, "status_label": STATUS_LABELS[status], "next_step": NEXT_STEPS[status],
         "reason": reason, "latest_file": latest_file,
+        "created_at": row.get("created_at"), "updated_at": row.get("updated_at"),
         "can_upload": status in UPLOADABLE_STATUSES,
         "upload_label": "Upload Corrected File" if status == "needs_correction" else "Upload Document",
     }

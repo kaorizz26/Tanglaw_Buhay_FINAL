@@ -1,0 +1,91 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}My Household{% endblock %}
+{% block main_class %} portal-main-wide{% endblock %}
+{% block navigation %}{% set current = 'household' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  <header class="portal-page-header">
+    <p class="portal-eyebrow">Citizen Portal</p>
+    <h1 class="portal-page-title">My Household</h1>
+    <p>Review the household's historical screening signals and any separate recommendation recorded by LGU staff.</p>
+  </header>
+
+  <aside class="portal-boundary-note" aria-label="Important information">
+    <strong>These are decision-support records.</strong>
+    <span>A screening signal is not official eligibility, approval, rejection, or a guarantee of assistance.</span>
+  </aside>
+
+  {% if household.state != 'ready' %}
+    <section class="portal-card portal-empty" aria-labelledby="household-unavailable-heading">
+      <h2 id="household-unavailable-heading">Household information is not available right now.</h2>
+      <p class="portal-lead">The LGU office may still be preparing the household record, or the service may be temporarily unavailable. No information has been changed.</p>
+      <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.home') }}">Back to Home</a>
+    </section>
+  {% else %}
+    <section aria-labelledby="screening-heading">
+      <div class="portal-section-heading portal-section-heading-main">
+        <div>
+          <p class="portal-eyebrow">Household record year {{ household.survey_year }}</p>
+          <h2 id="screening-heading">Subsidy Screening and Staff Review</h2>
+        </div>
+      </div>
+      <div class="portal-screening-list">
+        {% for program in household.programs %}
+          <article class="portal-card portal-screening-card" aria-labelledby="program-{{ program.slug }}">
+            <header class="portal-screening-header">
+              <div>
+                <p class="portal-eyebrow">{{ program.code }}</p>
+                <h3 id="program-{{ program.slug }}">{{ program.name }}</h3>
+              </div>
+              <a href="{{ url_for('public.program', program_slug=program.slug) }}">View program criteria</a>
+            </header>
+
+            <div class="portal-finding-grid">
+              <section aria-labelledby="screening-status-{{ program.slug }}">
+                <p class="portal-panel-label" id="screening-status-{{ program.slug }}">System screening finding</p>
+                <span class="portal-finding-status portal-finding-status-{{ program.screening_class }}">{{ program.screening_label }}</span>
+                <p>{{ program.screening_explanation }}</p>
+                {% if program.reasons %}
+                  <div class="portal-reasons">
+                    <h4>Recorded information supporting this finding</h4>
+                    <ul>
+                      {% for reason in program.reasons %}
+                        <li><strong>{{ reason.subject }}:</strong> {{ reason.text }}</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                {% elif program.screening_status == 'For Review' %}
+                  <p class="portal-information-note">A specific supporting reason is not available in the saved record. Please contact the LGU office for clarification.</p>
+                {% endif %}
+                {% if program.needs_information %}
+                  <p class="portal-information-note">Some household information is missing or needs confirmation. The LGU office can explain what should be checked.</p>
+                {% endif %}
+              </section>
+
+              <section class="portal-staff-result" aria-labelledby="staff-status-{{ program.slug }}">
+                <p class="portal-panel-label" id="staff-status-{{ program.slug }}">LGU staff review</p>
+                <span class="portal-review-status portal-review-status-{{ program.review.status_class }}">{{ program.review.status_label }}</span>
+                <p>{{ program.review.message }}</p>
+                {% if program.review.feedback %}
+                  <div class="portal-feedback">
+                    <h4>Feedback from the completed review</h4>
+                    <p>{{ program.review.feedback }}</p>
+                  </div>
+                {% endif %}
+                {% if program.review.updated_at %}
+                  <p class="portal-updated">Last updated <time datetime="{{ program.review.updated_at.isoformat() }}">{{ program.review.updated_at | pht_date }}</time></p>
+                {% endif %}
+              </section>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="portal-card portal-interventions" aria-labelledby="interventions-heading">
+      <p class="portal-eyebrow">Household support</p>
+      <h2 id="interventions-heading">Interventions and Progress</h2>
+      <p>No citizen-visible intervention records are connected to this household yet.</p>
+      <p class="portal-lead">Progress or improvement will only appear after the LGU records an intervention, a starting condition, and a follow-up result. Tanglaw-Buhay will not estimate missing progress.</p>
+    </section>
+  {% endif %}
+{% endblock %}

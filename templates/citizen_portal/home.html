@@ -9,6 +9,23 @@
     <p class="portal-session-note">For your security, you'll be signed out after 2 hours.</p>
   </section>
 
+  <section class="portal-card portal-household-shortcut" aria-labelledby="household-heading">
+    <div>
+      <p class="portal-eyebrow">Household information</p>
+      <h2 id="household-heading">My Household</h2>
+      {% if household.state == 'ready' %}
+        <p class="portal-shortcut-status">
+          {{ household.screening_count }} of 4 program{{ '' if household.screening_count == 1 else 's' }} {{ 'has' if household.screening_count == 1 else 'have' }} a screening signal for review.
+        </p>
+        <p class="portal-lead">View the historical screening findings separately from any LGU staff recommendation.</p>
+      {% else %}
+        <p class="portal-shortcut-status">Household information is not available right now.</p>
+        <p class="portal-lead">Your account and documents remain available. You may try this section again later.</p>
+      {% endif %}
+    </div>
+    <a class="portal-button" href="{{ url_for('citizen_portal.household') }}">Open My Household</a>
+  </section>
+
   {# documents_to_upload counts Upload Needed and Needs Correction; None means it could not be read. #}
   <section class="portal-card portal-shortcut{% if documents_to_upload %} portal-shortcut-action{% endif %}" aria-labelledby="documents-heading">
     <div>
@@ -24,6 +41,29 @@
       {% endif %}
     </div>
     <a class="portal-button{% if not documents_to_upload %} portal-button-secondary{% endif %}" href="{{ url_for('citizen_documents.index') }}">Open My Documents</a>
+  </section>
+
+  <section class="portal-card portal-updates-shortcut" aria-labelledby="updates-heading">
+    <div class="portal-section-heading">
+      <div>
+        <p class="portal-eyebrow">Recent activity</p>
+        <h2 id="updates-heading">Updates</h2>
+      </div>
+      <a href="{{ url_for('citizen_portal.updates') }}">View all updates</a>
+    </div>
+    {% if recent_updates %}
+      <ul class="portal-update-preview">
+        {% for update in recent_updates %}
+          <li>
+            <strong>{{ update.title }}</strong>
+            <span>{{ update.message }}</span>
+            <time datetime="{{ update.updated_at.isoformat() }}">{{ update.updated_at | pht_date }}</time>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="portal-lead">There are no review or document updates to show yet.</p>
+    {% endif %}
   </section>
 
   <section class="portal-card portal-programs" aria-labelledby="programs-heading">

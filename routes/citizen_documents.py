@@ -76,11 +76,22 @@ def _load_document_or_stop(request_id):
 def index():
     """List the documents the LGU office asked for, with each one's status and next step."""
     try:
-        documents = list_my_documents(g.citizen["id"])
+        all_documents = list_my_documents(g.citizen["id"])
     except DocumentAccessError as failure:
         _stop_for(failure)
+    page_size = 10
+    page = request.args.get("page", default=1, type=int)
+    page = page if page and page > 0 else 1
+    total = len(all_documents)
+    pages = max(1, (total + page_size - 1) // page_size)
+    page = min(page, pages)
+    start = (page - 1) * page_size
+    documents = all_documents[start:start + page_size]
     notice = LIST_NOTICES.get(request.args.get("notice"))
-    return _render("documents.html", documents=documents, notice=notice)
+    return _render(
+        "documents.html", documents=documents, notice=notice,
+        page=page, pages=pages, total=total,
+    )
 
 
 def _render_upload_page(document, status=200, error=None):

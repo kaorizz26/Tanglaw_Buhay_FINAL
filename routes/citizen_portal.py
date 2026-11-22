@@ -17,6 +17,11 @@ from services.citizen_password_reset import (
     ResetLinkError, request_password_reset, reset_link_is_usable, reset_password,
 )
 from services.citizen_documents import DocumentAccessError, count_needing_action, list_my_documents
+from services.citizen_household import (
+    CitizenHouseholdError,
+    build_citizen_updates,
+    get_citizen_household,
+)
 from services.public_programs import PUBLIC_PROGRAMS
 from services.citizen_authentication import (
     ActivationLinkError, CitizenFormError, PortalUnavailable, SignInError,
@@ -271,22 +276,73 @@ def reset():
     return _clear_handoff(response, RESET_HANDOFF)
 
 
-def _documents_to_upload(account_id):
-    """Count the documents waiting for an upload; None hides the count if it cannot be read."""
+def _citizen_documents(account_id):
+    """Read the citizen's documents; None keeps other portal pages available on failure."""
     try:
-        return count_needing_action(list_my_documents(account_id))
+        return list_my_documents(account_id)
     except DocumentAccessError:
         return None
+
+
+def _citizen_household(account):
+    """Read a safely scoped household summary without breaking account pages on failure."""
+    try:
+        return get_citizen_household(account)
+    except CitizenHouseholdError:
+        return {"state": "unavailable", "programs": [], "review_count": 0,
+                "screening_count": 0}
+
+
+def _portal_overview(account):
+    """Load the citizen's read-only household, document, and update summaries once."""
+    documents = _citizen_documents(account["id"])
+    household = _citizen_household(account)
+    updates = build_citizen_updates(household, documents or [])
+    return {
+        "household": household,
+        "documents": documents,
+        "documents_to_upload": (
+            count_needing_action(documents) if documents is not None else None
+        ),
+        "updates": updates,
+    }
 
 
 @citizen_portal.get("/")
 @sessions.citizen_required
 def home():
-    """Welcome page: the account holder's own name and email, and links to the public
-    program information pages. No household assessment or eligibility is shown."""
+    """Welcome page with the citizen's own action and household summaries."""
+    overview = _portal_overview(g.citizen)
     return _render(
         "home.html", account=g.citizen, programs=PUBLIC_PROGRAMS,
-        documents_to_upload=_documents_to_upload(g.citizen["id"]),
+        recent_updates=overview["updates"][:3], **overview,
+    )
+
+
+@citizen_portal.get("/household")
+@sessions.citizen_required
+def household():
+    """Show only the signed-in citizen's stored screening and staff-review information."""
+    return _render("household.html", household=_citizen_household(g.citizen))
+
+
+@citizen_portal.get("/updates")
+@sessions.citizen_required
+def updates():
+    """Show review and document changes for the signed-in citizen's account."""
+    overview = _portal_overview(g.citizen)
+    page_size = 10
+    page = request.args.get("page", default=1, type=int)
+    page = page if page and page > 0 else 1
+    total = len(overview["updates"])
+    pages = max(1, (total + page_size - 1) // page_size)
+    page = min(page, pages)
+    start = (page - 1) * page_size
+    return _render(
+        "updates.html", updates=overview["updates"][start:start + page_size],
+        page=page, pages=pages, total=total,
+        information_available=overview["household"]["state"] == "ready",
+        documents_available=overview["documents"] is not None,
     )
 
 

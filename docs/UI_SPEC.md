@@ -32,11 +32,14 @@ This document sets the current staff-facing UI direction and responsive expectat
 - Maintain basic responsiveness at smaller widths: layouts must not break, the page must not overflow horizontally, and functionality must remain accessible. Wide data tables may scroll within their own containers when necessary.
 - Routine staff portal tasks do not require extensive mobile-specific optimization or testing. Check smaller widths when the affected layout or interaction warrants it.
 
-### Citizen portal (future implementation)
+### Citizen portal
 
-- Design mobile-first for citizens using smartphones, tablets, laptops, or desktop computers. Provide a complete, usable experience across screen sizes.
-- Keep forms, document uploads, navigation, and other citizen features accessible on both mobile and desktop.
-- When the citizen portal is implemented, perform appropriate mobile and desktop usability testing for its affected workflows. Its access and security rules require an approved implementation task.
+- Design mobile-first for citizens using smartphones, tablets, laptops, or desktop computers. Keep account forms, document uploads, household information, updates and navigation usable across screen sizes.
+- Citizen sessions remain separate from staff sessions. Every household and document read must be scoped from the signed-in Citizen Account; citizens never select a household UUID in a route or form.
+- My Household may show stored subsidy screening signals, plain-language supporting conditions and the current staff-review recommendation. Keep system findings and staff recommendations separate. Never present either as official eligibility, approval, rejection or guaranteed assistance.
+- Updates may summarize citizen-visible review and document changes. Do not imply email delivery, application approval or a new staff review when those events were not recorded.
+- Show an honest unavailable or empty state when an assessment, intervention or follow-up record does not exist. Do not infer household improvement, intervention progress, missing criteria or recommendation ranges.
+- Perform mobile and desktop usability checks for affected citizen workflows, including keyboard access, readable contrast, overflow, form loading states and repeated-click protection.
 
 ## Staff modules
 

@@ -1,0 +1,43 @@
+{% extends 'citizen_portal/base.html' %}
+{% block title %}Updates{% endblock %}
+{% block main_class %} portal-main-wide{% endblock %}
+{% block navigation %}{% set current = 'updates' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
+{% block content %}
+  <header class="portal-page-header">
+    <p class="portal-eyebrow">Citizen Portal</p>
+    <h1 class="portal-page-title">Updates</h1>
+    <p>Recent changes to your household's staff reviews and requested documents.</p>
+  </header>
+
+  {% if not information_available or not documents_available %}
+    <p class="portal-notice" role="status">Some updates may be temporarily unavailable. You can still use the sections that are shown.</p>
+  {% endif %}
+
+  {% if not updates %}
+    <section class="portal-card portal-empty" aria-labelledby="updates-empty-heading">
+      <h2 id="updates-empty-heading">No updates yet.</h2>
+      <p class="portal-lead">Staff-review and document changes will appear here when they are recorded.</p>
+      <a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.home') }}">Back to Home</a>
+    </section>
+  {% else %}
+    <ol class="portal-update-list" start="{{ (page - 1) * 10 + 1 }}">
+      {% for update in updates %}
+        <li class="portal-card portal-update-item">
+          <div>
+            <span class="portal-update-kind">{{ 'Staff review' if update.kind == 'review' else 'Document' }}</span>
+            <h2>{{ update.title }}</h2>
+            <p>{{ update.message }}</p>
+          </div>
+          <time datetime="{{ update.updated_at.isoformat() }}">{{ update.updated_at | pht_date }}</time>
+        </li>
+      {% endfor %}
+    </ol>
+    {% if pages > 1 %}
+      <nav class="portal-pagination" aria-label="Updates pages">
+        {% if page > 1 %}<a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.updates', page=page - 1) }}">Previous</a>{% endif %}
+        <span>Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}<a class="portal-button portal-button-secondary" href="{{ url_for('citizen_portal.updates', page=page + 1) }}">Next</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+{% endblock %}

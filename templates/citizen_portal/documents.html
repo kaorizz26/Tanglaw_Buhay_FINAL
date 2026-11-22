@@ -34,5 +34,12 @@
         </ul>
       </section>
     {% endif %}
+    {% if pages > 1 %}
+      <nav class="portal-pagination" aria-label="Document pages">
+        {% if page > 1 %}<a class="portal-button portal-button-secondary" href="{{ url_for('citizen_documents.index', page=page - 1) }}">Previous</a>{% endif %}
+        <span>Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}<a class="portal-button portal-button-secondary" href="{{ url_for('citizen_documents.index', page=page + 1) }}">Next</a>{% endif %}
+      </nav>
+    {% endif %}
   {% endif %}
 {% endblock %}

@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import re
 import unittest
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -660,6 +660,78 @@ class PublicPortalNavigationTests(PortalTestCase):
         self.make_active()
         self.sign_in()
         self.assertEqual(self.client.get("/portal/").status_code, 200)
+
+    def test_household_and_updates_require_the_citizen_session(self):
+        for path in ("/portal/household", "/portal/updates"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/portal/login", response.location)
+
+    def test_signed_in_navigation_reaches_household_and_updates(self):
+        self.make_active()
+        self.sign_in()
+        home = self.text(self.client.get("/portal/"))
+        self.assertIn('href="/portal/household"', home)
+        self.assertIn('href="/portal/updates"', home)
+        self.assertEqual(self.client.get("/portal/household").status_code, 200)
+        self.assertEqual(self.client.get("/portal/updates").status_code, 200)
+
+    def test_household_page_separates_screening_from_staff_feedback(self):
+        self.make_active()
+        self.sign_in()
+        moment = datetime(2026, 11, 20, 6, 0, tzinfo=timezone.utc)
+        household = {
+            "state": "ready", "survey_year": 2022,
+            "screening_count": 1, "review_count": 1,
+            "programs": [{
+                "code": "4Ps", "name": "Pantawid Pamilyang Pilipino Program",
+                "slug": "4ps", "screening_status": "For Review",
+                "screening_label": "For Review", "screening_class": "review",
+                "screening_explanation": "A recorded condition may warrant staff consideration.",
+                "reasons": [{"subject": "Household composition", "text": "A child was recorded."}],
+                "needs_information": False,
+                "review": {
+                    "status": "completed", "status_label": "For LGU Follow-Up",
+                    "status_class": "follow-up",
+                    "message": "LGU staff recommend further consideration.",
+                    "feedback": "Please coordinate with the LGU office.",
+                    "updated_at": moment,
+                },
+            }],
+        }
+        with patch("routes.citizen_portal.get_citizen_household", return_value=household):
+            page = self.text(self.client.get("/portal/household"))
+        for phrase in (
+            "System screening finding", "LGU staff review", "For LGU Follow-Up",
+            "Feedback from the completed review", "not official eligibility",
+            "will not estimate missing progress",
+        ):
+            self.assertIn(phrase, page)
+        self.assertNotIn("Approved", page)
+        self.assertNotIn("INTERNAL", page)
+
+    def test_updates_are_paginated_ten_at_a_time(self):
+        self.make_active()
+        self.sign_in()
+        moment = datetime(2026, 11, 20, 6, 0, tzinfo=timezone.utc)
+        updates = [{
+            "kind": "document", "title": f"Document {number}",
+            "message": "Document status: Waiting for Review.",
+            "updated_at": moment, "status_class": "submitted",
+        } for number in range(1, 12)]
+        overview = {
+            "household": {"state": "ready"}, "documents": [],
+            "documents_to_upload": 0, "updates": updates,
+        }
+        with patch("routes.citizen_portal._portal_overview", return_value=overview):
+            first = self.text(self.client.get("/portal/updates"))
+            second = self.text(self.client.get("/portal/updates?page=2"))
+        self.assertIn("Page 1 of 2", first)
+        self.assertIn("Document 10", first)
+        self.assertNotIn("Document 11", first)
+        self.assertIn("Page 2 of 2", second)
+        self.assertIn("Document 11", second)
 
     def test_home_links_to_each_existing_public_program_page_and_nothing_private(self):
         self.make_active()

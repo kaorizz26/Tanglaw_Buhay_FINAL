@@ -145,6 +145,20 @@ class AccessTests(DocumentsTestCase):
 
 
 class ListPageTests(DocumentsTestCase):
+    def test_long_document_lists_are_paginated_ten_at_a_time(self):
+        for number in range(1, 12):
+            self.make_request(title=f"Document {number:02d}", status="accepted")
+        self.signed_in()
+
+        first = self.text(self.client.get(LIST_PATH))
+        second = self.text(self.client.get(LIST_PATH + "?page=2"))
+
+        self.assertIn("Page 1 of 2", first)
+        self.assertIn("Document 10", first)
+        self.assertNotIn("Document 11", first)
+        self.assertIn("Page 2 of 2", second)
+        self.assertIn("Document 11", second)
+
     def test_home_counts_documents_that_need_an_upload(self):
         self.make_request()
         self.make_request(title="Proof of income", status="needs_correction")
