@@ -66,15 +66,31 @@ def count_accounts(connection, batch_id, *, search="", status="", barangay=""):
     ).fetchone()[0]
 
 
-def list_accounts(connection, batch_id, *, search="", status="", barangay="", limit, offset):
+def list_accounts(
+    connection, batch_id, *, search="", status="", barangay="", sort="default",
+    direction="asc", limit, offset,
+):
     """Return one page of accounts, newest first, so a new account is easy to find."""
     selection, parameters = _account_selection(batch_id, search, status, barangay)
+    orders = {
+        "default": "a.created_at DESC, a.id DESC",
+        "household": "h.source_row_number",
+        "representative": "lower(a.representative_name)",
+        "barangay": BARANGAY_EXPRESSION,
+        "status": "a.status",
+        "created": "a.created_at",
+    }
+    if sort not in orders or direction not in {"asc", "desc"}:
+        raise ValueError("Unsupported Citizen Account ordering.")
+    order = orders[sort] if sort == "default" else (
+        orders[sort] + (" DESC" if direction == "desc" else " ASC") + ", a.id ASC"
+    )
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
-            f"""SELECT a.id, a.household_uuid, a.representative_name, a.status,
+            f"""SELECT a.id, a.household_uuid, a.representative_name, a.status, a.created_at,
                        h.source_row_number, {BARANGAY_EXPRESSION} AS barangay
                 {ACCOUNT_FROM} WHERE {selection}
-                ORDER BY a.created_at DESC, a.id DESC LIMIT %s OFFSET %s""",
+                ORDER BY {order} LIMIT %s OFFSET %s""",
             parameters + [limit, offset],
         ).fetchall()
 
@@ -107,14 +123,31 @@ def count_awaiting_review(connection, batch_id):
     ).fetchone()[0]
 
 
-def list_requests(connection, batch_id, *, search="", status="", barangay="", limit, offset):
+def list_requests(
+    connection, batch_id, *, search="", status="", barangay="", sort="default",
+    direction="asc", limit, offset,
+):
     """Return one page of requests, those waiting for review first (longest wait on top)."""
     selection, parameters = _request_selection(batch_id, search, status, barangay)
+    orders = {
+        "default": REQUEST_ORDER,
+        "document": "lower(r.title)",
+        "household": "h.source_row_number",
+        "representative": "lower(a.representative_name)",
+        "barangay": BARANGAY_EXPRESSION,
+        "status": "r.status",
+        "updated": "r.updated_at",
+    }
+    if sort not in orders or direction not in {"asc", "desc"}:
+        raise ValueError("Unsupported document request ordering.")
+    order = orders[sort] if sort == "default" else (
+        orders[sort] + (" DESC" if direction == "desc" else " ASC") + ", r.id ASC"
+    )
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             f"""SELECT r.id, r.title, r.status, r.updated_at, a.representative_name,
                        h.source_row_number, {BARANGAY_EXPRESSION} AS barangay
                 {REQUEST_FROM} WHERE {selection}
-                ORDER BY {REQUEST_ORDER} LIMIT %s OFFSET %s""",
+                ORDER BY {order} LIMIT %s OFFSET %s""",
             parameters + [limit, offset],
         ).fetchall()

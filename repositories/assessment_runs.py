@@ -523,10 +523,32 @@ def list_assessment_summaries(
     connection, run_id, *, limit, offset, filters=None, spisc_age_statuses=None, batch_id=None,
 ):
     """Filter in PostgreSQL before paging, projecting only unchanged summary fields."""
+    filters = filters or AssessmentFilters()
     selection, parameters = _summary_selection(
         run_id, filters, spisc_age_statuses=spisc_age_statuses, batch_id=batch_id,
+        include_source=filters.sort in {"reference", "barangay"},
     )
     spisc_status = _program_status("SPISC", spisc_age_statuses is not None)
+    order_expressions = {
+        "rank": "h.vulnerability_rank",
+        "reference": "source.source_row_number",
+        "head": """(SELECT max(concat_ws(' ',
+            nullif(nullif(btrim(m.responses ->> 'a01_first_name'), ''), 'NA'),
+            nullif(nullif(btrim(m.responses ->> 'a01_middle_name'), ''), 'NA'),
+            nullif(nullif(btrim(m.responses ->> 'a01_last_name'), ''), 'NA')))
+            FROM household_members m
+            WHERE m.batch_id = h.batch_id AND m.uuid = h.household_uuid
+              AND m.responses ->> 'a02_relation_to_hh_head' = '1')""",
+        "barangay": "btrim(source.responses ->> 'barangay')",
+        "score": "(h.findings #>> '{mpi,vulnerability_score}')::double precision",
+    }
+    order = order_expressions[filters.sort]
+    direction = "DESC" if filters.direction == "desc" else "ASC"
+    stable_order = (
+        "h.household_uuid ASC"
+        if filters.sort == "rank"
+        else "h.vulnerability_rank ASC, h.household_uuid ASC"
+    )
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             """SELECT h.household_uuid, h.vulnerability_rank,
@@ -543,6 +565,6 @@ def list_assessment_summaries(
                           'TUPAD', h.findings #>> '{programs,TUPAD,screening_status}'
                       ) AS program_statuses
                """ + selection + """
-               ORDER BY h.vulnerability_rank ASC, h.household_uuid ASC
+               ORDER BY """ + order + " " + direction + ", " + stable_order + """
                LIMIT %s OFFSET %s""", (*parameters, limit, offset),
         ).fetchall()

@@ -1,6 +1,7 @@
 """Administrator-only aggregate Data Import history and CSV presentation."""
 
 import csv
+from dataclasses import dataclass
 from io import StringIO
 
 import psycopg
@@ -37,10 +38,100 @@ OUTCOME_LABELS = {
     "staged": "Batch stored",
     "deleted": "Batch deleted",
 }
+IMPORT_HISTORY_OUTCOME_OPTIONS = tuple(OUTCOME_LABELS.items())
+IMPORT_HISTORY_SORT_OPTIONS = (
+    ("newest", "Newest activity"),
+    ("oldest", "Oldest activity"),
+    ("result", "Result A–Z"),
+    ("result_desc", "Result Z–A"),
+    ("year", "Survey year oldest–newest"),
+    ("year_desc", "Survey year newest–oldest"),
+    ("batch", "Batch lowest–highest"),
+    ("batch_desc", "Batch highest–lowest"),
+    ("admin", "Administrator A–Z"),
+    ("admin_desc", "Administrator Z–A"),
+    ("records", "Records lowest–highest"),
+    ("records_desc", "Records highest–lowest"),
+)
+IMPORT_HISTORY_FILTER_LENGTH = 200
+IMPORT_HISTORY_MAX_PAGE = 1_000_000
 
 
 class ImportHistoryUnavailable(RuntimeError):
     """Aggregate import audit history could not be read safely."""
+
+
+class ImportHistoryFilterError(ValueError):
+    """Import history filters are malformed or unsupported."""
+
+
+@dataclass(frozen=True)
+class ImportHistoryFilters:
+    """Validated administrator controls for aggregate import history."""
+
+    search: str = ""
+    outcome: str = ""
+    survey_year: str = ""
+    sort: str = "newest"
+    page: int = 1
+
+    @property
+    def parameters(self):
+        values = {
+            "history_q": self.search,
+            "history_outcome": self.outcome,
+            "history_year": self.survey_year,
+        }
+        if self.sort != "newest":
+            values["history_sort"] = self.sort
+        if self.page > 1:
+            values["history_page"] = self.page
+        return {key: value for key, value in values.items() if value}
+
+    @property
+    def active(self):
+        return bool(
+            self.search or self.outcome or self.survey_year or self.sort != "newest"
+        )
+
+
+def parse_import_history_filters(arguments):
+    """Read namespaced history filters without conflicting with the upload form."""
+    values = {}
+    fields = (
+        ("history_q", ""), ("history_outcome", ""),
+        ("history_year", ""), ("history_sort", "newest"),
+        ("history_page", "1"),
+    )
+    for name, default in fields:
+        supplied = arguments.getlist(name)
+        if len(supplied) > 1:
+            raise ImportHistoryFilterError("invalid_import_history_filters")
+        values[name] = supplied[0] if supplied else default
+    search = " ".join(values["history_q"].split())
+    survey_year = values["history_year"]
+    page_value = values["history_page"]
+    if (
+        len(search) > IMPORT_HISTORY_FILTER_LENGTH
+        or "\x00" in search
+        or values["history_outcome"] not in set(OUTCOME_LABELS) | {""}
+        or values["history_sort"] not in {value for value, _ in IMPORT_HISTORY_SORT_OPTIONS}
+        or not page_value.isascii()
+        or not page_value.isdecimal()
+        or not 1 <= int(page_value) <= IMPORT_HISTORY_MAX_PAGE
+        or (
+            survey_year
+            and (
+                not survey_year.isascii() or not survey_year.isdecimal()
+                or len(survey_year) != 4 or not 1900 <= int(survey_year) <= 2100
+            )
+        )
+    ):
+        raise ImportHistoryFilterError("invalid_import_history_filters")
+    return ImportHistoryFilters(
+        search, values["history_outcome"], survey_year, values["history_sort"],
+        int(page_value),
+    )
 
 
 def _safe_csv_cell(value):
@@ -150,6 +241,66 @@ def get_import_history(*, limit=25, connection_factory=get_connection):
         return [_history_details(event) for event in events]
     except (TypeError, ValueError, KeyError):
         raise ImportHistoryUnavailable("import_history_unavailable") from None
+
+
+def get_import_history_directory(filters, *, limit=25, connection_factory=get_connection):
+    """Return one database-paginated history page and its navigation metadata."""
+    if (
+        not isinstance(filters, ImportHistoryFilters)
+        or type(limit) is not int or not 1 <= limit <= 1000
+    ):
+        raise ImportHistoryFilterError("invalid_import_history_filters")
+    try:
+        with connection_factory() as connection, connection.transaction():
+            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            query_filters = {
+                "search": filters.search,
+                "outcome": filters.outcome,
+                "survey_year": int(filters.survey_year) if filters.survey_year else None,
+            }
+            matching_total = import_validation_events.count_history(
+                connection, **query_filters,
+            )
+            if filters.search or filters.outcome or filters.survey_year:
+                total = import_validation_events.count_history(connection)
+            else:
+                total = matching_total
+            years = import_validation_events.list_history_years(connection)
+            total_pages = max(1, (matching_total + limit - 1) // limit)
+            page = min(filters.page, total_pages)
+            offset = (page - 1) * limit
+            events = import_validation_events.list_history_page(
+                connection,
+                **query_filters,
+                sort=filters.sort,
+                limit=limit,
+                offset=offset,
+            )
+        items = [_history_details(event) for event in events]
+        if (
+            type(matching_total) is not int or matching_total < 0
+            or type(total) is not int or total < matching_total
+            or not isinstance(years, list)
+        ):
+            raise ValueError("invalid_import_history_result")
+    except (psycopg.Error, RuntimeError, TypeError, ValueError, KeyError):
+        raise ImportHistoryUnavailable("import_history_unavailable") from None
+    first_item = offset + 1 if items else 0
+    last_item = offset + len(items) if items else 0
+    return {
+        "items": items,
+        "page": page,
+        "per_page": limit,
+        "matching_total": matching_total,
+        "total_pages": total_pages,
+        "first_item": first_item,
+        "last_item": last_item,
+        "has_previous": page > 1,
+        "has_next": page < total_pages,
+        "total": total,
+        "years": years,
+        "limit": limit,
+    }
 
 
 def export_import_history(connection_factory=get_connection):

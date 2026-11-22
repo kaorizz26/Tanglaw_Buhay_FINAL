@@ -15,7 +15,15 @@ from services.screening.common import as_integer, is_missing
 
 PAGE_SIZE = 25
 MAX_FILTER_LENGTH = 200
-RECORD_RETURN_KEYS = ("record_page", "record_q", "record_barangay")
+RECORD_RETURN_KEYS = (
+    "record_page", "record_q", "record_barangay", "record_sort", "record_direction",
+)
+RECORD_SORTS = {"id", "head", "barangay", "members"}
+SORT_DIRECTIONS = {"asc", "desc"}
+RECORD_ORDERS = {
+    f"{sort}:{direction}": (sort, direction)
+    for sort in RECORD_SORTS for direction in SORT_DIRECTIONS
+}
 # Each section lists (staff label, source field) in display order.
 HOUSEHOLD_GROUPS = (
     ("Housing & Utilities", (
@@ -65,6 +73,8 @@ class InvalidRecordFilters(ValueError):
 class RecordFilters:
     search: str = ""
     barangay: str = ""
+    sort: str = "id"
+    direction: str = "asc"
 
     @property
     def parameters(self):
@@ -73,12 +83,16 @@ class RecordFilters:
             values["q"] = self.search
         if self.barangay:
             values["barangay"] = self.barangay
+        if self.sort != "id":
+            values["sort"] = self.sort
+        if self.direction != "asc":
+            values["direction"] = self.direction
         return values
 
 
 def parse_record_arguments(arguments):
     values = {}
-    for name in ("q", "barangay", "page"):
+    for name in ("q", "barangay", "page", "sort", "direction", "order"):
         supplied = arguments.getlist(name)
         if len(supplied) > 1:
             raise InvalidRecordFilters("invalid_record_filters")
@@ -86,14 +100,23 @@ def parse_record_arguments(arguments):
     search = " ".join(values["q"].split())
     barangay = values["barangay"].strip()
     page = values["page"] or "1"
+    sort = values["sort"] or "id"
+    direction = values["direction"] or "asc"
+    if values["order"]:
+        if values["sort"] or values["direction"] or values["order"] not in RECORD_ORDERS:
+            raise InvalidRecordFilters("invalid_record_filters")
+        sort, direction = RECORD_ORDERS[values["order"]]
     if (
         len(search) > MAX_FILTER_LENGTH or "\x00" in search
         or len(barangay) > MAX_FILTER_LENGTH or "\x00" in barangay
         or not page.isascii() or not page.isdecimal()
         or len(page) > 9 or int(page) < 1
+        or sort not in RECORD_SORTS or direction not in SORT_DIRECTIONS
     ):
         raise InvalidRecordFilters("invalid_record_filters")
-    return int(page), RecordFilters(search=search, barangay=barangay)
+    return int(page), RecordFilters(
+        search=search, barangay=barangay, sort=sort, direction=direction,
+    )
 
 
 def record_return_parameters(page, filters):
@@ -149,6 +172,7 @@ def get_record_page(page, filters, *, connection_factory=get_connection):
         rows = household_records.list_records(
             connection, context["batch_id"], context["run_id"],
             search=filters.search, barangay=filters.barangay,
+            sort=filters.sort, direction=filters.direction,
             limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE,
         )
         return {

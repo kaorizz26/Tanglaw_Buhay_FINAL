@@ -31,7 +31,9 @@ from services.import_validation import (
     verify_import_preview_token,
 )
 from services.import_history import (
-    ImportHistoryUnavailable, export_import_history, get_import_history,
+    IMPORT_HISTORY_OUTCOME_OPTIONS, IMPORT_HISTORY_SORT_OPTIONS,
+    ImportHistoryFilterError, ImportHistoryUnavailable, export_import_history,
+    get_import_history_directory, parse_import_history_filters,
 )
 from services.import_validation_presentation import present_import_result, present_report
 from services.import_assessment_preparation import (
@@ -48,17 +50,21 @@ from services.batch_activation import (
     describe_citizen_work,
 )
 from services.staff_account_management import (
+    STAFF_ACCOUNT_SORT_OPTIONS, STAFF_ACCOUNT_STATUS_OPTIONS,
     StaffAccountHasActiveReviews, StaffAccountInputError, create_staff_account,
     deactivate_staff_account, get_staff_account_for_recovery,
     get_staff_account_dashboard_summary, get_staff_account_to_deactivate,
     get_staff_accounts, recover_staff_account, prepare_temporary_password_email,
-    reveal_temporary_password,
+    reveal_temporary_password, filter_staff_accounts, parse_staff_account_filters,
+    staff_account_status_counts,
 )
 from services.email_delivery import EmailDeliveryError, send_staff_temporary_password_email
 from services.staff_profile import StaffProfileInputError, change_staff_password
 from services.staff_password_reset_requests import (
-    mark_reset_request_email_accepted, password_reset_request_overview,
-    pending_password_reset_count,
+    RESET_REQUEST_SORT_OPTIONS, RESET_REQUEST_STATE_OPTIONS,
+    PasswordResetFilterError, filter_password_reset_overview,
+    mark_reset_request_email_accepted, parse_password_reset_filters,
+    password_reset_request_overview, pending_password_reset_count,
 )
 from services.staff_access import (
     ACCESS_PRESETS, StaffAccessInputError, get_staff_access,
@@ -417,11 +423,15 @@ def data_import():
                 initial_setup=initial_setup,
             ),
         }), status
-    import_history = []
+    try:
+        history_filters = parse_import_history_filters(request.args)
+    except ImportHistoryFilterError:
+        abort(400, description="Choose valid import history filters.")
+    import_history = None
     history_error = None
     if current_app.config.get("DATABASE_URL"):
         try:
-            import_history = get_import_history(limit=25)
+            import_history = get_import_history_directory(history_filters, limit=25)
         except ImportHistoryUnavailable:
             history_error = "Import history is temporarily unavailable."
     return render_template(
@@ -436,6 +446,9 @@ def data_import():
         import_action=action,
         initial_setup=initial_setup,
         import_history=import_history, history_error=history_error,
+        history_filters=history_filters,
+        history_outcome_options=IMPORT_HISTORY_OUTCOME_OPTIONS,
+        history_sort_options=IMPORT_HISTORY_SORT_OPTIONS,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), status
@@ -471,6 +484,24 @@ def import_batches():
     error = None
     prepared = None
     status = 200
+    year_values = request.args.getlist("year")
+    state_values = request.args.getlist("state")
+    sort_values = request.args.getlist("sort")
+    if len(year_values) > 1 or len(state_values) > 1 or len(sort_values) > 1:
+        abort(400, description="Choose valid stored batch filters.")
+    batch_year = year_values[0] if year_values else ""
+    batch_state = state_values[0] if state_values else ""
+    batch_sort = sort_values[0] if sort_values else "batch_desc"
+    if (batch_year and (not batch_year.isascii() or not batch_year.isdecimal()
+                        or len(batch_year) != 4)) or batch_state not in (
+                            "", "active", "prepared", "attention", "awaiting",
+                        ):
+        abort(400, description="Choose valid stored batch filters.")
+    if batch_sort not in {
+        "year", "year_desc", "batch", "batch_desc", "households", "households_desc",
+        "status", "status_desc",
+    }:
+        abort(400, description="Choose a valid stored batch order.")
     if request.method == "POST":
         check_csrf()
         selected = request.form.get("batch_id", "")
@@ -495,8 +526,54 @@ def import_batches():
         batches = list_import_batches()
     except AssessmentPreparationError:
         abort(503, description="Import batches are unavailable. Please try again.")
+    batch_years = sorted({batch["survey_year"] for batch in batches}, reverse=True)
+    filtered_batches = [
+        batch for batch in batches
+        if (not batch_year or batch["survey_year"] == int(batch_year))
+        and (
+            not batch_state
+            or batch_state == (
+                "active" if batch["is_active"] else
+                "prepared" if batch["designated_run_id"] else
+                "attention" if batch["run_count"] else "awaiting"
+            )
+        )
+    ]
+    def stored_batch_state(batch):
+        return (
+            "active" if batch["is_active"] else
+            "prepared" if batch["designated_run_id"] else
+            "attention" if batch["run_count"] else "awaiting"
+        )
+
+    stored_batch_status_label = {
+        "active": "Active dataset",
+        "attention": "Needs attention",
+        "prepared": "Prepared",
+        "awaiting": "Ready to prepare",
+    }
+
+    sort_key, descending = {
+        "year": (lambda batch: (batch["survey_year"], batch["id"]), False),
+        "year_desc": (lambda batch: (batch["survey_year"], batch["id"]), True),
+        "batch": (lambda batch: batch["id"], False),
+        "batch_desc": (lambda batch: batch["id"], True),
+        "households": (lambda batch: (batch["households"], batch["id"]), False),
+        "households_desc": (lambda batch: (batch["households"], batch["id"]), True),
+        "status": (lambda batch: (
+            stored_batch_status_label[stored_batch_state(batch)], batch["id"],
+        ), False),
+        "status_desc": (lambda batch: (
+            stored_batch_status_label[stored_batch_state(batch)], batch["id"],
+        ), True),
+    }[batch_sort]
+    filtered_batches.sort(key=sort_key, reverse=descending)
     return render_template(
-        "staff/import_batches.html", batches=batches, error=error, prepared=prepared,
+        "staff/import_batches.html", batches=filtered_batches,
+        batch_total=len(batches), batch_years=batch_years,
+        batch_year=batch_year, batch_state=batch_state,
+        batch_sort=batch_sort,
+        error=error, prepared=prepared,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), status
@@ -638,6 +715,10 @@ def staff_accounts():
     revealed_account = None
     display_name = ""
     username = ""
+    try:
+        account_filters = parse_staff_account_filters(request.args)
+    except StaffAccountInputError:
+        abort(400, description="Choose valid staff account filters.")
     if request.method == "POST":
         check_csrf()
         display_name = request.form.get("display_name", "")
@@ -681,15 +762,21 @@ def staff_accounts():
         except (psycopg.Error, RuntimeError):
             abort(503, description="This account action is unavailable. Please try again.")
     try:
-        accounts = [] if show_create else get_staff_accounts()
+        all_accounts = [] if show_create else get_staff_accounts()
     except (psycopg.Error, RuntimeError):
         abort(503, description="Staff accounts are unavailable. Please try again.")
+    accounts = filter_staff_accounts(all_accounts, account_filters)
+    account_counts = staff_account_status_counts(all_accounts)
     return render_template(
         "staff/staff_accounts.html", error=error, created_account=created_account,
         created_delivery_sent=created_delivery_sent,
         created_delivery_error=created_delivery_error,
         accounts=accounts, revealed_account=revealed_account, show_create=show_create,
         display_name=display_name, username=username,
+        account_filters=account_filters, account_counts=account_counts,
+        account_total=len(all_accounts),
+        account_status_options=STAFF_ACCOUNT_STATUS_OPTIONS,
+        account_sort_options=STAFF_ACCOUNT_SORT_OPTIONS,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     ), (400 if error else 200)
@@ -748,13 +835,22 @@ def staff_account_access(account_id):
 def render_account_list_dialog(template, *, status=200, **dialog_context):
     """Keep account confirmations and results over the staff directory."""
     try:
-        accounts = get_staff_accounts()
+        account_filters = parse_staff_account_filters(request.args)
+        all_accounts = get_staff_accounts()
     except (psycopg.Error, RuntimeError):
         abort(503, description="Staff accounts are unavailable. Please try again.")
+    except StaffAccountInputError:
+        abort(400, description="Choose valid staff account filters.")
+    accounts = filter_staff_accounts(all_accounts, account_filters)
     return render_template(
         "staff/staff_accounts.html", error=None, created_account=None,
         accounts=accounts, revealed_account=None, show_create=False,
         display_name="", username="", action_dialog_template=template,
+        account_filters=account_filters,
+        account_counts=staff_account_status_counts(all_accounts),
+        account_total=len(all_accounts),
+        account_status_options=STAFF_ACCOUNT_STATUS_OPTIONS,
+        account_sort_options=STAFF_ACCOUNT_SORT_OPTIONS,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(), **dialog_context,
     ), status
@@ -870,11 +966,19 @@ def staff_password_reset_requests():
     """Show pending Staff Portal password help and recent completion history."""
     require_fixture_source()
     try:
-        overview = password_reset_request_overview()
+        reset_filters = parse_password_reset_filters(request.args)
+        overview = filter_password_reset_overview(
+            password_reset_request_overview(), reset_filters,
+        )
+    except PasswordResetFilterError:
+        abort(400, description="Choose valid password reset request filters.")
     except (psycopg.Error, RuntimeError):
         abort(503, description="Password reset requests are unavailable. Apply migration 0020.")
     return render_template(
         "staff/password_reset_requests.html", overview=overview,
+        reset_filters=reset_filters,
+        reset_state_options=RESET_REQUEST_STATE_OPTIONS,
+        reset_sort_options=RESET_REQUEST_SORT_OPTIONS,
         role_label="System Administrator", staff_username=g.user["username"],
         csrf_token=csrf_token(),
     )

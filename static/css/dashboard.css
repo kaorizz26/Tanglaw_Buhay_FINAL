@@ -559,91 +559,79 @@
   font-weight: 750;
 }
 
-.admin-import-chart-grid {
+.admin-import-summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 16px;
 }
 
-.admin-import-chart-card {
-  min-height: 390px;
+.admin-import-summary-card {
+  min-height: 0;
+  padding: 18px 20px;
   border-top: 3px solid #356f73;
 }
 
-.admin-import-status-chart {
-  display: flex;
-  gap: 3px;
-  height: 58px;
-  margin: 32px 0 24px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #e8edf0;
-}
-
-.admin-import-status-segment {
-  flex-basis: 0;
-  min-width: 4px;
-}
-
-.admin-import-status-active { background: #356f73; }
-.admin-import-status-ready { background: #b78d42; }
-.admin-import-status-awaiting {
-  background: repeating-linear-gradient(45deg, #6f7f89 0 6px, #dfe5e8 6px 12px);
-}
 .admin-import-swatch-active { background: #356f73; }
 .admin-import-swatch-ready { background: #b78d42; }
 .admin-import-swatch-awaiting {
   background: repeating-linear-gradient(45deg, #6f7f89 0 4px, #dfe5e8 4px 8px);
 }
 
-.admin-import-year-list {
+.admin-import-status-summary {
   display: grid;
-  gap: 12px;
-  margin: 22px 0 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.admin-import-year-list li {
+.admin-import-status-summary li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px 16px;
-  padding: 11px 12px;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 8px;
+  background: #fbfcfc;
+  font-size: 0.78rem;
+}
+
+.admin-import-status-summary strong {
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-import-year-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-import-year-summary li {
+  display: flex;
+  flex: 1 1 140px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   background: #fbfcfc;
 }
 
-.admin-import-year-label {
+.admin-import-year-summary strong {
   color: var(--navy);
   font-weight: 750;
 }
 
-.admin-import-year-value {
+.admin-import-year-summary span {
   color: var(--text-muted);
   font-size: 0.75rem;
-}
-
-.admin-import-year-value strong {
-  margin-right: 4px;
-  color: var(--navy);
-  font-size: 0.875rem;
-}
-
-.admin-import-year-track {
-  grid-column: 1 / -1;
-  height: 8px;
-  overflow: hidden;
-  border-radius: 99px;
-  background: #e4eaed;
-}
-
-.admin-import-year-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #356f73, #bd9855);
 }
 
 .admin-import-empty { min-height: 220px; }
@@ -775,9 +763,9 @@
 .admin-barangay-track {
   grid-column: 3;
   display: flex;
-  height: 13px;
+  height: 20px;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 6px;
   background: #dce5e9;
 }
 
@@ -1537,8 +1525,7 @@ a.dashboard-bar-row:focus-visible {
   .admin-account-chart-card { min-height: 0; }
   .admin-review-chart-grid { grid-template-columns: 1fr; }
   .admin-review-chart-card { min-height: 0; }
-  .admin-import-chart-grid { grid-template-columns: 1fr; }
-  .admin-import-chart-card { min-height: 0; }
+  .admin-import-summary-grid { grid-template-columns: 1fr; }
   .dashboard-panels .dashboard-bars { grid-template-columns: 1fr; }
   .dashboard-household-grid { grid-template-columns: 1fr; }
   .dashboard-work { align-items: flex-start; flex-direction: column; }
@@ -1561,6 +1548,9 @@ a.dashboard-bar-row:focus-visible {
   .admin-import-active-card {
     align-items: flex-start;
     flex-direction: column;
+  }
+  .admin-import-status-summary {
+    grid-template-columns: 1fr;
   }
   .admin-barangay-chart-header {
     align-items: flex-start;

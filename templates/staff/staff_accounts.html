@@ -1,4 +1,5 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}{{ 'Create Account' if show_create else 'Account List' }}{% endblock %}
 
@@ -16,7 +17,7 @@
           <span aria-hidden="true">/</span>
           <span aria-current="page">{{ 'Create Account' if show_create else 'Account List' }}</span>
         </nav>
-        <h1>{{ 'Create Account' if show_create else 'Account List' }}</h1>
+        <div class="info-label"><h1>{{ 'Create Account' if show_create else 'Account List' }}</h1> {{ info_button('staff roles and permissions', 'Staff roles and permissions', 'System Administrator is the highest account role and manages datasets, accounts, and administrative settings. LGU Staff access only the work pages and actions granted through permissions. Staff should receive only the access needed for their responsibilities.') }}</div>
         <p class="portal-hero-subtitle">{{ 'Create a login for an LGU staff member.' if show_create else 'View staff accounts and help new staff complete their password setup.' }}</p>
       </div>
       <a class="portal-hero-action" href="{{ url_for('main.staff_accounts') if show_create else url_for('main.staff_account_create') }}">
@@ -91,23 +92,13 @@
   {% endif %}
 
   {% if not show_create %}
-  {% set status_counts = namespace(ready=0, pending=0, inactive=0) %}
-  {% for account in accounts %}
-    {% if not account.is_active %}
-      {% set status_counts.inactive = status_counts.inactive + 1 %}
-    {% elif account.must_change_password %}
-      {% set status_counts.pending = status_counts.pending + 1 %}
-    {% else %}
-      {% set status_counts.ready = status_counts.ready + 1 %}
-    {% endif %}
-  {% endfor %}
   <section class="accounts-summary" aria-label="Account status summary">
     <article class="accounts-summary-card accounts-summary-ready">
       <div>
         <span class="accounts-summary-marker" aria-hidden="true"></span>
         <h2>Ready</h2>
       </div>
-      <p class="accounts-summary-value">{{ status_counts.ready }}</p>
+      <p class="accounts-summary-value">{{ account_counts.ready }}</p>
       <p>Staff can sign in with their own password.</p>
     </article>
     <article class="accounts-summary-card accounts-summary-pending">
@@ -115,7 +106,7 @@
         <span class="accounts-summary-marker" aria-hidden="true"></span>
         <h2>Pending setup</h2>
       </div>
-      <p class="accounts-summary-value">{{ status_counts.pending }}</p>
+      <p class="accounts-summary-value">{{ account_counts.pending }}</p>
       <p>Staff still need to set their own password.</p>
     </article>
     <article class="accounts-summary-card accounts-summary-inactive">
@@ -123,15 +114,52 @@
         <span class="accounts-summary-marker" aria-hidden="true"></span>
         <h2>Inactive</h2>
       </div>
-      <p class="accounts-summary-value">{{ status_counts.inactive }}</p>
+      <p class="accounts-summary-value">{{ account_counts.inactive }}</p>
       <p>Account access is currently disabled.</p>
     </article>
+  </section>
+
+  <section class="accounts-card accounts-filter-panel" aria-labelledby="account-filter-heading">
+    <div class="accounts-directory-header">
+      <div>
+        <p class="accounts-kicker">Find an account</p>
+        <h2 id="account-filter-heading">Filter staff accounts</h2>
+      </div>
+      {% if account_filters.active %}<a class="accounts-secondary-link" href="{{ url_for('main.staff_accounts') }}">Clear filters</a>{% endif %}
+    </div>
+    <form class="accounts-filter-form" method="get" action="{{ url_for('main.staff_accounts') }}" role="search">
+      <div class="accounts-filter-field accounts-filter-search">
+        <label for="account-search">Staff name or username</label>
+        <input id="account-search" name="q" type="search" value="{{ account_filters.search }}" maxlength="200" placeholder="Enter a name or username">
+      </div>
+      <div class="accounts-filter-field">
+        <label for="account-status">Account status</label>
+        <select id="account-status" name="status">
+          <option value="">All statuses</option>
+          {% for value, label in account_status_options %}
+            <option value="{{ value }}" {% if account_filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="accounts-filter-field">
+        <label for="account-sort">Sort accounts</label>
+        <select id="account-sort" name="sort">
+          {% for value, label in account_sort_options %}
+            <option value="{{ value }}" {% if account_filters.sort == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="accounts-button" type="submit">Apply filters</button>
+    </form>
+    {% if account_filters.active %}
+      <p class="accounts-filter-result" role="status"><strong>{{ accounts|length }}</strong> of {{ account_total }} staff accounts match the selected filters.</p>
+    {% endif %}
   </section>
 
   <section class="accounts-card accounts-directory" aria-labelledby="directory-heading">
     <div class="accounts-directory-header">
       <div>
-        <h2 id="directory-heading">All staff accounts <span class="accounts-count">{{ accounts|length }}</span></h2>
+        <h2 id="directory-heading">{{ 'Matching staff accounts' if account_filters.active else 'All staff accounts' }} <span class="accounts-count">{{ accounts|length }}</span></h2>
         <p>Pending password setup means the staff member still needs to choose their own password.</p>
       </div>
     </div>
@@ -139,9 +167,25 @@
       <p class="table-scroll-hint">Scroll sideways to see account status and actions.</p>
       <div class="accounts-table-scroll" role="region" aria-labelledby="directory-heading" tabindex="0">
         <table class="accounts-table">
-          <caption class="visually-hidden">LGU Staff accounts, newest first. Creation dates are in Philippine time.</caption>
+          <caption class="visually-hidden">Sortable LGU Staff accounts. Creation dates are in Philippine time.</caption>
           <thead>
-            <tr><th scope="col">Staff name</th><th scope="col">Username</th><th scope="col">Status</th><th scope="col">Date created</th><th scope="col">Temporary password</th><th scope="col">Actions</th></tr>
+            <tr>
+              {% for label, ascending, descending, active_values in (
+                ('Staff name', 'name', 'name_desc', ('name', 'name_desc')),
+                ('Username', 'username', 'username_desc', ('username', 'username_desc')),
+                ('Status', 'status', 'status_desc', ('status', 'status_desc')),
+                ('Date created', 'oldest', 'newest', ('oldest', 'newest'))
+              ) %}
+                {% set active_sort = account_filters.sort in active_values %}
+                {% set is_ascending = account_filters.sort == ascending %}
+                <th scope="col" {% if active_sort %}aria-sort="{{ 'ascending' if is_ascending else 'descending' }}"{% endif %}>
+                  <a class="sortable-heading{% if active_sort %} is-active{% endif %}" href="{{ url_for('main.staff_accounts', q=account_filters.search or None, status=account_filters.status or None, sort=(descending if is_ascending else ascending)) }}">
+                    {{ label }} <span aria-hidden="true">{% if active_sort %}{{ '▲' if is_ascending else '▼' }}{% else %}↕{% endif %}</span>
+                  </a>
+                </th>
+              {% endfor %}
+              <th scope="col">Temporary password</th><th scope="col">Actions</th>
+            </tr>
           </thead>
           <tbody>
             {% for account in accounts %}
@@ -160,7 +204,7 @@
                 <td><time datetime="{{ account.created_at.isoformat() }}">{{ account.created_at.strftime('%d %b %Y') }}</time></td>
                 <td>
                   {% if account.is_active and account.must_change_password and account.has_temporary_password %}
-                    <form method="post" action="{{ url_for('main.staff_accounts') }}">
+                    <form method="post" action="{{ url_for('main.staff_accounts', **account_filters.parameters) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                       <input type="hidden" name="action" value="reveal">
                       <input type="hidden" name="account_id" value="{{ account.id }}">
@@ -178,14 +222,14 @@
                   <div class="accounts-row-actions">
                     <a class="accounts-button accounts-access-button" href="{{ url_for('main.staff_account_access', account_id=account.id) }}" aria-label="Manage access for {{ account.display_name or account.username }}">Manage access</a>
                     {% if account.is_active %}
-                      <form method="get" action="{{ url_for('main.staff_account_reset_password', account_id=account.id) }}">
+                      <form method="get" action="{{ url_for('main.staff_account_reset_password', account_id=account.id, **account_filters.parameters) }}">
                         <button class="accounts-copy-button accounts-action-trigger" type="submit" data-account-id="{{ account.id }}" data-action="reset" aria-label="Reset password for {{ account.display_name or account.username }}">Reset password</button>
                       </form>
-                      <form method="get" action="{{ url_for('main.staff_account_deactivate', account_id=account.id) }}">
+                      <form method="get" action="{{ url_for('main.staff_account_deactivate', account_id=account.id, **account_filters.parameters) }}">
                         <button class="accounts-deactivate-button accounts-action-trigger" type="submit" data-account-id="{{ account.id }}" data-action="deactivate" aria-label="Deactivate account for {{ account.display_name or account.username }}">Deactivate</button>
                       </form>
                     {% else %}
-                      <form method="get" action="{{ url_for('main.staff_account_reactivate', account_id=account.id) }}">
+                      <form method="get" action="{{ url_for('main.staff_account_reactivate', account_id=account.id, **account_filters.parameters) }}">
                         <button class="accounts-copy-button accounts-action-trigger" type="submit" data-account-id="{{ account.id }}" data-action="reactivate" aria-label="Reactivate account for {{ account.display_name or account.username }}">Reactivate</button>
                       </form>
                     {% endif %}
@@ -198,9 +242,10 @@
       </div>
     {% else %}
       <div class="accounts-empty">
-        <span class="accounts-empty-icon" aria-hidden="true">+</span>
-        <h3>No staff accounts yet</h3>
-        <p>Create the first LGU Staff login using the button at the top of this page.</p>
+        <span class="accounts-empty-icon" aria-hidden="true">{{ '⌕' if account_filters.active else '+' }}</span>
+        <h3>{{ 'No staff accounts match these filters' if account_filters.active else 'No staff accounts yet' }}</h3>
+        <p>{{ 'Try another name, status, or sort option.' if account_filters.active else 'Create the first LGU Staff login using the button at the top of this page.' }}</p>
+        {% if account_filters.active %}<a class="accounts-secondary-link" href="{{ url_for('main.staff_accounts') }}">Show all staff accounts</a>{% endif %}
       </div>
     {% endif %}
   </section>
@@ -209,7 +254,7 @@
   {% if show_create and not created_account %}
     <section class="accounts-card" aria-labelledby="create-heading">
       <p class="accounts-kicker">New staff login</p>
-      <h2 id="create-heading">Create staff account</h2>
+      <h2 id="create-heading"><span class="info-label">Create staff account {{ info_button('LGU Staff role', 'LGU Staff', 'An LGU Staff account does not receive every feature automatically. A System Administrator grants only the pages and actions needed for that staff member’s responsibilities through Manage Access.') }}</span></h2>
       <p>Enter the staff member's name and choose a unique username. The account will have LGU Staff access.</p>
 
       <div class="accounts-access-notice" role="note" aria-labelledby="account-access-notice-heading">

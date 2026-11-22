@@ -93,23 +93,35 @@
         </div>
         <div class="filter-actions">
           <button class="apply-filters" type="submit">Apply Filters</button>
-          {% if results.filters.active or results.filters.sort %}
+          {% if results.filters.active or results.filters.sort or results.filters.sort_by != 'date' %}
             <a class="clear-filters" href="{{ url_for('assessments.queue', status=results.filters.status, scope=results.filters.scope) }}">Clear Filters</a>
           {% endif %}
         </div>
       </div>
 
       {# Stay open while a hidden filter is applied, so staff can see why the list is narrowed. #}
-      {% set more_filters_active = results.filters.programs or results.filters.sort %}
+      {% set more_filters_active = results.filters.programs or results.filters.sort or results.filters.sort_by != 'date' %}
       <details class="more-filters" {% if more_filters_active %}open{% endif %}>
         <summary>More Filters{% if more_filters_active %}<span>Additional filters applied</span>{% endif %}</summary>
         <div class="queue-secondary-filters">
           <div class="filter-field queue-sort">
-            <label for="queue-sort">Sort by Date {{ 'Started' if results.filters.status == 'in-review' else 'Finished' }}</label>
+            <label for="queue-sort-by">Sort by</label>
+            <select id="queue-sort-by" name="sort_by">
+              <option value="date" {% if results.filters.sort_by == 'date' %}selected{% endif %}>Date {{ 'started' if results.filters.status == 'in-review' else 'finished' }}</option>
+              <option value="rank" {% if results.filters.sort_by == 'rank' %}selected{% endif %}>Municipal rank</option>
+              <option value="reference" {% if results.filters.sort_by == 'reference' %}selected{% endif %}>Household ID</option>
+              <option value="head" {% if results.filters.sort_by == 'head' %}selected{% endif %}>Household head</option>
+              <option value="barangay" {% if results.filters.sort_by == 'barangay' %}selected{% endif %}>Barangay</option>
+              <option value="program" {% if results.filters.sort_by == 'program' %}selected{% endif %}>Subsidy program</option>
+              <option value="staff" {% if results.filters.sort_by == 'staff' %}selected{% endif %}>Responsible staff</option>
+            </select>
+          </div>
+          <div class="filter-field queue-sort">
+            <label for="queue-sort">Sort direction</label>
             <select id="queue-sort" name="sort">
-              <option value="">Default · {{ 'oldest first' if results.filters.status == 'in-review' else 'newest first' }}</option>
-              <option value="asc" {% if results.filters.sort == 'asc' %}selected{% endif %}>Ascending · oldest first</option>
-              <option value="desc" {% if results.filters.sort == 'desc' %}selected{% endif %}>Descending · newest first</option>
+              <option value="">Default · {{ 'ascending' if results.filters.status == 'in-review' else 'descending' }}</option>
+              <option value="asc" {% if results.filters.sort == 'asc' %}selected{% endif %}>Ascending</option>
+              <option value="desc" {% if results.filters.sort == 'desc' %}selected{% endif %}>Descending</option>
             </select>
           </div>
           <fieldset class="subsidy-filters queue-programs" aria-describedby="queue-program-help">
@@ -154,13 +166,20 @@
         </colgroup>
         <thead>
           <tr>
-            <th scope="col" class="rank-cell">Municipal Rank</th>
-            <th scope="col">Household ID</th>
-            <th scope="col">Household Head</th>
-            <th scope="col">Barangay</th>
-            <th scope="col">Subsidy</th>
-            <th scope="col">Staff Review</th>
-            <th scope="col">Date {{ 'Started' if results.filters.status == 'in-review' else 'Finished' }}</th>
+            {% for label, key, extra_class in (
+              ('Municipal Rank', 'rank', 'rank-cell'),
+              ('Household ID', 'reference', ''),
+              ('Household Head', 'head', ''),
+              ('Barangay', 'barangay', ''),
+              ('Subsidy', 'program', ''),
+              ('Responsible Staff', 'staff', ''),
+              (('Date Started' if results.filters.status == 'in-review' else 'Date Finished'), 'date', '')
+            ) %}
+              {% set active_sort = results.filters.sort_by == key %}
+              {% set current_direction = results.filters.date_order %}
+              {% set next_direction = 'desc' if active_sort and current_direction == 'asc' else 'asc' %}
+              <th scope="col" class="{{ extra_class }}" {% if active_sort %}aria-sort="{{ 'ascending' if current_direction == 'asc' else 'descending' }}"{% endif %}><a class="sortable-heading{% if active_sort %} is-active{% endif %}" href="{{ url_for('assessments.queue', page=1, status=results.filters.status, scope=results.filters.scope, q=results.filters.search or None, barangay=results.filters.barangay or None, program=results.filters.programs or None, sort_by=key, sort=next_direction) }}">{{ label }} <span aria-hidden="true">{% if active_sort %}{{ '▲' if current_direction == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
+            {% endfor %}
             <th scope="col" class="action-cell">Action</th>
           </tr>
         </thead>

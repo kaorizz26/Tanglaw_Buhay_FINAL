@@ -41,7 +41,7 @@
       {% if show_reviews %}<a href="#reviews-heading">My Subsidy Reviews</a>{% endif %}
       {% if is_admin_dashboard and import_dashboard_summary is not none %}<a href="#dataset-status-heading">Dataset Status</a>{% endif %}
       {% if summary %}
-        <a href="#statistics-heading">Historical household statistics</a>
+        {% if not is_admin_dashboard %}<a href="#statistics-heading">Historical household statistics</a>{% endif %}
         {% if is_admin_dashboard %}<a href="#admin-overview-heading">Overview charts</a>{% endif %}
         {% if is_admin_dashboard and admin_barangay_summary is not none %}<a href="#barangay-priority-heading">Barangay Comparison</a>{% endif %}
         <a href="#patterns-heading">Assessment Patterns</a>
@@ -63,42 +63,47 @@
 
   {% if summary %}
     {% set area = 'Barangay ' ~ summary.barangay if summary.barangay else 'all barangays' %}
-    <section class="dashboard-statistics-heading" aria-labelledby="statistics-heading">
-      <div class="dashboard-section-heading">
-        <h2 id="statistics-heading">Historical household statistics</h2>
-        <p>Showing {{ area }}</p>
-      </div>
-      <form class="dashboard-filter" method="get" action="">
-        <input type="hidden" id="dashboard-area" name="area" value="{{ selected_area }}">
-        <div class="dashboard-filter-field">
-          <label for="dashboard-barangay">Barangay</label>
-          <select id="dashboard-barangay" name="barangay">
-            <option value="">All barangays</option>
-            {% for name in summary.barangays %}
-              <option value="{{ name }}" {% if name == summary.barangay %}selected{% endif %}>{{ name }}</option>
-            {% endfor %}
-          </select>
+    {% if not is_admin_dashboard %}
+      <section class="dashboard-statistics-heading" aria-labelledby="statistics-heading">
+        <div class="dashboard-section-heading">
+          <h2 id="statistics-heading">Historical household statistics</h2>
+          <p>Showing {{ area }}</p>
         </div>
-        <div class="dashboard-filter-field">
-          <span class="dashboard-filter-label">Survey Year</span>
-          <p class="dashboard-filter-value">{{ summary.context.survey_year }}</p>
-        </div>
-        <div class="dashboard-filter-actions">
-          <button type="submit">Apply</button>
-          {% if summary.barangay %}<a href="{{ request.path }}?area={{ selected_area }}" data-keep-area>Show all barangays</a>{% endif %}
-        </div>
-      </form>
-    </section>
+        <form class="dashboard-filter" method="get" action="">
+          <input type="hidden" id="dashboard-area" name="area" value="{{ selected_area }}">
+          <div class="dashboard-filter-field">
+            <label for="dashboard-barangay">Barangay</label>
+            <select id="dashboard-barangay" name="barangay">
+              <option value="">All barangays</option>
+              {% for name in summary.barangays %}
+                <option value="{{ name }}" {% if name == summary.barangay %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="dashboard-filter-field">
+            <span class="dashboard-filter-label">Survey Year</span>
+            <p class="dashboard-filter-value">{{ summary.context.survey_year }}</p>
+          </div>
+          <div class="dashboard-filter-actions">
+            <button type="submit">Apply</button>
+            {% if summary.barangay %}<a href="{{ request.path }}?area={{ selected_area }}" data-keep-area>Show all barangays</a>{% endif %}
+          </div>
+        </form>
+      </section>
+    {% endif %}
 
-    <div class="dashboard-historical-note" role="note">
-      <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
-      <p>Historical findings only. These are not an official poverty classification, subsidy eligibility or approval.</p>
-    </div>
+    {% if not is_admin_dashboard %}
+      <div class="dashboard-historical-note" role="note">
+        <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
+        <p>Historical findings only. These are not an official poverty classification, subsidy eligibility or approval.</p>
+      </div>
+    {% endif %}
 
     {% if is_admin_dashboard %}
       {% include 'staff/_admin_dashboard_overview.html' %}
     {% endif %}
 
+    {% if not is_admin_dashboard %}
     <section class="dashboard-metrics" aria-label="Assessment summary">
       <div class="dashboard-metric dashboard-metric-total">
         <span class="dashboard-metric-heading">
@@ -136,6 +141,7 @@
         <span class="dashboard-metric-cue">View households <span aria-hidden="true">→</span></span>
       {% if can_view_assessments %}</a>{% else %}</div>{% endif %}
     </section>
+    {% endif %}
 
     {% if is_admin_dashboard and admin_barangay_summary is not none %}
       {% include 'staff/_admin_dashboard_barangays.html' %}

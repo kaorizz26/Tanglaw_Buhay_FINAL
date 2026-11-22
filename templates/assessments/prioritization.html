@@ -1,4 +1,5 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}Household Prioritization{% endblock %}
 
@@ -28,7 +29,8 @@
     {% include 'assessments/filters.html' %}
 
     <div class="ranking-heading">
-      <h2 id="ranking-heading">Municipality-wide ranking</h2>
+      {% set ranking_columns_info = 'Municipal Rank — The household’s stored position in the complete municipal assessment. Filters do not change it.\nHousehold ID — A Tanglaw-Buhay system reference, not an official PSA identifier.\nHousehold Head — The household head shown in the historical record.\nBarangay — The barangay recorded for the household in the selected dataset.\nVulnerability Score — A 0–100 summary of available historical indicators, not an official poverty classification.\nSubsidy Priority — Guidance on which households staff may examine first; it is not eligibility or approval.\nSubsidies for Review — Programs whose historical screening result is For Review. These are not applications or approved benefits.\nAction — Opens the household’s stored assessment, screening findings, and supporting evidence.' %}
+      <h2 id="ranking-heading">Municipality-wide ranking {{ info_button('ranking table columns', 'About the ranking columns', ranking_columns_info, 'terms') }}</h2>
       <p>
         {% if results.filters.active %}
           <strong>{{ '{:,}'.format(results.total) }}</strong> matching households ·
@@ -55,11 +57,13 @@
         </colgroup>
         <thead>
           <tr>
-            <th scope="col" class="rank-cell">Municipal Rank</th>
-            <th scope="col">Household ID</th>
-            <th scope="col">Household Head</th>
-            <th scope="col">Barangay</th>
-            <th scope="col" class="score-cell">Vulnerability Score</th>
+            {% for header in results.sort_headers %}
+              <th scope="col" class="{{ 'rank-cell' if header.key == 'rank' else ('score-cell' if header.key == 'score' else '') }}" {% if header.active %}aria-sort="{{ 'ascending' if header.direction == 'asc' else 'descending' }}"{% endif %}>
+                <a class="sortable-heading{% if header.active %} is-active{% endif %}" href="{{ url_for('assessments.prioritization', page=1, **header.parameters) }}">
+                  {{ header.label }} <span aria-hidden="true">{% if header.active %}{{ '▲' if header.direction == 'asc' else '▼' }}{% else %}↕{% endif %}</span>
+                </a>
+              </th>
+            {% endfor %}
             <th scope="col">Subsidy Priority</th>
             <th scope="col">Subsidies for Review</th>
             <th scope="col" class="action-cell">Action</th>

@@ -13,7 +13,7 @@
         <h1>Household Records</h1>
         <p class="portal-hero-subtitle">Find recorded household and member information for {{ results.context.municipality }}.</p>
       </div>
-      {% if results.filters.parameters %}
+      {% if results.filters.search or results.filters.barangay %}
         <a class="portal-hero-action" href="{{ url_for('households.index') }}">
           Show all records <span aria-hidden="true">→</span>
         </a>
@@ -47,26 +47,26 @@
       </div>
       <div class="records-filter-actions">
         <button type="submit">Apply Filters</button>
-        {% if results.filters.parameters %}
+        {% if results.filters.search or results.filters.barangay or results.filters.sort != 'id' or results.filters.direction != 'asc' %}
           <a href="{{ url_for('households.index') }}">Clear Filters</a>
         {% endif %}
       </div>
     </form>
 
-    {% if results.filters.parameters %}
+    {% if results.filters.search or results.filters.barangay %}
       <div class="records-active-filters" aria-label="Applied filters">
         <p>Applied filters</p>
         <ul>
           {% if results.filters.search %}
             <li>
               <span>Search: {{ results.filters.search }}</span>
-              <a href="{{ url_for('households.index', barangay=results.filters.barangay or None) }}" aria-label="Remove search filter">×</a>
+              <a href="{{ url_for('households.index', barangay=results.filters.barangay or None, sort=results.filters.sort, direction=results.filters.direction) }}" aria-label="Remove search filter">×</a>
             </li>
           {% endif %}
           {% if results.filters.barangay %}
             <li>
               <span>Barangay: {{ results.filters.barangay }}</span>
-              <a href="{{ url_for('households.index', q=results.filters.search or None) }}" aria-label="Remove barangay filter">×</a>
+              <a href="{{ url_for('households.index', q=results.filters.search or None, sort=results.filters.sort, direction=results.filters.direction) }}" aria-label="Remove barangay filter">×</a>
             </li>
           {% endif %}
         </ul>
@@ -75,18 +75,28 @@
     {% endif %}
 
     {# The total comes from the query; with a search or barangay it counts matches only. #}
-    <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}recorded{% endif %} households</p>
+    <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.search or results.filters.barangay %}matching{% else %}recorded{% endif %} households</p>
 
     {% if results['items'] %}
       <div class="records-table-scroll" role="region" aria-label="Household records table" tabindex="0">
         <table class="records-table">
-          <caption class="visually-hidden">Households ordered by their stable source record ID.</caption>
+          <caption class="visually-hidden">Households can be sorted by the linked column headings.</caption>
           <thead>
             <tr>
-              <th scope="col">Household ID</th>
-              <th scope="col">Household Head</th>
-              <th scope="col">Barangay</th>
-              <th scope="col" class="records-members">Members</th>
+              {% for key, label, extra_class in (
+                ('id', 'Household ID', ''),
+                ('head', 'Household Head', ''),
+                ('barangay', 'Barangay', ''),
+                ('members', 'Members', 'records-members')
+              ) %}
+                {% set active_sort = results.filters.sort == key %}
+                {% set next_direction = 'desc' if active_sort and results.filters.direction == 'asc' else 'asc' %}
+                <th scope="col" class="{{ extra_class }}" {% if active_sort %}aria-sort="{{ 'ascending' if results.filters.direction == 'asc' else 'descending' }}"{% endif %}>
+                  <a class="sortable-heading{% if active_sort %} is-active{% endif %}" href="{{ url_for('households.index', page=1, sort=key, direction=next_direction, q=results.filters.search or None, barangay=results.filters.barangay or None) }}">
+                    {{ label }} <span aria-hidden="true">{% if active_sort %}{{ '▲' if results.filters.direction == 'asc' else '▼' }}{% else %}↕{% endif %}</span>
+                  </a>
+                </th>
+              {% endfor %}
               <th scope="col" class="records-action">Action</th>
             </tr>
           </thead>

@@ -137,6 +137,28 @@ def get_prioritization_page(page, filters=None):
         "last_record": (page - 1) * PAGE_SIZE + len(rows) if rows else 0,
         "filters": filters,
         "filter_parameters": filters.parameters,
+        "sort_headers": [
+            {
+                "key": key,
+                "label": label,
+                "active": filters.sort == key,
+                "direction": filters.direction if filters.sort == key else None,
+                "parameters": replace(
+                    filters,
+                    sort=key,
+                    direction=(
+                        "desc" if filters.sort == key and filters.direction == "asc" else "asc"
+                    ),
+                ).parameters,
+            }
+            for key, label in (
+                ("rank", "Municipal Rank"),
+                ("reference", "Household ID"),
+                ("head", "Household Head"),
+                ("barangay", "Barangay"),
+                ("score", "Vulnerability Score"),
+            )
+        ],
         "program_options": PROGRAM_ORDER,
         "completeness_options": COMPLETENESS_OPTIONS,
         "priority_options": PRIORITY_OPTIONS,
@@ -155,5 +177,6 @@ def get_prioritization_page(page, filters=None):
         "more_filters_active": bool(
             filters.programs or filters.subsidy_mode != "any"
             or filters.completeness != "all" or filters.priority == "other"
+            or filters.sort != "rank" or filters.direction != "asc"
         ),
     }

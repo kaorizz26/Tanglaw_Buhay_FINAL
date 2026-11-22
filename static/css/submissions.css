@@ -31,7 +31,7 @@
 }
 
 .submissions-filters {
-  grid-template-columns: minmax(220px, 1fr) minmax(150px, 200px) minmax(150px, 220px) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px) minmax(140px, 190px) minmax(190px, 230px) auto;
 }
 
 /* Keep the table's visually hidden captions and link text inside its scroll box. Without this

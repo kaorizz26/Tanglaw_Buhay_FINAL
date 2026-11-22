@@ -428,7 +428,8 @@ class MinimalStaffInterfaceTests(unittest.TestCase):
         with patch("routes.main.get_active_dashboard_summary", return_value=None):
             page = self.client.get("/administration")
         navigation = page.text.split('id="staff-navigation"', 1)[1].split("</nav>", 1)[0]
-        self.assertNotIn("Household Prioritization", navigation)
+        self.assertIn('href="/assessments"', navigation)
+        self.assertIn("Household Prioritization", navigation)
         self.assertIn('href="/assessments/queue"', navigation)
         self.assertIn("Review Activity", navigation)
         self.assertNotIn("Review Queue", navigation)

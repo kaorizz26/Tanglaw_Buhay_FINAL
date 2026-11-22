@@ -25,33 +25,65 @@
       {% endfor %}
     </select>
   </div>
+  <div class="records-field submissions-order">
+    <label for="list-order">Sort by</label>
+    {% set list_order = results.filters.sort ~ ':' ~ results.filters.direction %}
+    <select id="list-order" name="order">
+      <option value="default:asc" {% if results.filters.sort == 'default' %}selected{% endif %}>Default order</option>
+      {% if list_endpoint == 'submissions.citizen_accounts' %}
+        <option value="household:asc" {% if list_order == 'household:asc' %}selected{% endif %}>Household ID, lowest first</option>
+        <option value="household:desc" {% if list_order == 'household:desc' %}selected{% endif %}>Household ID, highest first</option>
+        <option value="representative:asc" {% if list_order == 'representative:asc' %}selected{% endif %}>Representative, A–Z</option>
+        <option value="representative:desc" {% if list_order == 'representative:desc' %}selected{% endif %}>Representative, Z–A</option>
+        <option value="barangay:asc" {% if list_order == 'barangay:asc' %}selected{% endif %}>Barangay, A–Z</option>
+        <option value="barangay:desc" {% if list_order == 'barangay:desc' %}selected{% endif %}>Barangay, Z–A</option>
+        <option value="status:asc" {% if list_order == 'status:asc' %}selected{% endif %}>Status, A–Z</option>
+        <option value="status:desc" {% if list_order == 'status:desc' %}selected{% endif %}>Status, Z–A</option>
+        <option value="created:desc" {% if list_order == 'created:desc' %}selected{% endif %}>Date created, newest first</option>
+        <option value="created:asc" {% if list_order == 'created:asc' %}selected{% endif %}>Date created, oldest first</option>
+      {% else %}
+        <option value="document:asc" {% if list_order == 'document:asc' %}selected{% endif %}>Document, A–Z</option>
+        <option value="document:desc" {% if list_order == 'document:desc' %}selected{% endif %}>Document, Z–A</option>
+        <option value="household:asc" {% if list_order == 'household:asc' %}selected{% endif %}>Household ID, lowest first</option>
+        <option value="household:desc" {% if list_order == 'household:desc' %}selected{% endif %}>Household ID, highest first</option>
+        <option value="representative:asc" {% if list_order == 'representative:asc' %}selected{% endif %}>Representative, A–Z</option>
+        <option value="representative:desc" {% if list_order == 'representative:desc' %}selected{% endif %}>Representative, Z–A</option>
+        <option value="barangay:asc" {% if list_order == 'barangay:asc' %}selected{% endif %}>Barangay, A–Z</option>
+        <option value="barangay:desc" {% if list_order == 'barangay:desc' %}selected{% endif %}>Barangay, Z–A</option>
+        <option value="status:asc" {% if list_order == 'status:asc' %}selected{% endif %}>Status, A–Z</option>
+        <option value="status:desc" {% if list_order == 'status:desc' %}selected{% endif %}>Status, Z–A</option>
+        <option value="updated:desc" {% if list_order == 'updated:desc' %}selected{% endif %}>Last updated, newest first</option>
+        <option value="updated:asc" {% if list_order == 'updated:asc' %}selected{% endif %}>Last updated, oldest first</option>
+      {% endif %}
+    </select>
+  </div>
   <div class="records-filter-actions">
     <button type="submit">Apply Filters</button>
-    {% if results.filters.parameters %}
+    {% if results.filters.search or results.filters.status or results.filters.barangay or results.filters.sort != 'default' %}
       <a href="{{ url_for(list_endpoint) }}">Clear Filters</a>
     {% endif %}
   </div>
 </form>
-{% if results.filters.parameters %}
+{% if results.filters.search or results.filters.status or results.filters.barangay %}
   <div class="records-active-filters" aria-label="Applied filters">
     <p>Applied filters</p>
     <ul>
       {% if results.filters.search %}
         <li>
           <span>Search: {{ results.filters.search }}</span>
-          <a href="{{ url_for(list_endpoint, status=results.filters.status or None, barangay=results.filters.barangay or None) }}" aria-label="Remove search filter">×</a>
+          <a href="{{ url_for(list_endpoint, status=results.filters.status or None, barangay=results.filters.barangay or None, sort=results.filters.sort, direction=results.filters.direction) }}" aria-label="Remove search filter">×</a>
         </li>
       {% endif %}
       {% if results.filters.status %}
         <li>
           <span>Status: {% for value, label in results.statuses %}{% if value == results.filters.status %}{{ label }}{% endif %}{% endfor %}</span>
-          <a href="{{ url_for(list_endpoint, q=results.filters.search or None, barangay=results.filters.barangay or None) }}" aria-label="Remove status filter">×</a>
+          <a href="{{ url_for(list_endpoint, q=results.filters.search or None, barangay=results.filters.barangay or None, sort=results.filters.sort, direction=results.filters.direction) }}" aria-label="Remove status filter">×</a>
         </li>
       {% endif %}
       {% if results.filters.barangay %}
         <li>
           <span>Barangay: {{ results.filters.barangay }}</span>
-          <a href="{{ url_for(list_endpoint, q=results.filters.search or None, status=results.filters.status or None) }}" aria-label="Remove barangay filter">×</a>
+          <a href="{{ url_for(list_endpoint, q=results.filters.search or None, status=results.filters.status or None, sort=results.filters.sort, direction=results.filters.direction) }}" aria-label="Remove barangay filter">×</a>
         </li>
       {% endif %}
     </ul>

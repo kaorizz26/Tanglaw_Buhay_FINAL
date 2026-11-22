@@ -1,6 +1,7 @@
+{% from 'components/info_popup.html' import info_button %}
 <section class="subsidy-screening" aria-labelledby="subsidy-screening-heading">
   <div class="screening-introduction">
-    <h2 id="subsidy-screening-heading">Subsidy Screening</h2>
+    <h2 id="subsidy-screening-heading"><span class="info-label">Subsidy Screening {{ info_button('subsidy screening status', 'Subsidy screening status', 'For Review means historical conditions triggered a screening rule. Not Enough Information means required information was missing, unclear, or conflicting. No Review Signal means no historical rule was triggered. None of these is an eligibility or approval decision.') }}</span></h2>
     <p class="section-helper">
       Findings are based on CBMS {{ results.context.survey_year }} information and do not
       determine official subsidy eligibility.

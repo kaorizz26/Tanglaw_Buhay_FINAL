@@ -152,6 +152,80 @@ class ImportValidationDatabaseTests(unittest.TestCase):
                 "SELECT count(*) FROM import_validation_events WHERE outcome = 'passed'",
             ).fetchone()[0], 0)
 
+    def test_import_history_filters_counts_and_paginates_in_database(self):
+        connection = psycopg.connect(self.url)
+        try:
+            actor_id = connection.execute(
+                """INSERT INTO staff_users (username, password_hash, role)
+                   SELECT 'pagination_admin', password_hash, role
+                   FROM staff_users WHERE id = %s
+                   RETURNING id""",
+                (self.actor_id,),
+            ).fetchone()[0]
+            metadata = {
+                name: {"records": index}
+                for index, name in enumerate(
+                    ("household", "section_a_e_indiv", "section_l02_to_l41",
+                     "section_l11_to_l14"),
+                    start=1,
+                )
+            }
+            for index in range(30):
+                event_metadata = {
+                    **metadata,
+                    "household": {"records": index + 1},
+                }
+                import_validation_events.record_attempt(
+                    connection,
+                    actor_id,
+                    "passed" if index % 2 == 0 else "rejected",
+                    self.batch_id,
+                    "synthetic-reference",
+                    event_metadata,
+                    0,
+                    0,
+                    survey_year=2024,
+                )
+
+            self.assertEqual(
+                import_validation_events.count_history(
+                    connection, search="pagination", survey_year=2024,
+                ),
+                30,
+            )
+            self.assertEqual(
+                import_validation_events.count_history(
+                    connection, search="pagination", outcome="passed",
+                    survey_year=2024,
+                ),
+                15,
+            )
+            first_page = import_validation_events.list_history_page(
+                connection, search="pagination", survey_year=2024,
+                sort="oldest", limit=25, offset=0,
+            )
+            second_page = import_validation_events.list_history_page(
+                connection, search="pagination", survey_year=2024,
+                sort="oldest", limit=25, offset=25,
+            )
+            self.assertEqual(len(first_page), 25)
+            self.assertEqual(len(second_page), 5)
+            self.assertLess(first_page[-1]["id"], second_page[0]["id"])
+            self.assertTrue(all(
+                event["action_by"] == "pagination_admin" for event in second_page
+            ))
+            records_descending = import_validation_events.list_history_page(
+                connection, search="pagination", survey_year=2024,
+                sort="records_desc", limit=2, offset=0,
+            )
+            self.assertGreater(
+                records_descending[0]["id"], records_descending[1]["id"],
+            )
+            self.assertIn(2024, import_validation_events.list_history_years(connection))
+        finally:
+            connection.rollback()
+            connection.close()
+
     def test_multi_year_migration_keeps_lower_boundary(self):
         with psycopg.connect(self.url) as connection:
             with connection.transaction(force_rollback=True):

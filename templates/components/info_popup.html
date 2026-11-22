@@ -1,0 +1,30 @@
+{% macro info_button(topic, title, body, format=none) -%}
+  <button
+    class="info-button"
+    type="button"
+    aria-label="More information about {{ topic }}"
+    aria-haspopup="dialog"
+    data-info-title="{{ title }}"
+    data-info-body="{{ body }}"
+    {% if format %}data-info-format="{{ format }}"{% endif %}
+  ><span aria-hidden="true">i</span></button>
+{%- endmacro %}
+
+{% macro info_dialog() -%}
+  <dialog
+    class="info-dialog"
+    data-info-dialog
+    aria-labelledby="info-dialog-title"
+    aria-describedby="info-dialog-body"
+  >
+    <div class="info-dialog-content">
+      <div class="info-dialog-heading">
+        <span class="info-dialog-icon" aria-hidden="true">i</span>
+        <h2 id="info-dialog-title" data-info-dialog-title>More information</h2>
+      </div>
+      <p id="info-dialog-body" data-info-dialog-body></p>
+      <dl class="info-dialog-terms" data-info-dialog-terms hidden></dl>
+      <button class="info-dialog-close" type="button" data-info-dialog-close>Close</button>
+    </div>
+  </dialog>
+{%- endmacro %}

@@ -10,11 +10,13 @@ from psycopg.pq import TransactionStatus
 
 from db import get_connection
 from repositories import assessment_evidence, household_progression
+from repositories.assessment_runs import _reference_position
 from services import read_cache
 from services.assessment_details import _indicator
 from services.assessment_evidence_view import DISPLAY_NAMES, direct_condition
 from services.assessment_queries import AssessmentQueryError
 from services.mpi_evidence import build_evidence_index
+from services.prioritization import _household_reference_id
 from services.subsidy_priority import derive_subsidy_priority
 from services.subsidy_screening_content import STATUS_LABELS
 from services.vulnerability.scoring import DIMENSIONS, INDICATOR_WEIGHTS
@@ -25,7 +27,8 @@ UUID_PREFIX = re.compile(r"[0-9a-fA-F-]{4,36}\Z")
 PROGRAMS = ("4Ps", "SLP", "SPISC", "TUPAD")
 CHANGE_LABELS = ("Improved", "Worsened", "Unchanged", "Insufficient Data")
 DASHBOARD_CACHE_SECONDS = 1800
-SEARCH_MODES = ("uuid", "name")
+SEARCH_MODES = ("reference", "name")
+PROGRESSION_SORTS = {"reference", "head", "barangay"}
 MAX_SEARCH_LENGTH = 100
 
 
@@ -60,14 +63,17 @@ def search_households(prefix, *, connection_factory=get_connection):
 
 
 def _search_text(raw, search_by):
-    """Normalize a staff search while keeping UUID and name rules explicit."""
+    """Normalize a staff search while keeping Household ID and name rules explicit."""
     if search_by not in SEARCH_MODES:
         raise InvalidProgressionSelection("invalid_search_mode")
     query = " ".join((raw or "").split())
     if len(query) > MAX_SEARCH_LENGTH or "\x00" in query:
         raise InvalidProgressionSelection("invalid_household_search")
-    if query and search_by == "uuid" and not UUID_PREFIX.fullmatch(query):
-        raise InvalidProgressionSelection("invalid_household_search")
+    if query and search_by == "reference":
+        position = _reference_position(query)
+        if position is None:
+            raise InvalidProgressionSelection("invalid_household_search")
+        query = _household_reference_id(position)
     if query and search_by == "name" and len(query) < 2:
         raise InvalidProgressionSelection("invalid_household_search")
     return query
@@ -96,10 +102,24 @@ def _present_match(row, comparison_years):
         availability = ", ".join(map(str, years))
     return {
         "household_uuid": row["household_uuid"],
+        "household_reference_id": _household_reference_id(row["source_row_number"]),
         "head_name": _head_name(row),
         "barangay": _display_source(row["barangay"]),
         "years": years,
         "availability": availability,
+    }
+
+
+def _present_priority_match(row):
+    """Present one stored active-batch municipal rank for the default list."""
+    return {
+        "household_uuid": row["household_uuid"],
+        "household_reference_id": _household_reference_id(row["source_row_number"]),
+        "head_name": _head_name(row),
+        "barangay": _display_source(row["barangay"]),
+        "years": [row["survey_year"]],
+        "availability": f"{row['survey_year']} active dataset",
+        "municipal_rank": row["municipal_rank"],
     }
 
 
@@ -182,20 +202,38 @@ def _dashboard(connection, earlier, later):
     )
 
 
-def get_progression_index(query="", search_by="uuid", barangay="",
-                          earlier_raw=None, later_raw=None,
+def get_progression_index(query="", search_by="reference", barangay="",
+                          earlier_raw=None, later_raw=None, sort="reference", direction="asc",
                           *, connection_factory=get_connection):
     """Build the read-only progression dashboard and historical search page."""
     query = _search_text(query, search_by)
     barangay = (barangay or "").strip()
     if len(barangay) > 200 or "\x00" in barangay:
         raise InvalidProgressionSelection("invalid_barangay")
+    if sort not in PROGRESSION_SORTS or direction not in {"asc", "desc"}:
+        raise InvalidProgressionSelection("invalid_progression_sort")
     try:
         with _read_snapshot(connection_factory) as connection, connection.transaction():
             connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             batches = _label_batches(household_progression.list_ready_batches(connection))
             pending = household_progression.list_unready_batches(connection)
-            selected = _choose_batches(batches, earlier_raw, later_raw)
+            batch_counts = {
+                row["batch_id"]: row["households"]
+                for row in household_progression.list_ready_batch_household_counts(
+                    connection, [batch["batch_id"] for batch in batches],
+                )
+            }
+            coverage = [{
+                "batch_id": batch["batch_id"],
+                "survey_year": batch["survey_year"],
+                "households": batch_counts.get(batch["batch_id"], 0),
+                "is_active": batch["is_active"],
+            } for batch in batches]
+            active = next((batch for batch in batches if batch["is_active"]), None)
+            selected = _choose_batches(
+                batches, earlier_raw, later_raw,
+                active["batch_id"] if active else None,
+            )
             by_id = {batch["batch_id"]: batch for batch in batches}
             earlier = by_id[selected[0]] if selected else None
             later = by_id[selected[1]] if selected else None
@@ -206,13 +244,20 @@ def get_progression_index(query="", search_by="uuid", barangay="",
             if barangay and barangay not in barangays:
                 raise InvalidProgressionSelection("invalid_barangay")
             matches = []
+            listing_mode = "search" if query or barangay else "priority"
             if query or barangay:
                 rows = household_progression.search_progression_households(
                     connection, scope, query, search_by, barangay,
+                    sort=sort, direction=direction,
                 )
                 comparison_years = ([earlier["survey_year"], later["survey_year"]]
                                     if selected else [])
                 matches = [_present_match(row, comparison_years) for row in rows]
+            elif active:
+                rows = household_progression.list_active_priority_households(
+                    connection, active["batch_id"], active["run_id"], limit=10,
+                )
+                matches = [_present_priority_match(row) for row in rows]
             ready_years = sorted({batch["survey_year"] for batch in batches})
             pending_years = sorted({batch["survey_year"] for batch in pending
                                     if batch["survey_year"] not in ready_years})
@@ -224,22 +269,23 @@ def get_progression_index(query="", search_by="uuid", barangay="",
                 state = "preparing"
             else:
                 state = "needs_import"
-            active = next((batch for batch in batches if batch["is_active"]), None)
             return {
                 "batches": batches,
                 "pending": pending,
                 "ready_years": ready_years,
                 "pending_years": pending_years,
                 "active": active,
+                "coverage": coverage,
                 "selected": selected,
                 "earlier": earlier,
                 "later": later,
                 "state": state,
                 "dashboard": _dashboard(connection, earlier, later) if selected else None,
                 "filters": {"query": query, "search_by": search_by,
-                            "barangay": barangay},
+                            "barangay": barangay, "sort": sort, "direction": direction},
                 "barangays": barangays,
                 "matches": matches,
+                "listing_mode": listing_mode,
             }
     except (InvalidProgressionSelection, AssessmentQueryError):
         raise
@@ -255,8 +301,8 @@ def _batch_id(raw):
     return int(raw)
 
 
-def _choose_batches(batches, earlier_raw, later_raw):
-    """Default to the latest two unique years; require explicit duplicate-year choice."""
+def _choose_batches(batches, earlier_raw, later_raw, active_batch_id=None):
+    """Prefer the active dataset as earlier when a unique newer year is ready."""
     by_id = {row["batch_id"]: row for row in batches}
     if earlier_raw is not None or later_raw is not None:
         if earlier_raw is None or later_raw is None:
@@ -269,6 +315,13 @@ def _choose_batches(batches, earlier_raw, later_raw):
     years = sorted({row["survey_year"] for row in batches})
     if len(years) < 2:
         return None
+    active = by_id.get(active_batch_id)
+    if active is not None:
+        newer_years = [year for year in years if year > active["survey_year"]]
+        if newer_years:
+            later = [row for row in batches if row["survey_year"] == newer_years[-1]]
+            if len(later) == 1:
+                return active["batch_id"], later[0]["batch_id"]
     latest, previous = years[-1], years[-2]
     later = [row for row in batches if row["survey_year"] == latest]
     earlier = [row for row in batches if row["survey_year"] == previous]

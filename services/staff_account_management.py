@@ -1,6 +1,7 @@
 """Validation and credential creation for administrator-created staff accounts."""
 
 import re
+from dataclasses import dataclass
 from datetime import timedelta, timezone
 from secrets import token_urlsafe
 
@@ -17,6 +18,22 @@ from services.email_delivery import (
 
 # Twelve random bytes encode to exactly 16 URL-safe characters without padding.
 TEMPORARY_PASSWORD_BYTES = 12
+STAFF_ACCOUNT_STATUS_OPTIONS = (
+    ("ready", "Ready"),
+    ("pending", "Pending password setup"),
+    ("inactive", "Inactive"),
+)
+STAFF_ACCOUNT_SORT_OPTIONS = (
+    ("newest", "Newest created"),
+    ("oldest", "Oldest created"),
+    ("name", "Staff name A–Z"),
+    ("name_desc", "Staff name Z–A"),
+    ("username", "Username A–Z"),
+    ("username_desc", "Username Z–A"),
+    ("status", "Status A–Z"),
+    ("status_desc", "Status Z–A"),
+)
+STAFF_ACCOUNT_FILTER_LENGTH = 200
 
 
 class StaffAccountInputError(ValueError):
@@ -25,6 +42,97 @@ class StaffAccountInputError(ValueError):
 
 class StaffAccountHasActiveReviews(StaffAccountInputError):
     """The staff member must be relieved of active reviews first."""
+
+
+@dataclass(frozen=True)
+class StaffAccountFilters:
+    """Validated controls for the administrator's staff account directory."""
+
+    search: str = ""
+    status: str = ""
+    sort: str = "newest"
+
+    @property
+    def parameters(self):
+        values = {"q": self.search, "status": self.status}
+        if self.sort != "newest":
+            values["sort"] = self.sort
+        return {key: value for key, value in values.items() if value}
+
+    @property
+    def active(self):
+        return bool(self.search or self.status or self.sort != "newest")
+
+
+def parse_staff_account_filters(arguments):
+    """Read one safe value for each staff-directory filter from a query string."""
+    values = {}
+    for name, default in (("q", ""), ("status", ""), ("sort", "newest")):
+        supplied = arguments.getlist(name)
+        if len(supplied) > 1:
+            raise StaffAccountInputError("Choose valid staff account filters.")
+        values[name] = supplied[0] if supplied else default
+    search = " ".join(values["q"].split())
+    valid_statuses = {value for value, _ in STAFF_ACCOUNT_STATUS_OPTIONS}
+    valid_sorts = {value for value, _ in STAFF_ACCOUNT_SORT_OPTIONS}
+    if (
+        len(search) > STAFF_ACCOUNT_FILTER_LENGTH
+        or "\x00" in search
+        or values["status"] not in valid_statuses | {""}
+        or values["sort"] not in valid_sorts
+    ):
+        raise StaffAccountInputError("Choose valid staff account filters.")
+    return StaffAccountFilters(search, values["status"], values["sort"])
+
+
+def _staff_account_status(account):
+    if not account["is_active"]:
+        return "inactive"
+    return "pending" if account["must_change_password"] else "ready"
+
+
+def filter_staff_accounts(accounts, filters):
+    """Filter and order already-authorized staff directory rows."""
+    if not isinstance(filters, StaffAccountFilters):
+        raise StaffAccountInputError("Choose valid staff account filters.")
+    search = filters.search.casefold()
+    matching = [
+        account for account in accounts
+        if (
+            not search
+            or search in (account.get("display_name") or "").casefold()
+            or search in account["username"].casefold()
+        )
+        and (not filters.status or _staff_account_status(account) == filters.status)
+    ]
+    if filters.sort == "oldest":
+        matching.sort(key=lambda account: (account["created_at"], account["id"]))
+    elif filters.sort in {"name", "name_desc"}:
+        matching.sort(key=lambda account: (
+            (account.get("display_name") or account["username"]).casefold(), account["id"],
+        ), reverse=filters.sort == "name_desc")
+    elif filters.sort in {"username", "username_desc"}:
+        matching.sort(
+            key=lambda account: (account["username"].casefold(), account["id"]),
+            reverse=filters.sort == "username_desc",
+        )
+    elif filters.sort in {"status", "status_desc"}:
+        status_order = {"inactive": 0, "pending": 1, "ready": 2}
+        matching.sort(
+            key=lambda account: (status_order[_staff_account_status(account)], account["id"]),
+            reverse=filters.sort == "status_desc",
+        )
+    else:
+        matching.sort(key=lambda account: (account["created_at"], account["id"]), reverse=True)
+    return matching
+
+
+def staff_account_status_counts(accounts):
+    """Return unfiltered account totals for the three directory status cards."""
+    counts = {"ready": 0, "pending": 0, "inactive": 0}
+    for account in accounts:
+        counts[_staff_account_status(account)] += 1
+    return counts
 
 
 def prepare_temporary_password_email(address, confirmation, verified_in_person):

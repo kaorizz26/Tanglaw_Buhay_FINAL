@@ -16,6 +16,8 @@ COMPLETENESS_OPTIONS = (
 MAX_SEARCH_LENGTH = 200
 MAX_BARANGAY_LENGTH = 200
 SUBSIDY_MODES = ("any", "exact")
+ASSESSMENT_SORTS = {"rank", "reference", "head", "barangay", "score"}
+SORT_DIRECTIONS = {"asc", "desc"}
 PRIORITY_OPTIONS = (
     ("all", "All Households"),
     ("both", "Primary or Secondary Priority"),
@@ -39,6 +41,8 @@ class AssessmentFilters:
     completeness: str = "all"
     subsidy_mode: str = "any"
     priority: str = "all"
+    sort: str = "rank"
+    direction: str = "asc"
 
     @property
     def active(self):
@@ -63,6 +67,10 @@ class AssessmentFilters:
             values["completeness"] = self.completeness
         if self.priority != "all":
             values["priority"] = self.priority
+        if self.sort != "rank":
+            values["sort"] = self.sort
+        if self.direction != "asc":
+            values["direction"] = self.direction
         return values
 
 
@@ -88,6 +96,8 @@ def normalize_filters(filters=None):
         or filters.subsidy_mode not in SUBSIDY_MODES
         or not isinstance(filters.priority, str)
         or filters.priority not in dict(PRIORITY_OPTIONS)
+        or not isinstance(filters.sort, str) or filters.sort not in ASSESSMENT_SORTS
+        or not isinstance(filters.direction, str) or filters.direction not in SORT_DIRECTIONS
     ):
         raise InvalidAssessmentFilters("invalid_assessment_filters")
     return AssessmentFilters(
@@ -97,6 +107,8 @@ def normalize_filters(filters=None):
         completeness=filters.completeness,
         subsidy_mode=filters.subsidy_mode,
         priority=filters.priority,
+        sort=filters.sort,
+        direction=filters.direction,
     )
 
 
@@ -105,7 +117,7 @@ def parse_filter_arguments(arguments):
     values = {}
     for parameter, default in (
         ("q", ""), ("barangay", ""), ("completeness", "all"), ("subsidy_mode", "any"),
-        ("priority", "all"),
+        ("priority", "all"), ("sort", "rank"), ("direction", "asc"),
     ):
         supplied = arguments.getlist(parameter)
         if len(supplied) > 1:
@@ -118,4 +130,6 @@ def parse_filter_arguments(arguments):
         completeness=values["completeness"],
         subsidy_mode=values["subsidy_mode"],
         priority=values["priority"],
+        sort=values["sort"],
+        direction=values["direction"],
     ))

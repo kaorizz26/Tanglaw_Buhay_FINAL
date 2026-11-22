@@ -26,8 +26,8 @@
       {% endif %}
     </div>
 
-    <div class="admin-import-chart-grid">
-      <article class="dashboard-panel admin-import-chart-card" aria-labelledby="dataset-readiness-chart-heading">
+    <div class="admin-import-summary-grid">
+      <article class="dashboard-panel admin-import-summary-card" aria-labelledby="dataset-readiness-chart-heading">
         <div class="admin-dashboard-chart-heading">
           <div>
             <p class="dashboard-panel-kicker">Dataset readiness</p>
@@ -35,42 +35,30 @@
           </div>
           <span>{{ import_dashboard_summary.total }} stored</span>
         </div>
-        <p class="admin-dashboard-chart-description">Validated datasets remain inactive until their assessments are prepared and an administrator activates one.</p>
-        <div class="admin-import-status-chart"
-             role="img"
-             aria-label="{% for item in import_dashboard_summary.statuses %}{{ item.label }}: {{ item.count }} batch{{ '' if item.count == 1 else 'es' }}{{ '. ' if not loop.last else '.' }}{% endfor %}">
-          {% for item in import_dashboard_summary.statuses if item.count %}
-            <span class="admin-import-status-segment admin-import-status-{{ item.key }}" style="flex-grow: {{ item.count }}"></span>
-          {% endfor %}
-        </div>
-        <ul class="admin-dashboard-legend admin-import-status-legend" aria-label="Stored batch status details">
+        <ul class="admin-import-status-summary" aria-label="Stored batch status details">
           {% for item in import_dashboard_summary.statuses %}
-            {% set percent = (item.count / import_dashboard_summary.total * 100) | round(1) %}
-            <li>
+            <li aria-label="{{ item.label }}: {{ item.count }} batch{{ '' if item.count == 1 else 'es' }}">
               <span class="admin-dashboard-swatch admin-import-swatch-{{ item.key }}" aria-hidden="true"></span>
               <span>{{ item.label }}</span>
-              <strong>{{ item.count }} <small>{{ percent }}%</small></strong>
+              <strong>{{ item.count }}</strong>
             </li>
           {% endfor %}
         </ul>
       </article>
 
-      <article class="dashboard-panel admin-import-chart-card" aria-labelledby="dataset-year-chart-heading">
+      <article class="dashboard-panel admin-import-summary-card" aria-labelledby="dataset-year-chart-heading">
         <div class="admin-dashboard-chart-heading">
           <div>
             <p class="dashboard-panel-kicker">Survey coverage</p>
-            <h3 id="dataset-year-chart-heading">Stored batches by survey year</h3>
+            <h3 id="dataset-year-chart-heading">Survey years stored</h3>
           </div>
           <span>{{ import_dashboard_summary.years | length }} year{{ '' if import_dashboard_summary.years | length == 1 else 's' }}</span>
         </div>
-        <p class="admin-dashboard-chart-description">A survey year may contain more than one stored batch when an administrator confirms a re-upload.</p>
-        <ul class="admin-import-year-list" aria-label="Stored batches by survey year">
+        <ul class="admin-import-year-summary" aria-label="Stored batches by survey year">
           {% for item in import_dashboard_summary.years %}
-            {% set percent = (item.count / import_dashboard_summary.total * 100) | round(1) %}
             <li>
-              <span class="admin-import-year-label">{{ item.year }}</span>
-              <span class="admin-import-year-value"><strong>{{ item.count }}</strong> {{ 'batch' if item.count == 1 else 'batches' }}</span>
-              <span class="admin-import-year-track" aria-hidden="true"><span style="width: {{ percent }}%"></span></span>
+              <strong>{{ item.year }}</strong>
+              <span>{{ item.count }} {{ 'batch' if item.count == 1 else 'batches' }}</span>
             </li>
           {% endfor %}
         </ul>

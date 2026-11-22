@@ -1,4 +1,5 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}Prepare Imported Batches{% endblock %}
 
@@ -55,7 +56,7 @@
       <div class="import-batch-panel-heading">
         <div>
           <p class="import-panel-kicker">Stored data</p>
-          <h2 id="batches-heading">Stored batches</h2>
+          <h2 id="batches-heading"><span class="info-label">Stored batches {{ info_button('dataset statuses', 'Inactive, prepared, and active datasets', 'Inactive means a batch is stored but is not used by staff pages. Prepared means its assessments were calculated and verified and it is ready for activation. Active dataset means it is the batch currently used by dashboards, household records, and assessments.') }}</span></h2>
           <p>Review each batch's assessment status. Only an inactive batch without existing assessment results can be prepared here.</p>
         </div>
         <span class="import-batch-count">{{ batches|length }} {{ 'batch' if batches|length == 1 else 'batches' }}</span>
@@ -65,6 +66,44 @@
         <img src="{{ url_for('static', filename='icons/info.svg') }}" alt="" width="18" height="18">
         <p><strong>Preparation does not activate a dataset.</strong> The system calculates, stores and verifies the batch's assessment results. An administrator must activate it separately.</p>
       </div>
+
+      <form class="import-history-filters import-batch-filters" method="get" action="{{ url_for('main.import_batches') }}" role="search" aria-label="Filter stored batches">
+        <div class="import-history-filter-field">
+          <label for="batch-year-filter">Survey year</label>
+          <select id="batch-year-filter" name="year">
+            <option value="">All survey years</option>
+            {% for year in batch_years %}<option value="{{ year }}" {% if batch_year == year|string %}selected{% endif %}>{{ year }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="import-history-filter-field">
+          <label for="batch-sort-filter">Sort by</label>
+          <select id="batch-sort-filter" name="sort">
+            <option value="batch_desc" {% if batch_sort == 'batch_desc' %}selected{% endif %}>Batch number, highest first</option>
+            <option value="batch" {% if batch_sort == 'batch' %}selected{% endif %}>Batch number, lowest first</option>
+            <option value="year_desc" {% if batch_sort == 'year_desc' %}selected{% endif %}>Survey year, newest first</option>
+            <option value="year" {% if batch_sort == 'year' %}selected{% endif %}>Survey year, oldest first</option>
+            <option value="households_desc" {% if batch_sort == 'households_desc' %}selected{% endif %}>Households, highest first</option>
+            <option value="households" {% if batch_sort == 'households' %}selected{% endif %}>Households, lowest first</option>
+            <option value="status" {% if batch_sort == 'status' %}selected{% endif %}>Status A–Z</option>
+            <option value="status_desc" {% if batch_sort == 'status_desc' %}selected{% endif %}>Status Z–A</option>
+          </select>
+        </div>
+        <div class="import-history-filter-field">
+          <label for="batch-state-filter">Preparation status</label>
+          <select id="batch-state-filter" name="state">
+            <option value="">All statuses</option>
+            <option value="active" {% if batch_state == 'active' %}selected{% endif %}>Active dataset</option>
+            <option value="prepared" {% if batch_state == 'prepared' %}selected{% endif %}>Prepared</option>
+            <option value="attention" {% if batch_state == 'attention' %}selected{% endif %}>Needs attention</option>
+            <option value="awaiting" {% if batch_state == 'awaiting' %}selected{% endif %}>Ready to prepare</option>
+          </select>
+        </div>
+        <div class="import-history-filter-actions">
+          <button type="submit">Apply filters</button>
+          {% if batch_year or batch_state or batch_sort != 'batch_desc' %}<a href="{{ url_for('main.import_batches') }}#batches-heading">Clear filters</a>{% endif %}
+        </div>
+      </form>
+      {% if batch_year or batch_state %}<p class="import-history-limit-note" role="status">{{ batches|length }} of {{ batch_total }} stored batches match the selected filters.</p>{% endif %}
 
       {% if batches %}
         <div class="import-batch-cards">
@@ -164,6 +203,8 @@
             </article>
           {% endfor %}
         </div>
+      {% elif batch_year or batch_state %}
+        <div class="import-history-empty"><h3>No stored batches match these filters</h3><p>Choose another survey year or preparation status.</p><a href="{{ url_for('main.import_batches') }}#batches-heading">Show all stored batches</a></div>
       {% else %}
         <div class="import-batch-empty">
           <h3>No stored batches yet</h3>

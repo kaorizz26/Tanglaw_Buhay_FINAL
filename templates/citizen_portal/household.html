@@ -1,4 +1,5 @@
 {% extends 'citizen_portal/base.html' %}
+{% from 'components/info_popup.html' import info_button %}
 {% block title %}My Household{% endblock %}
 {% block main_class %} portal-main-wide{% endblock %}
 {% block navigation %}{% set current = 'household' %}{% include 'citizen_portal/_signed_in_navigation.html' %}{% endblock %}
@@ -62,7 +63,7 @@
               </section>
 
               <section class="portal-staff-result" aria-labelledby="staff-status-{{ program.slug }}">
-                <p class="portal-panel-label" id="staff-status-{{ program.slug }}">LGU staff review</p>
+                <p class="portal-panel-label" id="staff-status-{{ program.slug }}"><span class="info-label">LGU staff review {{ info_button('staff recommendation', 'Staff recommendation', 'This is recorded separately from the system screening finding. A completed recommendation may ask the responsible LGU office to follow up or record no further action. It is not approval, rejection, or an eligibility decision. Read any feedback to see whether you need to act.') }}</span></p>
                 <span class="portal-review-status portal-review-status-{{ program.review.status_class }}">{{ program.review.status_label }}</span>
                 <p>{{ program.review.message }}</p>
                 {% if program.review.feedback %}
@@ -83,7 +84,7 @@
 
     <section class="portal-card portal-interventions" aria-labelledby="interventions-heading">
       <p class="portal-eyebrow">Household support</p>
-      <h2 id="interventions-heading">Interventions and Progress</h2>
+      <h2 id="interventions-heading"><span class="info-label">Interventions and Progress {{ info_button('household progress status', 'Household progress status', 'When enough follow-up information is available, progress may be shown as Improved, No Change, or Declined. Insufficient Information means a reliable comparison cannot be made. No status is estimated from missing records.') }}</span></h2>
       <p>No citizen-visible intervention records are connected to this household yet.</p>
       <p class="portal-lead">Progress or improvement will only appear after the LGU records an intervention, a starting condition, and a follow-up result. Tanglaw-Buhay will not estimate missing progress.</p>
     </section>

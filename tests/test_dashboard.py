@@ -97,6 +97,11 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn('href="/assessments?program=4Ps"', response.text)
         self.assertIn('href="/assessments/queue"', response.text)
         self.assertIn('<details class="navigation-group" open>', response.text)
+        self.assertIn(
+            "Historical findings only. These are not an official poverty classification, "
+            "subsidy eligibility or approval.",
+            response.text,
+        )
         section_nav = response.text.split('class="dashboard-section-nav"', 1)[1].split(
             "</nav>", 1
         )[0]
@@ -395,7 +400,7 @@ class DashboardRouteTests(unittest.TestCase):
             response = self.client.get("/administration")
         self.assertEqual(response.status_code, 200)
         query.assert_called_once_with(barangay=None)
-        for text in ("Dashboard", "Survey Year", "Primary Priority",
+        for text in ("Dashboard", "Primary Priority",
                      "Secondary Priority", "Household Snapshot", "Main water source",
                      "Household Assessment Patterns", "Findings marked",
                      "Administrative Overview", "Assessed households by priority group",
@@ -404,12 +409,11 @@ class DashboardRouteTests(unittest.TestCase):
                      "Password setup progress", "Pending setup",
                      "Review Workload Overview", "Current review queue",
                      "In Review by program", "Dataset and Import Overview",
-                     "Stored batch status", "Stored batches by survey year",
+                     "Stored batch status", "Survey years stored",
                      "Barangay Priority Comparison", "Priority-group share by barangay"):
             self.assertIn(text, response.text)
         ordered_admin_sections = [
             "Dataset and Import Overview",
-            "Historical household statistics",
             "Administrative Overview",
             "Barangay Priority Comparison",
             "Household Assessment Patterns",
@@ -422,9 +426,13 @@ class DashboardRouteTests(unittest.TestCase):
         )[1]
         section_positions = [dashboard_body.index(text) for text in ordered_admin_sections]
         self.assertEqual(section_positions, sorted(section_positions))
+        self.assertNotIn("Historical household statistics", response.text)
+        self.assertNotIn("Historical findings only.", response.text)
+        self.assertNotIn('aria-label="Assessment summary"', response.text)
+        self.assertNotIn("admin-import-year-track", response.text)
         self.assertIn('href="/administration" aria-current="page"', response.text)
         self.assertIn('href="/households"', response.text)
-        self.assertIn('href="/assessments?priority=primary"', response.text)
+        self.assertNotIn('href="/assessments?priority=primary"', response.text)
         self.assertIn('href="/assessments/queue"', response.text)
         self.assertEqual(self.client.get("/").location, "/administration")
         self.reviews_query.assert_not_called()

@@ -36,7 +36,7 @@
     {% set search_hint = 'e.g. HH-00001, a name or Valid ID' %}
     {% include 'submissions/_filters.html' %}
 
-    <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.parameters %}matching{% else %}document{% endif %} {{ 'request' if results.total == 1 else 'requests' }}</p>
+    <p class="records-summary"><strong>{{ '{:,}'.format(results.total) }}</strong> {% if results.filters.search or results.filters.status or results.filters.barangay %}matching{% else %}document{% endif %} {{ 'request' if results.total == 1 else 'requests' }}</p>
 
     {% if results['items'] %}
       <div class="records-table-scroll" role="region" aria-label="Document requests table" tabindex="0">
@@ -44,11 +44,18 @@
           <caption class="visually-hidden">Document requests. Requests waiting for review are listed first, longest waiting at the top.</caption>
           <thead>
             <tr>
-              <th scope="col">Document</th>
-              <th scope="col">Household</th>
-              <th scope="col">Barangay</th>
-              <th scope="col">Status</th>
-              <th scope="col">Last updated</th>
+              {% for label, key, first_direction in (
+                ('Document', 'document', 'asc'),
+                ('Household ID', 'household', 'asc'),
+                ('Representative', 'representative', 'asc'),
+                ('Barangay', 'barangay', 'asc'),
+                ('Status', 'status', 'asc'),
+                ('Last updated', 'updated', 'desc')
+              ) %}
+                {% set active_sort = results.filters.sort == key %}
+                {% set next_direction = ('desc' if results.filters.direction == 'asc' else 'asc') if active_sort else first_direction %}
+                <th scope="col" {% if active_sort %}aria-sort="{{ 'ascending' if results.filters.direction == 'asc' else 'descending' }}"{% endif %}><a class="sortable-heading{% if active_sort %} is-active{% endif %}" href="{{ url_for(list_endpoint, page=1, q=results.filters.search or None, status=results.filters.status or None, barangay=results.filters.barangay or None, sort=key, direction=next_direction) }}">{{ label }} <span aria-hidden="true">{% if active_sort %}{{ '▲' if results.filters.direction == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
+              {% endfor %}
               <th scope="col" class="records-action">Action</th>
             </tr>
           </thead>
@@ -56,7 +63,8 @@
             {% for item in results['items'] %}
               <tr{% if item.awaiting_review %} class="submissions-row-awaiting"{% endif %}>
                 <td data-label="Document"><strong>{{ item.title }}</strong></td>
-                <td data-label="Household"><span class="records-id">{{ item.household_id }}</span><span class="submissions-sub">{{ item.representative }}</span></td>
+                <td data-label="Household ID"><span class="records-id">{{ item.household_id }}</span></td>
+                <td data-label="Representative">{{ item.representative }}</td>
                 <td data-label="Barangay">{{ item.barangay }}</td>
                 <td data-label="Status"><span class="account-status document-status document-status-{{ item.status }}">{{ item.status_label }}</span></td>
                 <td data-label="Last updated">{{ item.updated_at|pht_date }}</td>
@@ -68,7 +76,7 @@
           </tbody>
         </table>
       </div>
-    {% elif results.filters.parameters %}
+    {% elif results.filters.search or results.filters.status or results.filters.barangay %}
       <div class="records-empty" role="status">
         <span class="records-empty-icon" aria-hidden="true"></span>
         <h3>No requests match your search</h3>

@@ -52,11 +52,23 @@ class AddressTests(unittest.TestCase):
         self.assertEqual(page, 3)
         self.assertEqual(filters.parameters,
                          {"q": "Valid ID", "status": "submitted", "barangay": "Poblacion"})
+        page, filters = parse_directory_arguments(
+            args(sort="updated", direction="desc"), REQUEST_STATUSES,
+            service.SORTS_BY_DIRECTORY["document_requests"],
+        )
+        self.assertEqual((page, filters.sort, filters.direction), (1, "updated", "desc"))
+        page, filters = parse_directory_arguments(
+            args(order="updated:desc"), REQUEST_STATUSES,
+            service.SORTS_BY_DIRECTORY["document_requests"],
+        )
+        self.assertEqual((page, filters.sort, filters.direction), (1, "updated", "desc"))
 
     def test_unusable_addresses_are_refused(self):
         bad = [args(status="deleted"), args(page=0), args(page="abc"), args(page="1" * 12),
                args(q="x" * 201), args(barangay="x" * 201), args(q="a\x00b"),
-               MultiDict([("q", "a"), ("q", "b")])]
+               MultiDict([("q", "a"), ("q", "b")]), args(sort="unknown"),
+               args(direction="sideways"), args(order="unknown"),
+               MultiDict((("order", "updated:desc"), ("sort", "updated")))]
         for case in bad:
             with self.subTest(case=dict(case)):
                 with self.assertRaises(InvalidDirectoryFilters):
@@ -337,7 +349,7 @@ def account_item(status="active", **changes):
               "deactivated": "Deactivated"}
     item = {"household_uuid": HOUSEHOLD_UUID, "household_id": "HH-00008",
             "representative": "Maria Santos", "barangay": "Poblacion", "status": status,
-            "status_label": labels[status]}
+            "status_label": labels[status], "created_at": NOW}
     item.update(changes)
     return item
 

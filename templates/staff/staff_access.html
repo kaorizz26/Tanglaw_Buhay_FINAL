@@ -1,4 +1,5 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}Manage Staff Access{% endblock %}
 
@@ -69,7 +70,7 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="permissions" value="dashboard.view">
           <fieldset>
-            <legend>Individual permissions</legend>
+            <legend><span class="info-label">Individual permissions {{ info_button('permission categories', 'Permission categories', 'Each permission names the page or action it unlocks. View permissions open the related directory or records; Manage permissions add actions such as starting reviews or processing submissions. Dashboard access is required. Grant only what this staff member needs.') }}</span></legend>
             <div class="access-permission-list">
               {% for permission in access.permissions %}
                 <label class="access-permission{% if permission.code == 'dashboard.view' %} access-permission-required{% endif %}">

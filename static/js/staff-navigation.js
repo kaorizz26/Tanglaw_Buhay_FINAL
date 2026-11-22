@@ -23,3 +23,25 @@ if (menuButton && navigation) {
   compactLayout.addEventListener("change", updateNavigationLayout);
   updateNavigationLayout();
 }
+
+const progressionEntry = document.querySelector("[data-progression-entry]");
+const progressionOverlay = document.getElementById("progression-entry-overlay");
+
+if (progressionEntry && progressionOverlay) {
+  const resetProgressionEntry = () => {
+    document.body.classList.remove("portal-is-loading");
+    document.body.removeAttribute("aria-busy");
+    progressionOverlay.hidden = true;
+  };
+
+  progressionEntry.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0
+        || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    document.body.classList.add("portal-is-loading");
+    document.body.setAttribute("aria-busy", "true");
+    progressionOverlay.hidden = false;
+    window.requestAnimationFrame(() => progressionOverlay.focus());
+  });
+
+  window.addEventListener("pageshow", resetProgressionEntry);
+}

@@ -1,9 +1,10 @@
+{% from 'components/info_popup.html' import info_button %}
 <section class="staff-reviews" aria-labelledby="staff-reviews-heading">
   {% if review_record %}
     <h2 id="staff-reviews-heading" class="visually-hidden">Staff Review workspace</h2>
   {% else %}
     <div class="section-heading-row">
-      <h2 id="staff-reviews-heading" tabindex="-1">Staff Reviews</h2>
+      <h2 id="staff-reviews-heading" tabindex="-1">Staff Reviews {{ info_button('staff recommendation', 'Staff recommendation', 'A staff recommendation is recorded after an LGU review and remains separate from the system screening result. It recommends follow-up or no further action; it is not subsidy approval or an eligibility decision. Corrections and withdrawals remain in the audit history.') }}</h2>
     </div>
     <p class="section-helper">Historical screening findings are system results. Staff recommendations are recorded separately and do not approve assistance.</p>
   {% endif %}
@@ -61,7 +62,7 @@
               <dd><span class="screening-status screening-status--{{ program.status_class }}">{{ program.status_label }}</span></dd>
             </div>
             <div class="review-finding-block review-finding-block--staff">
-              <dt>{{ 'Staff Review Status' if not program.latest or program.latest.status != 'Closed' else 'Staff Recommendation' }}</dt>
+              <dt><span class="info-label">{{ 'Staff Review Status' if not program.latest or program.latest.status != 'Closed' else 'Staff Recommendation' }} {{ info_button('staff recommendation', 'Staff recommendation', 'A staff recommendation is recorded after an LGU review and remains separate from the system screening result. It recommends follow-up or no further action; it is not subsidy approval or an eligibility decision. Corrections and withdrawals remain in the audit history.') }}</span></dt>
               <dd>
                 {% if program.latest and program.latest.withdrawn %}
                   <span class="staff-review-badge staff-review-badge--withdrawn">Recommendation Withdrawn</span>

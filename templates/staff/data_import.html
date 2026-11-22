@@ -1,4 +1,5 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}Data Import{% endblock %}
 
@@ -122,7 +123,7 @@
         <div id="duplicate-year-warning" class="import-duplicate-warning" role="status"{% if not selected_year_count %} hidden{% endif %}>
           <span class="import-alert-icon" aria-hidden="true">!</span>
           <div>
-            <strong>Dataset already stored for <span data-duplicate-year>{{ survey_year_value }}</span></strong>
+            <strong>Dataset already stored for <span data-duplicate-year>{{ survey_year_value }}</span> {{ info_button('same-year re-upload', 'Same-year re-upload', 'A different dataset uploaded for the same survey year is stored as a separate inactive batch. It does not overwrite, activate, or change any existing dataset. Files that exactly duplicate stored source files are still blocked.') }}</strong>
             <p><span data-duplicate-summary>{{ selected_year_count }} stored {{ 'batch exists' if selected_year_count == 1 else 'batches exist' }}</span> for this survey year. A confirmed re-upload creates a separate inactive batch; it does not replace, activate or change existing data. Exact duplicate files will still be blocked.</p>
           </div>
         </div>
@@ -157,28 +158,74 @@
         <a class="import-history-export" href="{{ url_for('main.import_history_export') }}">Download full history <span aria-hidden="true">↓</span></a>
       </div>
 
+      <form class="import-history-filters" method="get" action="{{ url_for('main.data_import') }}" role="search" aria-label="Filter import history">
+        <div class="import-history-filter-field import-history-search">
+          <label for="history-search">Administrator or batch number</label>
+          <input id="history-search" name="history_q" type="search" value="{{ history_filters.search }}" maxlength="200" placeholder="Enter a name or exact batch number">
+        </div>
+        <div class="import-history-filter-field">
+          <label for="history-outcome">Result</label>
+          <select id="history-outcome" name="history_outcome">
+            <option value="">All results</option>
+            {% for value, label in history_outcome_options %}
+              <option value="{{ value }}" {% if history_filters.outcome == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="import-history-filter-field">
+          <label for="history-year">Survey year</label>
+          <select id="history-year" name="history_year">
+            <option value="">All survey years</option>
+            {% for year in import_history.years if import_history %}
+              <option value="{{ year }}" {% if history_filters.survey_year == year|string %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="import-history-filter-field">
+          <label for="history-sort">Sort activity</label>
+          <select id="history-sort" name="history_sort">
+            {% for value, label in history_sort_options %}
+              <option value="{{ value }}" {% if history_filters.sort == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="import-history-filter-actions">
+          <button type="submit">Apply filters</button>
+          {% if history_filters.active %}<a href="{{ url_for('main.data_import') }}#import-history-heading">Clear filters</a>{% endif %}
+        </div>
+      </form>
+
       {% if history_error %}
         <div class="import-page-alert import-page-alert-error" role="alert">
           <span class="import-alert-icon" aria-hidden="true">!</span>
           <p>{{ history_error }}</p>
         </div>
-      {% elif import_history %}
-        <p class="import-history-limit-note">Showing the 25 most recent retained events. Download the CSV for the complete history.</p>
+      {% elif import_history and import_history['items'] %}
+        <p class="import-history-limit-note">
+          Showing {{ import_history.first_item }}–{{ import_history.last_item }} of {{ import_history.matching_total }} matching retained {{ 'event' if import_history.matching_total == 1 else 'events' }}.
+          The CSV continues to include the complete unfiltered history.
+        </p>
         <div class="import-history-table-wrap">
           <table class="import-history-table">
             <thead>
               <tr>
-                <th scope="col">Action time</th>
-                <th scope="col">Result</th>
-                <th scope="col">Survey year</th>
-                <th scope="col">Batch</th>
-                <th scope="col">Administrator</th>
-                <th scope="col">Records</th>
+                {% for label, ascending, descending, active_values in (
+                  ('Action time', 'oldest', 'newest', ('oldest', 'newest')),
+                  ('Result', 'result', 'result_desc', ('result', 'result_desc')),
+                  ('Survey year', 'year', 'year_desc', ('year', 'year_desc')),
+                  ('Batch', 'batch', 'batch_desc', ('batch', 'batch_desc')),
+                  ('Administrator', 'admin', 'admin_desc', ('admin', 'admin_desc')),
+                  ('Records', 'records', 'records_desc', ('records', 'records_desc'))
+                ) %}
+                  {% set active_sort = history_filters.sort in active_values %}
+                  {% set is_ascending = history_filters.sort == ascending %}
+                  <th scope="col" {% if active_sort %}aria-sort="{{ 'ascending' if is_ascending else 'descending' }}"{% endif %}><a class="sortable-heading{% if active_sort %} is-active{% endif %}" href="{{ url_for('main.data_import', history_q=history_filters.search or None, history_outcome=history_filters.outcome or None, history_year=history_filters.survey_year or None, history_sort=(descending if is_ascending else ascending)) }}#import-history-heading">{{ label }} <span aria-hidden="true">{% if active_sort %}{{ '▲' if is_ascending else '▼' }}{% else %}↕{% endif %}</span></a></th>
+                {% endfor %}
                 <th scope="col">Description</th>
               </tr>
             </thead>
             <tbody>
-              {% for event in import_history %}
+              {% for event in import_history['items'] %}
                 <tr>
                   <td data-label="Action time"><time datetime="{{ event.action_at.isoformat() }}">{{ event.action_at|pht_datetime }}</time></td>
                   <td data-label="Result"><span class="import-history-status import-history-status-{{ event.outcome }}">{{ event.outcome_label }}</span></td>
@@ -195,10 +242,27 @@
             </tbody>
           </table>
         </div>
+        <nav class="import-history-pagination" aria-label="Import history pages">
+          <p>Showing {{ import_history.first_item }}–{{ import_history.last_item }} of {{ import_history.matching_total }}</p>
+          <div class="import-history-page-controls">
+            {% if import_history.has_previous %}
+              <a href="{{ url_for('main.data_import', history_q=history_filters.search or None, history_outcome=history_filters.outcome or None, history_year=history_filters.survey_year or None, history_sort=history_filters.sort if history_filters.sort != 'newest' else None, history_page=import_history.page - 1) }}#import-history-heading" rel="prev"><span aria-hidden="true">←</span> Previous</a>
+            {% else %}
+              <span class="is-disabled" aria-disabled="true"><span aria-hidden="true">←</span> Previous</span>
+            {% endif %}
+            <strong>Page {{ import_history.page }} of {{ import_history.total_pages }}</strong>
+            {% if import_history.has_next %}
+              <a href="{{ url_for('main.data_import', history_q=history_filters.search or None, history_outcome=history_filters.outcome or None, history_year=history_filters.survey_year or None, history_sort=history_filters.sort if history_filters.sort != 'newest' else None, history_page=import_history.page + 1) }}#import-history-heading" rel="next">Next <span aria-hidden="true">→</span></a>
+            {% else %}
+              <span class="is-disabled" aria-disabled="true">Next <span aria-hidden="true">→</span></span>
+            {% endif %}
+          </div>
+        </nav>
       {% else %}
         <div class="import-history-empty">
-          <h3>No import activity yet</h3>
-          <p>Validation and storage attempts will appear here after the administrator previews the first file bundle.</p>
+          <h3>{{ 'No import activity matches these filters' if history_filters.active else 'No import activity yet' }}</h3>
+          <p>{{ 'Try another administrator, batch number, result, or survey year.' if history_filters.active else 'Validation and storage attempts will appear here after the administrator previews the first file bundle.' }}</p>
+          {% if history_filters.active %}<a class="import-history-export" href="{{ url_for('main.data_import') }}#import-history-heading">Show all import activity</a>{% endif %}
         </div>
       {% endif %}
     </section>

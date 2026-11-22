@@ -1,3 +1,4 @@
+{% from 'components/info_popup.html' import info_button %}
 {% set unknown_count = results.unknown_indicators | length %}
 {% if unknown_count %}
   <section class="overview-unknowns" aria-labelledby="unknown-heading">
@@ -123,7 +124,7 @@
 
   <section class="detail-section screening-summary-panel" aria-labelledby="screening-heading">
     <div class="section-heading-row">
-      <h2 id="screening-heading">Subsidy Screening Summary</h2>
+      <h2 id="screening-heading"><span class="info-label">Subsidy Screening Summary {{ info_button('subsidy screening status', 'Subsidy screening status', 'For Review means historical conditions triggered a screening rule. Not Enough Information means required information was missing, unclear, or conflicting. No Review Signal means no historical rule was triggered. None of these is an eligibility or approval decision.') }}</span></h2>
     </div>
     <p class="section-helper">
       Based on the household's recorded CBMS information, the system identifies subsidy programs

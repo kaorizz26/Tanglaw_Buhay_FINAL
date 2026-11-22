@@ -336,9 +336,11 @@ class AssessmentDetailRouteTests(unittest.TestCase):
                 self.assertEqual(overview.headers["Cache-Control"], "no-store")
                 for text in ("HH-00008", "Synthetic Member 1", "36.11", HOUSEHOLD_UUID,
                              "Municipal Vulnerability Rank", "Not Enough Information",
-                             "For Review", "15", "Select the indicator to view its supporting evidence."):
+                             "For Review", "15", "Known-data coverage",
+                             'aria-label="More information about known-data coverage"',
+                             "Select the indicator to view its supporting evidence."):
                     self.assertIn(text, overview.text)
-                for removed in ("Assessment Run 2", "How it works", "data coverage",
+                for removed in ("Assessment Run 2", "How it works",
                                 "Assessment information", "No Historical CBMS Trigger"):
                     self.assertNotIn(removed, overview.text)
                 mpi = self.client.get(self.path + "?tab=mpi")

@@ -25,7 +25,8 @@ STATUS_EXPLANATIONS = {
     'follow-up': 'Staff have finished these reviews and recommend further consideration by the LGU.',
     'no-action': 'Staff have finished these reviews and recommend no additional action at this time.',
 }
-RETURN_KEYS = ('status', 'q', 'barangay', 'program', 'page', 'scope', 'sort')
+RETURN_KEYS = ('status', 'q', 'barangay', 'program', 'page', 'scope', 'sort', 'sort_by')
+QUEUE_SORTS = {'date', 'rank', 'reference', 'head', 'barangay', 'program', 'staff'}
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ class QueueFilters:
     programs: tuple[str, ...] = ()
     scope: str = 'all'
     sort: str = ''
+    sort_by: str = 'date'
 
     @property
     def date_order(self):
@@ -50,26 +52,27 @@ class QueueFilters:
         return {'status': self.status, 'scope': self.scope,
                 **({'sort': self.sort} if self.sort else {}), **AssessmentFilters(
             search=self.search, barangay=self.barangay, programs=self.programs,
-        ).parameters}
+        ).parameters, **({'sort_by': self.sort_by} if self.sort_by != 'date' else {})}
 
 
 def normalize_queue_filters(filters=None):
     filters = QueueFilters() if filters is None else filters
     if (not isinstance(filters, QueueFilters) or not isinstance(filters.status, str)
             or filters.status not in dict(STATUS_OPTIONS)
-            or filters.scope not in ('all', 'mine') or filters.sort not in ('', 'asc', 'desc')):
+            or filters.scope not in ('all', 'mine') or filters.sort not in ('', 'asc', 'desc')
+            or filters.sort_by not in QUEUE_SORTS):
         raise InvalidAssessmentFilters('invalid_review_queue_filters')
     normalized = normalize_filters(AssessmentFilters(
         search=filters.search, barangay=filters.barangay, programs=filters.programs,
     ))
     return QueueFilters(filters.status, normalized.search, normalized.barangay, normalized.programs,
-                        filters.scope, filters.sort)
+                        filters.scope, filters.sort, filters.sort_by)
 
 
 def parse_queue_arguments(arguments, *, default_scope='all'):
     values = {}
     for key, default in (('status', 'in-review'), ('q', ''), ('barangay', ''), ('page', '1'),
-                         ('scope', default_scope), ('sort', '')):
+                         ('scope', default_scope), ('sort', ''), ('sort_by', 'date')):
         supplied = arguments.getlist(key)
         if len(supplied) > 1:
             raise InvalidAssessmentFilters('invalid_review_queue_filters')
@@ -81,6 +84,7 @@ def parse_queue_arguments(arguments, *, default_scope='all'):
         status=values['status'], search=values['q'], barangay=values['barangay'],
         programs=tuple(arguments.getlist('program')),
         scope=values['scope'], sort=values['sort'],
+        sort_by=values['sort_by'],
     ))
     return int(page), filters
 

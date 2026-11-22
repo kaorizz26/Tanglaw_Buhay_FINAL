@@ -1,3 +1,4 @@
+{% from 'components/info_popup.html' import info_button %}
 {% set review = review_record %}
 {# Only a review opened from the Review Queue is passed on, so the next page can lead back here. #}
 {% set assessment_parameters = dict(detail_parameters, from_review=review.program ~ '-' ~ review.id) if queue_return_url else detail_parameters %}
@@ -29,7 +30,7 @@
       {% if review.withdrawn %}
         <p>This recommendation is no longer part of current review results. The completed review remains in history.</p>
       {% else %}
-        <h4>{{ 'Current Staff Recommendation' if review.is_latest_review else 'Saved Staff Recommendation' }}</h4>
+        <h4><span class="info-label">{{ 'Current Staff Recommendation' if review.is_latest_review else 'Saved Staff Recommendation' }} {{ info_button('staff recommendation', 'Staff recommendation', 'This is an LGU staff decision recorded after review, separate from the system screening result. It recommends follow-up or no further action and is not subsidy approval or an eligibility decision. The original remains in history if corrected or withdrawn.') }}</span></h4>
         <p class="review-recommendation">{{ review.effective_recommendation }}</p>
         <p class="review-preserved-text">{{ review.effective_explanation }}</p>
         <p class="review-attribution">{{ 'Corrected' if review.recommendation_version else 'Finished' }} by <strong>{{ review.effective_username }}</strong> on <time datetime="{{ review.effective_at.isoformat() }}">{{ review.effective_at | pht_datetime }}</time>.</p>

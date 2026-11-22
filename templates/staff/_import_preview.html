@@ -1,3 +1,4 @@
+{% from 'components/info_popup.html' import info_button %}
 <section class="import-results-panel" aria-labelledby="result-heading">
   {% set report_passed = report and report.passed and not error %}
   <div class="import-results-heading">
@@ -60,7 +61,7 @@
 
     {% if report.errors %}
       <div class="import-issue-section import-issue-errors">
-        <h3>Blocking issues <span>{{ report.errors|length }}</span></h3>
+        <h3>Blocking issues {{ info_button('blocking issues', 'Blocking issue', 'A blocking issue means the file bundle cannot be stored yet. Correct the listed problem, then preview all four selected files again.') }} <span class="import-issue-count">{{ report.errors|length }}</span></h3>
         <ul class="import-issues">
           {% for issue in report.errors %}
             <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}{% if issue.columns %} <span class="import-column-list">{% for column in issue.columns %}<code>{{ column }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span><b>{{ issue.count }}</b></li>
@@ -70,7 +71,7 @@
     {% endif %}
     {% if report.coverage_notes %}
       <div class="import-issue-section import-issue-information">
-        <h3>Data coverage note <span>{{ report.coverage_notes|length }}</span></h3>
+        <h3>Data coverage note {{ info_button('data coverage notes', 'Data coverage note', 'A coverage note means some related records were unavailable or could not be matched. The import may still proceed, but the note should be reviewed because it can limit later household findings.') }} <span class="import-issue-count">{{ report.coverage_notes|length }}</span></h3>
         <ul class="import-issues">
           {% for issue in report.coverage_notes %}
             <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
@@ -80,7 +81,7 @@
     {% endif %}
     {% if report.warnings %}
       <div class="import-issue-section import-issue-warnings">
-        <h3>Warnings to review <span>{{ report.warnings|length }}</span></h3>
+        <h3>Warnings to review {{ info_button('import warnings', 'Warning', 'A warning does not automatically block storage, so the files may still pass validation. Review it before continuing to make sure the detected condition is expected.') }} <span class="import-issue-count">{{ report.warnings|length }}</span></h3>
         <ul class="import-issues">
           {% for issue in report.warnings %}
             <li><strong>{{ issue.source }}</strong><span>{{ issue.message }}</span><b>{{ issue.count }}</b></li>
@@ -101,7 +102,7 @@
         {% if selected_year_count %}
           <div class="import-reupload-warning" role="alert">
             <span class="import-alert-icon" aria-hidden="true">!</span>
-            <p><strong>This is a same-year re-upload.</strong> Confirming creates a separate inactive batch. It will not replace, activate or change the existing dataset.</p>
+            <p><strong>This is a same-year re-upload. {{ info_button('same-year re-upload', 'Same-year re-upload', 'A different dataset uploaded for the same survey year is stored as a separate inactive batch. It does not overwrite, activate, or change any existing dataset. Files that exactly duplicate stored source files are still blocked.') }}</strong> Confirming creates a separate inactive batch. It will not replace, activate or change the existing dataset.</p>
           </div>
           <label class="import-confirmation import-duplicate-confirmation">
             <input name="confirm_same_year" type="checkbox" value="yes" form="import-upload-form" required>

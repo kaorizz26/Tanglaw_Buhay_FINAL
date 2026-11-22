@@ -8,7 +8,7 @@
 .record-section h2 { margin-top: 4px; font-size: 1.25rem; }
 .record-section-heading > span { color: var(--text-muted); font-size: .875rem; }
 /* The filters now open the panel, so they take its rounded top corners. */
-.records-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) 120px auto; align-items: end; gap: 16px; padding: 22px 24px; border-radius: 13px 13px 0 0; background: #edf3f5; }
+.records-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) 120px auto; align-items: end; gap: 16px; padding: 22px 24px; border-radius: 13px 13px 0 0; background: #edf3f5; }
 .records-summary { padding: 14px 24px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: .875rem; }
 .records-summary strong { color: var(--text); }
 .records-field { display: grid; min-width: 0; gap: 7px; }

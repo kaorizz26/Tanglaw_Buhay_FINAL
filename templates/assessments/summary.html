@@ -1,16 +1,17 @@
+{% from 'components/info_popup.html' import info_button %}
 <dl class="assessment-metrics" aria-label="Assessment summary">
   <div>
-    <dt>Vulnerability Score</dt>
+    <dt><span class="info-label">Vulnerability Score {{ info_button('vulnerability score', 'Vulnerability score', 'This 0–100 score summarizes the available historical household indicators. It helps staff compare recorded conditions and is not an official poverty classification.') }}</span></dt>
     <dd>{{ '%.2f' | format(results.mpi.vulnerability_score) }} <small>/ 100</small></dd>
     <dd class="metric-explanation">Higher scores indicate greater assessed household vulnerability.</dd>
   </div>
   <div>
-    <dt>Municipal Vulnerability Rank</dt>
+    <dt><span class="info-label">Municipal Vulnerability Rank {{ info_button('municipal rank', 'Municipal rank', 'This rank belongs to the complete assessed municipality for this dataset. Filters only narrow displayed records; they do not recalculate or change the stored rank. Households with equal scores share a rank.') }}</span></dt>
     <dd>{{ '{:,}'.format(results.mpi.vulnerability_rank) }} <small>of {{ '{:,}'.format(results.context.household_count) }}</small></dd>
     <dd class="metric-explanation">Households are ranked by vulnerability score. Households with equal scores share the same rank.</dd>
   </div>
   <div>
-    <dt>MPI Indicator Results</dt>
+    <dt><span class="info-label">MPI Indicator Results {{ info_button('known-data coverage', 'Known-data coverage', 'This shows how many of the 16 required historical indicators had enough clear information for a finding. Unknown indicators are not treated as proof that the household was not deprived.') }}</span></dt>
     <dd>{{ results.determined_count }} <small>of 16 determined</small></dd>
     <dd class="metric-explanation">
       {{ results.mpi.unknown_indicator_count }} unknown {{ 'result' if results.mpi.unknown_indicator_count == 1 else 'results' }}.

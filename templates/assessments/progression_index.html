@@ -1,9 +1,11 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}Household Progression{% endblock %}
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/progression.css') }}">
+  <script src="{{ url_for('static', filename='js/progression.js') }}" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -50,7 +52,7 @@
         </div>
       </div>
       <div class="progression-panel">
-        <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-period-form">
+        <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-period-form" data-progression-comparison-form data-processing-title="Updating comparison…" data-processing-message="Please keep this page open while the selected survey datasets are compared.">
           <div>
             <label for="progression-earlier">Earlier survey dataset</label>
             <select id="progression-earlier" name="earlier" required>
@@ -92,19 +94,78 @@
         <div class="progression-stat-dashboard">
         <div class="progression-stat-group" role="group" aria-labelledby="progression-coverage-heading">
           <h3 id="progression-coverage-heading" class="progression-stat-group-heading">Household coverage</h3>
-          <div class="progression-stat-grid progression-stat-grid-households">
-            <article class="progression-stat-card"><span>{{ results.earlier.display_label }} households</span><strong>{{ results.dashboard.households.earlier }}</strong></article>
-            <article class="progression-stat-card"><span>{{ results.later.display_label }} households</span><strong>{{ results.dashboard.households.later }}</strong></article>
-            <article class="progression-stat-card progression-stat-primary"><span>Matched households</span><strong>{{ results.dashboard.households.matched }}</strong></article>
-          </div>
+          {% set coverage_count = results.coverage | length %}
+          {% set coverage_totals = namespace(maximum=0, points='') %}
+          {% for item in results.coverage %}
+            {% if item.households > coverage_totals.maximum %}{% set coverage_totals.maximum = item.households %}{% endif %}
+          {% endfor %}
+          {% set coverage_max = coverage_totals.maximum %}
+          {% set coverage_scale = coverage_max if coverage_max > 0 else 1 %}
+          {% set chart_width = [720, 180 + ((coverage_count - 1) * 160)] | max %}
+          {% set chart_step = (chart_width - 180) / (coverage_count - 1) if coverage_count > 1 else 0 %}
+          {% for item in results.coverage %}
+            {% set point_x = 100 + (loop.index0 * chart_step) %}
+            {% set point_y = 190 - (item.households * 140 / coverage_scale) %}
+            {% set coverage_totals.points = coverage_totals.points ~ point_x ~ ',' ~ point_y ~ (' ' if not loop.last else '') %}
+          {% endfor %}
+          <figure class="progression-line-chart">
+            <svg viewBox="0 0 {{ chart_width }} 260" style="min-width: {{ chart_width }}px" role="img" aria-labelledby="progression-coverage-chart-title progression-coverage-chart-description">
+              <title id="progression-coverage-chart-title">Household count trend across all available survey batches</title>
+              <desc id="progression-coverage-chart-description">The chart includes {{ coverage_count }} available survey batch{% if coverage_count != 1 %}es{% endif %}. Each point is labeled with its survey year, batch number and household count.</desc>
+              <line class="progression-chart-gridline" x1="100" y1="50" x2="{{ chart_width - 80 }}" y2="50"></line>
+              <line class="progression-chart-gridline" x1="100" y1="120" x2="{{ chart_width - 80 }}" y2="120"></line>
+              <line class="progression-chart-axis" x1="100" y1="190" x2="{{ chart_width - 80 }}" y2="190"></line>
+              <text class="progression-chart-axis-label" x="88" y="54" text-anchor="end">{{ coverage_max }}</text>
+              <text class="progression-chart-axis-label" x="88" y="124" text-anchor="end">{{ (coverage_max / 2) | round | int }}</text>
+              <text class="progression-chart-axis-label" x="88" y="194" text-anchor="end">0</text>
+              <polyline class="progression-chart-line" points="{{ coverage_totals.points }}"></polyline>
+              {% for item in results.coverage %}
+                {% set point_x = 100 + (loop.index0 * chart_step) %}
+                {% set point_y = 190 - (item.households * 140 / coverage_scale) %}
+                <circle class="progression-chart-point{% if item.is_active %} is-active{% endif %}" cx="{{ point_x }}" cy="{{ point_y }}" r="7"></circle>
+                <text class="progression-chart-value" x="{{ point_x }}" y="{{ point_y - 15 }}" text-anchor="middle">{{ item.households }}</text>
+                <text class="progression-chart-year" x="{{ point_x }}" y="222" text-anchor="middle">{{ item.survey_year }}</text>
+                <text class="progression-chart-batch" x="{{ point_x }}" y="242" text-anchor="middle">Batch {{ item.batch_id }}{% if item.is_active %} · Active{% endif %}</text>
+              {% endfor %}
+            </svg>
+            <figcaption>Household counts from every imported batch with completed designated assessments.</figcaption>
+          </figure>
         </div>
         <div class="progression-stat-group" role="group" aria-labelledby="progression-outcomes-heading">
-          <h3 id="progression-outcomes-heading" class="progression-stat-group-heading">Matched household outcomes</h3>
-          <div class="progression-stat-grid progression-stat-grid-outcomes">
-            <article class="progression-stat-card progression-stat-improved"><span>Improved</span><strong>{{ results.dashboard.outcomes['Improved'] }}</strong></article>
-            <article class="progression-stat-card progression-stat-worsened"><span>Worsened</span><strong>{{ results.dashboard.outcomes['Worsened'] }}</strong></article>
-            <article class="progression-stat-card progression-stat-unchanged"><span>Unchanged</span><strong>{{ results.dashboard.outcomes['Unchanged'] }}</strong></article>
-            <article class="progression-stat-card progression-stat-insufficient"><span>Insufficient Data</span><strong>{{ results.dashboard.outcomes['Insufficient Data'] }}</strong></article>
+          <h3 id="progression-outcomes-heading" class="progression-stat-group-heading"><span class="info-label">Matched household outcomes {{ info_button('household progress status', 'Household progress status', 'Improved means the later historical score decreased, Worsened means it increased, and Unchanged means it stayed the same. Insufficient Data means a reliable comparison could not be made. These statuses compare recorded survey conditions, not the effect of a specific intervention.') }}</span></h3>
+          {% set matched_households = results.dashboard.households.matched %}
+          {% set unique_households = results.dashboard.households.earlier + results.dashboard.households.later - matched_households %}
+          {% set match_rate = (matched_households * 100 / unique_households) if unique_households else 0 %}
+          {% set improved_pct = (results.dashboard.outcomes['Improved'] * 100 / matched_households) if matched_households else 0 %}
+          {% set worsened_pct = (results.dashboard.outcomes['Worsened'] * 100 / matched_households) if matched_households else 0 %}
+          {% set unchanged_pct = (results.dashboard.outcomes['Unchanged'] * 100 / matched_households) if matched_households else 0 %}
+          {% set insufficient_pct = (results.dashboard.outcomes['Insufficient Data'] * 100 / matched_households) if matched_households else 0 %}
+          <div class="progression-outcomes-layout">
+            <div class="progression-pie-and-legend">
+              <div
+                class="progression-outcome-pie{% if not matched_households %} is-empty{% endif %}"
+                role="img"
+                aria-label="Matched household outcomes: {{ results.dashboard.outcomes['Improved'] }} improved, {{ results.dashboard.outcomes['Worsened'] }} worsened, {{ results.dashboard.outcomes['Unchanged'] }} unchanged, and {{ results.dashboard.outcomes['Insufficient Data'] }} with insufficient data."
+                style="--improved-end: {{ '%.2f' | format(improved_pct) }}%; --worsened-end: {{ '%.2f' | format(improved_pct + worsened_pct) }}%; --unchanged-end: {{ '%.2f' | format(improved_pct + worsened_pct + unchanged_pct) }}%;"
+              >
+                <span><strong>{{ matched_households }}</strong>matched</span>
+              </div>
+              <ul class="progression-outcome-legend" aria-label="Outcome counts and percentages">
+                {% for label, count, percent, class_name in (
+                  ('Improved', results.dashboard.outcomes['Improved'], improved_pct, 'improved'),
+                  ('Worsened', results.dashboard.outcomes['Worsened'], worsened_pct, 'worsened'),
+                  ('Unchanged', results.dashboard.outcomes['Unchanged'], unchanged_pct, 'unchanged'),
+                  ('Insufficient Data', results.dashboard.outcomes['Insufficient Data'], insufficient_pct, 'insufficient')
+                ) %}
+                  <li><span class="progression-legend-swatch progression-legend-{{ class_name }}" aria-hidden="true"></span><span><strong>{{ label }}</strong><small>{{ count }} household{% if count != 1 %}s{% endif %} · {{ '%.1f' | format(percent) }}%</small></span></li>
+                {% endfor %}
+              </ul>
+            </div>
+            <aside class="progression-match-rate" aria-label="Matched household percentage">
+              <span>Dataset overlap</span>
+              <strong>{{ '%.1f' | format(match_rate) }}%</strong>
+              <p>{{ matched_households }} of {{ unique_households }} unique households appear in both selected survey datasets.</p>
+            </aside>
           </div>
         </div>
         </div>
@@ -124,11 +185,21 @@
         </div>
       </div>
       <div class="progression-table-scroll" role="region" aria-label="Changes across all 16 assessment indicators" tabindex="0">
-        <table class="progression-table progression-indicator-table">
-          <thead><tr><th scope="col">Area and indicator</th><th scope="col">Improved</th><th scope="col">Worsened</th><th scope="col">Unchanged</th><th scope="col">Insufficient Data</th></tr></thead>
-          <tbody>
+        <table class="progression-table progression-indicator-table" data-indicator-sort-table>
+          <thead><tr>
+            {% for label, key, sort_type in (
+              ('Area and indicator', 'name', 'text'),
+              ('Improved', 'improved', 'number'),
+              ('Worsened', 'worsened', 'number'),
+              ('Unchanged', 'unchanged', 'number'),
+              ('Insufficient Data', 'insufficient', 'number')
+            ) %}
+              <th scope="col" aria-sort="none"><button type="button" class="sortable-heading progression-sort-button" data-indicator-sort="{{ key }}" data-sort-type="{{ sort_type }}">{{ label }} <span aria-hidden="true">↕</span></button></th>
+            {% endfor %}
+          </tr></thead>
+          <tbody data-indicator-sort-body>
             {% for indicator in results.dashboard.indicators %}
-              <tr>
+              <tr data-indicator-row data-name="{{ (indicator.dimension ~ ' ' ~ indicator.name) | lower }}" data-improved="{{ indicator.counts['Improved'] }}" data-worsened="{{ indicator.counts['Worsened'] }}" data-unchanged="{{ indicator.counts['Unchanged'] }}" data-insufficient="{{ indicator.counts['Insufficient Data'] }}">
                 <th scope="row"><span>{{ indicator.dimension }}</span>{{ indicator.name }}</th>
                 <td>{{ indicator.counts['Improved'] }}</td>
                 <td>{{ indicator.counts['Worsened'] }}</td>
@@ -168,11 +239,11 @@
       <div class="progression-section-heading">
         <div>
           <h2 id="progression-search-heading">Find a household</h2>
-          <p>Search within the available comparison records. UUID is recommended because names may repeat or change.</p>
+          <p>Search by Household ID or recorded household-head name. Household IDs shown here come from the most recent selected survey dataset.</p>
         </div>
       </div>
       <div class="progression-panel">
-        <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-search" role="search">
+        <form method="get" action="{{ url_for('assessments.progression_index') }}" class="progression-search" role="search" data-progression-search-form data-processing-title="Searching household history…" data-processing-message="Please keep this page open while matching historical household records are loaded.">
         {% if results.selected %}
           <input type="hidden" name="earlier" value="{{ results.earlier.batch_id }}">
           <input type="hidden" name="later" value="{{ results.later.batch_id }}">
@@ -180,13 +251,13 @@
         <div class="progression-search-mode">
           <label for="progression-search-by">Search by</label>
           <select id="progression-search-by" name="search_by">
-            <option value="uuid"{% if results.filters.search_by == 'uuid' %} selected{% endif %}>Household UUID (recommended)</option>
+            <option value="reference"{% if results.filters.search_by == 'reference' %} selected{% endif %}>Household ID (recommended)</option>
             <option value="name"{% if results.filters.search_by == 'name' %} selected{% endif %}>Household head name</option>
           </select>
         </div>
         <div class="progression-search-query">
-          <label for="progression-query">UUID or household head name</label>
-          <input id="progression-query" name="q" type="search" maxlength="100" value="{{ results.filters.query }}" placeholder="Enter a UUID or recorded household head name">
+          <label for="progression-query">Household ID or household head name</label>
+          <input id="progression-query" name="q" type="search" maxlength="100" value="{{ results.filters.query }}" placeholder="e.g. HH-00001 or a recorded name">
         </div>
         <div class="progression-search-barangay">
           <label for="progression-barangay">Barangay</label>
@@ -195,22 +266,53 @@
             {% for option in results.barangays %}<option value="{{ option }}"{% if results.filters.barangay == option %} selected{% endif %}>{{ option }}</option>{% endfor %}
           </select>
         </div>
+        <div class="progression-search-sort">
+          <label for="progression-sort">Sort by</label>
+          <select id="progression-sort" name="sort">
+            <option value="reference" {% if results.filters.sort == 'reference' %}selected{% endif %}>Household ID</option>
+            <option value="head" {% if results.filters.sort == 'head' %}selected{% endif %}>Household head</option>
+            <option value="barangay" {% if results.filters.sort == 'barangay' %}selected{% endif %}>Barangay</option>
+          </select>
+        </div>
+        <div class="progression-search-direction">
+          <label for="progression-direction">Sort direction</label>
+          <select id="progression-direction" name="direction">
+            <option value="asc" {% if results.filters.direction == 'asc' %}selected{% endif %}>Ascending</option>
+            <option value="desc" {% if results.filters.direction == 'desc' %}selected{% endif %}>Descending</option>
+          </select>
+        </div>
         <div class="progression-search-actions">
           <button type="submit">Search history</button>
           {% if results.selected %}<a href="{{ url_for('assessments.progression_index', earlier=results.earlier.batch_id, later=results.later.batch_id) }}">Clear filters</a>{% else %}<a href="{{ url_for('assessments.progression_index') }}">Clear filters</a>{% endif %}
         </div>
         </form>
 
-      {% if results.filters.query or results.filters.barangay %}
-        {% if results.matches %}
-          <p class="progression-results-count" role="status">Showing {{ results.matches | length }} matching household{% if results.matches | length != 1 %}s{% endif %}.</p>
+      {% if results.matches %}
+          {% if results.listing_mode == 'priority' %}
+            <p class="progression-results-count" role="status">Top {{ results.matches | length }} household{% if results.matches | length != 1 %}s{% endif %} by stored municipal rank in the currently active {{ results.active.display_label }} dataset.</p>
+          {% else %}
+            <p class="progression-results-count" role="status">Showing {{ results.matches | length }} matching household{% if results.matches | length != 1 %}s{% endif %}.</p>
+          {% endif %}
           <div class="progression-table-scroll" role="region" aria-label="Historical household matches" tabindex="0">
             <table class="progression-table progression-results-table">
-              <thead><tr><th scope="col">Household head</th><th scope="col">Household UUID</th><th scope="col">Barangay</th><th scope="col">Survey availability</th><th scope="col">Action</th></tr></thead>
+              <thead><tr>
+                {% if results.listing_mode == 'priority' %}<th scope="col">Municipal rank</th>{% endif %}
+                {% if results.listing_mode == 'priority' %}
+                  <th scope="col">Household head</th><th scope="col">Household ID</th><th scope="col">Barangay</th>
+                {% else %}
+                  {% for label, key in (('Household head', 'head'), ('Household ID', 'reference'), ('Barangay', 'barangay')) %}
+                    {% set active_sort = results.filters.sort == key %}
+                    {% set next_direction = 'desc' if active_sort and results.filters.direction == 'asc' else 'asc' %}
+                    <th scope="col" {% if active_sort %}aria-sort="{{ 'ascending' if results.filters.direction == 'asc' else 'descending' }}"{% endif %}><a class="sortable-heading{% if active_sort %} is-active{% endif %}" href="{{ url_for('assessments.progression_index', q=results.filters.query or None, search_by=results.filters.search_by, barangay=results.filters.barangay or None, earlier=results.earlier.batch_id if results.selected else None, later=results.later.batch_id if results.selected else None, sort=key, direction=next_direction) }}#progression-search-heading">{{ label }} <span aria-hidden="true">{% if active_sort %}{{ '▲' if results.filters.direction == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
+                  {% endfor %}
+                {% endif %}
+                <th scope="col">Survey availability</th><th scope="col">Action</th>
+              </tr></thead>
               <tbody>
                 {% for match in results.matches %}
                   <tr>
-                    <td>{{ match.head_name }}</td><td class="progression-uuid">{{ match.household_uuid }}</td><td>{{ match.barangay }}</td>
+                    {% if results.listing_mode == 'priority' %}<td><strong>#{{ match.municipal_rank }}</strong></td>{% endif %}
+                    <td>{{ match.head_name }}</td><td class="progression-reference">{{ match.household_reference_id }}</td><td>{{ match.barangay }}</td>
                     <td>{{ match.availability }} <small>{{ match.years | join(', ') }}</small></td>
                     <td><a href="{{ url_for('assessments.progression_detail', household_uuid=match.household_uuid) }}">View history</a></td>
                   </tr>
@@ -218,13 +320,24 @@
               </tbody>
             </table>
           </div>
-          {% if results.matches | length == 25 %}<p class="progression-note">Showing the first 25 matches. Add more UUID or name details to narrow the search.</p>{% endif %}
-        {% else %}
+          {% if results.listing_mode != 'priority' and results.matches | length == 25 %}<p class="progression-note">Showing the first 25 matches. Add more UUID or name details to narrow the search.</p>{% endif %}
+      {% elif results.filters.query or results.filters.barangay %}
           <p class="progression-no-results" role="status">No household assessments match the selected search and barangay.</p>
-        {% endif %}
+      {% elif results.active %}
+          <p class="progression-no-results" role="status">No stored municipal ranks are available in the currently active dataset.</p>
       {% endif %}
         <p class="progression-reminder">Progression results are historical decision support. They do not show subsidy application, eligibility, approval, or receipt of assistance.</p>
       </div>
     </section>
   {% endif %}
+
+  <div class="progression-processing-overlay" id="progression-comparison-overlay" role="status" aria-live="assertive" aria-atomic="true" tabindex="-1" hidden>
+    <div class="progression-processing-card">
+      <span class="progression-processing-spinner" aria-hidden="true"></span>
+      <p class="progression-processing-kicker">Household progression</p>
+      <h2 id="progression-processing-title">Updating comparison…</h2>
+      <p id="progression-processing-message">Please keep this page open while the selected survey datasets are compared.</p>
+      <div class="progression-processing-bar" aria-hidden="true"><span></span></div>
+    </div>
+  </div>
 {% endblock %}

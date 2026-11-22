@@ -65,26 +65,32 @@ def count_records(connection, batch_id, run_id, *, search="", barangay=""):
     ).fetchone()[0]
 
 
-def list_records(connection, batch_id, run_id, *, search="", barangay="", limit, offset):
-    """Order by the stable source reference and load identities for one page only."""
+def list_records(
+    connection, batch_id, run_id, *, search="", barangay="", sort="id",
+    direction="asc", limit, offset,
+):
+    """Sort the complete selection, then return one page with roster summaries."""
     selection, parameters = _selection(batch_id, run_id, search, barangay)
+    order_expressions = {
+        "id": "h.source_row_number",
+        "head": "concat_ws(' ', roster.first_name, roster.middle_name, roster.last_name)",
+        "barangay": "btrim(h.responses ->> 'barangay')",
+        "members": "roster.member_count",
+    }
+    if sort not in order_expressions or direction not in {"asc", "desc"}:
+        raise ValueError("Unsupported household record ordering.")
+    order = order_expressions[sort] + (" DESC" if direction == "desc" else " ASC")
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
-            """WITH page AS (
-                 SELECT h.uuid AS household_uuid, h.batch_id, h.source_row_number,
-                        h.responses ->> 'barangay' AS barangay
-                 FROM households h
-                 JOIN household_assessments a
-                   ON a.batch_id = h.batch_id AND a.household_uuid = h.uuid
-                 WHERE """ + selection + """
-                 ORDER BY h.source_row_number ASC LIMIT %s OFFSET %s
-               )
-               SELECT page.household_uuid, page.source_row_number, page.barangay,
+            """SELECT h.uuid AS household_uuid, h.source_row_number,
+                      h.responses ->> 'barangay' AS barangay,
                       roster.member_count, roster.head_count,
                       CASE WHEN roster.head_count = 1 THEN roster.first_name END AS first_name,
                       CASE WHEN roster.head_count = 1 THEN roster.middle_name END AS middle_name,
                       CASE WHEN roster.head_count = 1 THEN roster.last_name END AS last_name
-               FROM page
+               FROM households h
+               JOIN household_assessments a
+                 ON a.batch_id = h.batch_id AND a.household_uuid = h.uuid
                LEFT JOIN LATERAL (
                  SELECT count(*) AS member_count,
                         count(*) FILTER (WHERE m.responses ->> 'a02_relation_to_hh_head' = '1')
@@ -99,9 +105,10 @@ def list_records(connection, batch_id, run_id, *, search="", barangay="", limit,
                             WHERE m.responses ->> 'a02_relation_to_hh_head' = '1'
                         ) AS last_name
                  FROM household_members m
-                 WHERE m.batch_id = page.batch_id AND m.uuid = page.household_uuid
+                 WHERE m.batch_id = h.batch_id AND m.uuid = h.uuid
                ) roster ON true
-               ORDER BY page.source_row_number ASC""",
+               WHERE """ + selection + " ORDER BY " + order + ", h.source_row_number ASC"
+               " LIMIT %s OFFSET %s",
             (*parameters, limit, offset),
         ).fetchall()
 

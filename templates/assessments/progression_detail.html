@@ -1,4 +1,5 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}Household Progression{% endblock %}
 
@@ -88,7 +89,7 @@
         {% endfor %}
       </div>
       <div class="progression-overall progression-{{ comparison.overall | lower | replace(' ', '-') }}">
-        <strong>{{ comparison.overall }}</strong>
+        <strong><span class="info-label">{{ comparison.overall }} {{ info_button('household progress status', 'Household progress status', 'Improved means the later historical score decreased, Worsened means it increased, and Unchanged means it stayed the same. Insufficient Data means a reliable comparison could not be made. These statuses compare recorded survey conditions, not the effect of a specific intervention.') }}</span></strong>
         {% if comparison.score_change is not none %}
           <span>Score change: {{ '%+.2f' | format(comparison.score_change) }} points</span>
         {% elif first.findings and second.findings %}

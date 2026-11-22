@@ -244,10 +244,22 @@ class PrioritizationTests(unittest.TestCase):
             "barangay=" + "b" * 201,
             "subsidy_mode=invalid", "subsidy_mode=", "subsidy_mode=any&subsidy_mode=exact",
             "priority=invalid", "priority=", "priority=all&priority=primary",
+            "sort=unknown", "direction=sideways", "sort=rank&sort=score",
         ):
             with self.subTest(query=query[:30]):
                 self.assertEqual(self.client.get(f"/assessments?{query}").status_code, 400)
         self.query.assert_not_called()
+
+    def test_column_order_is_validated_and_reaches_the_query(self):
+        self._session()
+        response = self.client.get("/assessments?sort=score&direction=desc")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self.query.call_args.kwargs["filters"],
+            AssessmentFilters(sort="score", direction="desc"),
+        )
+        self.assertIn('<option value="score" selected>', response.text)
+        self.assertIn('aria-sort="descending"', response.text)
 
     def test_priority_filter_and_summary_data_reach_staff_controls(self):
         source = summary_page(page=2)
@@ -297,7 +309,7 @@ class PrioritizationTests(unittest.TestCase):
         selectors = re.search(r'<nav class="priority-selectors".*?</nav>', default, re.S)[0]
         self.assertIn("<strong>51</strong>", selectors)
         self.assertIn("<strong>50</strong>", selectors)
-        self.assertNotIn('class="more-filters" open', default)
+        self.assertIn('class="more-filters" open', default)
         self.assertIn("Households with undetermined results", default)
         self.assertIn("This does not mean the household is not deprived.", " ".join(default.split()))
         self.assertNotIn("MPI completeness", default)

@@ -58,6 +58,11 @@ class QueueFilterTests(unittest.TestCase):
         self.assertEqual(page, 2)
         self.assertEqual(filters.programs, ('4Ps', 'TUPAD'))
         self.assertEqual(filters.search, 'Synthetic Head')
+        sorted_page, sorted_filters = queue.parse_queue_arguments(MultiDict([
+            ('sort_by', 'staff'), ('sort', 'desc'),
+        ]))
+        self.assertEqual((sorted_page, sorted_filters.sort_by, sorted_filters.date_order),
+                         (1, 'staff', 'desc'))
         parameters = queue.queue_return_parameters(page, filters)
         arguments = MultiDict(parse_qs(urlencode(parameters, doseq=True)))
         self.assertEqual(queue.parse_queue_return(arguments), (page, filters))
@@ -70,6 +75,7 @@ class QueueFilterTests(unittest.TestCase):
             'page=1&page=2', 'page=9999999999', 'page=١', 'program=UNKNOWN',
             'barangay=%00', 'q=' + 'x' * 201, 'barangay=' + 'x' * 201,
             'program=4Ps&program=4Ps&program=4Ps&program=4Ps&program=4Ps',
+            'sort_by=unknown', 'sort=sideways',
         ):
             with self.subTest(query=query), self.assertRaises(InvalidAssessmentFilters):
                 queue.parse_queue_arguments(MultiDict(parse_qs(query, keep_blank_values=True)))
@@ -125,9 +131,12 @@ class QueueRouteTests(unittest.TestCase):
             self.assertNotIn('subsidy_mode', page.text)
             self.assertNotIn('Planned', page.text.split('<main', 1)[1])
             headings = re.findall(r'<th scope="col"[^>]*>(.*?)</th>', page.text)
+            headings = [" ".join(re.sub(r"<[^>]+>", "", heading).split())
+                        .replace(" ↕", "").replace(" ▲", "").replace(" ▼", "")
+                        for heading in headings]
             self.assertEqual(headings, [
                 'Municipal Rank', 'Household ID', 'Household Head', 'Barangay',
-                'Subsidy', 'Staff Review', 'Date Started', 'Action',
+                'Subsidy', 'Responsible Staff', 'Date Started', 'Action',
             ])
             status_nav = re.search(r'<nav[^>]*aria-label="Review status".*?</nav>',
                                    page.text, re.S)[0]

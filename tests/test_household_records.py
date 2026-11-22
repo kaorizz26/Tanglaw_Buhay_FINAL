@@ -82,12 +82,17 @@ class HouseholdRecordRouteTests(unittest.TestCase):
             # The survey year comes from the dataset in use and is display-only.
             self.assertIn('id="record-survey-year" type="text" value="2022" readonly', response.text)
             self.assertNotIn('name="year"', response.text)
-            self.assertIn('<th scope="col" class="records-members">Members</th>', response.text)
+            self.assertIn('sort=members&amp;direction=asc', response.text)
+            self.assertIn('class="records-members"', response.text)
+            self.assertNotIn('id="record-order"', response.text)
             self.assertNotIn("Clear Filters", response.text)
             # The Survey Year filter carries the dataset context; no banner, label or extra heading.
             self.assertNotIn("record-notice", response.text)
             self.assertNotIn("Historical snapshot", response.text)
-            self.assertNotIn("<h2", response.text)
+            main_content = response.text.split('<main class="staff-workspace"', 1)[1].split(
+                "</main>", 1
+            )[0]
+            self.assertNotIn("<h2", main_content)
             # The H1 already names the page, so the directory has no breadcrumb.
             self.assertNotIn('aria-label="Breadcrumb"', response.text)
             self.assertIn("Find recorded household and member information for Pozorrubio.",
@@ -197,9 +202,19 @@ class HouseholdRecordFilterTests(unittest.TestCase):
             ("q", "  Synthetic   Head  "), ("barangay", " Synthetic East "), ("page", "2")
         ]))
         self.assertEqual((page, filters), (2, RecordFilters("Synthetic Head", "Synthetic East")))
+        page, filters = parse_record_arguments(MultiDict([
+            ("sort", "members"), ("direction", "desc"),
+        ]))
+        self.assertEqual((page, filters.sort, filters.direction), (1, "members", "desc"))
+        page, filters = parse_record_arguments(MultiDict([("order", "members:desc")]))
+        self.assertEqual((page, filters.sort, filters.direction), (1, "members", "desc"))
         for arguments in (MultiDict([("q", "a"), ("q", "b")]),
                           MultiDict([("page", "-1")]),
-                          MultiDict([("barangay", "x" * 201)])):
+                          MultiDict([("barangay", "x" * 201)]),
+                          MultiDict([("sort", "unknown")]),
+                          MultiDict([("direction", "sideways")]),
+                          MultiDict([("order", "unknown")]),
+                          MultiDict([("order", "members:desc"), ("sort", "members")])):
             with self.assertRaises(InvalidRecordFilters):
                 parse_record_arguments(arguments)
 

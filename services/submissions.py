@@ -23,7 +23,22 @@ MAX_FILTER_LENGTH = 200
 # Links from a directory to a request page carry the list state under these names,
 # so the request page can offer "Back to Document Requests" with the same filters.
 RETURN_PREFIX = "list_"
-RETURN_KEYS = tuple(RETURN_PREFIX + name for name in ("page", "q", "status", "barangay"))
+RETURN_KEYS = tuple(
+    RETURN_PREFIX + name
+    for name in ("page", "q", "status", "barangay", "sort", "direction")
+)
+DIRECTORY_SORTS = {
+    "default", "household", "representative", "barangay", "status", "created",
+    "document", "updated",
+}
+DIRECTORY_ORDERS = {
+    f"{sort}:{direction}": (sort, direction)
+    for sort in DIRECTORY_SORTS for direction in ("asc", "desc")
+}
+SORTS_BY_DIRECTORY = {
+    "citizen_accounts": {"default", "household", "representative", "barangay", "status", "created"},
+    "document_requests": {"default", "document", "household", "representative", "barangay", "status", "updated"},
+}
 STATUS_OPTIONS = {
     "document_requests": list(REQUEST_STATUS_LABELS.items()),
     "citizen_accounts": list(ACCOUNT_STATUS_LABELS.items()),
@@ -39,22 +54,28 @@ class DirectoryFilters:
     search: str = ""
     status: str = ""
     barangay: str = ""
+    sort: str = "default"
+    direction: str = "asc"
 
     @property
     def parameters(self):
         """The filters that are set, as address parameters (empty ones are left out)."""
         values = {"q": self.search, "status": self.status, "barangay": self.barangay}
+        if self.sort != "default":
+            values["sort"] = self.sort
+        if self.direction != "asc":
+            values["direction"] = self.direction
         return {name: value for name, value in values.items() if value}
 
 
-def parse_directory_arguments(arguments, statuses):
+def parse_directory_arguments(arguments, statuses, sorts=DIRECTORY_SORTS):
     """Read page, q, status and barangay from an address; return (page, DirectoryFilters).
 
     `statuses` lists the status values allowed on this directory. Anything else, a
     repeated parameter or a very long text raises InvalidDirectoryFilters.
     """
     values = {}
-    for name in ("q", "status", "barangay", "page"):
+    for name in ("q", "status", "barangay", "page", "sort", "direction", "order"):
         supplied = arguments.getlist(name)
         if len(supplied) > 1:
             raise InvalidDirectoryFilters("repeated")
@@ -63,12 +84,21 @@ def parse_directory_arguments(arguments, statuses):
     barangay = values["barangay"].strip()
     status = values["status"].strip()
     page = values["page"] or "1"
+    sort = values["sort"] or "default"
+    direction = values["direction"] or "asc"
+    if values["order"]:
+        if values["sort"] or values["direction"] or values["order"] not in DIRECTORY_ORDERS:
+            raise InvalidDirectoryFilters("invalid")
+        sort, direction = DIRECTORY_ORDERS[values["order"]]
     if (len(search) > MAX_FILTER_LENGTH or "\x00" in search
             or len(barangay) > MAX_FILTER_LENGTH or "\x00" in barangay
             or (status and status not in statuses)
+            or sort not in sorts or direction not in {"asc", "desc"}
             or not page.isascii() or not page.isdecimal() or len(page) > 9 or int(page) < 1):
         raise InvalidDirectoryFilters("invalid")
-    return int(page), DirectoryFilters(search=search, status=status, barangay=barangay)
+    return int(page), DirectoryFilters(
+        search=search, status=status, barangay=barangay, sort=sort, direction=direction,
+    )
 
 
 def return_parameters(page, filters):
@@ -93,7 +123,9 @@ def parse_return(arguments):
     plain = MultiDict(
         (key[len(RETURN_PREFIX):], value) for key in keys for value in arguments.getlist(key)
     )
-    return parse_directory_arguments(plain, REQUEST_STATUS_LABELS)
+    return parse_directory_arguments(
+        plain, REQUEST_STATUS_LABELS, SORTS_BY_DIRECTORY["document_requests"],
+    )
 
 
 def _page_window(total, page):
@@ -128,7 +160,10 @@ def _directory(page, filters, statuses, count_rows, list_rows, present, extra=No
         page_count, offset = _page_window(total, page)
         if page > page_count:
             return None
-        rows = list_rows(connection, batch_id, **criteria, limit=PAGE_SIZE, offset=offset)
+        rows = list_rows(
+            connection, batch_id, **criteria, sort=filters.sort,
+            direction=filters.direction, limit=PAGE_SIZE, offset=offset,
+        )
         extras = extra(connection, batch_id) if extra else {}
     return {
         "filters": filters, "barangays": barangays, "statuses": statuses,
@@ -145,6 +180,7 @@ def get_account_directory(page, filters, *, connection_factory=get_connection):
             **_present_row(row), "household_uuid": row["household_uuid"],
             "representative": row["representative_name"], "status": row["status"],
             "status_label": ACCOUNT_STATUS_LABELS[row["status"]],
+            "created_at": row["created_at"],
         }
 
     return _directory(

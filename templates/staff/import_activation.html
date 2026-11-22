@@ -1,4 +1,5 @@
 {% extends 'staff/layout.html' %}
+{% from 'components/info_popup.html' import info_button %}
 
 {% block title %}Active Dataset{% endblock %}
 
@@ -44,7 +45,7 @@
       <div class="import-activation-panel-heading">
         <div>
           <p class="import-panel-kicker">Current selection</p>
-          <h2 id="current-batch-heading">{{ 'No active dataset yet' if overview.initial_setup else 'Currently active dataset' }}</h2>
+          <h2 id="current-batch-heading"><span class="info-label">{{ 'No active dataset yet' if overview.initial_setup else 'Currently active dataset' }} {{ info_button('active dataset', 'Active dataset', 'The active dataset is the verified batch currently used by dashboards, household records, assessments, and screening pages. Activating another prepared batch changes which historical dataset staff use.') }}</span></h2>
           <p>{% if overview.initial_setup %}Complete the first activation below before staff begin using household records and assessments.{% else %}This is the validated dataset currently visible to staff.{% endif %}</p>
         </div>
         <span class="import-active-badge">{{ 'Setup required' if overview.initial_setup else 'Active now' }}</span>
@@ -97,7 +98,7 @@
       <div class="import-activation-panel-heading">
         <div>
           <p class="import-panel-kicker">{{ 'First dataset' if overview.initial_setup else 'Available replacements' }}</p>
-          <h2 id="prepared-batches-heading">{{ 'Prepared baseline batch' if overview.initial_setup else 'Prepared batches' }}</h2>
+          <h2 id="prepared-batches-heading"><span class="info-label">{{ 'Prepared baseline batch' if overview.initial_setup else 'Prepared batches' }} {{ info_button('prepared datasets', 'Prepared dataset', 'A prepared dataset is stored and has verified assessment results, but it is not used by staff pages until an administrator explicitly activates it.') }}</span></h2>
           <p>{% if overview.initial_setup %}Activate the authorized first import only after its assessment results have been verified and are ready.{% else %}Only batches with verified assessment results that are ready to use appear here.{% endif %}</p>
         </div>
         <span class="import-candidate-count">{{ overview.candidates|length }} {{ 'batch' if overview.candidates|length == 1 else 'batches' }}</span>

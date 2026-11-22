@@ -38,16 +38,23 @@ assessments = Blueprint("assessments", __name__)
 @permission_required("assessments.view")
 def progression_index():
     """Show municipal progression statistics and find historical households."""
-    allowed = {"q", "search_by", "barangay", "earlier", "later"}
+    allowed = {"q", "search_by", "barangay", "earlier", "later", "sort", "direction"}
     if any(key not in allowed or len(request.args.getlist(key)) != 1
            for key in request.args):
         abort(400, description="Choose valid progression filters.")
     try:
-        results = get_progression_index(
-            request.args.get("q", ""), request.args.get("search_by", "uuid"),
+        progression_arguments = (
+            request.args.get("q", ""), request.args.get("search_by", "reference"),
             request.args.get("barangay", ""), request.args.get("earlier"),
             request.args.get("later"),
         )
+        progression_order = {}
+        if "sort" in request.args or "direction" in request.args:
+            progression_order = {
+                "sort": request.args.get("sort", "reference"),
+                "direction": request.args.get("direction", "asc"),
+            }
+        results = get_progression_index(*progression_arguments, **progression_order)
     except InvalidProgressionSelection:
         abort(400, description="Choose valid survey years and household search filters.")
     except AssessmentQueryError:

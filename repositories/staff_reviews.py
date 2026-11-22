@@ -78,9 +78,24 @@ def count_queue(connection, batch_id, run_id, filters, *, staff_id=None):
 def list_queue(connection, batch_id, run_id, filters, *, limit, offset, staff_id=None):
     """Project bounded summary rows only; do not load evidence, findings or notes."""
     prefix, selection, parameters = _queue_selection(batch_id, run_id, filters, staff_id)
-    column = 'review.created_at' if filters.status == 'in-review' else 'review.finished_at'
+    date_column = 'review.created_at' if filters.status == 'in-review' else 'review.finished_at'
+    columns = {
+        'date': date_column,
+        'rank': 'h.vulnerability_rank',
+        'reference': 'source.source_row_number',
+        'head': """(SELECT max(concat_ws(' ',
+            nullif(nullif(btrim(m.responses ->> 'a01_first_name'), ''), 'NA'),
+            nullif(nullif(btrim(m.responses ->> 'a01_middle_name'), ''), 'NA'),
+            nullif(nullif(btrim(m.responses ->> 'a01_last_name'), ''), 'NA')))
+            FROM household_members m
+            WHERE m.batch_id = h.batch_id AND m.uuid = h.household_uuid
+              AND m.responses ->> 'a02_relation_to_hh_head' = '1')""",
+        'barangay': "btrim(source.responses ->> 'barangay')",
+        'program': 'review.program',
+        'staff': 'lower(responsible.username)',
+    }
     direction = {'asc': 'ASC', 'desc': 'DESC'}[filters.date_order]
-    ordering = f'{column} {direction}, review.id {direction}'
+    ordering = f'{columns[filters.sort_by]} {direction}, review.id {direction}'
     with connection.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             prefix + """SELECT review.*, state.effective_recommendation, h.vulnerability_rank,

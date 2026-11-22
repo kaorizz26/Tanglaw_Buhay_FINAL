@@ -75,6 +75,150 @@ button:focus-visible,
   transform: translateY(0);
 }
 
+/* Reusable plain-language information popup. */
+.info-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.info-button {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  padding: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  color: #315c76;
+  font-family: Georgia, serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.info-button:hover {
+  background: #e9f1f5;
+  color: var(--navy);
+}
+
+.info-dialog {
+  width: calc(100vw - 32px);
+  max-width: 430px;
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 20px 55px rgb(16 42 63 / 28%);
+}
+
+.info-dialog-wide {
+  max-width: 640px;
+}
+
+.info-dialog::backdrop {
+  background: rgb(9 28 42 / 56%);
+}
+
+.info-dialog-content {
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.info-dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 12px;
+}
+
+.info-dialog-heading h2 {
+  color: var(--navy);
+  font-size: 1.2rem;
+  line-height: 1.3;
+}
+
+.info-dialog-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: white;
+  font-family: Georgia, serif;
+  font-weight: 700;
+}
+
+.info-dialog-content > p {
+  color: var(--text-muted);
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.info-dialog-terms {
+  display: grid;
+  grid-template-columns: minmax(145px, 0.72fr) minmax(0, 1.8fr);
+  gap: 12px 18px;
+  margin: 4px 0 0;
+}
+
+.info-dialog-terms[hidden] {
+  display: none;
+}
+
+.info-dialog-terms dt {
+  color: var(--navy);
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.info-dialog-terms dd {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.info-dialog-close {
+  display: block;
+  min-width: 88px;
+  margin: 20px 0 0 auto;
+  padding: 9px 18px;
+  border: 1px solid var(--navy);
+  border-radius: 7px;
+  background: var(--navy);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.info-dialog-close:hover {
+  background: var(--navy-active);
+}
+
+@media (max-width: 520px) {
+  .info-dialog-content {
+    padding: 20px;
+  }
+
+  .info-dialog-terms {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .info-dialog-terms dd + dt {
+    margin-top: 10px;
+  }
+}
+
 /* Typography */
 h1,
 h2,

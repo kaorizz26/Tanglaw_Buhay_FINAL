@@ -321,7 +321,11 @@ def _read_summary_page(
 ):
     """Read one summary page from the database; the caller decides whether to cache it."""
     current_age = _current_age_statuses(connection, context, assessed)
-    selection = {"filters": filters} if filters.active else {}
+    selection = (
+        {"filters": filters}
+        if filters.active or filters.sort != "rank" or filters.direction != "asc"
+        else {}
+    )
     total = context["household_count"]
     priority_counts = None
     if include_priority_counts:

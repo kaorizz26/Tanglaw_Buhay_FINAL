@@ -5,6 +5,7 @@ import csv
 from datetime import datetime, timezone
 from io import BytesIO
 from io import StringIO
+from html import unescape
 import os
 from pathlib import Path
 import re
@@ -12,6 +13,7 @@ from secrets import token_urlsafe
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from flask import g
 from werkzeug.datastructures import FileStorage, MultiDict
@@ -23,7 +25,9 @@ from services.data_loader import EXCEL_FILES, REFERENCE_FILES
 from services.import_references import (
     ImportReferenceError, load_import_references, load_system_import_references,
 )
-from services.import_history import export_import_history, get_import_history
+from services.import_history import (
+    export_import_history, get_import_history, parse_import_history_filters,
+)
 from services.import_validation import (
     ImportPreviewError, ImportValidationUnavailable, STAGING_MARKER,
     _cleanup_stale, create_import_preview_token, validate_admin_upload,
@@ -529,7 +533,13 @@ class ImportRouteTests(unittest.TestCase):
         self.stored_years = patch("routes.main.stored_survey_year_counts", return_value={})
         self.stored_years_mock = self.stored_years.start()
         self.addCleanup(self.stored_years.stop)
-        self.import_history = patch("routes.main.get_import_history", return_value=[])
+        self.import_history = patch(
+            "routes.main.get_import_history_directory",
+            return_value={
+                "items": [], "matching_total": 0, "total": 0,
+                "years": [], "limit": 25,
+            },
+        )
         self.import_history_mock = self.import_history.start()
         self.addCleanup(self.import_history.stop)
 
@@ -573,7 +583,7 @@ class ImportRouteTests(unittest.TestCase):
         self.assertEqual(self.client.get("/administration/import").status_code, 403)
 
     def test_import_history_is_visible_in_its_own_page_section(self):
-        self.import_history_mock.return_value = [{
+        event = {
             "id": 14,
             "uploaded_at": datetime(2026, 11, 21, tzinfo=timezone.utc),
             "uploaded_by": "synthetic_admin",
@@ -588,7 +598,13 @@ class ImportRouteTests(unittest.TestCase):
             "total_records": 19304,
             "error_count": 0,
             "warning_count": 1,
-        }]
+        }
+        self.import_history_mock.return_value = {
+            "items": [event], "matching_total": 1, "total": 1,
+            "years": [2024], "limit": 25, "per_page": 25,
+            "page": 1, "total_pages": 1, "first_item": 1, "last_item": 1,
+            "has_previous": False, "has_next": False,
+        }
         response = self.client.get("/administration/import")
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'class="import-history-panel"', response.data)
@@ -596,7 +612,89 @@ class ImportRouteTests(unittest.TestCase):
         self.assertIn(b"synthetic_admin", response.data)
         self.assertIn(b"19,304", response.data)
         self.assertIn(b"Stored the validated files", response.data)
-        self.import_history_mock.assert_called_with(limit=25)
+        self.assertIn("Showing 1–1 of 1".encode(), response.data)
+        self.assertIn(b"Page 1 of 1", response.data)
+        self.import_history_mock.assert_called_with(
+            parse_import_history_filters(MultiDict()), limit=25,
+        )
+
+    def test_import_history_pagination_preserves_filters_and_sort(self):
+        event = {
+            "id": 14,
+            "uploaded_at": datetime(2026, 11, 21, tzinfo=timezone.utc),
+            "uploaded_by": "synthetic_admin",
+            "action_at": datetime(2026, 11, 21, tzinfo=timezone.utc),
+            "action_by": "synthetic_admin",
+            "outcome": "staged",
+            "outcome_label": "Batch stored",
+            "description": "Stored a validated inactive dataset batch.",
+            "same_year_reupload": False,
+            "survey_year": 2024,
+            "batch_id": 8,
+            "total_records": 40,
+            "error_count": 0,
+            "warning_count": 0,
+        }
+        self.import_history_mock.return_value = {
+            "items": [dict(event, id=index) for index in range(26, 51)],
+            "matching_total": 80, "total": 100, "years": [2024, 2022],
+            "limit": 25, "per_page": 25, "page": 2, "total_pages": 4,
+            "first_item": 26, "last_item": 50,
+            "has_previous": True, "has_next": True,
+        }
+        query = MultiDict((
+            ("history_q", "admin"), ("history_outcome", "staged"),
+            ("history_year", "2024"), ("history_sort", "oldest"),
+            ("history_page", "2"),
+        ))
+        response = self.client.get("/administration/import", query_string=query)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Showing 26–50 of 80".encode(), response.data)
+        self.assertIn(b"Page 2 of 4", response.data)
+        text = response.get_data(as_text=True)
+        page_links = re.findall(
+            r'<a href="([^"]+)" rel="(?:prev|next)">', text,
+        )
+        self.assertEqual(len(page_links), 2)
+        pages = set()
+        for link in page_links:
+            parameters = parse_qs(urlparse(unescape(link)).query)
+            self.assertEqual(parameters["history_q"], ["admin"])
+            self.assertEqual(parameters["history_outcome"], ["staged"])
+            self.assertEqual(parameters["history_year"], ["2024"])
+            self.assertEqual(parameters["history_sort"], ["oldest"])
+            pages.add(parameters["history_page"][0])
+        self.assertEqual(pages, {"1", "3"})
+        self.import_history_mock.assert_called_with(
+            parse_import_history_filters(query), limit=25,
+        )
+
+    def test_import_history_rejects_invalid_page_values(self):
+        for value in ("0", "-1", "text"):
+            with self.subTest(value=value):
+                response = self.client.get(
+                    "/administration/import", query_string={"history_page": value},
+                )
+                self.assertEqual(response.status_code, 400)
+
+    def test_stored_batches_filter_by_year_and_preparation_status(self):
+        batches = [
+            {"id": 1, "survey_year": 2022, "is_active": True,
+             "designated_run_id": 7, "run_count": 1, "households": 10},
+            {"id": 2, "survey_year": 2024, "is_active": False,
+             "designated_run_id": None, "run_count": 0, "households": 12},
+        ]
+        with patch("routes.main.list_import_batches", return_value=batches):
+            response = self.client.get(
+                "/administration/import/batches?year=2024&state=awaiting",
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Batch 2", response.data)
+        self.assertNotIn(b"Batch 1</h3>", response.data)
+        self.assertIn(b"1 of 2 stored batches match", response.data)
+        self.assertEqual(self.client.get(
+            "/administration/import/batches?state=unknown",
+        ).status_code, 400)
 
     def test_first_import_page_explains_baseline_setup(self):
         self.active_dataset_mock.return_value = False

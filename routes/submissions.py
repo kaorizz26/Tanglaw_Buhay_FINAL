@@ -11,7 +11,7 @@ from routes.staff_forms import staff_context
 from services.assessment_queries import AssessmentQueryError
 from services.auth import lgu_staff_required, permission_required
 from services.submissions import (
-    STATUS_OPTIONS, InvalidDirectoryFilters, get_account_detail, get_account_directory,
+    SORTS_BY_DIRECTORY, STATUS_OPTIONS, InvalidDirectoryFilters, get_account_detail, get_account_directory,
     get_request_directory, parse_directory_arguments, return_parameters,
 )
 
@@ -24,7 +24,9 @@ UNAVAILABLE_MESSAGE = "This list is unavailable right now. Please try again late
 def _read_arguments(kind):
     """Read the search, status, barangay and page from the address, or stop with an error."""
     try:
-        return parse_directory_arguments(request.args, dict(STATUS_OPTIONS[kind]))
+        return parse_directory_arguments(
+            request.args, dict(STATUS_OPTIONS[kind]), SORTS_BY_DIRECTORY[kind],
+        )
     except InvalidDirectoryFilters:
         abort(400, description=BAD_FILTERS_MESSAGE)
 

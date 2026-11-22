@@ -46,8 +46,10 @@ def index_result(*, state="needs_import", matches=None, dashboard=None, query=""
         "batches": [batch], "pending": [], "ready_years": [2022],
         "pending_years": [], "active": batch, "selected": None,
         "earlier": None, "later": None, "state": state,
+        "coverage": [{"batch_id": 1, "survey_year": 2022,
+                      "households": 1, "is_active": True}],
         "dashboard": dashboard,
-        "filters": {"query": query, "search_by": "uuid", "barangay": ""},
+        "filters": {"query": query, "search_by": "reference", "barangay": ""},
         "barangays": ["Synthetic East"], "matches": matches or [],
     }
 
@@ -124,6 +126,21 @@ class ProgressionComparisonTests(unittest.TestCase):
         with self.assertRaises(progression.InvalidProgressionSelection):
             progression._choose_batches(batches, "3", "1")
 
+    def test_active_dataset_is_preferred_as_the_default_earlier_period(self):
+        batches = [
+            {"survey_year": 2022, "batch_id": 1},
+            {"survey_year": 2023, "batch_id": 2},
+            {"survey_year": 2024, "batch_id": 3},
+        ]
+        self.assertEqual(
+            progression._choose_batches(batches, None, None, active_batch_id=1),
+            (1, 3),
+        )
+        self.assertEqual(
+            progression._choose_batches(batches, None, None, active_batch_id=3),
+            (2, 3),
+        )
+
     def test_copied_mpi_uses_its_original_run_provenance(self):
         batch = {"batch_id": 1, "calculation_provenance": {"mpi_source_run_id": 2}}
         hashes = {path.relative_to(progression.ROOT).as_posix(): "synthetic-hash"
@@ -158,13 +175,13 @@ class ProgressionComparisonTests(unittest.TestCase):
         self.assertEqual(sum(result["indicators"][0]["counts"].values()), 1)
 
     def test_search_rules_keep_uuid_preferred_but_allow_names(self):
-        self.assertEqual(progression._search_text(" 1111 ", "uuid"), "1111")
+        self.assertEqual(progression._search_text(" hh-00001 ", "reference"), "HH-00001")
         self.assertEqual(progression._search_text(" Synthetic   Head ", "name"),
                          "Synthetic Head")
         with self.assertRaises(progression.InvalidProgressionSelection):
             progression._search_text("x", "name")
         with self.assertRaises(progression.InvalidProgressionSelection):
-            progression._search_text("not-a-uuid", "uuid")
+            progression._search_text("not-an-id", "reference")
 
 
 class ProgressionRouteTests(unittest.TestCase):
@@ -190,20 +207,26 @@ class ProgressionRouteTests(unittest.TestCase):
     def test_staff_guard_and_historical_search(self):
         self.assertEqual(self.client.get("/assessments/progression").location, "/login")
         self._sign_in()
-        result = index_result(query="1111", matches=[{
+        result = index_result(query="HH-00001", matches=[{
             "household_uuid": str(HOUSEHOLD_UUID), "years": [2022],
+            "household_reference_id": "HH-00001",
             "head_name": "Synthetic Head", "barangay": "Synthetic East",
             "availability": "2022 only",
         }])
         with patch("routes.assessments.get_progression_index", return_value=result) as query:
-            response = self.client.get("/assessments/progression?q=1111")
+            response = self.client.get("/assessments/progression?q=HH-00001")
         self.assertEqual(response.status_code, 200)
-        query.assert_called_once_with("1111", "uuid", "", None, None)
+        query.assert_called_once_with("HH-00001", "reference", "", None, None)
         self.assertIn("Household Progression", response.text)
         self.assertIn(str(HOUSEHOLD_UUID), response.text)
         self.assertIn("Synthetic Head", response.text)
-        self.assertIn("Household UUID (recommended)", response.text)
+        self.assertIn("Household ID (recommended)", response.text)
+        self.assertIn("HH-00001", response.text)
+        self.assertNotIn("Household UUID", response.text)
         self.assertIn("View history", response.text)
+        self.assertIn("data-progression-entry", response.text)
+        self.assertIn('id="progression-entry-overlay"', response.text)
+        self.assertIn("Reviewing imported datasets", response.text)
 
     def test_staff_empty_state_does_not_link_to_admin_import(self):
         self._sign_in()
@@ -227,11 +250,30 @@ class ProgressionRouteTests(unittest.TestCase):
         self._sign_in()
         earlier = {"survey_year": 2022, "batch_id": 1, "run_id": 11,
                    "display_label": "2022", "is_active": False}
-        later = {"survey_year": 2024, "batch_id": 2, "run_id": 12,
-                 "display_label": "2024", "is_active": True}
+        middle = {"survey_year": 2024, "batch_id": 2, "run_id": 12,
+                  "display_label": "2024", "is_active": False}
+        later = {"survey_year": 2026, "batch_id": 3, "run_id": 13,
+                 "display_label": "2026", "is_active": True}
         result = {
-            **index_result(), "batches": [earlier, later], "ready_years": [2022, 2024],
-            "active": later, "selected": (1, 2), "earlier": earlier, "later": later,
+            **index_result(), "batches": [earlier, middle, later],
+            "ready_years": [2022, 2024, 2026],
+            "coverage": [
+                {"batch_id": 1, "survey_year": 2022, "households": 20,
+                 "is_active": False},
+                {"batch_id": 2, "survey_year": 2024, "households": 21,
+                 "is_active": False},
+                {"batch_id": 3, "survey_year": 2026, "households": 22,
+                 "is_active": True},
+            ],
+            "active": later, "selected": (1, 3), "earlier": earlier, "later": later,
+            "listing_mode": "priority",
+            "matches": [{
+                "household_uuid": str(HOUSEHOLD_UUID),
+                "household_reference_id": "HH-00001",
+                "head_name": "Synthetic Head", "barangay": "Synthetic East",
+                "years": [2024], "availability": "2024 active dataset",
+                "municipal_rank": 1,
+            }],
             "state": "ready", "dashboard": {
                 "households": {"earlier": 20, "later": 22, "matched": 18,
                                "earlier_only": 2, "later_only": 4},
@@ -245,9 +287,28 @@ class ProgressionRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Household coverage", response.text)
         self.assertIn("Matched household outcomes", response.text)
-        self.assertIn("progression-stat-grid-households", response.text)
-        self.assertIn("progression-stat-grid-outcomes", response.text)
-        self.assertEqual(response.text.count('class="progression-stat-card'), 7)
+        self.assertIn('class="progression-line-chart"', response.text)
+        self.assertIn('class="progression-chart-line"', response.text)
+        self.assertIn(">2022</text>", response.text)
+        self.assertIn(">Batch 1</text>", response.text)
+        self.assertIn(">2024</text>", response.text)
+        self.assertIn(">Batch 2</text>", response.text)
+        self.assertIn(">2026</text>", response.text)
+        self.assertIn(">Batch 3 · Active</text>", response.text)
+        self.assertIn('class="progression-outcome-pie', response.text)
+        self.assertIn("Dataset overlap", response.text)
+        self.assertIn("75.0%", response.text)
+        self.assertIn("18 of 24 unique households", response.text)
+        self.assertIn("5 households · 27.8%", response.text)
+        self.assertIn("data-progression-comparison-form", response.text)
+        self.assertIn('id="progression-comparison-overlay"', response.text)
+        self.assertIn('/static/js/progression.js', response.text)
+        self.assertIn("Top 1 household by stored municipal rank", response.text)
+        self.assertIn("Municipal rank", response.text)
+        self.assertIn("#1", response.text)
+        self.assertIn("data-progression-search-form", response.text)
+        self.assertIn("data-indicator-sort-table", response.text)
+        self.assertEqual(response.text.count("data-indicator-sort="), 5)
         self.assertEqual(response.text.count('class="progression-major-section"'), 3)
         overview = response.text.split('aria-labelledby="progression-dashboard-heading"', 1)[1]
         self.assertLess(overview.index('id="progression-dashboard-heading"'),
@@ -418,6 +479,13 @@ class ProgressionPostgresTests(unittest.TestCase):
             [(first, 2022), (second, 2024)],
         )
         self.assertEqual(
+            {row["batch_id"]: row["households"] for row in
+             repository.list_ready_batch_household_counts(
+                 self.connection, [first, second],
+             )},
+            {first: 2, second: 1},
+        )
+        self.assertEqual(
             [row["batch_id"] for row in repository.find_history(self.connection, shared)],
             [first, second],
         )
@@ -437,10 +505,20 @@ class ProgressionPostgresTests(unittest.TestCase):
         )
         self.assertEqual([row["household_uuid"] for row in by_name], [shared])
         self.assertEqual(by_name[0]["years"], [2022, 2024])
+        by_reference = repository.search_progression_households(
+            self.connection, [first, second], "HH-00001", "reference",
+        )
+        self.assertEqual([row["household_uuid"] for row in by_reference], [shared])
+        self.assertEqual(by_reference[0]["source_row_number"], 1)
         by_barangay = repository.search_progression_households(
-            self.connection, [first, second], "", "uuid", "Synthetic West",
+            self.connection, [first, second], "", "reference", "Synthetic West",
         )
         self.assertEqual([row["household_uuid"] for row in by_barangay], [older_only])
+        ranked = repository.list_active_priority_households(
+            self.connection, second, second_run,
+        )
+        self.assertEqual([row["household_uuid"] for row in ranked], [shared])
+        self.assertEqual(ranked[0]["municipal_rank"], 1)
         pairs = repository.list_comparison_findings(
             self.connection, first, first_run, second, second_run,
         )
