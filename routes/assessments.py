@@ -2,12 +2,12 @@
 
 from dataclasses import replace
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, g, redirect, render_template, request, url_for
 
 from services.assessment_queries import AssessmentQueryError
 from services.assessment_filters import InvalidAssessmentFilters, parse_filter_arguments
 from services.auth import (
-    ADMIN_ROLE, check_csrf, csrf_token, has_permission, permission_required,
+    ADMIN_ROLE, admin_required, check_csrf, csrf_token, has_permission, permission_required,
     require_permission,
 )
 from services.household_records import (
@@ -26,6 +26,11 @@ from services.subsidy_screening_content import PROGRAM_NAMES
 from services.review_queue import (
     get_review_queue_page, parse_queue_arguments, parse_queue_return,
     parse_review_origin, queue_return_parameters,
+)
+from services.review_activity import (
+    ReviewActivityFilterError, ReviewActivityUnavailable,
+    export_review_activity, get_review_activity_page,
+    parse_review_activity_filters,
 )
 from routes.recommendation_changes import recommendation_form
 from routes.dataset_setup import is_no_active_dataset, render_dataset_setup
@@ -156,14 +161,19 @@ def _add_review_origin(navigation, household_uuid, review_origin, review_history
 def queue():
     """Read explicit staff work through the existing staff authorization guard."""
     admin_activity_view = g.user['role'] == ADMIN_ROLE
+    activity_history = None
+    activity_error = None
     try:
         page, filters = parse_queue_arguments(
             request.args, default_scope='all' if admin_activity_view else 'mine',
         )
+        activity_filters = (
+            parse_review_activity_filters(request.args) if admin_activity_view else None
+        )
         if admin_activity_view and filters.scope != 'all':
             filters = replace(filters, scope='all')
         results = get_review_queue_page(page, filters, staff_id=g.user['id'])
-    except InvalidAssessmentFilters:
+    except (InvalidAssessmentFilters, ReviewActivityFilterError):
         abort(400, description='Choose valid review status and filter values.')
     except AssessmentQueryError as failure:
         if is_no_active_dataset(failure):
@@ -177,11 +187,42 @@ def queue():
     if results is None:
         flash('This queue page is no longer available. Showing the first page.')
         return redirect(url_for('assessments.queue', page=1, **filters.parameters), code=303)
+    if admin_activity_view:
+        try:
+            activity_history = get_review_activity_page(activity_filters)
+        except ReviewActivityUnavailable:
+            activity_error = 'Review action history is temporarily unavailable.'
     return render_template(
         'assessments/queue.html', results=results,
         admin_activity_view=admin_activity_view,
+        activity_history=activity_history, activity_error=activity_error,
+        activity_filters=activity_filters,
         role_label='System Administrator' if g.user['role'] == ADMIN_ROLE else 'LGU Staff',
         staff_username=g.user['username'], csrf_token=csrf_token(),
+    )
+
+
+@assessments.get('/assessments/queue/activity.csv')
+@admin_required
+def review_activity_export():
+    """Download all matching metadata-only review actions and audit the export."""
+    try:
+        filters = parse_review_activity_filters(request.args)
+        contents = export_review_activity(filters, g.user['id'])
+    except ReviewActivityFilterError:
+        abort(400, description='Choose valid review activity filters.')
+    except ReviewActivityUnavailable:
+        abort(503, description='Review activity export is unavailable. Apply migration 0022 and try again.')
+    return Response(
+        '\ufeff' + contents,
+        content_type='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition': (
+                'attachment; filename="tanglaw-buhay-review-activity.csv"'
+            ),
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+        },
     )
 
 

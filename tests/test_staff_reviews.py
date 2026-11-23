@@ -857,6 +857,61 @@ class StaffReviewDatabaseTests(unittest.TestCase):
         )
         self.assertIsInstance(active, int)
 
+    def test_review_action_history_exports_metadata_and_audits_admin(self):
+        from services.review_activity import (
+            ReviewActivityFilters, ReviewActivityUnavailable,
+            export_review_activity, get_review_activity_page,
+        )
+
+        review_id = self.start(staff_id=self.staff_ids[0])
+        self.act(
+            review_id, 'reassign', responsible_staff_id=self.staff_ids[1],
+            responsibility_version=1, text='Synthetic coverage change.',
+        )
+        self.act(review_id, 'note', text='Private synthetic note body.')
+        self.act(
+            review_id, 'finish', recommendation='No Further Action',
+            text='Private synthetic closing explanation.',
+        )
+        filters = ReviewActivityFilters(search='HH-00008', program='4Ps')
+        history = get_review_activity_page(filters, connection_factory=self.connect)
+        self.assertEqual(history['matching_total'], 4)
+        self.assertEqual(
+            {row['action'] for row in history['items']},
+            {'started', 'reassigned', 'note_added', 'finished'},
+        )
+        self.assertTrue(all(row['household_reference_id'] == 'HH-00008'
+                            for row in history['items']))
+        self.assertFalse(any('Private synthetic' in row['description']
+                             for row in history['items']))
+        username_history = get_review_activity_page(
+            ReviewActivityFilters(search='synthetic_admin'),
+            connection_factory=self.connect,
+        )
+        self.assertEqual(username_history['matching_total'], 1)
+
+        contents = export_review_activity(
+            filters, self.staff_ids[0], connection_factory=self.connect,
+        )
+        self.assertIn('HH-00008', contents)
+        self.assertIn('Responsible staff reassigned', contents)
+        self.assertNotIn('Private synthetic note body', contents)
+        self.assertNotIn('Private synthetic closing explanation', contents)
+        with self.connect() as connection:
+            event = connection.execute(
+                """SELECT exported_by, matching_actions, filters
+                   FROM staff_review_export_events""",
+            ).fetchone()
+            self.assertEqual(event[:2], (self.staff_ids[0], 4))
+            self.assertEqual(event[2]['program'], '4Ps')
+            with self.assertRaises(psycopg.errors.RaiseException), connection.transaction():
+                connection.execute('DELETE FROM staff_review_export_events')
+
+        with self.assertRaises(ReviewActivityUnavailable):
+            export_review_activity(
+                filters, self.staff_ids[1], connection_factory=self.connect,
+            )
+
     def test_invalid_actions_associations_and_required_fields_write_nothing(self):
         review_id = self.start()
         cases = [

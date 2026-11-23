@@ -37,7 +37,7 @@ read-only for everyone.
 | Household Assessment | Overview, all 16 MPI indicators with View Evidence, Subsidy Screening, and Staff Reviews tabs for one household. |
 | Subsidy Screening | Four separate historical screening findings for 4Ps, SLP, SPISC, and TUPAD, shown as For Review, Not Enough Information, or No Review Signal. SPISC uses a current-age recommendation. |
 | Staff Reviews | Start a review for one household and program, add permanent notes, reassign the responsible staff member, finish with a recommendation, or cancel. |
-| Review Queue | Municipality-wide queue with three status cards (In Review, For LGU Follow-Up, No Further Action), Assigned to Me / All Staff Reviews scope, search, filters, date sorting, and direct links to each review. |
+| Review Queue | Municipality-wide queue with three status cards (In Review, For LGU Follow-Up, No Further Action), Assigned to Me / All Staff Reviews scope, search, filters, date sorting, and direct links to each review. Administrators also have a metadata-only, filterable Review Action History with a complete filtered CSV export. |
 | Recommendation Management | Correct or withdraw a completed recommendation with a reason, confirmation, and retained audit history. |
 | Public Information Pages | `/public` and one page for each of 4Ps, SLP, SPISC, and TUPAD. Each program has a bilingual Pozorrubio research-estimate dashboard with source limitations and unavailable-data states for wider geographic scopes. The pages need no account, read no protected CBMS records, and accept no submissions. |
 | MPI and Screening Engines | Sixteen-indicator vulnerability score and four independent subsidy engines; the designated completed assessment is **Run 3**. |
@@ -342,6 +342,25 @@ permissions to accounts already in the database. Accounts created after the
 migration begin with Dashboard access only. An administrator then uses **Staff
 Accounts → Account List → Manage access** to grant the features required for the
 staff member's work.
+
+Administrator Review Action History exports require migration 0022. Check that
+its audit table is absent, then apply the migration once. It does not change
+reviews, assessment findings, household source rows, or existing review history:
+
+```sql
+SELECT to_regclass('public.staff_review_export_events');
+```
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -X -h localhost -U tanglaw_local -W -d tanglaw_buhay_dev -1 -v ON_ERROR_STOP=1 -f "migrations/0022_review_activity_export_audit.sql"
+```
+
+The history page is administrator-only and displays action metadata, not note,
+reason, or explanation text. Its CSV contains every action matching the selected
+filters, not only the current 25-row page. Each export is itself recorded in the
+append-only `staff_review_export_events` audit table. Keep exported files in
+approved LGU storage, restrict access, and delete working copies according to the
+LGU retention policy.
 
 If using an existing development database, check `staff_users` first and run only
 the missing migration(s). Do not reapply a migration whose column already exists:

@@ -489,6 +489,7 @@ frontend reset; that history remains in Git at `9a6b24c`.
 | `/assessments` | Administrator or `assessments.view` | Household Prioritization. `routes/assessments.py::prioritization` |
 | `/assessments/<household_uuid>` | Administrator or `assessments.view` | Household Assessment; `?tab=overview`, `mpi`, or `screening`. The `reviews` tab additionally requires `reviews.view`. |
 | `/assessments/queue` | Administrator or `reviews.view` | Review Queue. |
+| `/assessments/queue/activity.csv` | System Administrator | Export all review actions matching the validated Review Action History filters. The export is metadata-only and audited. |
 | `/assessments/<household_uuid>/reviews/<program>` | Administrator or `reviews.manage` | Start Review confirmation (GET) and creation (POST). `<program>` is `4Ps`, `SLP`, `SPISC` or `TUPAD`. |
 | `/assessments/<household_uuid>/reviews/<program>/<review_id>` | Administrator or `reviews.view` | Read the focused review workspace. POST and action forms (`finish`, `cancel`, `reassign`, `correct`, `withdraw`) additionally require `reviews.manage`. Correct and withdraw are handled by `routes/recommendation_changes.py`. |
 | `/public`, `/public/programs/<slug>` | Anyone, no sign-in | Public information pages; `<slug>` is `4ps`, `spisc`, `slp` or `tupad`. `routes/public.py` |
@@ -2197,6 +2198,38 @@ Prioritization filters and survive existing note/finish/cancel forms and assessm
 tabs. If a queue page disappears after a transition, return to page 1 with filters
 intact. Focused coverage: `python -B -m unittest discover -s tests -p test_review_queue.py`.
 
+#### Administrator Review Action History
+
+The Review Queue includes a separate administrator-only history below the current
+work queue. `services/review_activity.py` validates namespaced `activity_*`
+filters, while `repositories/review_activity.py` projects retained starts, notes,
+reassignments, finishes, cancellations, corrections and withdrawals without
+copying the private note, reason, cancellation, or explanation bodies. The page
+shows 25 actions at a time and retains filters and sorting between pages. Search
+accepts a staff username or formatted Household ID; action, program, survey year,
+batch and Philippine-date range filters are also supported.
+
+`GET /assessments/queue/activity.csv` is protected by `admin_required`. It exports
+all matching metadata, not only the displayed page, and escapes spreadsheet
+formula prefixes. The CSV includes action time, action type, staff username,
+formatted Household ID, barangay, program, review ID, survey year, batch,
+responsibility metadata, recommendation category and a fixed safe description.
+It intentionally excludes household UUIDs and heads, note bodies, reassignment
+reasons, closing explanations, cancellation reasons and correction reasons.
+
+Migration `0022_review_activity_export_audit.sql` adds the append-only
+`staff_review_export_events` table. A database trigger accepts only active System
+Administrators, and every successful export records the actor, time, filters and
+matching-row count in the same transaction used to load the export. Application
+startup does not apply the migration. Viewing the history works from existing
+review tables, but export safely returns unavailable until 0022 is applied once.
+Exported files remain sensitive operational metadata: store them only in approved
+LGU locations and follow the LGU retention policy.
+
+Focused coverage:
+`python -B -m unittest discover -s tests -p "test_review_activity.py"` plus the
+review action history database case in `tests/test_staff_reviews.py`.
+
 ### Review responsibility (Task 5.1)
 
 Migration 0007 has already been applied successfully to the local development
@@ -2517,6 +2550,7 @@ applying each missing migration once; never rewrite or reapply one already used:
 | `0012_staff_account_deletion.sql` | Adds nullable `deleted_at`; retained unchanged because it was already applied in a local development database. Current deactivation uses `is_active` and does not read or write `deleted_at`. |
 | `0020_staff_password_reset_requests.sql` | Stores neutral LGU Staff password-help requests and their completion metadata. |
 | `0021_staff_access_permissions.sql` | Adds the permission catalog, per-account grants, required dependency constraints, default Dashboard grant, existing-staff full-access backfill, and append-only administrator audit history. |
+| `0022_review_activity_export_audit.sql` | Adds append-only administrator audit records for metadata-only Review Action History CSV exports. It does not alter review or assessment records. |
 
 The Data Import branch introduces `0013_import_validation_audit.sql`, which creates
 `import_validation_events` with `actor_id` referencing `staff_users.id`. Since
@@ -2548,6 +2582,7 @@ unchanged). The two sets do not depend on each other. Databases were checked rea
 | `0019_initial_dataset_activation.sql` | Data Import | applied | not applied |
 | `0020_staff_password_reset_requests.sql` | Staff Accounts | applied 2026-11-11 | not applied |
 | `0021_staff_access_permissions.sql` | Staff Access Control | applied 2026-11-22 with explicit owner authorization | not checked |
+| `0022_review_activity_export_audit.sql` | Review Action History export | applied 2026-11-23 with explicit owner authorization | not checked |
 
 Never apply a migration whose tables already exist. Use `psql -1 -v ON_ERROR_STOP=1` so a
 mistaken re-run rolls back completely.
@@ -2559,6 +2594,11 @@ migration history instead of rerunning the file. Application startup never
 applies 0021. Automated verification creates and drops isolated schemas only in
 the configured `tanglaw_buhay_test` database; it must not migrate or reset the
 development database.
+
+Before applying 0022, confirm that
+`to_regclass('public.staff_review_export_events')` returns null. Apply 0022 once
+with `psql -1 -v ON_ERROR_STOP=1`; never rewrite or reapply it after use. It is
+independent of the stored assessment engines and review-state migrations.
 
 Migration 0018 supports permanent deletion of an unused inactive administrator import
 without deleting its accountability record. The service serializes import preparation,

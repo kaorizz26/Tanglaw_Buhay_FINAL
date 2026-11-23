@@ -243,4 +243,159 @@
       </div>
     {% endif %}
   </section>
+
+  {% if admin_activity_view %}
+    <section class="review-activity-history" id="review-action-history" aria-labelledby="review-action-history-heading">
+      <div class="review-activity-heading">
+        <div>
+          <p class="review-activity-kicker">Administrator audit view</p>
+          <h2 id="review-action-history-heading">Review Action History</h2>
+          <p>Browse retained staff workflow actions across survey batches. Note contents, reasons, household names and UUIDs are not shown or exported.</p>
+        </div>
+        {% if activity_history %}
+          <a class="review-activity-export" href="{{ url_for('assessments.review_activity_export', **activity_filters.export_parameters) }}">Download filtered history</a>
+        {% endif %}
+      </div>
+
+      {% if activity_error %}
+        <p class="review-activity-error" role="alert">{{ activity_error }}</p>
+      {% elif activity_history %}
+        {% set more_activity_filters_active = activity_filters.survey_year or activity_filters.batch or activity_filters.date_from or activity_filters.date_to or activity_filters.sort != 'newest' %}
+        <form class="review-activity-filters" method="get" action="{{ url_for('assessments.queue') }}" aria-label="Filter review action history">
+          <input type="hidden" name="page" value="{{ results.page }}">
+          <input type="hidden" name="status" value="{{ results.filters.status }}">
+          <input type="hidden" name="scope" value="{{ results.filters.scope }}">
+          {% if results.filters.search %}<input type="hidden" name="q" value="{{ results.filters.search }}">{% endif %}
+          {% if results.filters.barangay %}<input type="hidden" name="barangay" value="{{ results.filters.barangay }}">{% endif %}
+          {% for program in results.filters.programs %}<input type="hidden" name="program" value="{{ program }}">{% endfor %}
+          {% if results.filters.sort %}<input type="hidden" name="sort" value="{{ results.filters.sort }}">{% endif %}
+          {% if results.filters.sort_by != 'date' %}<input type="hidden" name="sort_by" value="{{ results.filters.sort_by }}">{% endif %}
+
+          <div class="review-activity-filter-field review-activity-filter-search">
+            <label for="activity-q">Staff username or Household ID</label>
+            <input id="activity-q" name="activity_q" type="search" maxlength="200" value="{{ activity_filters.search }}" placeholder="e.g. staff.name or HH-00042">
+          </div>
+          <div class="review-activity-filter-field">
+            <label for="activity-action">Action</label>
+            <select id="activity-action" name="activity_action">
+              <option value="">All actions</option>
+              {% for value, label in activity_history.action_options %}
+                <option value="{{ value }}" {% if activity_filters.action == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="review-activity-filter-field">
+            <label for="activity-program">Program</label>
+            <select id="activity-program" name="activity_program">
+              <option value="">All programs</option>
+              {% for program in activity_history.program_options %}
+                <option value="{{ program }}" {% if activity_filters.program == program %}selected{% endif %}>{{ program }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <details class="review-activity-more-filters" {% if more_activity_filters_active %}open{% endif %}>
+            <summary>
+              <span>More filters</span>
+              <small>Survey year, batch, date range and sorting</small>
+            </summary>
+            <div class="review-activity-more-filter-grid">
+              <div class="review-activity-filter-field">
+                <label for="activity-year">Survey year</label>
+                <select id="activity-year" name="activity_year">
+                  <option value="">All survey years</option>
+                  {% for year in activity_history.years %}
+                    <option value="{{ year }}" {% if activity_filters.survey_year == year|string %}selected{% endif %}>{{ year }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="review-activity-filter-field">
+                <label for="activity-batch">Batch</label>
+                <select id="activity-batch" name="activity_batch">
+                  <option value="">All batches</option>
+                  {% for batch in activity_history.batches %}
+                    <option value="{{ batch.batch_id }}" {% if activity_filters.batch == batch.batch_id|string %}selected{% endif %}>Batch {{ batch.batch_id }} · {{ batch.survey_year }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="review-activity-filter-field">
+                <label for="activity-from">From date</label>
+                <input id="activity-from" name="activity_from" type="date" value="{{ activity_filters.date_from }}">
+              </div>
+              <div class="review-activity-filter-field">
+                <label for="activity-to">To date</label>
+                <input id="activity-to" name="activity_to" type="date" value="{{ activity_filters.date_to }}">
+              </div>
+              <div class="review-activity-filter-field review-activity-filter-sort">
+                <label for="activity-sort">Sort activity</label>
+                <select id="activity-sort" name="activity_sort">
+                  {% for value, label in activity_history.sort_options %}
+                    <option value="{{ value }}" {% if activity_filters.sort == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </details>
+          <div class="review-activity-filter-actions">
+            <button type="submit">Apply history filters</button>
+            {% if activity_filters.active %}
+              <a href="{{ url_for('assessments.queue', page=results.page, status=results.filters.status, scope=results.filters.scope, q=results.filters.search or None, barangay=results.filters.barangay or None, program=results.filters.programs or None, sort=results.filters.sort or None, sort_by=results.filters.sort_by if results.filters.sort_by != 'date' else None) }}#review-action-history">Clear history filters</a>
+            {% endif %}
+          </div>
+        </form>
+
+        {% if activity_history['items'] %}
+          <p class="review-activity-limit-note">The table and CSV contain action metadata only. Open the protected review record to read saved notes or explanations.</p>
+          <div class="review-activity-table-wrap" role="region" aria-label="Review action history table" tabindex="0">
+            <table class="review-activity-table">
+              <thead>
+                <tr>
+                  <th scope="col">Action time</th>
+                  <th scope="col">Action</th>
+                  <th scope="col">Staff</th>
+                  <th scope="col">Household</th>
+                  <th scope="col">Program</th>
+                  <th scope="col">Survey batch</th>
+                  <th scope="col">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for event in activity_history['items'] %}
+                  <tr>
+                    <td data-label="Action time"><time datetime="{{ event.action_at.isoformat() }}">{{ event.action_at | pht_datetime }}</time></td>
+                    <td data-label="Action"><span class="review-activity-badge review-activity-badge--{{ event.action }}">{{ event.action_label }}</span></td>
+                    <td data-label="Staff"><strong>{{ event.actor_username }}</strong></td>
+                    <td data-label="Household"><strong>{{ event.household_reference_id }}</strong><small>{{ event.barangay }}</small></td>
+                    <td data-label="Program">{{ event.program }}</td>
+                    <td data-label="Survey batch">{{ event.survey_year }}<small>Batch {{ event.batch_id }} · Review {{ event.review_id }}</small></td>
+                    <td data-label="Details">{{ event.description }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <nav class="review-activity-pagination" aria-label="Review action history pages">
+            <p>Showing {{ activity_history.first_item }}–{{ activity_history.last_item }} of {{ activity_history.matching_total }}</p>
+            <div class="review-activity-page-controls">
+              {% if activity_history.has_previous %}
+                <a rel="prev" href="{{ url_for('assessments.queue', page=results.page, status=results.filters.status, scope=results.filters.scope, q=results.filters.search or None, barangay=results.filters.barangay or None, program=results.filters.programs or None, sort=results.filters.sort or None, sort_by=results.filters.sort_by if results.filters.sort_by != 'date' else None, activity_q=activity_filters.search or None, activity_action=activity_filters.action or None, activity_program=activity_filters.program or None, activity_year=activity_filters.survey_year or None, activity_batch=activity_filters.batch or None, activity_from=activity_filters.date_from or None, activity_to=activity_filters.date_to or None, activity_sort=activity_filters.sort if activity_filters.sort != 'newest' else None, activity_page=activity_history.page - 1) }}#review-action-history">← Previous</a>
+              {% else %}
+                <span class="is-disabled" aria-disabled="true">← Previous</span>
+              {% endif %}
+              <strong>Page {{ activity_history.page }} of {{ activity_history.total_pages }}</strong>
+              {% if activity_history.has_next %}
+                <a rel="next" href="{{ url_for('assessments.queue', page=results.page, status=results.filters.status, scope=results.filters.scope, q=results.filters.search or None, barangay=results.filters.barangay or None, program=results.filters.programs or None, sort=results.filters.sort or None, sort_by=results.filters.sort_by if results.filters.sort_by != 'date' else None, activity_q=activity_filters.search or None, activity_action=activity_filters.action or None, activity_program=activity_filters.program or None, activity_year=activity_filters.survey_year or None, activity_batch=activity_filters.batch or None, activity_from=activity_filters.date_from or None, activity_to=activity_filters.date_to or None, activity_sort=activity_filters.sort if activity_filters.sort != 'newest' else None, activity_page=activity_history.page + 1) }}#review-action-history">Next →</a>
+              {% else %}
+                <span class="is-disabled" aria-disabled="true">Next →</span>
+              {% endif %}
+            </div>
+          </nav>
+        {% else %}
+          <div class="review-activity-empty">
+            <h3>{{ 'No review actions match these filters' if activity_filters.active else 'No review actions recorded yet' }}</h3>
+            <p>{{ 'Adjust or clear the history filters to see other retained actions.' if activity_filters.active else 'Started reviews and later staff actions will appear here.' }}</p>
+          </div>
+        {% endif %}
+      {% endif %}
+    </section>
+  {% endif %}
 {% endblock %}

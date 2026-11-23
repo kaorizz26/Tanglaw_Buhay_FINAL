@@ -15,7 +15,7 @@ from werkzeug.datastructures import MultiDict
 from app import create_app
 from assessment_detail_fixtures import HOUSEHOLD_UUID
 from repositories import assessment_runs, staff_reviews
-from services import review_queue as queue
+from services import review_activity, review_queue as queue
 from services.assessment_filters import InvalidAssessmentFilters
 from services.assessment_queries import AssessmentQueryError
 import test_staff_reviews as reviews
@@ -47,6 +47,21 @@ def queue_fixture(page=1, filters=None, *, total=51, staff_id=None):
         patch.object(queue.dataset_batches, 'list_barangays', return_value=['Synthetic Barangay']),
     ):
         return queue.get_review_queue_page(page, filters, staff_id=staff_id or 7)
+
+
+def activity_fixture(items=None, filters=None):
+    filters = filters or review_activity.ReviewActivityFilters()
+    items = [] if items is None else items
+    return {
+        'items': items, 'page': 1, 'per_page': 25,
+        'matching_total': len(items), 'total_pages': 1,
+        'first_item': 1 if items else 0, 'last_item': len(items),
+        'has_previous': False, 'has_next': False,
+        'years': [2026], 'batches': [{'batch_id': 3, 'survey_year': 2026}],
+        'filters': filters, 'action_options': review_activity.ACTION_OPTIONS,
+        'program_options': ('4Ps', 'SLP', 'SPISC', 'TUPAD'),
+        'sort_options': review_activity.SORT_OPTIONS,
+    }
 
 
 class QueueFilterTests(unittest.TestCase):
@@ -111,6 +126,10 @@ class QueueRouteTests(unittest.TestCase):
         patcher = patch('routes.assessments.get_review_queue_page', side_effect=queue_fixture)
         self.query = patcher.start()
         self.addCleanup(patcher.stop)
+        patcher = patch('routes.assessments.get_review_activity_page',
+                        side_effect=lambda filters: activity_fixture(filters=filters))
+        self.activity = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_authorization_status_tabs_and_exact_table_columns(self):
         self.assertEqual(self.client.get('/assessments/queue').location, '/login')
@@ -125,9 +144,12 @@ class QueueRouteTests(unittest.TestCase):
                 self.assertIn('Staff Review Activity', page.text)
                 self.assertIn('View Activity', page.text)
                 self.assertNotIn('Open Review', page.text)
+                self.assertIn('Review Action History', page.text)
+                self.assertIn('Download filtered history', page.text)
             else:
                 self.assertIn('Review Queue', page.text)
                 self.assertIn('Open Review', page.text)
+                self.assertNotIn('Review Action History', page.text)
             self.assertNotIn('subsidy_mode', page.text)
             self.assertNotIn('Planned', page.text.split('<main', 1)[1])
             headings = re.findall(r'<th scope="col"[^>]*>(.*?)</th>', page.text)
@@ -145,6 +167,59 @@ class QueueRouteTests(unittest.TestCase):
         self.fixture.user['role'] = 'citizen'
         self.fixture.session()
         self.assertEqual(self.client.get('/assessments/queue').location, '/login')
+
+    def test_admin_history_renders_metadata_and_export_is_admin_only(self):
+        self.fixture.user['role'] = 'system_administrator'
+        self.fixture.session()
+        event = {
+            'action_reference': 'reassigned-9', 'review_id': 42,
+            'action': 'reassigned', 'action_label': 'Responsible staff reassigned',
+            'action_at': datetime(2026, 11, 23, tzinfo=timezone.utc),
+            'actor_username': 'synthetic_admin', 'household_reference_id': 'HH-00008',
+            'barangay': 'Synthetic Barangay', 'program': '4Ps',
+            'survey_year': 2026, 'batch_id': 3,
+            'description': 'first_staff → second_staff',
+        }
+        self.activity.side_effect = lambda filters: activity_fixture([event], filters)
+        page = self.client.get(
+            '/assessments/queue?activity_action=reassigned&activity_program=4Ps',
+        )
+        self.assertEqual(page.status_code, 200)
+        for text in ('Responsible staff reassigned', 'synthetic_admin', 'HH-00008',
+                     'first_staff → second_staff', 'Batch 3 · Review 42'):
+            self.assertIn(text, page.text)
+        self.assertNotIn('private note body', page.text)
+        more_filters = re.search(
+            r'<details class="review-activity-more-filters"[^>]*>', page.text,
+        ).group(0)
+        self.assertNotIn(' open', more_filters)
+
+        advanced_page = self.client.get(
+            '/assessments/queue?activity_year=2026&activity_sort=oldest',
+        )
+        advanced_filters = re.search(
+            r'<details class="review-activity-more-filters"[^>]*>',
+            advanced_page.text,
+        ).group(0)
+        self.assertIn(' open', advanced_filters)
+
+        with patch('routes.assessments.export_review_activity',
+                   return_value='Action reference\r\nstarted-42\r\n') as export:
+            response = self.client.get(
+                '/assessments/queue/activity.csv?activity_program=4Ps',
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('tanglaw-buhay-review-activity.csv',
+                      response.headers['Content-Disposition'])
+        self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        self.assertTrue(response.data.startswith('\ufeff'.encode('utf-8')))
+        self.assertEqual(export.call_args.args[1], self.fixture.user['id'])
+
+        self.fixture.user['role'] = 'lgu_staff'
+        self.fixture.session()
+        self.assertEqual(
+            self.client.get('/assessments/queue/activity.csv').status_code, 403,
+        )
 
     def test_completed_tabs_filters_pagination_and_empty_states(self):
         self.fixture.session()
