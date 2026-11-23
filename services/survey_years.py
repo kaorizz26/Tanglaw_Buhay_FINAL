@@ -5,32 +5,26 @@ from zoneinfo import ZoneInfo
 
 
 MIN_SURVEY_YEAR = 2022
-SURVEY_YEAR_INTERVAL = 2
+PREDEFINED_SURVEY_YEARS = (2022, 2024, 2026)
 PHILIPPINE_TIME = ZoneInfo("Asia/Manila")
 
 
 def latest_survey_year():
     """Return the latest year an administrator may declare for an import."""
-    current_year = datetime.now(PHILIPPINE_TIME).year
-    elapsed_years = current_year - MIN_SURVEY_YEAR
-    return current_year - (elapsed_years % SURVEY_YEAR_INTERVAL)
+    return datetime.now(PHILIPPINE_TIME).year
 
 
 def supported_survey_years():
-    """Return selectable survey years in two-year intervals from the pilot."""
-    return tuple(range(
-        MIN_SURVEY_YEAR,
-        latest_survey_year() + 1,
-        SURVEY_YEAR_INTERVAL,
-    ))
+    """Return the established survey years suggested by the import form."""
+    latest = latest_survey_year()
+    return tuple(year for year in PREDEFINED_SURVEY_YEARS if year <= latest)
 
 
 def is_supported_survey_year(value):
-    """Accept two-year survey cycles from the pilot through the current year."""
+    """Accept a declared four-digit survey year through the current year."""
     return (
         type(value) is int
         and MIN_SURVEY_YEAR <= value <= latest_survey_year()
-        and (value - MIN_SURVEY_YEAR) % SURVEY_YEAR_INTERVAL == 0
     )
 
 

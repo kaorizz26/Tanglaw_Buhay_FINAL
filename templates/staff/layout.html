@@ -105,13 +105,13 @@
                     </summary>
                     <ul class="navigation-children">
                       {% if is_admin or 'assessments.view' in staff_permissions %}
-                        <li><a class="navigation-item{% if prioritization_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" {% if prioritization_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
+                        <li><a class="navigation-item{% if prioritization_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.prioritization') }}" data-assessment-entry data-loading-title="Preparing household priorities…" data-loading-message="Please keep this page open while the active dataset, assessment results and municipal rankings are prepared." {% if prioritization_active %}aria-current="page"{% endif %}>Household Prioritization</a></li>
                       {% endif %}
                       {% if is_admin or 'reviews.view' in staff_permissions %}
-                        <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" {% if queue_active %}aria-current="page"{% endif %}>{{ 'Review Activity' if is_admin else 'Review Queue' }}</a></li>
+                        <li><a class="navigation-item{% if queue_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.queue') }}" data-assessment-entry data-loading-title="{{ 'Loading review activity…' if is_admin else 'Loading review queue…' }}" data-loading-message="Please keep this page open while household review records and current assignments are prepared." {% if queue_active %}aria-current="page"{% endif %}>{{ 'Review Activity' if is_admin else 'Review Queue' }}</a></li>
                       {% endif %}
                       {% if is_admin or 'assessments.view' in staff_permissions %}
-                        <li><a class="navigation-item{% if progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.progression_index') }}" data-progression-entry {% if progression_active %}aria-current="page"{% endif %}>Household Progression</a></li>
+                        <li><a class="navigation-item{% if progression_active %} navigation-item-active{% endif %}" href="{{ url_for('assessments.progression_index') }}" data-assessment-entry data-loading-title="Reviewing imported datasets…" data-loading-message="Please keep this page open while available survey batches and stored household records are prepared." {% if progression_active %}aria-current="page"{% endif %}>Household Progression</a></li>
                       {% endif %}
                     </ul>
                   </details>
@@ -207,12 +207,12 @@
         {% block content %}{% endblock %}
       </main>
     </div>
-    <div class="portal-loading-overlay" id="progression-entry-overlay" role="status" aria-live="assertive" aria-atomic="true" tabindex="-1" hidden>
+    <div class="portal-loading-overlay" id="assessment-entry-overlay" role="status" aria-live="assertive" aria-atomic="true" tabindex="-1" hidden>
       <div class="portal-loading-card">
         <span class="portal-loading-spinner" aria-hidden="true"></span>
-        <p class="portal-loading-kicker">Household progression</p>
-        <p class="portal-loading-title">Reviewing imported datasets…</p>
-        <p>Please keep this page open while available survey batches and stored household records are prepared.</p>
+        <p class="portal-loading-kicker" id="assessment-loading-kicker">Assessments</p>
+        <p class="portal-loading-title" id="assessment-loading-title">Preparing assessment view…</p>
+        <p id="assessment-loading-message">Please keep this page open while the requested records are prepared.</p>
         <div class="portal-loading-bar" aria-hidden="true"><span></span></div>
       </div>
     </div>

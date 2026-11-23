@@ -684,10 +684,12 @@ embedded in the runner.
 development source guard. The form accepts only `household.csv`,
 `section_a_e_indiv.csv`, `section_l02_to_l41.csv` and
 `section_l11_to_l14.csv`. The other three reference CSVs are not uploaded.
-The administrator must select a year from the two-year survey cycle beginning
-in 2022 (2022, 2024, 2026, and so on), up to the current Philippine year,
-because the source files contain no reliable batch-year field. The year is
-stored and audited; it is never inferred from household answers.
+The administrator may select the established 2022, 2024 or 2026 suggestions,
+or enter a later official four-digit survey year from 2022 through the current
+Philippine year. This retains the approved pilot years without imposing their
+earlier two-year sequence on later cycles such as 2029. The source files contain
+no reliable batch-year field, so the declared year is stored and audited; it is
+never inferred from household answers.
 Validation reads their stored, validated snapshot from the documented 2022
 pilot batch `1`, checks its metadata and ordered row counts, then runs the
 existing preflight with those references. Before storage, the administrator

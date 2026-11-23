@@ -37,25 +37,27 @@ from services.cbms_import import DuplicateImportBundle, DuplicateSurveyYear
 from services.batch_activation import BatchActivationError, describe_citizen_work
 from services.import_batch_deletion import BatchDeletionError
 from services.survey_years import (
-    is_supported_survey_year, latest_survey_year, parse_survey_year,
-    supported_survey_years,
+    is_supported_survey_year, parse_survey_year, supported_survey_years,
 )
 
 
 class SurveyYearRulesTest(unittest.TestCase):
-    def test_supported_years_follow_two_year_cycle_from_2022(self):
-        years = supported_survey_years()
+    def test_established_survey_year_suggestions_are_retained(self):
+        self.assertEqual(supported_survey_years(), (2022, 2024, 2026))
 
-        self.assertEqual(years[0], 2022)
-        self.assertEqual(years[-1], latest_survey_year())
-        self.assertTrue(all(year % 2 == 0 for year in years))
-        self.assertTrue(all(right - left == 2
-                            for left, right in zip(years, years[1:])))
+    def test_later_four_digit_year_is_accepted_when_it_is_not_in_the_future(self):
+        with patch("services.survey_years.latest_survey_year", return_value=2029):
+            self.assertTrue(is_supported_survey_year(2023))
+            self.assertTrue(is_supported_survey_year(2029))
+            self.assertEqual(parse_survey_year("2029"), 2029)
+            self.assertFalse(is_supported_survey_year(2030))
+            with self.assertRaisesRegex(ValueError, "invalid_survey_year"):
+                parse_survey_year("2030")
 
-    def test_odd_year_is_rejected_by_shared_validation(self):
-        self.assertFalse(is_supported_survey_year(2023))
+    def test_year_before_the_first_supported_survey_is_rejected(self):
+        self.assertFalse(is_supported_survey_year(2021))
         with self.assertRaisesRegex(ValueError, "invalid_survey_year"):
-            parse_survey_year("2023")
+            parse_survey_year("2021")
 
 
 class FakeConnection:
@@ -328,17 +330,17 @@ class ImportValidationTests(unittest.TestCase):
         references.assert_not_called()
         self.assertEqual(list((self.root / "staging").iterdir()), [])
 
-    def test_odd_survey_year_is_rejected_before_processing_sources(self):
+    def test_out_of_range_survey_year_is_rejected_before_processing_sources(self):
         with self.app.app_context():
             with patch("services.import_validation.load_import_references") as references:
                 with patch("services.import_validation.import_validation_events.record_attempt") as audit:
                     with patch("services.import_validation.import_validation_events.purge_expired_attempts"):
                         result = validate_admin_upload(
-                            self._files(), 7, 2023,
+                            self._files(), 7, 2021,
                             connection_factory=FakeConnection,
                         )
         self.assertIsNone(result["report"])
-        self.assertIn("every two years from 2022", result["error"])
+        self.assertIn("four-digit survey year from 2022", result["error"])
         self.assertIsNone(result["survey_year"])
         self.assertEqual(audit.call_args.args[2], "rejected")
         references.assert_not_called()
@@ -551,7 +553,9 @@ class ImportRouteTests(unittest.TestCase):
         for filename in REFERENCE_FILES.values():
             self.assertNotIn(filename.encode(), response.data)
         self.assertIn(b'name="survey_year"', response.data)
-        self.assertIn(b'<select id="survey-year"', response.data)
+        self.assertIn(b'<input id="survey-year"', response.data)
+        self.assertIn(b'type="number"', response.data)
+        self.assertIn(b'list="survey-year-options"', response.data)
         self.assertEqual(response.data.count(b"Maximum file size: 64 MB."), 4)
         self.assertIn(b'data-required-filename="household.csv"', response.data)
         self.assertIn(
@@ -567,12 +571,9 @@ class ImportRouteTests(unittest.TestCase):
         self.assertIn(b"No import activity yet", response.data)
         self.assertIn(b"Preview and validate files", response.data)
         self.assertNotIn(b"Confirm and store bundle", response.data)
-        self.assertIn(
-            b'<option value="2022" data-stored-count="0">2022</option>', response.data,
-        )
-        self.assertIn(
-            b'<option value="2024" data-stored-count="0">2024</option>', response.data,
-        )
+        self.assertIn(b'<option value="2022">2022</option>', response.data)
+        self.assertIn(b'<option value="2024">2024</option>', response.data)
+        self.assertIn(b'<option value="2026">2026</option>', response.data)
         self.assertNotIn(b'<option value="2023">', response.data)
         script = (Path(__file__).resolve().parents[1]
                   / "static" / "js" / "data-import.js").read_text(encoding="utf-8")
@@ -581,6 +582,15 @@ class ImportRouteTests(unittest.TestCase):
         self.assertNotIn("fetch(form.action", script)
         self.role = "lgu_staff"
         self.assertEqual(self.client.get("/administration/import").status_code, 403)
+
+    def test_later_current_year_can_be_entered_without_removing_established_choices(self):
+        with patch("routes.main.latest_survey_year", return_value=2029):
+            response = self.client.get("/administration/import")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'max="2029"', response.data)
+        self.assertIn(b"enter a later official survey year up to 2029", response.data)
+        for year in (2022, 2024, 2026):
+            self.assertIn(f'<option value="{year}">{year}</option>'.encode(), response.data)
 
     def test_import_history_is_visible_in_its_own_page_section(self):
         event = {
@@ -724,11 +734,18 @@ class ImportRouteTests(unittest.TestCase):
             validate.assert_not_called()
         with patch("routes.main.validate_admin_upload") as validate:
             response = self.client.post("/administration/import", data={
-                "csrf_token": "synthetic-csrf", "survey_year": "2023",
+                "csrf_token": "synthetic-csrf", "survey_year": "2021",
             })
             self.assertEqual(response.status_code, 400)
-            self.assertIn(b"every two years from 2022", response.data)
+            self.assertIn(b"four-digit survey year from 2022", response.data)
             validate.assert_not_called()
+        with patch("routes.main.validate_admin_upload", return_value={
+                "report": report, "error": None}) as validate:
+            response = self.client.post("/administration/import", data={
+                "csrf_token": "synthetic-csrf", "survey_year": "2023",
+            })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(validate.call_args.args[2], 2023)
         with patch("routes.main.validate_admin_upload", return_value={
                 "report": report, "error": None}) as validate:
             response = self.client.post("/administration/import", data={

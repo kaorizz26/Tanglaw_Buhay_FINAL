@@ -24,24 +24,32 @@ if (menuButton && navigation) {
   updateNavigationLayout();
 }
 
-const progressionEntry = document.querySelector("[data-progression-entry]");
-const progressionOverlay = document.getElementById("progression-entry-overlay");
+const assessmentEntries = document.querySelectorAll("[data-assessment-entry]");
+const assessmentOverlay = document.getElementById("assessment-entry-overlay");
+const assessmentKicker = document.getElementById("assessment-loading-kicker");
+const assessmentTitle = document.getElementById("assessment-loading-title");
+const assessmentMessage = document.getElementById("assessment-loading-message");
 
-if (progressionEntry && progressionOverlay) {
-  const resetProgressionEntry = () => {
+if (assessmentEntries.length && assessmentOverlay) {
+  const resetAssessmentEntry = () => {
     document.body.classList.remove("portal-is-loading");
     document.body.removeAttribute("aria-busy");
-    progressionOverlay.hidden = true;
+    assessmentOverlay.hidden = true;
   };
 
-  progressionEntry.addEventListener("click", (event) => {
-    if (event.defaultPrevented || event.button !== 0
-        || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    document.body.classList.add("portal-is-loading");
-    document.body.setAttribute("aria-busy", "true");
-    progressionOverlay.hidden = false;
-    window.requestAnimationFrame(() => progressionOverlay.focus());
+  assessmentEntries.forEach((entry) => {
+    entry.addEventListener("click", (event) => {
+      if (event.defaultPrevented || event.button !== 0
+          || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      assessmentKicker.textContent = entry.textContent.trim();
+      assessmentTitle.textContent = entry.dataset.loadingTitle;
+      assessmentMessage.textContent = entry.dataset.loadingMessage;
+      document.body.classList.add("portal-is-loading");
+      document.body.setAttribute("aria-busy", "true");
+      assessmentOverlay.hidden = false;
+      window.requestAnimationFrame(() => assessmentOverlay.focus());
+    });
   });
 
-  window.addEventListener("pageshow", resetProgressionEntry);
+  window.addEventListener("pageshow", resetAssessmentEntry);
 }

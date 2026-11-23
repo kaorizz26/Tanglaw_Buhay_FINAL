@@ -57,14 +57,14 @@
             </div>
             <div class="import-year-field">
               <label for="survey-year">Survey year</label>
-              <select id="survey-year" name="survey_year" required>
-                <option value="">Select a year</option>
+              <input id="survey-year" name="survey_year" type="number" inputmode="numeric" min="2022" max="{{ latest_allowed_survey_year }}" step="1" list="survey-year-options" value="{{ survey_year_value }}" data-stored-counts='{{ stored_year_counts | tojson }}' aria-describedby="survey-year-hint" placeholder="e.g. {{ latest_allowed_survey_year }}" required>
+              <datalist id="survey-year-options">
                 {% for year in survey_year_options %}
                   {% set stored_count = stored_year_counts.get(year, 0) %}
-                  <option value="{{ year }}" data-stored-count="{{ stored_count }}"{% if year|string == survey_year_value %} selected{% endif %}>{{ year }}{% if stored_count %} — {{ stored_count }} stored {{ 'batch' if stored_count == 1 else 'batches' }}{% endif %}</option>
+                  <option value="{{ year }}">{{ year }}{% if stored_count %} — {{ stored_count }} stored {{ 'batch' if stored_count == 1 else 'batches' }}{% endif %}</option>
                 {% endfor %}
-              </select>
-              <p id="survey-year-hint">Years marked with a stored batch require confirmation before another dataset can be stored.</p>
+              </datalist>
+              <p id="survey-year-hint">Choose 2022, 2024 or 2026, or enter a later official survey year up to {{ latest_allowed_survey_year }}. A year with stored data requires confirmation before another batch can be stored.</p>
             </div>
           </div>
           <div class="import-fields">

@@ -181,25 +181,31 @@
     });
   });
 
-  const yearSelect = document.getElementById("survey-year");
+  const yearInput = document.getElementById("survey-year");
   const warning = document.getElementById("duplicate-year-warning");
-  if (!yearSelect || !warning) return;
+  if (!yearInput || !warning) return;
 
   const yearText = warning.querySelector("[data-duplicate-year]");
   const summaryText = warning.querySelector("[data-duplicate-summary]");
+  let storedYearCounts = {};
+  try {
+    storedYearCounts = JSON.parse(yearInput.dataset.storedCounts || "{}");
+  } catch (error) {
+    storedYearCounts = {};
+  }
 
   const updateDuplicateWarning = () => {
-    const option = yearSelect.options[yearSelect.selectedIndex];
-    const count = Number.parseInt(option?.dataset.storedCount || "0", 10);
+    const year = yearInput.value.trim();
+    const count = Number.parseInt(storedYearCounts[year] || "0", 10);
     const hasStoredBatch = count > 0;
 
     warning.hidden = !hasStoredBatch;
     if (!hasStoredBatch) return;
-    yearText.textContent = option.value;
+    yearText.textContent = year;
     summaryText.textContent = `${count} stored ${count === 1 ? "batch exists" : "batches exist"}`;
   };
 
-  yearSelect.addEventListener("change", () => {
+  yearInput.addEventListener("input", () => {
     clearPreview();
     updateDuplicateWarning();
   });

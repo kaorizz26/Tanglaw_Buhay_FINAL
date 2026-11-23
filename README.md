@@ -366,8 +366,9 @@ never reapply an already-applied migration. Migration 0014 adds the batch-switch
 audit table; apply it once after 0013, checking first whether it already exists.
 Migration 0015 permits later survey years and records the declared year in import
 audit events; apply it once after 0014. The application accepts only the
-two-year survey cycle beginning in 2022, up to the current Philippine year, and
-does not infer a year from the CSVs.
+established 2022, 2024 and 2026 suggestions or another four-digit year from
+2022 through the current Philippine year, and does not infer a year from the
+CSVs.
 The Data Import branch includes the
 Staff Accounts integration tip; recheck both branches before the final merge.
 

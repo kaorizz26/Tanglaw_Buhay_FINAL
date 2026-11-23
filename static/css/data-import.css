@@ -47,7 +47,7 @@
   font-weight: 600;
 }
 
-.import-year-field select {
+.import-year-field input {
   width: 100%;
   min-height: 44px;
   padding: 9px 11px;
@@ -100,7 +100,7 @@
 }
 
 .import-field input:focus-visible,
-.import-year-field select:focus-visible,
+.import-year-field input:focus-visible,
 .import-form button:focus-visible {
   outline: 3px solid #167eb5;
   outline-offset: 2px;
@@ -1095,13 +1095,13 @@
   font-size: 0.8125rem;
 }
 
-.import-upload-page .import-year-field select {
+.import-upload-page .import-year-field input {
   border-radius: 8px;
   background: white;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.import-upload-page .import-year-field select:hover {
+.import-upload-page .import-year-field input:hover {
   border-color: #8196a3;
 }
 
@@ -1835,7 +1835,7 @@
   .import-workflow-step,
   .import-upload-page .import-field,
   .import-upload-page .import-form button,
-  .import-upload-page .import-year-field select {
+  .import-upload-page .import-year-field input {
     transition: none;
   }
 }

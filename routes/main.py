@@ -337,8 +337,8 @@ def data_import():
                 survey_year = parse_survey_year(survey_year_value)
             except ValueError:
                 error = (
-                    f"Choose a supported survey year: every two years from "
-                    f"{MIN_SURVEY_YEAR} through {latest_survey_year()}."
+                    f"Enter a four-digit survey year from {MIN_SURVEY_YEAR} "
+                    f"through {latest_survey_year()}."
                 )
                 status = 400
             else:
@@ -438,6 +438,7 @@ def data_import():
         "staff/data_import.html", report=presented_report, error=error,
         batch_id=batch_id, survey_year_value=survey_year_value,
         survey_year_options=supported_survey_years(),
+        latest_allowed_survey_year=latest_survey_year(),
         stored_year_counts=stored_year_counts,
         max_upload_file_bytes=FILE_UPLOAD_BYTES,
         max_upload_file_mb=FILE_UPLOAD_MB,

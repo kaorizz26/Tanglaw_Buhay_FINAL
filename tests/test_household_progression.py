@@ -224,8 +224,10 @@ class ProgressionRouteTests(unittest.TestCase):
         self.assertIn("HH-00001", response.text)
         self.assertNotIn("Household UUID", response.text)
         self.assertIn("View history", response.text)
-        self.assertIn("data-progression-entry", response.text)
-        self.assertIn('id="progression-entry-overlay"', response.text)
+        self.assertEqual(response.text.count("data-assessment-entry"), 3)
+        self.assertIn('id="assessment-entry-overlay"', response.text)
+        self.assertIn("Preparing household priorities", response.text)
+        self.assertIn("Loading review queue", response.text)
         self.assertIn("Reviewing imported datasets", response.text)
 
     def test_staff_empty_state_does_not_link_to_admin_import(self):
@@ -245,6 +247,8 @@ class ProgressionRouteTests(unittest.TestCase):
         self.assertIn("Another survey year is needed", response.text)
         self.assertIn('href="/administration/import"', response.text)
         self.assertIn("Import another survey year", response.text)
+        self.assertEqual(response.text.count("data-assessment-entry"), 3)
+        self.assertIn("Loading review activity", response.text)
 
     def test_progression_dashboard_groups_coverage_and_outcomes(self):
         self._sign_in()
